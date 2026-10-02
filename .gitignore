@@ -1,0 +1,20 @@
+# O que NÃO vai para o repositório (e, por isso, nem para o GitHub Pages).
+
+# dados de quem joga e de quem hospeda — nunca publicar
+/saves/
+/mundo/
+
+# a matéria-prima do editor de cenas: ~1 GB que o jogo não carrega
+# (ele só usa assets/characters, assets/dungeon, assets/modelos e os dois .json)
+/assets/packs/
+/Medieval Village MegaKit*/
+/Nature Crops Pack*/
+/Stylized Nature MegaKit*/
+/Textured Stylized Trees*/
+/Ultimate Nature Pack*/
+/Ultimate Stylized Nature*/
+
+# o launcher compilado: sai de `dotnet publish launcher -c Release -o .`
+/masmorra.exe
+/launcher/bin/
+/launcher/obj/

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- masmorra.exe: sobe o servidor do jogo e abre a janela. Fechar o terminal
+       desliga. Compilar:  dotnet publish launcher -c Release -o .  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>masmorra</AssemblyName>
+    <RootNamespace>Masmorra</RootNamespace>
+
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <!-- Framework-dependent (~230 KB): exige o runtime .NET 8, a mesma classe de
+         exigencia que o Node. Self-contained daria ~70 MB. -->
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <ApplicationIcon>$(MSBuildThisFileDirectory)icone.ico</ApplicationIcon>
+  </PropertyGroup>
+
+</Project>

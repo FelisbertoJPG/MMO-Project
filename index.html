@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masmorra do Carrasco</title>
+  <link rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=EB+Garamond:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="bars">
+      <div class="bar hp"><div class="trail"></div><div class="fill"></div></div>
+      <div class="bar st"><div class="fill"></div></div>
+    </div>
+    <div id="buffs"></div>
+
+    <div id="equip">
+      <div class="slot" id="slot-left"><div class="icon"></div><div class="count"></div><div class="label"></div></div>
+      <div class="slot" id="slot-weapon"><div class="icon"></div><div class="label"></div></div>
+      <div class="slot" id="slot-quick"><div class="icon"></div><div class="count"></div><div class="label"></div></div>
+    </div>
+
+    <div id="souls"><span class="souls-icon"></span><span id="souls-value">0</span></div>
+    <div id="prompt" class="hidden"></div>
+    <div id="notifications"></div>
+    <div id="enemy-bars"></div>
+    <div id="lock-reticle" class="hidden"></div>
+
+    <div id="bossbar" class="hidden">
+      <div class="name"></div>
+      <div class="bar"><div class="trail"></div><div class="fill"></div></div>
+    </div>
+  </div>
+
+  <div id="vignette"></div>
+  <div id="center-msg"><div class="band"><span class="text"></span></div></div>
+  <div id="message-reader" class="hidden"><div class="msg-box"><div class="msg-text"></div><div class="msg-autor"></div><div class="msg-hint">[E] Fechar</div></div></div>
+
+  <!-- Multijogador (tecla O): sala, rede local, duelo — js/salaui.js -->
+  <div id="sala-menu" class="overlay hidden">
+    <div class="panel sala-panel">
+      <h2>Multijogador</h2>
+      <!-- No mundo online o painel mostra quem está no mundo (salaui.js) -->
+      <div id="sala-mundo" class="hidden"></div>
+      <div id="sala-fora">
+        <p class="dica">Jogue com um amigo: andar juntos, lutar lado a lado no mundo de um de vocês, ou duelar.</p>
+        <div class="conta-botoes"><button id="sala-abrir">Abrir sala</button></div>
+        <div class="sala-linha"><input id="sala-codigo" maxlength="6" placeholder="CÓDIGO" autocomplete="off" spellcheck="false"><button id="sala-entrar">Entrar</button></div>
+        <p id="sala-sem-conta" class="dica hidden">Para entrar por código pela internet, entre com uma conta na tela inicial. Na mesma rede não precisa: use a lista abaixo.</p>
+        <h3 id="sala-rede-titulo">Na sua rede</h3>
+        <div id="sala-lista"></div>
+      </div>
+      <div id="sala-dentro" class="hidden"></div>
+      <div id="sala-aviso" class="erro"></div>
+      <div class="conta-botoes"><button id="sala-fechar">Fechar [O]</button></div>
+    </div>
+  </div>
+  <div id="sala-hud" class="hidden"></div>
+  <div id="convite" class="hidden"><div class="msg-box"><div id="convite-texto"></div><div class="msg-hint">[Y] Aceitar &nbsp; [N] Recusar</div></div></div>
+
+  <!-- Escrever uma mensagem no chão (online) -->
+  <div id="msg-writer" class="overlay hidden">
+    <div class="panel writer-panel">
+      <h2>Deixar uma mensagem</h2>
+      <p class="writer-dica">Fica no chão, aqui, para os outros jogadores lerem. Quem achar ruim pode votar contra; com três votos contra, ela some.</p>
+      <textarea id="msg-texto" maxlength="140" rows="3" placeholder="Cuidado com o esqueleto atrás da porta..."></textarea>
+      <div class="writer-rodape"><span id="msg-contador">0 / 140</span><span id="msg-erro"></span></div>
+      <div class="conta-botoes"><button id="msg-gravar">Gravar no chão</button><button id="msg-cancelar">Cancelar</button></div>
+    </div>
+  </div>
+
+  <!-- Tela de título -->
+  <div id="title-screen">
+    <div class="title-inner">
+      <h1>Masmorra do Carrasco</h1>
+      <p class="subtitle">Você desperta numa cela esquecida. Lá em cima, o Carrasco espera.</p>
+      <div id="loading"><div class="load-bar"><div class="load-fill"></div></div><div class="load-text">Carregando modelos...</div></div>
+      <!-- Conta (opcional): sem ela o jogo é todo offline -->
+      <div id="conta" class="hidden">
+        <div id="conta-status"></div>
+        <form id="conta-form" class="hidden" autocomplete="on">
+          <input id="conta-nome" class="hidden" maxlength="24" placeholder="Nome no jogo">
+          <input id="conta-email" type="email" placeholder="E-mail" autocomplete="email">
+          <input id="conta-senha" type="password" placeholder="Senha" autocomplete="current-password">
+          <div class="conta-botoes"><button type="submit" id="conta-ok">Entrar</button><button type="button" id="conta-cancelar">Cancelar</button></div>
+          <a href="#" id="conta-alternar">Não tem conta? Criar uma</a>
+          <div id="conta-erro"></div>
+        </form>
+      </div>
+      <!-- Os DOIS modos de jogo (js/modo.js). A Jornada é o jogo de sempre; o Mundo online é o MMO. -->
+      <div id="modos">
+        <div class="modo" id="modo-offline">
+          <h2>Jornada</h2>
+          <p class="modo-dica" id="jornada-dica">O seu mundo, no seu ritmo. O progresso fica neste computador. Chame um amigo pela tecla <b>O</b>.</p>
+          <button id="continue-btn" class="hidden">Continuar</button>
+          <button id="start-btn" disabled>Iniciar Jornada</button>
+        </div>
+        <div class="modo" id="modo-mmo">
+          <h2>Mundo online</h2>
+          <p class="modo-dica">Um mapa só para todos. Você nasce no acampamento, e o personagem fica guardado no servidor.</p>
+          <button id="mmo-btn" disabled>Entrar no mundo</button>
+          <div id="mmo-status"></div>
+          <div class="mmo-servidor">servidor: <span id="mmo-onde">este computador</span> · <a href="#" id="mmo-trocar">trocar</a></div>
+          <form id="mmo-form" class="hidden" autocomplete="off">
+            <input id="mmo-endereco" placeholder="http://endereço:5173 (vazio = este)" spellcheck="false">
+            <button type="submit">Usar</button>
+          </form>
+        </div>
+      </div>
+      <div class="controls">
+        <div><b>WASD</b> mover</div><div><b>Mouse</b> câmera</div>
+        <div><b>Clique Esq.</b> ataque leve</div><div><b>F</b> ataque pesado</div>
+        <div><b>Clique Dir.</b> defender / golpe com a tocha</div><div><b>Espaço</b> rolar (toque) / correr (segurar)</div>
+        <div><b>Q / Botão do meio</b> travar mira</div><div><b>R</b> usar item rápido</div>
+        <div><b>C / Roda</b> trocar item rápido</div><div><b>E</b> interagir</div>
+        <div><b>I / Tab</b> inventário</div><div><b>T</b> acender / guardar tocha</div><div><b>M</b> deixar mensagem (online)</div><div><b>O</b> multijogador (sala, duelo, quem está no mundo)</div><div><b>Esc</b> pausar</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inventário -->
+  <div id="inventory" class="overlay hidden">
+    <div class="panel inv-panel">
+      <div class="inv-left">
+        <h2>Inventário</h2>
+        <div class="tabs">
+          <button data-tab="consumable" class="active">Consumíveis</button>
+          <button data-tab="weapon">Equipamento</button>
+          <button data-tab="ring">Anéis</button>
+          <button data-tab="key">Especiais</button>
+        </div>
+        <div class="grid" id="inv-grid"></div>
+        <div class="belt-wrap">
+          <div class="belt-title">Cinto de itens rápidos</div>
+          <div class="belt" id="inv-belt"></div>
+        </div>
+      </div>
+      <div class="inv-right">
+        <div id="inv-detail">
+          <div class="d-icon"></div>
+          <div class="d-name">—</div>
+          <div class="d-type"></div>
+          <div class="d-stats"></div>
+          <div class="d-desc"></div>
+          <div class="d-actions"></div>
+        </div>
+        <div id="inv-stats"></div>
+      </div>
+    </div>
+    <div class="hint">[I / Tab / Esc] Fechar</div>
+  </div>
+
+  <!-- Menu da fogueira -->
+  <div id="bonfire-menu" class="overlay hidden">
+    <div class="panel bonfire-panel">
+      <h2>Fogueira</h2>
+      <div class="bf-sub">Você descansa. A chama restaura seu corpo e seus frascos.</div>
+      <div id="levelup"></div>
+      <button id="bf-leave">Levantar-se</button>
+    </div>
+  </div>
+
+  <!-- Pausa -->
+  <div id="pause" class="overlay hidden">
+    <div class="panel pause-panel">
+      <h2>Pausado</h2>
+      <button id="resume-btn">Continuar</button>
+      <button id="sair-mundo-btn" class="hidden">Sair do mundo</button>
+      <div class="controls small">
+        <div><b>WASD</b> mover</div><div><b>Clique Esq.</b> ataque leve</div>
+        <div><b>F</b> ataque pesado</div><div><b>Clique Dir.</b> defender</div>
+        <div><b>Espaço</b> rolar / correr</div><div><b>Q</b> travar mira</div>
+        <div><b>R</b> usar item</div><div><b>C</b> trocar item</div>
+        <div><b>E</b> interagir</div><div><b>I</b> inventário</div><div><b>T</b> tocha</div><div><b>M</b> mensagem</div><div><b>O</b> multijogador</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
