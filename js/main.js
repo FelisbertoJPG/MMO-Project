@@ -20,6 +20,7 @@ import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
 import { tokenValido } from './rede/supabase.js';
 import { MUNDO_PADRAO, detectarHospedagem, temSaveEmArquivo, serveOMundo } from './hospedagem.js';
+import { vigiarVersao, notaDaAtualizacao } from './versao.js';
 
 /** Onde fica guardado o endereço do servidor de mundo escolhido na tela inicial ('' = o deste jogo). */
 const CHAVE_ENDERECO = 'masmorra:mundo';
@@ -102,6 +103,10 @@ class Game {
     await this.prepararTitulo();
     this.state = 'title';
     this.renderer.setAnimationLoop(() => this.loop());
+    // quando sai uma versão nova, as páginas abertas salvam e recarregam sozinhas (js/versao.js)
+    vigiarVersao(this);
+    const nota = notaDaAtualizacao();
+    if (nota) { const el = document.getElementById('aviso-versao'); el.textContent = `Jogo atualizado: ${nota}.`; el.classList.remove('hidden'); }
   }
 
   /** As regras do modo de jogo (`js/modo.js`): o código pergunta por elas, não pelo modo. */

@@ -132,9 +132,13 @@ As diferenças moram em `js/modo.js` (`REGRAS`), e o código pergunta `game.regr
   Render NÃO reiniciou — os 2 jogadores seguiram ligados (o `buildFilter` do `render.yaml`).
   Quem já está com o jogo aberto só recebe a versão nova ao recarregar a página (o Pages
   manda o navegador guardar os arquivos por 10 min: Ctrl+F5 se não aparecer).
-- [ ] **F3.6g Uma atualização do SERVIDOR com gente dentro**: ainda não provada. Reiniciar
-  derruba todos (o jogo reentra sozinho) e zera o estado do mundo. Falta também o jogo
-  AVISAR que há versão nova, e o servidor dizer qual versão está rodando.
+- [x] **F3.6g Recarregar para todos**: `js/versao.js` vigia `assets/versao.json`; mudar o
+  campo `versao` num push faz todas as páginas abertas avisarem, gravarem e recarregarem em
+  até um minuto, já com o cache trocado. Conferido num site de mentira com o cache de 10 min
+  do Pages. (As páginas abertas ANTES desta versão não têm a vigia: uma recarga à mão.)
+- [ ] **F3.6h Uma atualização do SERVIDOR com gente dentro**: ainda não provada. Reiniciar
+  derruba todos (o jogo reentra sozinho) e zera o estado do mundo. Falta o servidor dizer
+  qual versão está rodando.
 
 ## F4 — Cliente: estar no mesmo mapa ✅
 
