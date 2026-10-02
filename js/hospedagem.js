@@ -20,8 +20,9 @@
  * servida por ele — isto é, no GitHub Pages. Vazio = ainda não há servidor: o
  * bloco "Mundo online" da tela inicial avisa e fica desligado.
  * Tem de ser `https://…`: uma página `https` não fala com servidor `http`.
+ * Hoje: o serviço `masmorra-do-carrasco-mundo` do Render (`render.yaml`).
  */
-export const MUNDO_PADRAO = '';
+export const MUNDO_PADRAO = 'https://masmorra-do-carrasco-mundo.onrender.com';
 
 /** 'servidor' | 'hospedado' (server.js com HOSPEDAR=1) | 'arquivos'. Antes de `detectar()`, 'servidor'. */
 let onde = 'servidor';
