@@ -71,6 +71,20 @@ const TORCHES = [
   [8, 7, 'e'],
 ];
 
+// Tochas de ESTACA (02/10/2026): fincadas no chão, para onde não há parede em
+// que pendurar — o acampamento e a entrada da masmorra. Quem nasce do lado de
+// fora (o mundo online) não passa pelo corredor das celas, que é onde estavam
+// as primeiras tochas. `off` em metros a partir do centro da célula.
+// Entram em `world.torches` DEPOIS das de parede: o save guarda as tochas pela
+// ordem, e uma no meio embaralharia os saves antigos.
+const TOCHAS_DE_ESTACA = [
+  { cell: [16, 14], off: [-1.3, -2.3] },   // a entrada da masmorra (o arco), uma de cada lado
+  { cell: [16, 14], off: [-1.3, 2.3] },
+  { cell: [15, 28], off: [1.2, 0.8] },     // o portão do acampamento, junto à cerca
+  { cell: [17, 28], off: [1.2, -0.8] },
+  { cell: [13, 34], off: [0.5, 2.2] },     // ao lado do cabide de armas
+];
+
 // Baús: célula, parede de apoio e conteúdo
 const CHESTS = [
   { cell: [19, 10], wall: 'n', items: [['estus', 5]] },
@@ -541,6 +555,51 @@ export class World {
       this.scene.add(g);
       const t = { group: g, mount, bracket, flame, light, lit: true, seed: Math.random() * 100, base: 26 };
       t.interact = { type: 'torch', torch: t, pos: new THREE.Vector3(p.x, 0, p.z), radius: 2.4, label: 'Pegar tocha' };
+      this.torches.push(t);
+      this.interactables.push(t.interact);
+    }
+    this.buildTochasDeEstaca();
+  }
+
+  /**
+   * As tochas fincadas no chão (`TOCHAS_DE_ESTACA`). São tochas como as de
+   * parede — o mesmo objeto em `this.torches`, então pegar, apagar a luz, o
+   * save e o corte das seis mais próximas valem sem mudar nada —, só que o
+   * suporte é uma estaca com um aro de ferro, e a tocha é a de mão, em pé.
+   */
+  buildTochasDeEstaca() {
+    const madeira = new THREE.MeshStandardMaterial({ color: 0x2a1c10, roughness: 1 });
+    const ferro = new THREE.MeshStandardMaterial({ color: 0x1a1816, roughness: 0.8, metalness: 0.6 });
+    const ALTURA = 1.35;
+    for (const def of TOCHAS_DE_ESTACA) {
+      if (!this.isFloor(...def.cell)) continue;   // mapa sem aquela área
+      const p = this.center(...def.cell);
+      p.x += def.off[0]; p.z += def.off[1];
+      const g = new THREE.Group();
+      g.position.set(p.x, this.alturaChao(p), p.z);
+      g.rotation.y = (p.x * 7 + p.z * 13) % 6.28;   // cada uma virada para um lado, sempre o mesmo
+      const estaca = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.075, ALTURA, 6), madeira);
+      estaca.position.y = ALTURA / 2; estaca.rotation.z = 0.05; estaca.castShadow = true;
+      // o aro de ferro no alto: é o que sobra quando a tocha é levada
+      const aro = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.06, 0.12, 8, 1, true), ferro);
+      aro.material.side = THREE.DoubleSide; aro.position.y = ALTURA + 0.04;
+      g.add(estaca, aro);
+      // a tocha de mão aponta para +Z: em pé, com o cabo dentro do aro
+      const mount = makeWeapon('torch');
+      mount.rotation.x = -Math.PI / 2;
+      mount.position.y = ALTURA + 0.1;
+      g.add(mount);
+      const flame = this.makeFlame(0.5);
+      flame.position.y = ALTURA + 0.72;
+      g.add(flame);
+      const light = new THREE.PointLight(0xff8a3a, 26, 20, 1.5);
+      light.position.y = ALTURA + 0.9;
+      g.add(light);
+      this.scene.add(g);
+      this.circles.push({ x: p.x, z: p.z, r: 0.2 });
+      // `bracket` é o que aparece no lugar da tocha levada: aqui o aro já está lá, não há o que trocar
+      const t = { group: g, mount, bracket: new THREE.Object3D(), flame, light, lit: true, seed: Math.random() * 100, base: 26 };
+      t.interact = { type: 'torch', torch: t, pos: new THREE.Vector3(p.x, g.position.y, p.z), radius: 2.0, label: 'Pegar tocha' };
       this.torches.push(t);
       this.interactables.push(t.interact);
     }
