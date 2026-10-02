@@ -114,12 +114,17 @@ As diferenças moram em `js/modo.js` (`REGRAS`), e o código pergunta `game.regr
   não entrega o jogo), `render.yaml`, e a tela inicial insiste enquanto o servidor acorda.
   Conferido: servidor (18 testes), a migration num PostgreSQL 18 de verdade, e o jogo com
   o servidor em outro endereço e o Supabase simulado.
-- [ ] **F3.6c LIGAR de verdade** — depende de duas coisas feitas à mão:
-  1. rodar `supabase/migrations/0002_personagens_do_mundo.sql` no SQL Editor do Supabase;
-  2. criar o serviço no Render (New → Blueprint → este repositório).
-  Depois: pôr o endereço `https://….onrender.com` em `MUNDO_PADRAO` (`js/hospedagem.js`),
-  `git push`, e jogar com duas contas de verdade — é a primeira vez que o login do
-  Supabase, o SSE pelo proxy do Render e a latência real entram no teste.
+- [x] **F3.6c O Render está no ar**: `https://masmorra-do-carrasco-mundo.onrender.com`
+  (em `MUNDO_PADRAO`). Conferido de fora: `/__saude` e `/__mundo/info` respondem, a raiz
+  manda para o Pages, CORS aberto, token inventado é recusado pelo Supabase (401), modo de
+  teste desligado, `/__save` 403 e arquivo do jogo 404. O jogo publicado o encontra.
+- [ ] **F3.6d O SUPABASE** — descoberto em 02/10/2026: o schema `masmorra` NÃO EXISTE no
+  projeto (a migration 0001 nunca foi aplicada lá) nem está em "Exposed schemas". Sem
+  isso nenhuma conta "entra na Masmorra" (`online.ativo` fica falso) e o botão do Mundo
+  online não liga. Falta, NESTA ordem: rodar a 0001, rodar a 0002, e acrescentar
+  `masmorra` em Settings → Data API → Exposed schemas.
+- [ ] **F3.6e Jogar com duas contas de verdade**: a primeira vez que o login do Supabase,
+  o SSE pelo proxy do Render e a latência real entram no teste.
 
 ## F4 — Cliente: estar no mesmo mapa ✅
 
