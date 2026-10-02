@@ -118,13 +118,23 @@ As diferenças moram em `js/modo.js` (`REGRAS`), e o código pergunta `game.regr
   (em `MUNDO_PADRAO`). Conferido de fora: `/__saude` e `/__mundo/info` respondem, a raiz
   manda para o Pages, CORS aberto, token inventado é recusado pelo Supabase (401), modo de
   teste desligado, `/__save` 403 e arquivo do jogo 404. O jogo publicado o encontra.
-- [ ] **F3.6d O SUPABASE** — descoberto em 02/10/2026: o schema `masmorra` NÃO EXISTE no
+- [x] **F3.6d O SUPABASE** (feito pelo dono do projeto em 02/10/2026: as duas migrations e
+  `masmorra` em Exposed schemas; a API passou a responder 200) — o que tinha sido descoberto: o schema `masmorra` NÃO EXISTE no
   projeto (a migration 0001 nunca foi aplicada lá) nem está em "Exposed schemas". Sem
   isso nenhuma conta "entra na Masmorra" (`online.ativo` fica falso) e o botão do Mundo
   online não liga. Falta, NESTA ordem: rodar a 0001, rodar a 0002, e acrescentar
   `masmorra` em Settings → Data API → Exposed schemas.
-- [ ] **F3.6e Jogar com duas contas de verdade**: a primeira vez que o login do Supabase,
-  o SSE pelo proxy do Render e a latência real entram no teste.
+- [x] **F3.6e No ar com contas de verdade**: em 02/10/2026 o servidor do Render mostrou 2
+  jogadores ligados ao mesmo tempo, por vários minutos (login do Supabase e SSE pelo proxy
+  do Render funcionando). Falta só a impressão de quem jogou sobre a latência.
+- [x] **F3.6f Uma atualização do JOGO com gente dentro** (as tochas de estaca, commit
+  `3f8cacb`): o Pages serviu a versão nova em menos de um minuto depois do `git push`, e o
+  Render NÃO reiniciou — os 2 jogadores seguiram ligados (o `buildFilter` do `render.yaml`).
+  Quem já está com o jogo aberto só recebe a versão nova ao recarregar a página (o Pages
+  manda o navegador guardar os arquivos por 10 min: Ctrl+F5 se não aparecer).
+- [ ] **F3.6g Uma atualização do SERVIDOR com gente dentro**: ainda não provada. Reiniciar
+  derruba todos (o jogo reentra sozinho) e zera o estado do mundo. Falta também o jogo
+  AVISAR que há versão nova, e o servidor dizer qual versão está rodando.
 
 ## F4 — Cliente: estar no mesmo mapa ✅
 
