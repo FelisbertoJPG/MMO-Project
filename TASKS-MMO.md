@@ -108,9 +108,18 @@ As diferenças moram em `js/modo.js` (`REGRAS`), e o código pergunta `game.regr
   (repositório `FelisbertoJPG/MMO-Project`, raiz da `main`). `js/hospedagem.js` detecta o
   host só de arquivos: save da Jornada no navegador, sala só pela internet, Mundo online
   esperando o servidor. Publicar = `git push`.
-- [ ] **F3.6b O SERVIDOR DE MUNDO num endereço `https`** (ver "Como hospedar"): quando
-  houver, pôr o endereço em `MUNDO_PADRAO` (`js/hospedagem.js`) e dar `git push`. Se for
-  uma plataforma de disco apagável (Render), antes mover o save do personagem para o Supabase.
+- [x] **F3.6b O servidor PRONTO para o Render** (decisão: Render, plano grátis):
+  `MUNDO_SAVES=nuvem` (nada em disco: o personagem em `masmorra.personagens`, migration
+  0002, lido e gravado pelo jogo; o estado do mundo só na memória), `FRENTE_EM` (o servidor
+  não entrega o jogo), `render.yaml`, e a tela inicial insiste enquanto o servidor acorda.
+  Conferido: servidor (18 testes), a migration num PostgreSQL 18 de verdade, e o jogo com
+  o servidor em outro endereço e o Supabase simulado.
+- [ ] **F3.6c LIGAR de verdade** — depende de duas coisas feitas à mão:
+  1. rodar `supabase/migrations/0002_personagens_do_mundo.sql` no SQL Editor do Supabase;
+  2. criar o serviço no Render (New → Blueprint → este repositório).
+  Depois: pôr o endereço `https://….onrender.com` em `MUNDO_PADRAO` (`js/hospedagem.js`),
+  `git push`, e jogar com duas contas de verdade — é a primeira vez que o login do
+  Supabase, o SSE pelo proxy do Render e a latência real entram no teste.
 
 ## F4 — Cliente: estar no mesmo mapa ✅
 
@@ -173,7 +182,11 @@ Duas JANELAS (não abas) em `http://localhost:5173/?teste=Ana` e `…/?teste=Bet
 "Entrar no mundo". Para a troca de simulador, minimizar a primeira. `node testes/mundo.test.mjs`
 cobre o servidor sem navegador.
 
-## Como hospedar (rascunho — ver F3.6)
+## Como hospedar (ver F3.6)
+
+**O que está montado:** contas no Supabase · o jogo no GitHub Pages · o servidor de mundo
+no Render (`render.yaml`: `HOSPEDAR=1`, `MUNDO_SAVES=nuvem`, `FRENTE_EM=<o Pages>`). O que
+segue vale para QUALQUER outro lugar (VM, o próprio PC com túnel), onde há disco.
 
 ```bash
 HOSPEDAR=1 PORT=5173 node server.js     # contas do Supabase; dados em ./mundo

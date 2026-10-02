@@ -255,10 +255,27 @@ class Game {
     bt.disabled = true;
     if (!this.haMundo()) { st.textContent = 'o servidor do mundo ainda não está no ar'; return; }
     st.textContent = 'procurando o servidor…';
-    const info = await Mundo.info(base);
-    if (this.state !== 'title' && this.state !== 'loading') return;
+    // Um servidor em plataforma grátis DORME sem visita e leva perto de um minuto
+    // para acordar: em vez de desistir no primeiro silêncio, insiste e diz o que
+    // está esperando. (O desta própria máquina responde na hora ou não está.)
+    const vez = this.buscaDoMundo = (this.buscaDoMundo ?? 0) + 1;
+    const velha = () => vez !== this.buscaDoMundo || (this.state !== 'title' && this.state !== 'loading');
+    const prazo = Date.now() + (base ? 100_000 : 5_000);
+    let info = null;
+    for (let i = 0; !info; i++) {
+      info = await Mundo.info(base, i ? 15_000 : 5_000);
+      if (velha()) return;
+      if (info || Date.now() >= prazo) break;
+      st.textContent = 'acordando o servidor do mundo… (pode levar um minuto)';
+      await new Promise((ok) => setTimeout(ok, 3000));
+      if (velha()) return;
+    }
     const teste = new URLSearchParams(location.search).has('teste');
-    if (!info) { st.textContent = 'o servidor do mundo não respondeu'; return; }
+    if (!info) {
+      st.innerHTML = 'o servidor do mundo não respondeu · <a href="#" id="mmo-denovo">tentar de novo</a>';
+      document.getElementById('mmo-denovo').addEventListener('click', (e) => { e.preventDefault(); this.prepararMundo(); });
+      return;
+    }
     if (info.mapa && info.mapa !== Assets.mapaNome) { st.textContent = `o servidor está em outro mapa (${info.mapa})`; return; }
     const quantos = info.jogadores === 1 ? '1 jogador no mundo agora' : `${info.jogadores} jogadores no mundo agora`;
     if (!this.online.ativo && !teste) { st.textContent = `${quantos} · entre com uma conta para jogar online`; return; }
@@ -312,14 +329,14 @@ class Game {
     else this.comecarFora();
     document.getElementById('sair-mundo-btn').classList.remove('hidden');
     r.mundo.ligar();
-    this.salvar();   // o personagem novo já fica guardado no servidor
+    this.salvar({ nuvem: true });   // o personagem novo já fica guardado
   }
 
   /** "Sair do mundo" (menu de pausa): grava, avisa o servidor e volta à tela inicial. */
   async sairDoMundo() {
     if (this.modo !== 'mmo' || this.saindo) return;
     this.saindo = true;
-    await this.salvar();
+    await this.salvar({ nuvem: true });
     this.sessao?.sair();
     location.reload();   // refazer o mundo local à mão seria refazer o carregamento inteiro
   }

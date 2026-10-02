@@ -337,6 +337,34 @@ await teste('HOSPEDAR=1: o save e as salas de quem hospeda NÃO atendem nem a lo
   fia.desligar();
 });
 
+await teste('MUNDO_SAVES=nuvem (o Render): NADA em disco — nem personagem, nem estado', async () => {
+  await descer();
+  const pasta2 = fs.mkdtempSync(path.join(os.tmpdir(), 'mundo-nuvem-'));
+  assert.ok(await subir({ HOSPEDAR: '1', MUNDO_SAVES: 'nuvem', MUNDO_DIR: pasta2, FRENTE_EM: 'https://exemplo.test/jogo/' }), 'o servidor não subiu');
+  assert.equal((await (await fetch(`${BASE}/__mundo/info`)).json()).saves, 'nuvem');
+  const gil = await jogador('Gil');
+  assert.equal(gil.entrada.saves, 'nuvem', 'o jogo precisa saber que o personagem não está aqui');
+  assert.equal(gil.entrada.personagem, null);
+  // gravar aqui sumiria no próximo reinício: tem de ser RECUSADO, não aceito calado
+  const url = `${BASE}/__mundo/personagem?b=${gil.bilhete}`;
+  assert.equal((await fetch(url, { method: 'POST', body: JSON.stringify(SAVE()) })).status, 409);
+  assert.equal((await fetch(url)).status, 409);
+  // o estado do mundo vale em memória (quem chega recebe), e não vai para o disco
+  await gil.falar('mundo', { e: [], est: { portas: [true], nevoa: false, chefes: {}, mortos: {} } });
+  await dormir(2800);
+  const hugo = await jogador('Hugo');
+  assert.deepEqual(hugo.ultimo('ola').carga.estado?.portas, [true]);
+  assert.deepEqual(fs.readdirSync(pasta2), [], 'escreveu em disco');
+  // FRENTE_EM: este servidor é só o mundo — a página vai para onde o jogo está, e arquivo do jogo não sai
+  const raizDoSite = await fetch(`${BASE}/`, { redirect: 'manual' });
+  assert.equal(raizDoSite.status, 302);
+  assert.equal(raizDoSite.headers.get('location'), 'https://exemplo.test/jogo/');
+  assert.equal((await fetch(`${BASE}/js/main.js`)).status, 404, 'o jogo saiu pelo servidor de mundo');
+  assert.equal((await fetch(`${BASE}/__saude`)).status, 200, 'a sonda de vida do Render tem de responder');
+  gil.desligar(); hugo.desligar();
+  fs.rmSync(pasta2, { recursive: true, force: true });
+});
+
 await descer();
 fs.rmSync(PASTA, { recursive: true, force: true });
 console.log(`\n${passaram} testes passaram${falharam ? `, ${falharam} FALHARAM` : ''}\n`);

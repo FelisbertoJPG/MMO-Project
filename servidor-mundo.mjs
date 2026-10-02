@@ -34,6 +34,12 @@
 // lugar do token, para duas janelas na mesma máquina sem conta (NUNCA ligado
 // por padrão: com ele qualquer um entra com o nome que quiser).
 //
+// **Sem disco (`MUNDO_SAVES=nuvem`)**: as plataformas grátis que rodam o Node
+// por nós (o Render) APAGAM o disco a cada reinício. Nesse modo o servidor não
+// lê nem grava arquivo nenhum: o personagem mora no Supabase
+// (`masmorra.personagens`, lido e gravado pelo próprio jogo — ver `rede/mundo.js`)
+// e o estado do mundo fica só na memória, zerando quando o servidor dorme.
+//
 // **O que isto NÃO é**: à prova de trapaça. Quem simula é um cliente, e o save
 // é o que o cliente manda. O servidor confere FORMATO e LIMITES (um save de
 // nível 9999 ou um recado de 5 MB não passam), não a honestidade de ninguém.
@@ -77,6 +83,8 @@ export function criarMundo(raiz) {
   const pastaPersonagens = path.join(pasta, 'personagens');
   const arqEstado = path.join(pasta, 'estado.json');
   const modoAuth = process.env.MUNDO_AUTH === 'teste' ? 'teste' : 'supabase';
+  /** 'disco' = personagens e estado em arquivo, aqui; 'nuvem' = nada em disco (ver o cabeçalho). */
+  const saves = process.env.MUNDO_SAVES === 'nuvem' ? 'nuvem' : 'disco';
   const supabase = lerSupabase(raiz);
   const mapa = lerNomeDoMapa(raiz);
 
@@ -85,7 +93,7 @@ export function criarMundo(raiz) {
   const porBilhete = new Map();
   let simulador = null;        // id de quem simula os inimigos, ou null (mundo vazio)
   let ultimoMundo = null;      // o último `mundo` do simulador, para quem chega e para quem assume
-  let estado = lerJson(arqEstado) ?? null;
+  let estado = saves === 'disco' ? lerJson(arqEstado) ?? null : null;
   let estadoSujo = false;
 
   // ------------------------------------------------------------ respostas
@@ -166,7 +174,7 @@ export function criarMundo(raiz) {
       const outro = [...jogadores.values()].some((j) => j !== sim && j.conectado && j.lentoAte < agora);
       if (outro) { sim.lentoAte = agora + CASTIGO_MS; eleger(); }
     }
-    if (estadoSujo) { estadoSujo = false; gravarJson(arqEstado, estado); }
+    if (estadoSujo) { estadoSujo = false; if (saves === 'disco') gravarJson(arqEstado, estado); }
   }, 500);
   guarda.unref?.();
 
@@ -236,7 +244,8 @@ export function criarMundo(raiz) {
     porBilhete.set(j.bilhete, j);
     json(res, 200, {
       ok: true, v: VERSAO_MUNDO, bilhete: j.bilhete, id: j.id, nome: j.nome, agora: Date.now(),
-      personagem: lerJson(arquivoDoPersonagem(j.id)), estado,
+      // `saves: 'nuvem'`: o personagem não está aqui — o jogo o busca no Supabase
+      saves, personagem: saves === 'disco' ? lerJson(arquivoDoPersonagem(j.id)) : null, estado,
     });
   }
 
@@ -275,6 +284,8 @@ export function criarMundo(raiz) {
   }
 
   async function personagem(req, res, j) {
+    // sem disco, um save gravado aqui sumiria no próximo reinício — e sumir calado é o pior jeito
+    if (saves !== 'disco') return erro(res, 409, 'neste servidor o personagem fica na conta (Supabase), não aqui');
     const arq = arquivoDoPersonagem(j.id);
     if (req.method === 'GET') return json(res, 200, { ok: true, personagem: lerJson(arq) });
     const d = await lerCorpo(req, MAX_SAVE);
@@ -293,7 +304,7 @@ export function criarMundo(raiz) {
     const rota = urlPath.slice('/__mundo/'.length);
 
     if (rota === 'info') {
-      json(res, 200, { quem: QUEM, v: VERSAO_MUNDO, jogadores: lista().length, max: MAX_JOGADORES, mapa, auth: modoAuth });
+      json(res, 200, { quem: QUEM, v: VERSAO_MUNDO, jogadores: lista().length, max: MAX_JOGADORES, mapa, auth: modoAuth, saves });
       return true;
     }
     if (rota === 'entrar' && req.method === 'POST') { entrar(req, res).catch((e) => { console.warn('[mundo] entrar:', e); erro(res, 500, 'falha no servidor'); }); return true; }
@@ -313,11 +324,12 @@ export function criarMundo(raiz) {
 
   function fechar() {
     clearInterval(guarda);
-    if (estadoSujo) { try { fs.mkdirSync(pasta, { recursive: true }); fs.writeFileSync(arqEstado, JSON.stringify(estado)); } catch { } }
+    if (estadoSujo && saves === 'disco') { try { fs.mkdirSync(pasta, { recursive: true }); fs.writeFileSync(arqEstado, JSON.stringify(estado)); } catch { } }
     for (const j of jogadores.values()) { try { j.res?.end(); } catch { } }
   }
 
-  console.log(`[mundo] pronto — mapa "${mapa ?? '?'}", até ${MAX_JOGADORES} jogadores, contas: ${modoAuth === 'teste' ? 'TESTE (qualquer nome entra!)' : 'Supabase'}, dados em ${pasta}`);
+  console.log(`[mundo] pronto — mapa "${mapa ?? '?'}", até ${MAX_JOGADORES} jogadores, contas: ${modoAuth === 'teste' ? 'TESTE (qualquer nome entra!)' : 'Supabase'}, `
+    + (saves === 'disco' ? `dados em ${pasta}` : 'SEM DISCO: personagens no Supabase, estado do mundo só na memória'));
   return { atender, fechar };
 }
 

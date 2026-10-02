@@ -29,12 +29,21 @@
  * bateu num inimigo ou estava por perto leva as almas INTEIRAS, e o que ele
  * deixa cair aparece para cada um desses (`repartir`).
  *
+ * **Onde mora o personagem** (`this.saves`, dito pelo servidor ao entrar):
+ *   • `'disco'` — no servidor de mundo (`/__mundo/personagem`), quando ele tem disco;
+ *   • `'nuvem'` — no Supabase (`masmorra.personagens`, migration 0002), quando o
+ *     servidor roda numa plataforma que apaga o disco (o Render). Aí quem lê e
+ *     grava é ESTE arquivo, com o token da conta, como o save da Jornada.
+ * Nos dois, falhar em LER nunca vira "personagem novo": entrar com um
+ * personagem zerado gravaria por cima do de verdade no primeiro save.
+ *
  * Validação: o que chega veio de outro cliente. Números são conferidos e o
  * absurdo (dano > 500, golpe de longe, item que não existe) é descartado.
  */
 import * as THREE from 'three';
 import { TIPO, instantaneo, limparInstantaneo, retratoDoInimigo, lerRetrato } from './protocolo.js';
 import { transporteMundo } from './transporte.js';
+import { req } from './supabase.js';
 import { ENVIO_MS, BATIDA_MS } from './fantasmas.js';
 import { Assets } from '../assets.js';
 import { ITEMS } from '../items.js';
@@ -56,6 +65,8 @@ const PORTA_PENDENTE_MS = 2500;    // a porta que EU abri não fecha na minha ca
 const LACAIO_SOME_MS = 3000;
 const BATIMENTO_MS = 1000;
 const REENTRAR_MS = 3000;
+/** Na nuvem, o save comum vai no máximo a cada isto (o da fogueira, do chefe e o de sair vão na hora). */
+const NUVEM_MS = 60_000;
 
 /** Os chefes: o id que viaja, o inimigo no jogo e o que cada um rende. */
 export const CHEFES = {
@@ -75,7 +86,33 @@ export class Mundo {
    */
   static async entrar(game, { base = '', obterToken }) {
     const d = await Mundo.pedirEntrada(base, obterToken);
-    return d.ok ? { ok: true, mundo: new Mundo(game, base, d, obterToken) } : d;
+    if (!d.ok) return d;
+    if (d.saves === 'nuvem') {
+      const r = await Mundo.lerDaNuvem(game.online);
+      if (!r.ok) {
+        // desiste da vaga que o servidor acabou de dar
+        fetch(`${base}/__mundo/sair?b=${d.bilhete}`, { method: 'POST', keepalive: true }).catch(() => {});
+        return r;
+      }
+      d.personagem = r.personagem;
+    }
+    return { ok: true, mundo: new Mundo(game, base, d, obterToken) };
+  }
+
+  /**
+   * O personagem desta conta no Supabase: `{ok, personagem}` (null = ainda não
+   * tem) ou `{ok: false, error}`. "Não consegui ler" e "não tem" são respostas
+   * DIFERENTES de propósito — ver o cabeçalho.
+   */
+  static async lerDaNuvem(online) {
+    const conta = online?.contaId;
+    if (!conta || !online.ativo) return { ok: false, error: 'neste mundo o personagem fica na sua conta: entre com uma conta' };
+    const r = await req(`personagens?select=dados&dono=eq.${encodeURIComponent(conta)}`);
+    if (r.status === 404) return { ok: false, error: 'a tabela dos personagens não existe no Supabase (falta rodar a migration 0002)' };
+    if (!r.ok || !Array.isArray(r.dados)) return { ok: false, error: `não consegui ler o seu personagem (${r.error ?? 'resposta inesperada'}) — tente de novo` };
+    const dados = r.dados[0]?.dados ?? null;
+    if (dados && dados.versao !== 1) return { ok: false, error: 'o seu personagem foi gravado por uma versão mais nova do jogo — atualize a página' };
+    return { ok: true, personagem: dados };
   }
 
   static async pedirEntrada(base, obterToken) {
@@ -94,9 +131,9 @@ export class Mundo {
   }
 
   /** O que o servidor diz de si (`/__mundo/info`), ou null se não respondeu. */
-  static async info(base = '') {
+  static async info(base = '', ms = 4000) {
     try {
-      const r = await fetch(`${base}/__mundo/info`, { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+      const r = await fetch(`${base}/__mundo/info`, { cache: 'no-store', signal: AbortSignal.timeout(ms) });
       const d = r.ok ? await r.json() : null;
       return d?.quem === 'masmorra-do-carrasco' ? d : null;
     } catch { return null; }
@@ -111,6 +148,9 @@ export class Mundo {
     this.bilhete = entrada.bilhete;
     /** O save que o servidor guardava (null = personagem novo). */
     this.personagem = entrada.personagem ?? null;
+    /** Onde o personagem é gravado: 'disco' (no servidor de mundo) ou 'nuvem' (Supabase). */
+    this.saves = entrada.saves === 'nuvem' ? 'nuvem' : 'disco';
+    this.ultimaNuvem = 0;
     this.desvio = (entrada.agora ?? Date.now()) - Date.now();
     this.estado = 'conectando';        // 'conectando' | 'ligado' | 'reconectando' | 'fora'
     this.motivo = '';
@@ -211,23 +251,42 @@ export class Mundo {
   // ------------------------------------------------------------ o save do personagem
 
   /**
-   * Grava o personagem NO SERVIDOR (é o único lugar em que ele existe).
-   * `aoSair`: a página está fechando — `sendBeacon` sobrevive ao fechamento.
+   * Grava o personagem — no servidor de mundo ou na nuvem (`this.saves`); é o
+   * único lugar em que ele existe. `aoSair`: a página está fechando (o pedido
+   * tem de sobreviver ao fechamento). `nuvem`: momento marcante, grava já.
    */
-  salvar(dados, { aoSair = false } = {}) {
+  salvar(dados, { aoSair = false, nuvem = false } = {}) {
     if (this.estado === 'fora') return;
+    if (this.saves === 'nuvem') return this.salvarNaNuvem(dados, aoSair, nuvem);
     const url = `${this.base}/__mundo/personagem?b=${this.bilhete}`, corpo = JSON.stringify(dados);
     if (aoSair && navigator.sendBeacon) { navigator.sendBeacon(url, new Blob([corpo], { type: 'text/plain' })); return; }
     return fetch(url, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: corpo, keepalive: aoSair })
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.json().catch(() => null))?.erro ?? `HTTP ${r.status}`);
-        if (this.falhouSalvar) { this.falhouSalvar = false; this.game.ui.toast('O progresso voltou a ser gravado.'); }
+        this.gravou();
       })
-      .catch((e) => {
-        console.warn('[mundo] não consegui gravar o personagem:', e.message);
-        // avisa UMA vez: quem joga precisa saber que o que fizer agora pode não ficar
-        if (!this.falhouSalvar) { this.falhouSalvar = true; this.game.ui.toast('O servidor não gravou o seu progresso. Tentando de novo…'); }
-      });
+      .catch((e) => this.naoGravou(e));
+  }
+
+  /** O save no Supabase (`masmorra.personagens`): o da rotina no máximo a cada `NUVEM_MS`. */
+  salvarNaNuvem(dados, aoSair, ja) {
+    const online = this.game.online, conta = online?.contaId;
+    if (!conta || !online.ativo) return;
+    if (!aoSair && !ja && Date.now() - this.ultimaNuvem < NUVEM_MS) return;
+    this.ultimaNuvem = Date.now();
+    return req('personagens', { method: 'POST', body: { dono: conta, dados, salvo_em: dados.salvoEm }, prefer: 'resolution=merge-duplicates', keepalive: aoSair })
+      .then((r) => { if (!r.ok) throw new Error(r.error ?? `HTTP ${r.status}`); this.gravou(); })
+      .catch((e) => { this.ultimaNuvem = 0; this.naoGravou(e); });   // falhou: a próxima tentativa não espera o minuto
+  }
+
+  gravou() {
+    if (this.falhouSalvar) { this.falhouSalvar = false; this.game.ui.toast('O progresso voltou a ser gravado.'); }
+  }
+
+  naoGravou(e) {
+    console.warn('[mundo] não consegui gravar o personagem:', e.message);
+    // avisa UMA vez: quem joga precisa saber que o que fizer agora pode não ficar
+    if (!this.falhouSalvar) { this.falhouSalvar = true; this.game.ui.toast('O seu progresso não foi gravado. Tentando de novo…'); }
   }
 
   // ------------------------------------------------------------ recados

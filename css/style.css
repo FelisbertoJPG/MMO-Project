@@ -165,7 +165,7 @@ button:disabled { opacity: .4; cursor: default; }
 .modo button { margin: 0; }
 #mmo-status { color: var(--text-dim); font-size: 14px; min-height: 1.2em; }
 .mmo-servidor { color: var(--text-dim); font-size: 13px; }
-.mmo-servidor a { color: var(--gold); text-decoration: none; border-bottom: 1px dotted var(--gold-dim); }
+.mmo-servidor a, #mmo-status a { color: var(--gold); text-decoration: none; border-bottom: 1px dotted var(--gold-dim); }
 #mmo-form { display: flex; gap: 8px; width: 100%; }
 #mmo-form input { flex: 1; min-width: 0; background: rgba(0,0,0,.6); border: 1px solid var(--gold-dim); color: #e9dcc0; padding: 7px 10px; font: inherit; font-size: 14px; }
 #mmo-form input:focus { border-color: var(--gold); outline: none; }

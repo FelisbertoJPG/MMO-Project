@@ -79,6 +79,12 @@ const mundo = criarMundo(root);
 // mesma pasta, e uma lista negra teria de conhecer todos os disfarces.
 const FRENTE = new Set(['index.html', 'css', 'js', 'vendor', 'assets']);
 
+// `FRENTE_EM=https://…`: o JOGO está hospedado em outro lugar (o GitHub Pages) e
+// este servidor é SÓ o mundo online. Quem abrir o endereço daqui é mandado para
+// lá, e nenhum arquivo do jogo sai por aqui — cada carga do jogo são ~25 MB, e a
+// franquia de tráfego do plano grátis do Render (5 GB/mês) é para a partida.
+const FRENTE_EM = /^https?:\/\/\S+$/.test(process.env.FRENTE_EM ?? '') ? process.env.FRENTE_EM : null;
+
 http.createServer((req, res) => {
   const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   // Identidade para o launcher (masmorra.exe): é como ele distingue "o jogo já
@@ -101,6 +107,10 @@ http.createServer((req, res) => {
   if (atenderLan(req, res, urlPath, { porta: port, ehDaqui: soDaqui(req) })) return;
   // O mundo online (servidor-mundo.mjs)
   if (mundo.atender(req, res, urlPath)) return;
+  if (FRENTE_EM) {
+    if (urlPath === '/' || urlPath === '/index.html') { res.writeHead(302, { Location: FRENTE_EM }); return res.end(); }
+    res.writeHead(404); return res.end('404');
+  }
   const file = path.normalize(path.join(root, urlPath === '/' ? 'index.html' : urlPath));
   if (!file.startsWith(root + path.sep)) { res.writeHead(403); return res.end(); }
   if (!FRENTE.has(path.relative(root, file).split(path.sep)[0])) { res.writeHead(404); return res.end('404'); }
@@ -111,6 +121,6 @@ http.createServer((req, res) => {
   });
 }).listen(port, () => {
   console.log(`Cinzas do Abismo rodando em http://localhost:${port}`);
-  if (HOSPEDANDO) console.log('HOSPEDAR=1: servindo o jogo e o mundo online para fora — sem save local e sem salas da rede local');
+  if (HOSPEDANDO) console.log(`HOSPEDAR=1: sem save local e sem salas da rede local — ${FRENTE_EM ? `só o mundo online (o jogo está em ${FRENTE_EM})` : 'servindo o jogo e o mundo online para fora'}`);
   else iniciarDescoberta(port);
 });

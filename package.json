@@ -4,6 +4,9 @@
   "description": "Action RPG dark fantasy estilo souls-like em Three.js",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node server.js",
     "test": "node testes/mundo.test.mjs"

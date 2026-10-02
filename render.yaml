@@ -1,0 +1,39 @@
+# O SERVIDOR DE MUNDO no Render (plano grátis) — só o MMO; o jogo está no GitHub Pages.
+#
+# Criar: render.com → New → Blueprint → escolher este repositório. Depois disso,
+# cada push que mexa nos arquivos de `buildFilter` reimplanta sozinho.
+#
+# O plano grátis DORME depois de 15 min sem pedido (acorda em ~1 min, e a tela
+# inicial do jogo avisa "acordando o servidor…") e APAGA o disco a cada reinício
+# — por isso `MUNDO_SAVES=nuvem`: o personagem mora no Supabase
+# (supabase/migrations/0002) e o estado do mundo, só na memória.
+services:
+  - type: web
+    name: masmorra-do-carrasco-mundo
+    runtime: node
+    plan: free
+    region: virginia              # a mais perto do Brasil no plano grátis
+    buildCommand: npm install     # não há dependências: é só o que o Render exige
+    startCommand: node server.js
+    healthCheckPath: /__saude
+    autoDeployTrigger: commit
+    # Mexer só no JOGO (js/, assets/…) não reinicia o servidor: reiniciar derruba
+    # quem está jogando e zera o estado do mundo.
+    buildFilter:
+      paths:
+        - server.js
+        - servidor-mundo.mjs
+        - rede-local.mjs
+        - package.json
+        - render.yaml
+        - assets/mapa.json        # o servidor confere que todos estão no mesmo mapa
+        - js/rede/supabase.js     # de onde ele lê a URL e a chave publicável do Supabase
+    envVars:
+      - key: HOSPEDAR             # sem o save local e as salas de rede local de quem hospeda
+        value: "1"
+      - key: MUNDO_SAVES          # nada em disco
+        value: nuvem
+      - key: FRENTE_EM            # quem abrir o endereço do servidor é mandado para o jogo
+        value: https://felisbertojpg.github.io/MMO-Project/
+      - key: MUNDO_MAX
+        value: "16"

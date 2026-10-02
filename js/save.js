@@ -78,7 +78,7 @@ export function salvarProgresso(game, { aoSair = false, nuvem = false } = {}) {
   if (game.state !== 'playing' || game.sessao?.duelo || (game.marionetes && game.regras.visitaSoAjuda)) return;
   // MUNDO ONLINE: o personagem só existe no servidor de mundo (`rede/mundo.js`) —
   // nada de arquivo local nem de `masmorra.saves`, que são da Jornada.
-  if (game.modo === 'mmo') return game.sessao?.salvar(coletar(game), { aoSair });
+  if (game.modo === 'mmo') return game.sessao?.salvar(coletar(game), { aoSair, nuvem });
   const online = game.online, conta = online?.contaId ?? null;
   const dados = coletar(game);
   const txt = JSON.stringify(dados);
