@@ -278,7 +278,14 @@ class Game {
     }
     if (info.mapa && info.mapa !== Assets.mapaNome) { st.textContent = `o servidor está em outro mapa (${info.mapa})`; return; }
     const quantos = info.jogadores === 1 ? '1 jogador no mundo agora' : `${info.jogadores} jogadores no mundo agora`;
-    if (!this.online.ativo && !teste) { st.textContent = `${quantos} · entre com uma conta para jogar online`; return; }
+    if (!this.online.ativo && !teste) {
+      // logado, mas a conta não entrou na Masmorra (Supabase fora, schema não exposto…):
+      // pedir "entre com uma conta" a quem já entrou só confunde
+      const o = this.online;
+      st.textContent = o.estado === 'deslogado' ? `${quantos} · entre com uma conta para jogar online`
+        : `${quantos} · a sua conta não pôde entrar: ${o.motivo || 'tente de novo'}`;
+      return;
+    }
     st.textContent = info.jogadores >= info.max ? 'o mundo está cheio' : quantos;
     bt.disabled = info.jogadores >= info.max;
   }

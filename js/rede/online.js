@@ -50,7 +50,12 @@ export class Online {
     if (r.status === 401) { await sair(); this.estado = 'deslogado'; this.motivo = 'a sessão expirou, entre de novo'; return; }
     // 406 = schema não exposto; 'masmorra desligada' = interruptor; 404 = migration não rodou
     this.estado = 'indisponivel';
-    this.motivo = 'o online da Masmorra está desligado no momento';
+    // O motivo DIZ qual dos três é: "está desligado" para os três fazia quem
+    // configura o Supabase procurar o defeito no lugar errado (o servidor de
+    // mundo, o login), quando faltava um clique no painel.
+    this.motivo = r.status === 406 ? 'o online da Masmorra não está exposto no Supabase (falta "masmorra" em Exposed schemas)'
+      : r.status === 404 ? 'o online da Masmorra não foi instalado no Supabase (faltam as migrations)'
+        : 'o online da Masmorra está desligado no momento';
     console.warn('[online] indisponível:', r.status, r.error);
   }
 
