@@ -80,7 +80,7 @@ export class SalaUI {
       case 'fim-coop': s?.encerrarCoop(s.coop?.dono ? 'o dono do mundo encerrou' : 'o convidado foi embora'); break;
       case 'aceitar': s?.responderConvite(true); break;
       case 'recusar': s?.responderConvite(false); break;
-      case 'sair-mundo': g.sairDoMundo(); break;
+      case 'sair-mundo': g.voltarAoInicio(); break;
     }
   }
 
