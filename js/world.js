@@ -85,9 +85,36 @@ const TOCHAS_DE_ESTACA = [
   { cell: [13, 34], off: [0.5, 2.2] },     // ao lado do cabide de armas
 ];
 
+/**
+ * OS QUEBRÁVEIS (03/10/2026): peças do `decor.json` que um golpe (ou a explosão
+ * de uma bomba) estoura em pedaços. `cor` é a dos pedaços; `pedacos`, quantos;
+ * `saque`, a tabela do que pode cair (ver `SAQUES`). Peça nova que deva quebrar
+ * é uma linha aqui — o nome é o do `PROPS` (assets.js), como no decor.json.
+ */
+export const QUEBRAVEIS = {
+  barrel_small:   { cor: 0x6b4a2b, pedacos: 9,  saque: 'barril' },
+  barrel_large:   { cor: 0x6b4a2b, pedacos: 13, saque: 'barril' },
+  keg:            { cor: 0x5e4026, pedacos: 9,  saque: 'chope' },
+  crates_stacked: { cor: 0x7a5a36, pedacos: 14, saque: 'caixote' },
+  crate_open:     { cor: 0x7a5a36, pedacos: 10, saque: 'caixote' },
+  box_stacked:    { cor: 0x7a5a36, pedacos: 12, saque: 'caixote' },
+  sack:           { cor: 0x9a8458, pedacos: 7,  saque: 'saco' },
+  bucket_water:   { cor: 0x5a4a3a, pedacos: 6,  saque: null },
+  bottle_A_green: { cor: 0x3a7a4a, pedacos: 5,  saque: null },
+  stool:          { cor: 0x5a3a20, pedacos: 6,  saque: null },
+};
+
+/** O que cai de um quebrável: `[item, peso]`, sorteado UM; `null` = nada. */
+export const SAQUES = {
+  barril:  [[null, 4], ['farinha', 2], ['carneCrua', 2], ['raiz', 2], ['cogumelo', 1], ['paoDuro', 1]],
+  chope:   [[null, 3], ['mel', 2], ['erva', 1]],
+  caixote: [[null, 4], ['raiz', 2], ['cogumelo', 2], ['pimenta', 1], ['firebomb', 1], ['paoDuro', 1]],
+  saco:    [[null, 2], ['farinha', 3], ['erva', 1]],
+};
+
 // Baús: célula, parede de apoio e conteúdo
 const CHESTS = [
-  { cell: [19, 10], wall: 'n', items: [['estus', 5]] },
+  { cell: [19, 10], wall: 'n', items: [['paoDuro', 3], ['ensopado', 2]] },
   { cell: [23, 1], wall: 'w', items: [['bone', 2]] },
   { cell: [15, 11], wall: 'n', items: [['shieldRound', 1]] },
   { cell: [9, 12], wall: 'n', items: [['firebomb', 3]] },
@@ -748,7 +775,7 @@ export class World {
     // `buildGeometry()` montava na matriz.
     if (d.flip) m.rotateX(Math.PI);
     this.scene.add(m);
-    if (d.colisao) this.circles.push({ x: m.position.x, z: m.position.z, r: d.colisao });
+    if (d.colisao) { m.userData.circulo = { x: m.position.x, z: m.position.z, r: d.colisao }; this.circles.push(m.userData.circulo); }
     return m;
   }
 
@@ -757,7 +784,16 @@ export class World {
     // disto eram 38 chamadas de place() escritas à mão aqui — mover um barril
     // meio metro era editar código, recarregar e olhar.
     const pecas = [];
-    for (const d of Assets.decor) { const m = this.placeDecor(d); if (m) pecas.push(m); }
+    this.quebraveis = [];
+    Assets.decor.forEach((d, i) => {
+      const m = this.placeDecor(d);
+      if (!m) return;
+      const cfg = QUEBRAVEIS[d.prop];
+      // o quebrável fica SOLTO: some sozinho ao quebrar e volta inteiro depois.
+      // `i` (a posição no decor.json) é o nome dele na rede — igual para todos.
+      if (cfg) this.quebraveis.push({ i, prop: d.prop, cfg, raiz: m, pos: m.position.clone(), raio: Math.max(0.45, d.colisao ?? 0.5), circulo: m.userData.circulo, rCirculo: m.userData.circulo?.r ?? 0, quebrado: false });
+      else pecas.push(m);
+    });
     this.agruparDecoracao(pecas);
 
     // Os CADÁVERES ficam no código, e não é esquecimento: eles são espalhados
@@ -967,15 +1003,110 @@ export class World {
   // ---------- Co-op: as passagens do mundo do anfitrião ----------
   // O convidado vê as portas e a névoa COMO O ANFITRIÃO AS TEM (senão um bateria
   // numa porta que o outro atravessa), e no fim volta exatamente ao que eram.
-  estadoPassagens() { return { portas: this.doors.map((d) => d.open), nevoa: !!this.gateOpen }; }
+  // Os quebrados vão junto (`quebrados`: as posições no decor.json): é o que
+  // faz o barril que um quebra aparecer quebrado para os outros, no Mundo
+  // online e no co-op — e voltar inteiro quando quem manda o restaura.
+  estadoPassagens() {
+    return { portas: this.doors.map((d) => d.open), nevoa: !!this.gateOpen, quebrados: this.quebraveis.filter((q) => q.quebrado).map((q) => q.i) };
+  }
 
-  aplicarPassagens({ portas = [], nevoa = false } = {}) {
+  aplicarPassagens({ portas = [], nevoa = false, quebrados = null } = {}) {
     portas.forEach((aberta, i) => {
       const d = this.doors[i];
       if (!d || d.open === !!aberta) return;
       if (aberta) this.openDoor(d); else this.closeDoor(d);
     });
     if (!!nevoa !== !!this.gateOpen) { if (nevoa) this.openFog(); else this.closeFog(); }
+    if (Array.isArray(quebrados)) {
+      const set = new Set(quebrados);
+      for (const q of this.quebraveis) {
+        if (set.has(q.i) && !q.quebrado) this.quebrar(q);
+        else if (!set.has(q.i) && q.quebrado) this.restaurar(q);
+      }
+    }
+  }
+
+  // ---------- Quebráveis (barris, caixotes, sacos...) ----------
+  quebravel(i) { return this.quebraveis.find((q) => q.i === i) ?? null; }
+
+  /** Os inteiros a menos de `raio` de `pos` (golpe, explosão). */
+  quebraveisPerto(pos, raio) {
+    return this.quebraveis.filter((q) => !q.quebrado && Math.hypot(q.pos.x - pos.x, q.pos.z - pos.z) < raio + q.raio);
+  }
+
+  /**
+   * Estoura em pedaços. Só o VISUAL e a colisão: o que cai e a rede são do
+   * `Game.quebrar`. Longe da câmera não vale a pena desenhar os pedaços (quem
+   * entra no mundo com muitos barris já quebrados não ganha uma chuva de lascas).
+   * Devolve falso se já estava quebrado.
+   */
+  quebrar(q, { origem = null } = {}) {
+    if (q.quebrado) return false;
+    q.quebrado = true;
+    q.raiz.visible = false;
+    if (q.circulo) q.circulo.r = 0;
+    const cam = this.game.camera.position;
+    if (q.pos.distanceTo(cam) < 45) this.soltarPedacos(q, origem);
+    return true;
+  }
+
+  restaurar(q) {
+    if (!q.quebrado) return;
+    q.quebrado = false;
+    q.raiz.visible = true;
+    if (q.circulo) q.circulo.r = q.rCirculo;
+  }
+
+  /** Descanso/morte na Jornada: todos voltam inteiros (como os inimigos). */
+  restaurarQuebraveis() { for (const q of this.quebraveis) this.restaurar(q); }
+
+  soltarPedacos(q, origem) {
+    // `setFromObject` mede mesmo escondido; o tamanho da peça guia o dos pedaços
+    const caixa = new THREE.Box3().setFromObject(q.raiz);
+    const tam = caixa.getSize(new THREE.Vector3());
+    const altura = Math.max(0.3, Math.min(2.5, tam.y || 1)), largura = Math.max(0.3, Math.min(2, Math.max(tam.x, tam.z) || 0.8));
+    this.matPedaco ??= new Map();
+    if (!this.matPedaco.has(q.cfg.cor)) this.matPedaco.set(q.cfg.cor, new THREE.MeshStandardMaterial({ color: q.cfg.cor, roughness: 0.9 }));
+    this.geoPedaco ??= new THREE.BoxGeometry(1, 1, 1);
+    this.pedacos ??= [];
+    const chao = this.alturaChao(q.pos);
+    const de = origem ? new THREE.Vector3(q.pos.x - origem.x, 0, q.pos.z - origem.z).normalize() : new THREE.Vector3();
+    for (let k = 0; k < q.cfg.pedacos; k++) {
+      // lascas compridas e finas, como tábua quebrada
+      const sx = largura * (0.12 + Math.random() * 0.25), sy = altura * (0.08 + Math.random() * 0.18), sz = largura * (0.05 + Math.random() * 0.1);
+      const m = new THREE.Mesh(this.geoPedaco, this.matPedaco.get(q.cfg.cor));
+      m.scale.set(sx, sy, sz);
+      m.position.set(q.pos.x + (Math.random() - 0.5) * largura * 0.6, chao + Math.random() * altura, q.pos.z + (Math.random() - 0.5) * largura * 0.6);
+      m.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+      this.scene.add(m);
+      const vel = new THREE.Vector3((Math.random() - 0.5) * 4, 2 + Math.random() * 3.5, (Math.random() - 0.5) * 4).addScaledVector(de, 2.5);
+      this.pedacos.push({ m, vel, giro: new THREE.Vector3((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14), t: 0, meia: sy / 2 });
+    }
+    this.game.effects.burst(q.pos.clone().setY(chao + altura * 0.5), { count: 26, color: [0.55, 0.47, 0.38], speed: 3.5, size: 0.14, life: 0.7, gravity: 5 });
+    this.game.sfx.quebrar?.();
+  }
+
+  /** Os pedaços voam, quicam, ficam no chão uns segundos e afundam. */
+  atualizarPedacos(dt) {
+    if (!this.pedacos?.length) return;
+    for (let k = this.pedacos.length - 1; k >= 0; k--) {
+      const p = this.pedacos[k];
+      p.t += dt;
+      const chao = this.alturaChao(p.m.position) + p.meia;
+      if (p.t < 14) {
+        p.vel.y -= 16 * dt;
+        p.m.position.addScaledVector(p.vel, dt);
+        if (p.m.position.y <= chao) {
+          p.m.position.y = chao;
+          if (Math.abs(p.vel.y) > 1.2) { p.vel.y *= -0.3; p.vel.x *= 0.6; p.vel.z *= 0.6; p.giro.multiplyScalar(0.5); }
+          else { p.vel.set(0, 0, 0); p.giro.multiplyScalar(Math.max(0, 1 - dt * 8)); }
+        }
+        p.m.rotation.x += p.giro.x * dt; p.m.rotation.y += p.giro.y * dt; p.m.rotation.z += p.giro.z * dt;
+      } else {
+        p.m.position.y -= dt * 0.25;   // afunda no chão e some
+        if (p.t > 16) { this.scene.remove(p.m); this.pedacos.splice(k, 1); }
+      }
+    }
   }
 
   closeDoor(d) {
@@ -1202,6 +1333,7 @@ export class World {
 
   // ---------- Atualização ----------
   update(dt, camera) {
+    this.atualizarPedacos(dt);
     this.time += dt;
     const t = this.time;
     const fx = this.game.effects;

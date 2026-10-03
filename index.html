@@ -148,6 +148,7 @@
         <h2>Inventário</h2>
         <div class="tabs">
           <button data-tab="consumable" class="active">Consumíveis</button>
+          <button data-tab="ingrediente">Ingredientes</button>
           <button data-tab="weapon">Equipamento</button>
           <button data-tab="ring">Anéis</button>
           <button data-tab="key">Especiais</button>
@@ -177,8 +178,10 @@
   <div id="bonfire-menu" class="overlay hidden">
     <div class="panel bonfire-panel">
       <h2>Fogueira</h2>
-      <div class="bf-sub">Você descansa. A chama restaura seu corpo e seus frascos.</div>
+      <div class="bf-sub">Você descansa. A chama restaura seu corpo — e a panela espera os ingredientes.</div>
       <div id="levelup"></div>
+      <h3 class="panela-titulo">Panela</h3>
+      <div id="panela"></div>
       <button id="bf-leave">Levantar-se</button>
     </div>
   </div>

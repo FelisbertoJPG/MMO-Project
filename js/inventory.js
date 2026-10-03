@@ -1,7 +1,7 @@
-import { ITEMS, ICON_ESTUS_EMPTY, TORCH_LIFE } from './items.js';
+import { ITEMS, TORCH_LIFE } from './items.js';
 
-const TYPE_LABEL = { consumable: 'Consumível', weapon: 'Arma', shield: 'Escudo', torch: 'Mão esquerda — fonte de luz', ring: 'Anel', key: 'Item especial' };
-const TAB_TYPES = { consumable: ['consumable'], weapon: ['weapon', 'shield', 'torch'], ring: ['ring'], key: ['key'] };
+const TYPE_LABEL = { consumable: 'Consumível', ingrediente: 'Ingrediente — vai para a panela da fogueira', weapon: 'Arma', shield: 'Escudo', torch: 'Mão esquerda — fonte de luz', ring: 'Anel', key: 'Item especial' };
+const TAB_TYPES = { consumable: ['consumable'], ingrediente: ['ingrediente'], weapon: ['weapon', 'shield', 'torch'], ring: ['ring'], key: ['key'] };
 
 export const fmtTime = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -34,7 +34,10 @@ export class Inventory {
   add(id, qty = 1, silent = false) {
     const def = ITEMS[id];
     if (!def) return;
-    if (def.type !== 'consumable') {
+    if (def.type === 'ingrediente') {
+      // empilha como consumível, mas não vai para o cinto: não se usa sozinho
+      this.items.set(id, Math.min(def.max ?? 99, this.count(id) + qty));
+    } else if (def.type !== 'consumable') {
       this.items.set(id, 1);
       if (id === 'torch') this.torchTime = TORCH_LIFE;
       // Primeira arma/escudo encontrados já são equipados, como no início de DS
@@ -57,7 +60,7 @@ export class Inventory {
 
   remove(id, n = 1) {
     const left = this.count(id) - n;
-    if (left > 0 || id === 'estus') { this.items.set(id, Math.max(0, left)); return; }
+    if (left > 0) { this.items.set(id, left); return; }
     this.items.delete(id);
     const i = this.belt.indexOf(id);
     if (i >= 0) this.belt[i] = null;
@@ -65,7 +68,6 @@ export class Inventory {
     if (this.equipped.left === id) this.equipped.left = null;
   }
 
-  refillEstus() { if (this.items.has('estus')) this.items.set('estus', ITEMS.estus.max); }
   currentQuick() { return this.belt[this.beltIdx]; }
 
   cycleQuick(dir = 1) {
@@ -118,7 +120,7 @@ export class Inventory {
   open() { this.isOpen = true; this.el.classList.remove('hidden'); this.render(); }
   close() { this.isOpen = false; this.el.classList.add('hidden'); }
 
-  iconFor(id) { return id === 'estus' && this.count('estus') === 0 ? ICON_ESTUS_EMPTY : ITEMS[id].icon; }
+  iconFor(id) { return ITEMS[id].icon; }
 
   render() {
     const types = TAB_TYPES[this.tab];
@@ -130,7 +132,7 @@ export class Inventory {
       const c = document.createElement('div');
       c.className = 'cell' + (id === this.selected ? ' sel' : '');
       const def = ITEMS[id];
-      const qty = def.type === 'consumable' ? `<span class="q">${this.count(id)}</span>` : id === 'torch' ? `<span class="q">${fmtTime(this.torchTime)}</span>` : '';
+      const qty = def.type === 'consumable' || def.type === 'ingrediente' ? `<span class="q">${this.count(id)}</span>` : id === 'torch' ? `<span class="q">${fmtTime(this.torchTime)}</span>` : '';
       const eq = this.isEquipped(id) ? '<span class="eq">E</span>' : this.belt.includes(id) ? '<span class="eq">◆</span>' : '';
       c.innerHTML = this.iconFor(id) + qty + eq;
       c.title = def.name;
@@ -173,7 +175,7 @@ export class Inventory {
       };
     }
     if (id === 'torch') stats['Restante'] = fmtTime(this.torchTime);
-    if (def.type === 'consumable') stats['Quantidade'] = `${this.count(id)} / ${def.max}`;
+    if (def.type === 'consumable' || def.type === 'ingrediente') stats['Quantidade'] = `${this.count(id)} / ${def.max}`;
     q('.d-stats').innerHTML = Object.entries(stats).map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
     q('.d-desc').textContent = def.desc;
 

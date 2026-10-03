@@ -159,6 +159,8 @@ export class Mundo {
     this.nomes = new Map();            // id → nome, de quem o SERVIDOR diz que está no mundo
     this.remotos = new Map();          // id → JogadorRemoto (nasce no primeiro `pos` dele)
     this.mortos = new Map();           // netId → quando renasce (relógio do servidor)
+    this.quebrados = new Map();        // índice do quebrável (decor.json) → quando volta inteiro
+    this.quebrasPendentes = new Map(); // quebrei e o simulador ainda não sabe: segue quebrado na minha tela
     this.chefes = {};                  // 'carrasco' | 'wyrm' → quando ressurge (relógio do servidor)
     this.semLuta = { carrasco: 0, wyrm: 0 };
     this.pendentes = new Map();        // índice da porta → quando EU a abri
@@ -393,12 +395,16 @@ export class Mundo {
     }
     this.chefes = {};
     for (const k of Object.keys(CHEFES)) if (Number.isFinite(est.chefes?.[k]) && est.chefes[k] > 0) this.chefes[k] = est.chefes[k];
-    if (Array.isArray(est.portas) && est.portas.length <= 64) this.passagensGuardadas = { portas: est.portas.map(Boolean), nevoa: !!est.nevoa };
+    this.quebrados.clear();
+    for (const [k, v] of Object.entries(est.quebrados && typeof est.quebrados === 'object' ? est.quebrados : {}).slice(0, 300)) {
+      if (/^\d{1,4}$/.test(k) && Number.isFinite(v)) this.quebrados.set(Number(k), v);
+    }
+    if (Array.isArray(est.portas) && est.portas.length <= 64) this.passagensGuardadas = { portas: est.portas.map(Boolean), nevoa: !!est.nevoa, quebrados: [...this.quebrados.keys()] };
   }
 
   estadoParaGuardar() {
     const pass = this.game.world.estadoPassagens();
-    return { portas: pass.portas, nevoa: pass.nevoa, mortos: Object.fromEntries(this.mortos), chefes: { ...this.chefes } };
+    return { portas: pass.portas, nevoa: pass.nevoa, mortos: Object.fromEntries(this.mortos), chefes: { ...this.chefes }, quebrados: Object.fromEntries(this.quebrados) };
   }
 
   /**
@@ -529,6 +535,11 @@ export class Mundo {
   /** Uma vez por segundo, SÓ no simulador: quem renasce, que chefe acorda, dorme ou ressurge. */
   tique(seg) {
     const g = this.game, agora = this.agora();
+    for (const q of g.world.quebraveis) {
+      if (!q.quebrado) { this.quebrados.delete(q.i); continue; }
+      if (!this.quebrados.has(q.i)) this.quebrados.set(q.i, agora + RENASCE_MS);
+      if (agora >= this.quebrados.get(q.i) && !this.alguemPerto(q.pos, LONGE_PARA_RENASCER)) { g.world.restaurar(q); this.quebrados.delete(q.i); }
+    }
     for (const e of g.enemies) {
       if (e.dead && !this.mortos.has(e.netId)) this.mortos.set(e.netId, agora + RENASCE_MS);
       const quando = this.mortos.get(e.netId);
@@ -608,7 +619,14 @@ export class Mundo {
       for (const [i, t] of this.pendentes) {
         if (quando - t > PORTA_PENDENTE_MS || portas[i]) this.pendentes.delete(i); else portas[i] = true;
       }
-      g.world.aplicarPassagens({ portas, nevoa: !!pass.nevoa });
+      let quebrados = null;
+      if (Array.isArray(pass.quebrados) && pass.quebrados.length <= 300) {
+        quebrados = pass.quebrados.filter(Number.isInteger);
+        for (const [i, t] of this.quebrasPendentes) {
+          if (quando - t > PORTA_PENDENTE_MS || quebrados.includes(i)) this.quebrasPendentes.delete(i); else quebrados.push(i);
+        }
+      }
+      g.world.aplicarPassagens({ portas, nevoa: !!pass.nevoa, quebrados });
     }
     if (c.est) this.guardarEstado(c.est);
   }
@@ -726,8 +744,21 @@ export class Mundo {
     this.cano.enviar(TIPO.ACAO, { tipo: 'porta', i });
   }
 
+  /** Quebrei um barril (`Game.quebrar`): ele é de todos, e quem manda nele é o simulador. */
+  aoQuebrar(q) {
+    if (this.souSim) { this.quebrados.set(q.i, this.agora() + RENASCE_MS); return; }
+    this.quebrasPendentes.set(q.i, performance.now());
+    this.cano.enviar(TIPO.ACAO, { tipo: 'quebrar', i: q.i });
+  }
+
   receberAcao(c, de) {
     const g = this.game, quem = this.remotos.get(de);
+    if (c.tipo === 'quebrar' && Number.isInteger(c.i) && quem) {
+      const q = g.world.quebravel(c.i);
+      // o atraso perdoa uns metros, não o mapa inteiro
+      if (q && !q.quebrado && flatDist(q.pos, quem.pos) < 8) { g.world.quebrar(q, { origem: quem.pos }); this.quebrados.set(q.i, this.agora() + RENASCE_MS); }
+      return;
+    }
     if (c.tipo === 'porta' && Number.isInteger(c.i) && quem) {
       const d = g.world.doors[c.i];
       if (d && !d.open && flatDist(d.pos, quem.pos) < 10) { g.world.openDoor(d); if (flatDist(d.pos, g.player.pos) < 25) g.sfx.door(); }
@@ -759,7 +790,7 @@ export class Mundo {
       const e = g.all.find((x) => x.netId === c.id);
       if (e) g.effects.soulStream(e.pos.clone().setY(e.pos.y + (e.height ?? 1.8) * 0.5), e.isBoss ? 200 : 25);
       g.addSouls(c.n);
-    } else if (c.tipo === 'queda' && typeof c.item === 'string' && ITEMS[c.item]?.type === 'consumable' && Number.isFinite(c.x) && Number.isFinite(c.z)) {
+    } else if (c.tipo === 'queda' && typeof c.item === 'string' && ['consumable', 'ingrediente'].includes(ITEMS[c.item]?.type) && Number.isFinite(c.x) && Number.isFinite(c.z)) {
       const lim = g.world.limites();
       if (c.x > lim.minX && c.x < lim.maxX && c.z > lim.minZ && c.z < lim.maxZ) g.world.addPickup(c.item, 1, { x: c.x, z: c.z }, false);
     } else if (c.tipo === 'chefe' && CHEFES[c.qual]) {

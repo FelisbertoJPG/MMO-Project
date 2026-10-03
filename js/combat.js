@@ -209,6 +209,7 @@ export class Projectiles {
     game.sfx.explosion();
     game.addShake(0.35);
     if (p.visual) return;
+    for (const q of game.world.quebraveisPerto(p.pos, p.radius)) game.quebrar(q, p.pos);
     for (const e of game.allEnemies()) {
       if (e.dead) continue;
       const d = flatDist(e.pos, p.pos);

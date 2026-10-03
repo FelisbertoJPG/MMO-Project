@@ -147,13 +147,20 @@ export function aplicarProgresso(game, s) {
   // Inventário
   inv.items.clear();
   for (const [id, n] of s.inventario.itens ?? []) if (existe(id)) inv.items.set(id, n);
+  // O ESTUS SAIU DO JOGO (03/10/2026): quem o tinha ganha comida no lugar, e ela
+  // entra no cinto onde o frasco estava
+  const tinhaEstus = (s.inventario.itens ?? []).some(([id]) => id === 'estus');
+  if (tinhaEstus) inv.items.set('paoDuro', Math.min(ITEMS.paoDuro.max, (inv.items.get('paoDuro') ?? 0) + 5));
   const eq = { weapon: null, left: null, rings: [null, null], ...s.inventario.equipado };
   inv.equipped.weapon = existe(eq.weapon) ? eq.weapon : null;
   inv.equipped.left = existe(eq.left) ? eq.left : null;
   inv.equipped.rings = eq.rings.map((r) => (existe(r) ? r : null));
   inv.lastShield = existe(s.inventario.ultimoEscudo) ? s.inventario.ultimoEscudo : null;
   inv.torchTime = s.inventario.tocha ?? 0;
-  inv.belt = [0, 1, 2, 3].map((i) => (existe(s.inventario.cinto?.[i]) ? s.inventario.cinto[i] : null));
+  inv.belt = [0, 1, 2, 3].map((i) => {
+    const id = s.inventario.cinto?.[i] === 'estus' ? 'paoDuro' : s.inventario.cinto?.[i];
+    return existe(id) && inv.items.has(id) ? id : null;
+  });
   inv.beltIdx = s.inventario.cintoIdx ?? 0;
   if (!inv.belt[inv.beltIdx]) inv.cycleQuick();
 

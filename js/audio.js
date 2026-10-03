@@ -105,6 +105,17 @@ export class Sfx {
     this.noise({ dur: 0.9, freq: 500, q: 6, vol: 0.2, attack: 0.1, sweepTo: 300 });
     this.noise({ dur: 0.3, freq: 150, type: 'lowpass', vol: 0.6, delay: 0.9 });
   }
+  // madeira estalando: um baque grave e duas lascas agudas logo atrás
+  quebrar() {
+    this.noise({ dur: 0.18, freq: 300, type: 'lowpass', vol: 0.55 });
+    this.noise({ dur: 0.09, freq: 1800, q: 2, vol: 0.35, delay: 0.02 });
+    this.noise({ dur: 0.12, freq: 1100, q: 2.5, vol: 0.25, delay: 0.09 });
+  }
+  // a panela: borbulhar e o "pronto" da comida
+  cozinhar() {
+    for (let i = 0; i < 5; i++) this.noise({ dur: 0.08, freq: 500 + Math.random() * 400, q: 6, vol: 0.18, delay: i * 0.11 });
+    this.tone({ freq: 520, dur: 0.35, vol: 0.08, delay: 0.6 }); this.tone({ freq: 780, dur: 0.5, vol: 0.07, delay: 0.7 });
+  }
   locked() { this.noise({ dur: 0.12, freq: 1200, q: 3, vol: 0.3 }); this.noise({ dur: 0.12, freq: 900, q: 3, vol: 0.3, delay: 0.12 }); }
   chest() {
     this.noise({ dur: 0.6, freq: 700, q: 5, vol: 0.18, attack: 0.05, sweepTo: 400 });

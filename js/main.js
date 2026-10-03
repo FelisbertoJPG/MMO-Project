@@ -3,7 +3,7 @@ import { Assets } from './assets.js';
 import { initGear } from './gear.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
-import { World, START_POS } from './world.js';
+import { World, START_POS, SAQUES } from './world.js';
 import { Effects, Projectiles, flatDist, yawTo } from './combat.js';
 import { Player } from './player.js';
 import { spawnEnemies } from './enemies.js';
@@ -212,6 +212,35 @@ class Game {
       if (this.online.chat?.escrevendo) { this.online.chat.fecharEscrita(); return; }
       this.openMenu('pause');
     });
+  }
+
+  /**
+   * Quebrei um barril/caixote/saco (golpe ou bomba): estoura em pedaços, pode
+   * cair um item (a tabela `SAQUES` do world.js) e — no Mundo online — o
+   * quebrado vira de todos (`sessao.aoQuebrar`). O que cai é de quem quebrou.
+   */
+  quebrar(q, origem) {
+    if (!this.world.quebrar(q, { origem })) return;
+    const tabela = SAQUES[q.cfg.saque];
+    if (tabela) {
+      let r = Math.random() * tabela.reduce((t, [, peso]) => t + peso, 0), item = null;
+      for (const [id, peso] of tabela) { r -= peso; if (r <= 0) { item = id; break; } }
+      if (item) this.world.addPickup(item, 1, { x: q.pos.x + (Math.random() - 0.5) * 0.6, z: q.pos.z + (Math.random() - 0.5) * 0.6 }, false);
+    }
+    this.sessao?.aoQuebrar?.(q);
+  }
+
+  /**
+   * Cozinha uma receita na panela da fogueira (`receitas.js`): gasta os
+   * ingredientes e dá a comida. Hoje é um clique; o minigame entra aqui depois.
+   */
+  cozinhar(receita) {
+    const inv = this.inventory;
+    if (!receita || !receita.ingredientes.every(([id, n]) => inv.count(id) >= n)) return false;
+    for (const [id, n] of receita.ingredientes) inv.remove(id, n);
+    inv.add(receita.resultado, receita.qtd);
+    this.sfx.cozinhar();
+    return true;
   }
 
   /** Destaca, no menu de pausa, a qualidade gráfica em uso. */
@@ -526,6 +555,7 @@ class Game {
    */
   comecarFora() {
     this.inventory.add('dagger', 1, true);   // a primeira arma já entra equipada
+    this.inventory.add('paoDuro', 3, true);  // e um pouco de comida: a cura agora é comida (sem Estus)
     this.world.destrancarCela();
     this.player.startOutside();
     this.snapCamera();
@@ -683,7 +713,7 @@ class Game {
     this.player.souls = 0;
     this.ui.displaySouls = 0;
     // no mundo de todos a minha morte não põe os inimigos dos outros de pé
-    if (this.regras.mundoReinicia) this.resetWorld(); else this.inventory.refillEstus();
+    if (this.regras.mundoReinicia) this.resetWorld();
     this.player.respawn();
     this.snapCamera();
     this.salvar();
@@ -699,7 +729,7 @@ class Game {
       this.sfx.stopBossMusic();
     }
     this.projectiles.clear();
-    this.inventory.refillEstus();
+    this.world.restaurarQuebraveis();   // os barris voltam inteiros, como os inimigos
   }
 
   /** Descansa na fogueira `id`, que passa a ser o ponto de retorno. */
@@ -714,7 +744,7 @@ class Game {
     p.hp = p.maxHp; p.stamina = p.maxStamina;
     p.buffs.resin = 0;
     // no mundo de todos o descanso é só meu: os inimigos renascem por tempo (`Mundo.tique`)
-    if (this.regras.mundoReinicia) this.resetWorld(); else this.inventory.refillEstus();
+    if (this.regras.mundoReinicia) this.resetWorld();
     this.sfx.bonfire();
     if (!this.fogueirasAcesas.has(fogueira.id)) { this.fogueirasAcesas.add(fogueira.id); this.ui.centerMessage('FOGUEIRA ACESA', 'info', 2600); }
     this.salvar({ nuvem: true });

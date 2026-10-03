@@ -38,7 +38,10 @@ export class Player {
     this.level = 1; this.vigor = 10; this.endurance = 10; this.strength = 10;
     this.souls = 0;
     this.fogueira = 'masmorra';   // a última em que descansou: é onde renasce (ver `World.retorno`)
-    this.buffs = { resin: 0, blossom: 0 };
+    // status com tempo (segundos que faltam). As COMIDAS (items.js, `use: 'comer'`)
+    // dão `regen` (cura aos poucos, `regenPorSeg`), `folego`, `fortaleza` e `furia`.
+    this.buffs = { resin: 0, blossom: 0, regen: 0, folego: 0, fortaleza: 0, furia: 0 };
+    this.regenPorSeg = 0;
     this.camYaw = Math.PI; this.camPitch = 0.3; this.camDist = 5.2;
     this.lockTarget = null;
     this.spaceHeld = 0;
@@ -67,8 +70,8 @@ export class Player {
   get maxHp() { return Math.round((200 + (this.vigor - 10) * 22) * (1 + this.ringEffect('hpMul'))); }
   get maxStamina() { return 90 + (this.endurance - 10) * 6; }
   get poise() { return 12 + this.ringEffect('poise'); }
-  get defense() { return this.ringEffect('defense'); }
-  get damageMul() { return (1 + (this.strength - 10) * 0.06) * (this.buffs.resin > 0 ? 1.35 : 1); }
+  get defense() { return this.ringEffect('defense') + (this.buffs.fortaleza > 0 ? 0.15 : 0); }
+  get damageMul() { return (1 + (this.strength - 10) * 0.06) * (this.buffs.resin > 0 ? 1.35 : 1) * (this.buffs.furia > 0 ? 1.2 : 1); }
   get dead() { return this.state === 'dead'; }
   get iframes() {
     if (this.state === 'roll') { const p = this.stateT / this.st.dur; return p > 0.05 && p < 0.62; }
@@ -102,7 +105,7 @@ export class Player {
     this.pos.copy(pos);
     this.facing = rumo; this.camYaw = rumo;
     this.hp = this.maxHp; this.stamina = this.maxStamina; this.staminaDelay = 0;
-    this.buffs.resin = 0; this.buffs.blossom = 0;
+    for (const k in this.buffs) this.buffs[k] = 0;
     this.lockTarget = null;
     this.inArena = false;
     this.knock.set(0, 0, 0);
@@ -256,10 +259,13 @@ export class Player {
         break;
     }
 
+    // Cura aos poucos (comida com `regen`)
+    if (this.buffs.regen > 0 && !this.dead) this.hp = Math.min(this.maxHp, this.hp + this.regenPorSeg * dt);
+
     // Vigor
     if (this.staminaDelay > 0) this.staminaDelay -= dt;
     else if (!staminaUse && this.state !== 'attack' && this.state !== 'roll') {
-      let regen = 52 * (1 + this.ringEffect('staminaRegen') + (this.buffs.blossom > 0 ? 0.6 : 0));
+      let regen = 52 * (1 + this.ringEffect('staminaRegen') + (this.buffs.blossom > 0 || this.buffs.folego > 0 ? 0.6 : 0));
       if (this.blocking) regen *= 0.35;
       this.stamina = Math.min(this.maxStamina, this.stamina + regen * dt);
     }
@@ -370,6 +376,16 @@ export class Player {
         }
       }
     }
+    // barris, caixotes, sacos... (world.quebraveis): o golpe que pega, quebra
+    if (p >= a.hitStart && p <= a.hitEnd) {
+      for (const q of game.world.quebraveisPerto(this.pos, a.reach)) {
+        if (a.hitSet.has(q)) continue;
+        const d = flatDist(q.pos, this.pos);
+        if (a.arc < 3 && angleToTarget(this.pos, this.facing, q.pos) > a.arc + Math.atan2(q.raio, Math.max(d, 0.1))) continue;
+        a.hitSet.add(q);
+        game.quebrar(q, this.pos);
+      }
+    }
     if (p > 0.25 && this.buffer && !a.queued) { a.queued = this.buffer; this.buffer = null; }
     if (p >= a.hitEnd + 0.08 && a.queued) {
       const q = a.queued; a.queued = null;
@@ -420,8 +436,9 @@ export class Player {
 
   startItemUse(id) {
     const def = ITEMS[id];
-    const dur = { heal: 1.3, throw: 0.9, resin: 1.0, blossom: 1.0, souls: 0.9, home: 1.8 }[def.use] ?? 1;
-    this.setState(def.use === 'heal' ? 'heal' : 'item', { id, def, dur, applied: false });
+    const dur = { heal: 1.3, comer: 1.3, throw: 0.9, resin: 1.0, blossom: 1.0, souls: 0.9, home: 1.8 }[def.use] ?? 1;
+    // comer é como beber o frasco era: lento, e um golpe forte interrompe (estado 'heal')
+    this.setState(def.use === 'heal' || def.use === 'comer' ? 'heal' : 'item', { id, def, dur, applied: false });
     this.model.play(def.use === 'throw' ? 'OverhandThrow' : 'Consume', { loop: false, duration: def.use === 'throw' ? dur / 0.85 : dur, restart: true });
   }
 
@@ -432,8 +449,8 @@ export class Player {
       if (!this.lockTarget) this.facing = turnTowards(this.facing, Math.atan2(dir.x, dir.z), dt * 5);
     }
     if (this.lockTarget) this.facing = turnTowards(this.facing, yawTo(this.pos, this.lockTarget.pos), dt * 8);
-    const applyAt = { heal: 0.5, throw: 0.5, home: 0.95 }[s.def.use] ?? 0.6;
-    if (s.def.use === 'heal' && p < applyAt && Math.random() < 0.5) {
+    const applyAt = { heal: 0.5, comer: 0.55, throw: 0.5, home: 0.95 }[s.def.use] ?? 0.6;
+    if ((s.def.use === 'heal' || s.def.use === 'comer') && p < applyAt && Math.random() < 0.5) {
       game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0.2 + Math.random() * 1.8, (Math.random() - 0.5) * 0.8)), vel: new THREE.Vector3(0, 1.2, 0), color: [1, 0.6, 0.2], size: 0.1, life: 0.7 });
     }
     if (!s.applied && p >= applyAt) { s.applied = true; this.applyItem(s.def); }
@@ -465,6 +482,13 @@ export class Player {
         game.sfx.swing();
         break;
       }
+      case 'comer':
+        this.hp = Math.min(this.maxHp, this.hp + (def.cura ?? 0));
+        if (def.regen) { this.buffs.regen = def.regen.dur; this.regenPorSeg = def.regen.porSeg; }
+        if (def.efeito) this.buffs[def.efeito.tipo] = def.efeito.dur;
+        game.sfx.heal();
+        game.effects.burst(this.pos.clone().setY(this.pos.y + 1.2), { count: 24, color: [1, 0.75, 0.35], speed: 2, size: 0.11, life: 0.8, gravity: -2 });
+        break;
       case 'resin': this.buffs.resin = def.duration; game.sfx.torchIgnite(); break;
       case 'blossom': this.buffs.blossom = def.duration; game.sfx.heal(); break;
       case 'souls': game.addSouls(def.amount); game.effects.soulStream(this.pos.clone().setY(this.pos.y + 1.5), 25); break;

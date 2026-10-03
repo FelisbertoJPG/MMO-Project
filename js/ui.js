@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { ITEMS } from './items.js';
+import { ITEMS, ICON_PANELA } from './items.js';
+import { RECEITAS, podeCozinhar } from './receitas.js';
 import { fmtTime } from './inventory.js';
 
 const $ = (s) => document.querySelector(s);
@@ -101,6 +102,35 @@ export class UI {
   openBonfire() {
     this.bonfireMenu.classList.remove('hidden');
     this.renderLevelUp();
+    this.renderPanela();
+  }
+
+  /**
+   * A PANELA da fogueira (receitas.js): cada receita com o que dá, os
+   * ingredientes (tem / precisa) e o botão de cozinhar. O minigame de cozinhar
+   * entra depois no lugar do clique (`Game.cozinhar`).
+   */
+  renderPanela() {
+    const inv = this.game.inventory, el = document.getElementById('panela');
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    el.innerHTML = RECEITAS.map((r) => {
+      const res = ITEMS[r.resultado];
+      const efeito = Object.entries(res.stats ?? {}).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join(' · ');
+      const ing = r.ingredientes.map(([id, n]) => {
+        const tem = inv.count(id);
+        return `<span class="ing${tem >= n ? '' : ' falta'}" title="${esc(ITEMS[id].name)}">${ITEMS[id].icon}<b>${tem}/${n}</b></span>`;
+      }).join('');
+      const pode = podeCozinhar(r, (id) => inv.count(id));
+      return `<div class="receita${pode ? '' : ' sem'}"><div class="rc-icone">${res.icon}</div>
+        <div class="rc-info"><div class="rc-nome">${esc(res.name)}${r.qtd > 1 ? ` ×${r.qtd}` : ''}</div><div class="rc-efeito">${efeito}</div><div class="rc-ing">${ing}</div></div>
+        <button data-receita="${r.id}" ${pode ? '' : 'disabled'}>Cozinhar</button></div>`;
+    }).join('') || '<div class="rc-efeito">Nenhuma receita.</div>';
+    el.querySelectorAll('button[data-receita]').forEach((b) => b.addEventListener('click', () => {
+      this.game.cozinhar(RECEITAS.find((r) => r.id === b.dataset.receita));
+      this.renderPanela();
+    }));
+    const titulo = document.querySelector('.panela-titulo');
+    if (titulo && !titulo.querySelector('svg')) titulo.insertAdjacentHTML('afterbegin', ICON_PANELA);
   }
   closeBonfire() { this.bonfireMenu.classList.add('hidden'); }
 
@@ -144,6 +174,10 @@ export class UI {
     const b = [];
     if (p.buffs.resin > 0) b.push(`<span class="buff resin">Resina ${Math.ceil(p.buffs.resin)}s</span>`);
     if (p.buffs.blossom > 0) b.push(`<span class="buff blossom">Flor ${Math.ceil(p.buffs.blossom)}s</span>`);
+    if (p.buffs.regen > 0) b.push(`<span class="buff regen">Curando ${Math.ceil(p.buffs.regen)}s</span>`);
+    if (p.buffs.folego > 0) b.push(`<span class="buff blossom">Fôlego ${Math.ceil(p.buffs.folego)}s</span>`);
+    if (p.buffs.fortaleza > 0) b.push(`<span class="buff fortaleza">Fortaleza ${Math.ceil(p.buffs.fortaleza)}s</span>`);
+    if (p.buffs.furia > 0) b.push(`<span class="buff resin">Fúria ${Math.ceil(p.buffs.furia)}s</span>`);
     const bh = b.join('');
     if (this.buffs.innerHTML !== bh) this.buffs.innerHTML = bh;
 

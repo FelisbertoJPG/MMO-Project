@@ -17,7 +17,7 @@ export const ENEMY_TYPES = {
       { anim: 'slashA', dmg: 20, poise: 25, reach: 1.9, range: 2.0, lunge: 2.0, speed: 0.55, next: 'm2', nextChance: 0.4 },
       { id: 'm2', anim: 'slashB', dmg: 18, poise: 25, reach: 1.9, range: 0, follow: true, lunge: 1.8, speed: 0.55 },
     ],
-    drops: [['firebomb', 0.12], ['lostSoul', 0.15]],
+    drops: [['firebomb', 0.12], ['lostSoul', 0.15], ['cogumelo', 0.25]],
   },
   warrior: {
     name: 'Guerreiro Esqueleto', outfit: 'skWarrior', skeleton: true, hp: 150, souls: 150, speed: 2.6,
@@ -29,7 +29,7 @@ export const ENEMY_TYPES = {
       { id: 'w2', anim: 'overhead', dmg: 36, poise: 55, reach: 2.1, range: 0, follow: true, lunge: 1.8, speed: 0.75 },
       { anim: 'dash', dmg: 38, poise: 60, reach: 2.0, range: 6, minRange: 3.2, lunge: 6.5, speed: 0.75, trackMul: 1.4 },
     ],
-    drops: [['resin', 0.4], ['lostSoul', 0.3]],
+    drops: [['resin', 0.4], ['lostSoul', 0.3], ['carneCrua', 0.35]],
   },
   rogue: {
     name: 'Ladino Esqueleto', outfit: 'skRogue', skeleton: true, hp: 85, souls: 110, speed: 3.6,
@@ -40,7 +40,7 @@ export const ENEMY_TYPES = {
       { anim: 'slashA', dmg: 18, poise: 20, reach: 1.6, range: 1.8, lunge: 3.2, speed: 0.7, next: 'r2', nextChance: 0.5 },
       { id: 'r2', anim: 'hook', dmg: 16, poise: 20, reach: 1.6, range: 0, follow: true, lunge: 2.5, speed: 0.6 },
     ],
-    drops: [['blossom', 0.35]],
+    drops: [['blossom', 0.35], ['pimenta', 0.4]],
   },
   mage: {
     name: 'Necromante Esqueleto', outfit: 'skMage', skeleton: true, hp: 60, souls: 120, speed: 2.2,
@@ -51,7 +51,7 @@ export const ENEMY_TYPES = {
       { anim: 'summon', cast: 'orb', dmg: 28, range: 15, minRange: 2.5, speed: 1.0 },
       { anim: 'slashA', dmg: 16, poise: 20, reach: 1.8, range: 1.9, lunge: 1.5, speed: 0.6 },
     ],
-    drops: [['firebomb', 0.35]],
+    drops: [['firebomb', 0.35], ['erva', 0.45]],
   },
 };
 

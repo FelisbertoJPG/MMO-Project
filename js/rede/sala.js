@@ -420,6 +420,9 @@ export class Sala {
   }
 
   /** O meu golpe acertou o outro NA MINHA TELA: manda para ele decidir. */
+  /** `Game.quebrar`: no co-op, o barril é do dono do mundo. */
+  aoQuebrar(q) { this.coop?.aoQuebrar(q); }
+
   golpear(alvo, dano, origem, poise, opts = {}) {
     // no mundo do outro, o golpe num inimigo vai para quem manda nele
     if (this.coop && !this.coop.dono && alvo.netId) return this.coop.golpear(alvo, dano, origem, poise, opts);

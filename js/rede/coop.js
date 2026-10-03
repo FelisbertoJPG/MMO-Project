@@ -106,7 +106,16 @@ export class Coop {
     }
     const pass = c.pass;
     if (pass && Array.isArray(pass.portas) && pass.portas.length <= 64) {
-      g.world.aplicarPassagens({ portas: pass.portas.map(Boolean), nevoa: !!pass.nevoa });
+      // os barris quebrados do dono; o que EU acabei de quebrar segue quebrado até ele saber
+      let quebrados = null;
+      if (Array.isArray(pass.quebrados) && pass.quebrados.length <= 300) {
+        quebrados = pass.quebrados.filter(Number.isInteger);
+        this.quebrasPendentes ??= new Map();
+        for (const [i, t] of this.quebrasPendentes) {
+          if (quando - t > 2500 || quebrados.includes(i)) this.quebrasPendentes.delete(i); else quebrados.push(i);
+        }
+      }
+      g.world.aplicarPassagens({ portas: pass.portas.map(Boolean), nevoa: !!pass.nevoa, quebrados });
     }
     // a barra (e a música) do chefe acompanham a luta do dono
     const bf = !!c.bf;
@@ -186,6 +195,13 @@ export class Coop {
   // ------------------------------------------------------------ dos dois lados
 
   /** Um projétil nasceu aqui: o outro lado desenha uma cópia que não fere. */
+  /** Quebrei um barril no mundo do dono: ele fica sabendo (o que caiu é meu). */
+  aoQuebrar(q) {
+    if (this.dono) return;   // no meu mundo o quebrado já vai no MUNDO
+    (this.quebrasPendentes ??= new Map()).set(q.i, performance.now());
+    this.sala.enviar(TIPO.EVENTO, { tipo: 'quebrar', i: q.i });
+  }
+
   aoProjetil(k, a) {
     this.sala.enviar(TIPO.EVENTO, { tipo: 'proj', k, pos: vet(a.pos), dir: vet(a.dir), vel: vet(a.vel),
       speed: a.speed, life: a.life, delay: a.delay, maxR: a.maxR, radius: a.radius });
@@ -193,6 +209,11 @@ export class Coop {
 
   receberEvento(c) {
     const g = this.game;
+    if (c.tipo === 'quebrar' && this.dono && Number.isInteger(c.i)) {
+      const q = g.world.quebravel(c.i);
+      if (q && !q.quebrado && (!this.outro || Math.hypot(q.pos.x - this.outro.pos.x, q.pos.z - this.outro.pos.z) < 8)) g.world.quebrar(q, { origem: this.outro?.pos });
+      return;
+    }
     if (c.tipo === 'proj') {
       const pos = lerVet(c.pos);
       if (!pos) return;
