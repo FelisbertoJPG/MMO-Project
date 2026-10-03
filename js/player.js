@@ -79,8 +79,21 @@ export class Player {
     if (this.state === 'roll') { const p = this.stateT / this.st.dur; return p > 0.05 && p < 0.62; }
     return ['fog', 'rest', 'restUp', 'lying', 'standing'].includes(this.state);
   }
+  /**
+   * A GUARDA (03/10/2026): com escudo, o escudo; com arma de DUAS MÃOS (o escudo
+   * vai para as costas), a própria arma — como no Dark Souls, segura menos. `pose`
+   * é o clipe enquanto segura (`segura` = o quadro em que ele para), `golpe` o de
+   * quando aparou um golpe, `estabilidade` quanto do golpe ela absorve.
+   */
+  get guarda() {
+    if (this.shield) return { estabilidade: this.shield.stability, pose: 'Idle_Shield_Loop', loop: true, golpe: 'Shield_OneShot', mao: 'l' };
+    const w = this.weapon;
+    // (com a tocha na esquerda, o botão direito é o golpe dela: sem guarda)
+    if (w.twoHanded && !this.torchLit) return { estabilidade: w.guarda ?? 0.4, pose: 'Sword_Block', loop: false, segura: 0.45, golpe: 'Sword_Block', mao: 'r' };
+    return null;
+  }
   get blocking() {
-    return this.state === 'free' && this.game.input.mouseDown[2] && this.stamina > 0 && !!this.shield;
+    return this.state === 'free' && this.game.input.mouseDown[2] && this.stamina > 0 && !!this.guarda;
   }
 
   // Posição inicial: deitado na cela
@@ -125,10 +138,12 @@ export class Player {
       right.traverse((c) => { if (c.isMesh) c.material = c.material.clone(); });
     }
     this.model.equip('r', right);
-    let leftObj = null;
+    let leftObj = null, costas = null;
     if (this.left === 'torch') leftObj = this.torchMesh;
-    else if (this.left && !w.twoHanded) leftObj = shieldMesh(ITEMS[this.left].model);
+    // com arma de duas mãos o escudo vai para as COSTAS: aparece, mas quem guarda é a arma
+    else if (this.left) { const s = shieldMesh(ITEMS[this.left].model); if (w.twoHanded) costas = s; else leftObj = s; }
     this.model.equip('l', leftObj);
+    this.model.equipCostas(costas);
     this.torchFlame.visible = this.left === 'torch';
     this.hp = Math.min(this.hp, this.maxHp);
   }
@@ -503,11 +518,11 @@ export class Player {
     const game = this.game;
     if (this.dead || this.iframes) return 'iframe';
     if (this.blocking && !unblockable && angleToTarget(this.pos, this.facing, srcPos) < 1.25) {
-      const stability = this.shield.stability;
+      const guarda = this.guarda, stability = guarda.estabilidade;
       this.stamina -= amount * (1.5 - stability);
       this.staminaDelay = 0.8;
       const pushDir = new THREE.Vector3(this.pos.x - srcPos.x, 0, this.pos.z - srcPos.z).normalize();
-      game.effects.sparks(this.model.handL.getWorldPosition(new THREE.Vector3()));
+      game.effects.sparks((guarda.mao === 'r' ? this.model.handR : this.model.handL).getWorldPosition(new THREE.Vector3()));
       if (this.stamina <= 0) {
         this.stamina = 0;
         this.hp -= amount * 0.3;
@@ -557,8 +572,12 @@ export class Player {
     const m = this.model;
     this.model.root.rotation.y = this.facing;
     if (this.state === 'free') {
-      if (this.blockHitT > 0) m.play('Shield_OneShot', { loop: false, fade: 0.05 });
-      else if (this.blocking) m.play('Idle_Shield_Loop', { fade: 0.15 });
+      if (this.blockHitT > 0 && this.guarda) m.play(this.guarda.golpe, { loop: false, fade: 0.05 });
+      else if (this.blocking) {
+        const g = this.guarda, a = m.play(g.pose, { loop: g.loop, fade: 0.12 });
+        // a guarda com a arma é o MEIO do Sword_Block (a espada atravessada): para ali
+        if (g.segura && a && a.time >= g.segura) a.paused = true;
+      }
       else if (this.moveSpeed > 0) {
         const dir = this.st.dir;
         const fx = Math.sin(this.facing), fz = Math.cos(this.facing);

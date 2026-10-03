@@ -60,7 +60,7 @@ export class CharacterModel {
     this.mixer = new THREE.AnimationMixer(scene);
     this.actions = {};
     this.current = null; this.currentName = null;
-    this.slotR = null; this.slotL = null;
+    this.slotR = null; this.slotL = null; this.slotCostas = null;
     // o corpo do guerreiro (guerreiro.js): o manequim segue animando, invisível.
     // `armadura` como em `usarGuerreiro` (false = só o manequim, o padrão dos inimigos)
     this.guerreiro = armadura !== false && Assets.guerreiro ? new CorpoGuerreiro(this, armadura) : null;
@@ -85,6 +85,8 @@ export class CharacterModel {
       const obj = (lado === 'r' ? this.slotR : this.slotL)?.children[0];
       if (obj) this.equip(lado, obj);
     }
+    const costas = this.slotCostas?.children[0];
+    if (costas) this.equipCostas(costas);
   }
 
   duration(name) { return Assets.clips[name]?.duration ?? 1; }
@@ -142,6 +144,20 @@ export class CharacterModel {
     this[key] = holder;
   }
 
+  // O escudo nas COSTAS (arma de duas mãos): preso ao alto da coluna, virado para trás
+  equipCostas(obj) {
+    if (this.slotCostas) { this.slotCostas.parent?.remove(this.slotCostas); this.slotCostas = null; }
+    if (!obj) return;
+    const holder = new THREE.Group();
+    let osso = this.scene.getObjectByName('spine_03');
+    holder.matrix.copy(costasMatrix());
+    if (this.guerreiro) ({ osso, matriz: holder.matrix } = this.guerreiro.pegada('spine_03', holder.matrix));
+    holder.matrix.decompose(holder.position, holder.quaternion, holder.scale);
+    holder.add(obj);
+    osso.add(holder);
+    this.slotCostas = holder;
+  }
+
   flash(on) {
     this.flashMats.forEach((m, i) => { if (on) m.emissive.setRGB(0.35, 0.2, 0.16); else m.emissive.copy(this.baseEmissive[i]); });
   }
@@ -166,6 +182,23 @@ function gripMatrix(boneName, side, shield) {
   const bone = src.getObjectByName(boneName);
   gripCache[key] = bone.matrixWorld.clone().invert().multiply(target);
   return gripCache[key];
+}
+
+// Matriz local (no osso spine_03) do escudo nas costas, na pose T: atrás do peito,
+// um pouco abaixo. O escudo é feito (gear.js) com a face para +Y e o alto para −Z:
+// Rx(−90°) põe a face para trás (−Z) e Rz(180°) desvira o alto para cima
+let costasCache = null;
+function costasMatrix() {
+  if (costasCache) return costasCache;
+  const src = Assets.baseScene;
+  src.updateMatrixWorld(true);
+  const osso = src.getObjectByName('spine_03');
+  const p = osso.getWorldPosition(new THREE.Vector3());
+  const alvo = new THREE.Matrix4().compose(new THREE.Vector3(p.x, p.y - 0.12, p.z - 0.2),
+    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI)
+      .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2)), new THREE.Vector3(1, 1, 1));
+  costasCache = osso.matrixWorld.clone().invert().multiply(alvo);
+  return costasCache;
 }
 
 export function weaponMesh(kind) { return makeWeapon(kind); }

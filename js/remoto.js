@@ -170,10 +170,11 @@ export class JogadorRemoto {
     this.maos = { d, e };
     const arma = d && ITEMS[d]?.model ? weaponMesh(ITEMS[d].model) : null;
     this.model.equip('r', arma);
-    let esq = null;
+    let esq = null, costas = null;
     if (e === 'torch') esq = weaponMesh('torch');
-    else if (e && ITEMS[e]?.model && !ITEMS[d]?.twoHanded) esq = shieldMesh(ITEMS[e].model);
+    else if (e && ITEMS[e]?.model) { const s = shieldMesh(ITEMS[e].model); if (ITEMS[d]?.twoHanded) costas = s; else esq = s; }
     this.model.equip('l', esq);
+    this.model.equipCostas(costas);
     this.aplicarAparencia();
   }
 

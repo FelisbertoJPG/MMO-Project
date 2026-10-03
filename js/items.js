@@ -204,6 +204,7 @@ export const ITEMS = {
     name: 'Espadão do Cavaleiro', type: 'weapon', icon: ICONS.greatsword, model: 'greatsword', twoHanded: true,
     desc: 'Espada colossal de um cavaleiro que tentou desafiar o Carrasco. Empunhada com as duas mãos.',
     damage: 62, speed: 0.9, stamina: 30, reach: 2.5, poise: 60,
+    guarda: 0.5,   // bloqueia com a própria lâmina (o escudo vai para as costas)
     light: ['heavy1', 'heavy2', 'heavy3', 'heavy4'], heavy: 'overhead',
   },
 

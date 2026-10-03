@@ -122,6 +122,8 @@ dotnet publish launcher -c Release -o .    # recompila o masmorra.exe (SDK .NET 
 - **`transporteMundo`** (`rede/transporte.js`) manda UM POST por vez e junta o resto em lote: vários POSTs em paralelo chegam fora de ordem. `troca: true` (posição, retrato) substitui o que ainda está na fila.
 - O que NÃO é: à prova de trapaça (quem simula é um cliente). O que NÃO foi feito: ver `[ ]` no `TASKS-MMO.md` (hospedar pela internet, o dragão com dois jogadores, portas que fecham sozinhas, instanciar o cenário).
 
+**A GUARDA E O ESCUDO NAS COSTAS (`Player.guarda`, 03/10/2026)** — com escudo, a guarda é o escudo (`Idle_Shield_Loop`); com arma de DUAS MÃOS (`twoHanded`), o escudo vai para as COSTAS (`CharacterModel.equipCostas`, preso ao `spine_03`/`Spine001`, `costasMatrix`) e a guarda é a própria arma (`Sword_Block` parado no quadro 0,45 s, estabilidade `guarda` do item — o espadão 0,5). Com a tocha acesa na esquerda o botão direito segue sendo o golpe dela (sem guarda). Antes, a arma de duas mãos simplesmente sumia com o escudo e não bloqueava. O `JogadorRemoto` faz o mesmo com as costas.
+
 **Items/inventory**: `ITEMS` in `items.js` holds every item definition plus its inline SVG icon. `Inventory` tracks counts and equipped slots (right hand, left hand, rings, quick belt). The torch is a left-hand item with a burn timer (`TORCH_LIFE`, which only counts down while lit in hand), and it swaps with the last shield in `inv.lastShield`.
 
 **Other**: `combat.js` holds shared math helpers (`flatDist`, `yawTo`, `angleToTarget`, `turnTowards`) plus the particle `Effects` and `Projectiles`. `audio.js` synthesizes all sound with WebAudio, so there are no audio files. `ui.js` drives the DOM HUD and menus declared in `index.html`.

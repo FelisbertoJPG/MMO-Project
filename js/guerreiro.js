@@ -138,7 +138,7 @@ export class CorpoGuerreiro {
     // aqui a deixava invisível na mão nova
     this.escondidos = [];
     const armas = new Set();
-    for (const slot of [modelo.slotR, modelo.slotL]) slot?.traverse((o) => armas.add(o));
+    for (const slot of [modelo.slotR, modelo.slotL, modelo.slotCostas]) slot?.traverse((o) => armas.add(o));
     modelo.scene.traverse((o) => { if (o.isMesh && o.visible && !armas.has(o)) { o.visible = false; this.escondidos.push(o); } });
 
     // a pose T dos dois, no espaço do pivot. A do UAL vem do manequim-FONTE
