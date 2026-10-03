@@ -61,6 +61,9 @@ export class CharacterModel {
     this.actions = {};
     this.current = null; this.currentName = null;
     this.slotR = null; this.slotL = null; this.slotCostas = null;
+    // AS DUAS MÃOS (arma de duas mãos): quem anima liga `duasMaos`; o peso entra e sai suave
+    this.duasMaos = false;
+    this.pesoDuasMaos = 0;
     // o corpo do guerreiro (guerreiro.js): o manequim segue animando, invisível.
     // `armadura` como em `usarGuerreiro` (false = só o manequim, o padrão dos inimigos)
     this.guerreiro = armadura !== false && Assets.guerreiro ? new CorpoGuerreiro(this, armadura) : null;
@@ -164,7 +167,92 @@ export class CharacterModel {
 
   setEmissive(r, g, b) { for (const m of this.flashMats) m.emissive.setRGB(r, g, b); }
 
-  update(dt) { this.mixer.update(dt); this.guerreiro?.seguir(); }
+  update(dt) {
+    this.mixer.update(dt);
+    this.guerreiro?.seguir();
+    const meta = this.duasMaos && this.slotR ? 1 : 0;
+    this.pesoDuasMaos += (meta - this.pesoDuasMaos) * Math.min(1, dt * 10);
+    if (this.pesoDuasMaos > 0.01 && this.slotR) this.segurarComAsDuas(this.pesoDuasMaos);
+  }
+
+  /**
+   * AS DUAS MÃOS no cabo da arma de duas mãos (IK, depois da animação — e do
+   * retarget, no guerreiro). Os clipes do UAL são de uma mão: o pulso esquerdo vai
+   * para o cabo, 14 cm abaixo do direito e do MESMO lado (as duas fecham o cabo pelo
+   * mesmo lado). Quando o cabo está longe demais para o braço esquerdo, o direito
+   * TRAZ a arma para perto do corpo (IK também), com a mão no mesmo giro — a lâmina
+   * só anda, não torce.
+   */
+  segurarComAsDuas(peso) {
+    const g = this.guerreiro;
+    const osso = (ual, gu) => (g ? g.cena.getObjectByName(gu) : this.scene.getObjectByName(ual));
+    const ombroL = osso('upperarm_l', 'ArmL'), cotL = osso('lowerarm_l', 'ElbowL'), maoL = osso('hand_l', 'HandL');
+    const ombroR = osso('upperarm_r', 'ArmR'), cotR = osso('lowerarm_r', 'ElbowR'), maoR = osso('hand_r', 'HandR');
+    this.root.updateMatrixWorld(true);
+    // o pulso esquerdo no espaço da arma: o do direito, 14 cm para o pomo (−Z)
+    _alvoLocal.set(0, 0, 0).applyMatrix4(_inv.copy(this.slotR.matrix).invert());
+    _alvoLocal.z -= 0.14;
+    const pulsoR = maoR.getWorldPosition(_pR);
+    const d = _d.copy(_alvoLocal).applyMatrix4(this.slotR.matrixWorld).sub(pulsoR);   // direito → esquerdo, no mundo
+    // onde o pulso direito tem de ficar para os DOIS braços alcançarem (umas voltas de ajuste)
+    const sL = ombroL.getWorldPosition(_sL), sR = ombroR.getWorldPosition(_sR);
+    const alcL = (sL.distanceTo(cotL.getWorldPosition(_t1)) + _t1.distanceTo(maoL.getWorldPosition(_t2))) * 0.97;
+    const alcR = (sR.distanceTo(cotR.getWorldPosition(_t1)) + _t1.distanceTo(pulsoR)) * 0.97;
+    const R = _R.copy(pulsoR);
+    for (let k = 0; k < 4; k++) {
+      _t1.addVectors(R, d).sub(sL); if (_t1.length() > alcL) _t1.setLength(alcL); R.copy(sL).add(_t1).sub(d);
+      _t1.subVectors(R, sR); if (_t1.length() > alcR) _t1.setLength(alcR); R.copy(sR).add(_t1);
+    }
+    R.lerpVectors(pulsoR, R, peso);
+    if (R.distanceToSquared(pulsoR) > 1e-6) {
+      maoR.getWorldQuaternion(_qMao);
+      ikDoisOssos(ombroR, cotR, maoR, R);
+      // a mão no giro de antes (no mundo): a arma não torce
+      maoR.parent.getWorldQuaternion(_qp);
+      maoR.quaternion.copy(_qp.invert().multiply(_qMao));
+      maoR.updateMatrixWorld(true);
+    }
+    // e a esquerda no cabo
+    const alvo = _alvo.copy(R).add(d);
+    alvo.lerpVectors(maoL.getWorldPosition(_t2), alvo, peso);
+    ikDoisOssos(ombroL, cotL, maoL, alvo);
+  }
+}
+
+// ---------------------------------------------------------------- IK de dois ossos
+// Gira o ombro e o cotovelo para a ponta (`osC`) chegar ao alvo, mantendo o plano
+// de dobra do braço: (1) o cotovelo abre/fecha até a distância ombro→ponta ser a
+// do alvo (teorema dos cossenos), (2) o ombro gira essa reta até o alvo. Tudo em
+// giros NO MUNDO, convertidos para o local de cada osso; alvo fora do alcance =
+// braço esticado na direção dele.
+const _alvoLocal = new THREE.Vector3(), _alvo = new THREE.Vector3(), _inv = new THREE.Matrix4();
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3();
+const _ba = new THREE.Vector3(), _bc = new THREE.Vector3(), _ac = new THREE.Vector3(), _at = new THREE.Vector3(), _eixo = new THREE.Vector3();
+const _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _qMao = new THREE.Quaternion();
+const _pR = new THREE.Vector3(), _d = new THREE.Vector3(), _sL = new THREE.Vector3(), _sR = new THREE.Vector3(), _R = new THREE.Vector3(), _t1 = new THREE.Vector3(), _t2 = new THREE.Vector3();
+// gira o osso `o` no MUNDO por `r` (o pai fica onde está)
+function girarNoMundo(o, r) {
+  o.getWorldQuaternion(_qw);
+  o.parent.getWorldQuaternion(_qp);
+  o.quaternion.copy(_qp.invert().multiply(r.multiply(_qw)));
+  o.updateMatrixWorld(true);
+}
+function ikDoisOssos(osA, osB, osC, alvo) {
+  osA.getWorldPosition(_a); osB.getWorldPosition(_b); osC.getWorldPosition(_c);
+  const lab = _a.distanceTo(_b), lcb = _b.distanceTo(_c);
+  const lat = THREE.MathUtils.clamp(_a.distanceTo(alvo), Math.abs(lab - lcb) + 0.002, lab + lcb - 0.002);
+  // (1) o cotovelo: o ângulo em B que dá a distância `lat`
+  _ba.subVectors(_a, _b).normalize(); _bc.subVectors(_c, _b).normalize();
+  const atual = Math.acos(THREE.MathUtils.clamp(_ba.dot(_bc), -1, 1));
+  const quer = Math.acos(THREE.MathUtils.clamp((lab * lab + lcb * lcb - lat * lat) / (2 * lab * lcb), -1, 1));
+  _eixo.crossVectors(_ba, _bc);
+  if (_eixo.lengthSq() < 1e-10) _eixo.set(0, 1, 0).cross(_ba);   // braço reto: dobra para qualquer lado
+  _eixo.normalize();
+  girarNoMundo(osB, _qr.setFromAxisAngle(_eixo, quer - atual));
+  // (2) o ombro: a reta ombro→ponta para cima do alvo
+  osC.getWorldPosition(_c);
+  _ac.subVectors(_c, _a).normalize(); _at.subVectors(alvo, _a).normalize();
+  girarNoMundo(osA, _qr.setFromUnitVectors(_ac, _at));
 }
 
 // Matriz local (relativa ao osso) de uma arma/escudo, calculada na pose T da cena-fonte

@@ -29,7 +29,7 @@ dotnet publish launcher -c Release -o .    # recompila o masmorra.exe (SDK .NET 
 
 **`HOSPEDAR=1`** (servidor exposto para fora, atrás de túnel ou proxy): desliga `/__save` e `/__lan/*`. A defesa dessas rotas é "o pedido vem deste computador?" (`soDaqui`), e atrás de um túnel TODO pedido vem de `127.0.0.1`. Rota nova que confie em `soDaqui` precisa da mesma trava.
 
-**Testar pela automação SEM estragar o save**: o jogo grava sozinho a cada 15 s e "Novo Jogo" APAGA `saves/progresso.json`. Antes de mexer: `game.salvar = () => {}` e `game.progresso = null; game.start()`. No mundo online, suba o servidor com `MUNDO_DIR` numa pasta temporária.
+**Testar pela automação SEM estragar o save**: o jogo grava sozinho a cada 15 s e "Novo Jogo" APAGA `saves/progresso.json`. Antes de mexer: `game.salvar = () => {}` e `game.progresso = null; game.start()`. O `server.js` não manda cabeçalho de cache, e um Chrome de teste com perfil fixo pode rodar o `.js` VELHO depois de uma edição: desligue o cache (`Network.setCacheDisabled`). No mundo online, suba o servidor com `MUNDO_DIR` numa pasta temporária.
 
 ## Architecture
 
@@ -123,6 +123,7 @@ dotnet publish launcher -c Release -o .    # recompila o masmorra.exe (SDK .NET 
 - O que NÃO é: à prova de trapaça (quem simula é um cliente). O que NÃO foi feito: ver `[ ]` no `TASKS-MMO.md` (hospedar pela internet, o dragão com dois jogadores, portas que fecham sozinhas, instanciar o cenário).
 
 **A GUARDA E O ESCUDO NAS COSTAS (`Player.guarda`, 03/10/2026)** — com escudo, a guarda é o escudo (`Idle_Shield_Loop`); com arma de DUAS MÃOS (`twoHanded`), o escudo vai para as COSTAS (`CharacterModel.equipCostas`, preso ao `spine_03`/`Spine001`, `costasMatrix`) e a guarda é a própria arma (`Sword_Block` parado no quadro 0,45 s, estabilidade `guarda` do item — o espadão 0,5). Com a tocha acesa na esquerda o botão direito segue sendo o golpe dela (sem guarda). Antes, a arma de duas mãos simplesmente sumia com o escudo e não bloqueava. O `JogadorRemoto` faz o mesmo com as costas.
+- **AS DUAS MÃOS** (`CharacterModel.segurarComAsDuas`, ligado por `model.duasMaos`): os clipes do UAL são de uma mão, então, depois da animação (e do retarget), um IK de dois ossos (`ikDoisOssos`, giros no mundo) leva o pulso esquerdo ao cabo, 14 cm abaixo do direito; quando o cabo está longe demais para o braço esquerdo, o braço direito traz a arma para perto do corpo (a mão mantém o giro: a lâmina só anda). Fora em `MAO_OCUPADA` (comer, item, caído, descansando) e com a tocha; o peso entra e sai suave. O remoto liga pelo item que viaja (`d`/`e`) e pelo estado.
 
 **Items/inventory**: `ITEMS` in `items.js` holds every item definition plus its inline SVG icon. `Inventory` tracks counts and equipped slots (right hand, left hand, rings, quick belt). The torch is a left-hand item with a burn timer (`TORCH_LIFE`, which only counts down while lit in hand), and it swaps with the last shield in `inv.lastShield`.
 

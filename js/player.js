@@ -9,6 +9,9 @@ const SPRINT_HOLD = 0.28;
 const ROLL_COST = 22;
 const _v = new THREE.Vector3();
 
+// estados em que a mão esquerda faz outra coisa (ou o boneco está no chão): sem as duas mãos na arma
+export const MAO_OCUPADA = ['heal', 'item', 'dead', 'rest', 'restUp', 'lying', 'standing'];
+
 export class Player {
   constructor(game) {
     this.game = game;
@@ -571,6 +574,8 @@ export class Player {
   animate(dt) {
     const m = this.model;
     this.model.root.rotation.y = this.facing;
+    // arma de duas mãos: a esquerda vai ao cabo (character.js), menos com ela ocupada
+    m.duasMaos = !!this.weapon.twoHanded && !this.torchLit && !MAO_OCUPADA.includes(this.state);
     if (this.state === 'free') {
       if (this.blockHitT > 0 && this.guarda) m.play(this.guarda.golpe, { loop: false, fade: 0.05 });
       else if (this.blocking) {

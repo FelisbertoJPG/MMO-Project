@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
 import { armaduraDe } from './guerreiro.js';
+import { MAO_OCUPADA } from './player.js';
 import { ITEMS } from './items.js';
 
 /** Quanto atrás do "agora" o boneco é desenhado: é a folga para interpolar entre dois recados. */
@@ -155,6 +156,7 @@ export class JogadorRemoto {
       this.model.play(atual.a, { loop: loopa(atual.a), speed: atual.s || 1, fade: 0.15, from: atual.t ?? 0 });
     }
     if (atual.d !== this.maos.d || atual.e !== this.maos.e) this.equipar(atual.d, atual.e);
+    this.model.duasMaos = !!ITEMS[this.maos.d]?.twoHanded && this.maos.e !== 'torch' && !MAO_OCUPADA.includes(this.state);
     if (atual.h != null) this.hpFrac = atual.h;
     if (atual.c && atual.c !== this.corpo) this.vestir(atual.c);
   }
