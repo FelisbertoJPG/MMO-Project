@@ -180,6 +180,11 @@ export class JogadorRemoto {
         o.material.userData.brilhoOriginal = o.material.emissive?.getHex();
       }
       const m = o.material, ud = m.userData;
+      // a armadura fundida (character.js) guarda a cor nos vértices: o fantasma
+      // a pinta de UMA cor, então desliga a cor dos vértices enquanto está tingido
+      ud.vertexColorsOriginal ??= m.vertexColors;
+      const semCorDeVertice = !!ap?.cor && ud.vertexColorsOriginal;
+      if (m.vertexColors !== (ud.vertexColorsOriginal && !semCorDeVertice)) { m.vertexColors = ud.vertexColorsOriginal && !semCorDeVertice; m.needsUpdate = true; }
       const translucido = ap && ap.opacidade < 1;
       m.transparent = !!translucido; m.depthWrite = !translucido;
       o.castShadow = !translucido;
