@@ -2,9 +2,9 @@
 
 Transformar a Masmorra num mundo compartilhado **sem perder o jogo de hoje**.
 
-**Estado em 02/10/2026:** F0 a F6 feitas e conferidas (duas janelas no mesmo mundo:
-combate, troca de simulador no meio da luta, portas, chefe, morte, save no servidor).
-Faltam a F7 (acabamento) e os itens marcados `[ ]` abaixo.
+**Estado em 03/10/2026:** F0 a F6 feitas e conferidas — primeiro em duas janelas, depois
+JOGADAS de verdade: muitas partidas pela internet com até **4 jogadores simultâneos**.
+Faltam os itens marcados `[ ]` abaixo (melhorias do servidor e recursos novos).
 
 ## Os dois modos
 
@@ -126,7 +126,7 @@ As diferenças moram em `js/modo.js` (`REGRAS`), e o código pergunta `game.regr
   `masmorra` em Settings → Data API → Exposed schemas.
 - [x] **F3.6e No ar com contas de verdade**: em 02/10/2026 o servidor do Render mostrou 2
   jogadores ligados ao mesmo tempo, por vários minutos (login do Supabase e SSE pelo proxy
-  do Render funcionando). Falta só a impressão de quem jogou sobre a latência.
+  do Render funcionando). Depois, partidas longas com até 4 jogadores (até 03/10/2026).
 - [x] **F3.6f Uma atualização do JOGO com gente dentro** (as tochas de estaca, commit
   `3f8cacb`): o Pages serviu a versão nova em menos de um minuto depois do `git push`, e o
   Render NÃO reiniciou — os 2 jogadores seguiram ligados (o `buildFilter` do `render.yaml`).
@@ -156,12 +156,11 @@ As diferenças moram em `js/modo.js` (`REGRAS`), e o código pergunta `game.regr
 - [x] **F5.5** Portas de todos (`aoAbrirPorta` → `acao`), baús de cada um.
 - [x] **F5.6** Chefes: luta por jogador (`atualizarLuta`), prêmio a quem lutou
   (`premiarChefe`), ressurgir por tempo com a névoa fechando.
-- [x] **F5.7** Janela escondida passa o bastão (`visivel`). *Conferido pelo recado e pelo
-  teste do servidor; falta ver com uma janela minimizada de verdade.*
-- [ ] **F5.8 O dragão no MMO**: usa o mesmo código do Carrasco, mas só o Carrasco foi
-  jogado nas duas janelas. Conferir o terraço com dois jogadores.
-- [ ] **F5.9 Lacaios do Carrasco na troca de simulador**: somem (quem assume não os tem).
-  Aceito como aproximação; anotar se incomodar.
+- [x] **F5.7** Janela escondida passa o bastão (`visivel`). Conferido pelo recado, pelo
+  teste do servidor e nas partidas com vários jogadores.
+- [x] **F5.8 O dragão no MMO**: conferido jogando (partidas de até 4 jogadores).
+- [x] **F5.9 Lacaios do Carrasco na troca de simulador**: somem (quem assume não os tem).
+  Aceito como aproximação; não incomodou nas partidas.
 - [ ] **F5.10 Portas que fecham sozinhas** depois de N minutos sem ninguém perto (hoje
   ficam abertas para sempre no mundo de todos).
 
