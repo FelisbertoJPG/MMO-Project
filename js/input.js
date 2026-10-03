@@ -11,6 +11,13 @@ export class Input {
     this.dx = 0; this.dy = 0; this.wheel = 0;
     this.locked = false;
     this.enabled = true;
+    // CELULAR (js/toque.js): sem mouse travado; os botões na tela apertam as
+    // MESMAS teclas e botões virtuais (`apertar`/`soltar`), e o joystick dá um
+    // eixo analógico (`eixo` = {x: direita, z: frente}, de -1 a 1). O jogo não
+    // sabe de onde veio a tecla — é o que deixa o combate, o MMO e a sala
+    // funcionarem no toque sem uma linha a mais.
+    this.toque = false;
+    this.eixo = null;
 
     window.addEventListener('keydown', (e) => {
       // Digitando numa caixa de texto (login, mensagem): a tecla é do texto, não do jogo
@@ -46,10 +53,17 @@ export class Input {
   }
 
   requestLock() {
+    if (this.toque) return;   // no celular não há mouse para travar
     const p = this.canvas.requestPointerLock?.();
     if (p && p.catch) p.catch(() => {});
   }
   exitLock() { if (document.pointerLockElement) document.exitPointerLock(); }
+
+  // ---- teclas e botões VIRTUAIS (os controles de toque) ----
+  apertar(code) { if (!this.down.has(code)) this.pressedSet.add(code); this.down.add(code); }
+  soltar(code) { if (this.down.delete(code)) this.releasedSet.add(code); }
+  mouseApertar(b) { this.mouseDown[b] = true; this.mousePressedArr[b] = true; }
+  mouseSoltar(b) { if (this.mouseDown[b]) this.mouseReleasedArr[b] = true; this.mouseDown[b] = false; }
 
   isDown(code) { return this.down.has(code); }
   pressed(code) { return this.pressedSet.has(code); }
@@ -60,6 +74,7 @@ export class Input {
   clearAll() {
     this.down.clear();
     this.mouseDown = [false, false, false];
+    this.eixo = null;
     this.endFrame();
   }
 

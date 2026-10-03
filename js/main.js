@@ -16,6 +16,7 @@ import { lerProgresso, salvarProgresso, aplicarProgresso, apagarProgresso } from
 import { Online } from './rede/online.js';
 import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
+import { ControlesToque, ehToque } from './toque.js';
 import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
 import { tokenValido } from './rede/supabase.js';
@@ -92,6 +93,8 @@ class Game {
     this.sessao = null;
     this.online = new Online(this);
     this.salaUI = new SalaUI(this);
+    // celular: joystick, botões na tela e a tela deitada (js/toque.js)
+    if (ehToque()) this.toque = new ControlesToque(this);
     this.player.startInCell();
     this.bindUI();
     this.onResize();
@@ -318,7 +321,7 @@ class Game {
       $('mmo-form').classList.add('hidden');
       this.prepararMundo();
     });
-    $('sair-mundo-btn').addEventListener('click', () => this.sairDoMundo());
+    $('sair-mundo-btn').addEventListener('click', () => this.voltarAoInicio());
   }
 
   /**
@@ -343,18 +346,24 @@ class Game {
     this.online.comecarPartida();
     if (salvo) { this.snapCamera(); this.ui.centerMessage('Mundo online', 'info', 3000); }
     else this.comecarFora();
-    document.getElementById('sair-mundo-btn').classList.remove('hidden');
+    document.getElementById('sair-mundo-btn').textContent = 'Sair do mundo';
     r.mundo.ligar();
     this.salvar({ nuvem: true });   // o personagem novo já fica guardado
   }
 
-  /** "Sair do mundo" (menu de pausa): grava, avisa o servidor e volta à tela inicial. */
-  async sairDoMundo() {
-    if (this.modo !== 'mmo' || this.saindo) return;
+  /**
+   * "Sair para a tela inicial" (menu de pausa, nos dois modos; no MMO o botão
+   * diz "Sair do mundo"): grava, sai da sala ou do mundo e recarrega a página,
+   * que abre na tela inicial. Refazer o mundo local à mão seria refazer o
+   * carregamento inteiro. No duelo e no mundo de outro jogador o save não grava
+   * (`salvarProgresso` recusa) — vale o que estava antes, como deve ser.
+   */
+  async voltarAoInicio() {
+    if (this.saindo) return;
     this.saindo = true;
     await this.salvar({ nuvem: true });
     this.sessao?.sair();
-    location.reload();   // refazer o mundo local à mão seria refazer o carregamento inteiro
+    location.reload();
   }
 
   /** O servidor encerrou a sessão (a conta entrou em outro lugar): avisa e volta à tela inicial. */
@@ -872,6 +881,7 @@ class Game {
       this.player.model.update(dt);
       this.world.update(dt, this.camera);
       this.effects.update(dt);
+      this.toque?.update();
       this.renderer.render(this.scene, this.camera);
       this.input.endFrame();
       return;
@@ -912,6 +922,7 @@ class Game {
       this.camera.position.z += (Math.random() - 0.5) * s;
       this.shake = Math.max(0, this.shake - dt * 2.5);
     }
+    this.toque?.update();
     this.ui.update(dt);
     this.input.endFrame();
     this.renderer.render(this.scene, this.camera);

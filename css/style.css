@@ -300,3 +300,65 @@ button:disabled { opacity: .4; cursor: default; }
   color: var(--gold); background: rgba(0,0,0,.55); border: 1px solid var(--gold-dim); padding: 4px 10px; pointer-events: none; }
 #convite { position: fixed; left: 0; right: 0; top: 18%; display: flex; justify-content: center; pointer-events: none; z-index: 4; }
 #convite-texto { font-size: 22px; color: #ffcf8a; }
+
+/* ================= CELULAR (js/toque.js) — só vale com body.toque ================= */
+body.toque { overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.toque #game canvas { touch-action: none; }
+/* o HUD fica POR CIMA da camada de toque, mas só o que se toca recebe o dedo */
+body.toque #hud { z-index: 3; }
+body.toque #equip .slot, body.toque #prompt { pointer-events: auto; }
+#toque { position: fixed; inset: 0; z-index: 2; touch-action: none; }
+#toque .tb { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center;
+  border-radius: 50%; border: 1px solid rgba(216,205,184,.55); background: rgba(10,9,8,.42); color: #efe6d4;
+  font: 13px var(--serif); letter-spacing: .5px; text-shadow: 0 0 3px #000; touch-action: none; }
+#toque .tb.apertado { background: rgba(200,168,106,.45); border-color: var(--gold); }
+/* combate: o polegar direito alcança tudo sem tapar o meio da tela */
+.tb-atacar   { right: 28px;  bottom: 74px;  width: 84px; height: 84px; font-size: 15px !important; }
+.tb-forte    { right: 124px; bottom: 140px; width: 58px; height: 58px; }
+.tb-rolar    { right: 118px; bottom: 26px;  width: 66px; height: 66px; }
+.tb-defender { right: 196px; bottom: 74px;  width: 58px; height: 58px; }
+.tb-mira     { right: 36px;  bottom: 172px; width: 52px; height: 52px; }
+.tb-usar     { right: 196px; bottom: 6px;   width: 50px; height: 50px; }
+.tb-interagir { right: 200px; bottom: 150px; width: 54px; height: 54px; border-color: var(--gold) !important; color: var(--gold) !important; font-size: 20px !important; }
+/* a barra de cima: botões pequenos e quadrados, no meio */
+.toque-topo { position: absolute; top: 6px; right: 104px; display: flex; gap: 6px; }
+.toque-topo .tb { position: static !important; border-radius: 6px !important; padding: 0 10px; height: 34px; font-size: 12px !important; }
+.toque-contexto { position: absolute; top: 46px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+.toque-contexto .tb { position: static !important; border-radius: 6px !important; padding: 0 16px; height: 40px; border-color: var(--gold) !important; }
+/* o joystick nasce onde o polegar encosta */
+.joy { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%;
+  border: 1px solid rgba(216,205,184,.5); background: rgba(0,0,0,.25); pointer-events: none; }
+.joy-pino { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(216,205,184,.55); transform: translate(-50%, -50%); }
+#toque-fechar { position: fixed; top: 8px; right: 8px; z-index: 30; padding: 8px 16px; font-size: 14px; }
+/* em pé, durante o jogo: pedir para girar */
+#girar { display: none; position: fixed; inset: 0; z-index: 50; background: #050506; color: #e9dcc0;
+  align-items: center; justify-content: center; text-align: center; font: 20px var(--serif); }
+#girar small { font: 14px var(--body); color: var(--text-dim); }
+.girar-icone { font-size: 64px; margin-bottom: 10px; }
+@media (orientation: portrait) { body.toque.jogando #girar { display: flex; } }
+
+/* o HUD na tela deitada do celular: cada coisa no seu canto, longe dos polegares */
+body.toque #bars { left: 12px; top: 10px; }
+body.toque #bars .bar { max-width: 28vw; }
+body.toque #buffs { left: 12px; top: 44px; }
+body.toque #equip { left: 8px; top: 64px; bottom: auto; transform: scale(.5); transform-origin: left top; }
+body.toque #equip-nome { display: none; }
+body.toque #souls { right: 10px; top: 8px; bottom: auto; font-size: 16px; min-width: 0; padding: 2px 8px; }
+body.toque #chat { right: 8px; top: 44px; bottom: auto; width: min(300px, 36vw); }
+body.toque #chat-lista { max-height: 24vh; font-size: 12px; }
+body.toque #notifications { left: 12px; top: 190px; bottom: auto; }
+body.toque .note { font-size: 13px; padding: 3px 10px 3px 6px; }
+body.toque #prompt { bottom: 34%; font-size: 15px; padding: 8px 22px; }
+body.toque #bossbar { top: 92px; bottom: auto; width: 46vw; }
+body.toque #bossbar .name { font-size: 14px; }
+body.toque #sala-hud { top: auto; bottom: 8px; right: auto; left: 50%; transform: translateX(-50%); }
+/* menus num celular deitado: cabem na altura e rolam */
+body.toque .overlay .panel { max-height: 92vh; overflow-y: auto; padding: 14px 18px; box-sizing: border-box; }
+body.toque .inv-panel { height: 92vh; width: 96vw; gap: 14px; }
+body.toque .hint { display: none; }
+@media (max-height: 500px) {
+  #title-screen h1 { font-size: 34px; letter-spacing: 4px; }
+  #title-screen .subtitle { font-size: 15px; margin: 4px 0 14px; }
+  #title-screen .controls { display: none; }
+}

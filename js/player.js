@@ -138,6 +138,10 @@ export class Player {
     if (inp.isDown('KeyS')) z -= 1;
     if (inp.isDown('KeyD')) x += 1;
     if (inp.isDown('KeyA')) x -= 1;
+    // o joystick do celular (js/toque.js): a zona morta no meio evita o boneco
+    // andando sozinho com o polegar só encostado
+    const e = inp.eixo;
+    if (!x && !z && e && Math.hypot(e.x, e.z) > 0.2) { x = e.x; z = e.z; }
     if (!x && !z) return null;
     const fx = Math.sin(this.camYaw), fz = Math.cos(this.camYaw);
     return new THREE.Vector3(fx * z - fz * x, 0, fz * z + fx * x).normalize();
