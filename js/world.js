@@ -756,7 +756,9 @@ export class World {
     // Os PROPS vêm de assets/decor.json, gravado pelo editor de cenas. Antes
     // disto eram 38 chamadas de place() escritas à mão aqui — mover um barril
     // meio metro era editar código, recarregar e olhar.
-    for (const d of Assets.decor) this.placeDecor(d);
+    const pecas = [];
+    for (const d of Assets.decor) { const m = this.placeDecor(d); if (m) pecas.push(m); }
+    this.agruparDecoracao(pecas);
 
     // Os CADÁVERES ficam no código, e não é esquecimento: eles são espalhados
     // com Math.random(), então não há posição para gravar em arquivo nenhum —
@@ -768,6 +770,73 @@ export class World {
     }
     // Crânios espalhados pelo ossário
     for (const [r, c] of [[11, 5], [12, 8], [10, 11], [13, 3]]) this.addCorpse(this.center(r, c).add(new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5)), Math.random() * 6, true);
+  }
+
+  /**
+   * A decoração em LOTES (03/10/2026): as ~1.200 peças do `decor.json` eram
+   * ~4.000 malhas soltas, uma chamada de desenho cada — e a sombra da tocha
+   * repete tudo seis vezes. Peças iguais (mesma geometria e material) da mesma
+   * REGIÃO viram um `InstancedMesh`: um desenho só, com o mesmo visual.
+   *
+   * A região (`LOTE` metros de lado) existe para não perder o recorte do que
+   * está fora da câmera: um lote do mapa inteiro seria sempre desenhado.
+   * Peça com luz, sprite ou esqueleto fica solta (o lote não os carrega). Nada
+   * mexe na decoração depois de pronta — se um dia mexer (porta, baú vindo do
+   * decor), essa peça tem de ficar fora dos lotes.
+   */
+  agruparDecoracao(pecas) {
+    const LOTE = 4 * CELL;
+    const lotes = new Map();
+    for (const raiz of pecas) {
+      let solta = false;
+      raiz.traverse((o) => { if (o.isLight || o.isSprite || o.isPoints || o.isSkinnedMesh || o.isLine) solta = true; });
+      if (solta) continue;
+      raiz.updateMatrixWorld(true);
+      const malhas = [];
+      raiz.traverseVisible((o) => { if (o.isMesh) malhas.push(o); });
+      if (!malhas.length) continue;
+      const rx = Math.floor(raiz.position.x / LOTE), rz = Math.floor(raiz.position.z / LOTE);
+      for (const m of malhas) {
+        const mats = Array.isArray(m.material) ? m.material : [m.material];
+        const chave = `${m.geometry.uuid}|${mats.map((x) => x.uuid).join(',')}|${m.castShadow}|${m.receiveShadow}|${rx},${rz}`;
+        let l = lotes.get(chave);
+        if (!l) lotes.set(chave, (l = { malha: m, matrizes: [] }));
+        l.matrizes.push(m.matrixWorld.clone());
+      }
+      raiz.removeFromParent();
+    }
+    for (const { malha, matrizes } of lotes.values()) {
+      const im = new THREE.InstancedMesh(malha.geometry, malha.material, matrizes.length);
+      matrizes.forEach((mt, i) => im.setMatrixAt(i, mt));
+      im.castShadow = malha.castShadow;
+      im.receiveShadow = malha.receiveShadow;
+      im.computeBoundingSphere();
+      this.scene.add(im);
+    }
+    this.lotesDeDecoracao = lotes.size;
+  }
+
+  /**
+   * O ORÇAMENTO DE LUZES: sempre `luzesNoOrcamento` luzes de cenário ligadas
+   * (tochas de parede/estaca, fogueiras, braseiros), as mais perto do jogador
+   * — as acesas primeiro, e as apagadas (intensidade zero) completando a
+   * conta. O número de luzes visíveis NUNCA muda: no three.js, mudá-lo
+   * recompila o shader de todo material, e era isso o engasgo ao passar perto
+   * de uma fogueira. Cada luz também custa em todo pixel, então o orçamento é
+   * o que a qualidade gráfica escolhe (`graficos.js`).
+   */
+  distribuirLuzes() {
+    const pp = this.game.player?.pos;
+    if (!pp) return;
+    const fontes = [
+      ...this.torches.map((t) => ({ luz: t.light, pos: t.interact.pos, acesa: !!t.lit })),
+      ...this.fogueiras.map((b) => ({ luz: b.light, pos: b.pos, acesa: true })),
+      ...this.braziers.map((b) => ({ luz: b.light, pos: b.pos, acesa: b.target > 0 || b.lit > 0.02 })),
+    ];
+    const d2 = (f) => f.pos.distanceToSquared(pp);
+    fontes.sort((a, b) => (b.acesa - a.acesa) || d2(a) - d2(b));
+    const n = Math.min(this.luzesNoOrcamento ?? 8, fontes.length);
+    fontes.forEach((f, i) => { f.luz.visible = i < n; });
   }
 
   // ---------- Fogueiras ----------
@@ -1153,18 +1222,8 @@ export class World {
           color: [1, 0.5 + Math.random() * 0.3, 0.15], size: 0.11, life: 1.5 + Math.random(), gravity: -0.3, drag: 0.5 });
       }
     }
-    // Só as 6 tochas acesas mais próximas ficam com luz ativa (número fixo de luzes = sem recompilar shaders)
     this.lightCull = (this.lightCull ?? 0) - dt;
-    if (this.lightCull <= 0) {
-      this.lightCull = 0.4;
-      const pp = this.game.player.pos;
-      // a fogueira do outro lado do mapa não ilumina nada daqui (alcance 28 m):
-      // apagá-la poupa uma luz por pixel sem mudar o que se vê
-      for (const b of this.fogueiras) b.light.visible = b.pos.distanceToSquared(pp) < 70 * 70;
-      const lit = this.torches.filter((x) => x.lit).sort((a, b) => a.interact.pos.distanceToSquared(pp) - b.interact.pos.distanceToSquared(pp));
-      lit.forEach((x, i) => { x.light.visible = i < 6; });
-      for (const x of this.torches) if (!x.lit) x.light.visible = false;
-    }
+    if (this.lightCull <= 0) { this.lightCull = 0.4; this.distribuirLuzes(); }
     for (const tr of this.torches) {
       if (!tr.lit) continue;
       const k = Math.sin(t * 11 + tr.seed) * 0.12 + Math.sin(t * 17.3 + tr.seed * 2) * 0.08 + (Math.random() - 0.5) * 0.08;
