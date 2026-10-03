@@ -24,6 +24,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
+import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 
 // Os corpos, pelo nome que viaja na rede e fica guardado: 'antigo' = o manequim UAL
 export const CORPOS = ['nu', 'A1', 'A2', 'A3', 'antigo'];
@@ -63,18 +64,54 @@ const ARMADURA = /^A([123])_/;
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
 
+// A MALHA FUNDIDA (03/10/2026). O arquivo traz ~50 peças, cada uma uma SkinnedMesh
+// com o próprio Skeleton de 54 ossos: vestido, um guerreiro eram ~30 chamadas de
+// desenho (mais as da sombra) e ~30 texturas de ossos refeitas por quadro — e cada
+// jogador remoto pagava o mesmo. As peças visíveis viram UMA malha com UM esqueleto:
+// todas já estão na mesma ligação (o conversor garante), então basta renumerar os
+// ossos de cada uma para a ordem única e juntar. A geometria de cada corpo ('nu',
+// 'A1'…) é feita uma vez e DIVIDIDA por todos os guerreiros (não se descarta).
+// Umas peças têm COR POR VÉRTICE e o GLTFLoader dá a elas um material à parte (o
+// mesmo, com `vertexColors`): as outras ganham cor branca — o mesmo que não ter —
+// e todas vão no material com cor de vértice.
+const fundidas = new Map();
+function geometriaFundida(chave, pecas, ordem) {
+  if (fundidas.has(chave)) return fundidas.get(chave);
+  const comCor = pecas.some((p) => p.geometry.attributes.color);
+  const geos = pecas.map((p) => {
+    const g = p.geometry.clone();
+    for (const nome of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight', 'color'].includes(nome)) g.deleteAttribute(nome);
+    if (comCor && !g.attributes.color) g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 3).fill(1), 3));
+    g.morphAttributes = {};
+    // o osso i DESTA peça → o índice dele na ordem única
+    const troca = p.skeleton.bones.map((b) => ordem.indexOf(b.name));
+    const si = g.attributes.skinIndex, novo = new Uint16Array(si.count * 4);
+    for (let i = 0; i < si.count; i++) for (let k = 0; k < 4; k++) novo[i * 4 + k] = Math.max(0, troca[si.getComponent(i, k)]);
+    g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(novo, 4));
+    return g;
+  });
+  const todasComIndice = geos.every((g) => g.index), nenhuma = geos.every((g) => !g.index);
+  const lista = todasComIndice || nenhuma ? geos : geos.map((g) => (g.index ? g.toNonIndexed() : g));
+  const geo = mergeGeometries(lista) ?? null;
+  for (const g of geos) g.dispose();
+  fundidas.set(chave, geo);
+  return geo;
+}
+
 export class CorpoGuerreiro {
   constructor(modelo, armadura = null) {
     this.modelo = modelo;
     const cena = cloneSkinned(Assets.guerreiro);
     this.cena = cena;
     const mat = [];
+    this.pecas = [];    // as SkinnedMesh do arquivo (só servem de matéria-prima para a fundida)
+    this.rigidas = [];  // os machados do pacote, presos às mãos: nunca aparecem
     cena.traverse((o) => {
       if (!o.isMesh) return;
       o.frustumCulled = false; o.castShadow = true; o.receiveShadow = true;
       if (!mat.includes(o.material)) mat.push(o.material);
+      (o.isSkinnedMesh ? this.pecas : this.rigidas).push(o);
     });
-    this.vestir(armadura);
     // um material por boneco, para o clarão de dano não acender os outros
     const proprio = new Map(mat.map((m) => [m, m.clone()]));
     cena.traverse((o) => { if (o.isMesh) o.material = proprio.get(o.material); });
@@ -83,6 +120,17 @@ export class CorpoGuerreiro {
       m.roughness = 0.85; m.metalness = 0;
       modelo.flashMats.push(m); modelo.baseEmissive.push(m.emissive.clone());
     }
+    // o esqueleto ÚNICO da malha fundida: os ossos da cena, na ordem dela, com o
+    // inverso de ligação de qualquer peça que use o osso (são todos iguais)
+    const ossos = [];
+    cena.traverse((o) => { if (o.isBone) ossos.push(o); });
+    this.ordem = ossos.map((b) => b.name);
+    const inversos = ossos.map((b) => {
+      for (const p of this.pecas) { const i = p.skeleton.bones.findIndex((x) => x.name === b.name); if (i >= 0) return p.skeleton.boneInverses[i].clone(); }
+      return new THREE.Matrix4();
+    });
+    this.esqueleto = new THREE.Skeleton(ossos, inversos);
+    this.vestir(armadura);
 
     // o manequim UAL some (corpo e traje), mas continua animando
     // — menos as ARMAS: trocado com o jogo rodando (o provador), a arma ainda está
@@ -142,12 +190,22 @@ export class CorpoGuerreiro {
   // nunca aparecem (as armas são as do jogo).
   vestir(armadura) {
     this.armadura = armadura;
-    this.cena.traverse((o) => {
-      if (!o.isMesh || o.isBone) return;
-      if (/^Axe_/.test(o.name)) { o.visible = false; return; }
-      const a = o.name.match(ARMADURA);
-      if (a) o.visible = `A${a[1]}` === armadura;
-    });
+    for (const o of this.rigidas) o.visible = false;
+    const usadas = this.pecas.filter((o) => { const a = o.name.match(ARMADURA); return !a || `A${a[1]}` === armadura; });
+    // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
+    const material = (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
+    // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
+    const geo = material ? geometriaFundida(armadura ?? 'nu', usadas, this.ordem) : null;
+    for (const o of this.pecas) o.visible = !geo && usadas.includes(o);
+    if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
+    if (!this.fundida) {
+      this.fundida = new THREE.SkinnedMesh(geo, material);
+      this.fundida.name = 'guerreiro-fundido';
+      this.fundida.frustumCulled = false; this.fundida.castShadow = true; this.fundida.receiveShadow = true;
+      this.cena.add(this.fundida);
+      this.fundida.bind(this.esqueleto, usadas[0].bindMatrix.clone());
+    } else this.fundida.geometry = geo;
+    this.fundida.visible = true;
   }
 
   // devolve o boneco antigo, como estava

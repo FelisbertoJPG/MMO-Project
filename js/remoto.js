@@ -182,7 +182,8 @@ export class JogadorRemoto {
     const ap = APARENCIAS[this.aparencia];
     this.mats = [];
     this.model.root.traverse((o) => {
-      if (!o.isMesh || !o.material || o.userData.etiqueta) return;
+      // escondida (o manequim sob o guerreiro, as peças soltas da malha fundida) não se vê: nem clona
+      if (!o.isMesh || !o.material || o.userData.etiqueta || !o.visible) return;
       if (!o.userData.matProprio) {
         o.material = o.material.clone(); o.userData.matProprio = true;
         o.material.userData.corOriginal = o.material.color?.getHex();
