@@ -52,7 +52,18 @@ button:disabled { opacity: .4; cursor: default; }
 .buff { font-size: 12px; font-family: var(--serif); padding: 2px 8px; border: 1px solid var(--gold-dim); background: rgba(0,0,0,.6); }
 .buff.resin { color: #ff8a5a; } .buff.blossom { color: #9ddc7a; }
 
-#equip { position: absolute; left: 40px; bottom: 40px; display: flex; gap: 14px; align-items: flex-end; }
+/* A cruz: quatro losangos encostados, com a cruzinha no meio (como no Dark Souls).
+   Cada losango é um quadrado de 78 px girado 45°; o centro dele fica a 61 px do
+   centro da cruz (meia diagonal + uma folga), por isso as posições abaixo. */
+#equip { position: absolute; left: 28px; bottom: 28px; width: 232px; height: 232px; }
+#equip .slot { position: absolute; margin: 0; }
+#slot-top { left: 77px; top: 16px; opacity: .8; }
+#slot-left { left: 16px; top: 77px; }
+#slot-weapon { left: 138px; top: 77px; }
+#slot-quick { left: 77px; top: 138px; }
+#equip .slot .label { display: none; }
+#dpad { position: absolute; left: 116px; top: 116px; width: 30px; height: 30px; transform: translate(-50%, -50%); filter: drop-shadow(0 0 3px #000); }
+#equip-nome { position: absolute; left: 196px; bottom: 30px; white-space: nowrap; font-size: 13px; color: var(--text-dim); text-shadow: 0 0 3px #000; }
 .slot {
   position: relative; width: 78px; height: 78px;
   border: 1px solid var(--gold-dim); background: radial-gradient(rgba(40,34,26,.9), rgba(5,5,5,.9));
@@ -80,7 +91,7 @@ button:disabled { opacity: .4; cursor: default; }
 }
 #prompt b { color: var(--gold); font-family: var(--serif); }
 
-#notifications { position: absolute; left: 40px; bottom: 170px; display: flex; flex-direction: column; gap: 6px; }
+#notifications { position: absolute; left: 40px; bottom: 284px; display: flex; flex-direction: column; gap: 6px; }
 .note {
   display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,.8);
   border-left: 2px solid var(--gold); padding: 6px 16px 6px 8px; font-size: 16px;
@@ -188,7 +199,7 @@ button:disabled { opacity: .4; cursor: default; }
 .load-bar { height: 4px; background: rgba(255,255,255,.08); border: 1px solid #3a3226; }
 .load-fill { height: 100%; width: 0; background: linear-gradient(90deg, #7d6a45, #e4c171); transition: width .2s; }
 .load-text { margin-top: 8px; color: var(--text-dim); font-size: 14px; font-style: italic; }
-#slot-left .count { font-size: 13px; right: -14px; color: #ffcf8a; }
+#slot-left .count { font-size: 13px; right: auto; left: -18px; bottom: -4px; color: #ffcf8a; }
 #slot-left.torch { border-color: #b8742a; box-shadow: 0 0 18px rgba(255, 140, 40, .35); }
 
 /* ---------- Overlays ---------- */
@@ -236,12 +247,14 @@ button:disabled { opacity: .4; cursor: default; }
 #levelup .desc { color: var(--text-dim); font-size: 13px; }
 .pause-panel { text-align: center; }
 
-/* Chat global: sempre aberto à esquerda; a nova entra embaixo e as velhas sobem */
-#chat { position: absolute; left: 40px; bottom: 300px; width: min(420px, calc(100vw - 80px));
+/* Chat global: sempre aberto no canto de baixo à DIREITA, sobre o contador de almas
+   (à esquerda fica a cruz dos itens; no meio de baixo, a barra do chefe).
+   A nova entra embaixo e as velhas sobem. */
+#chat { position: absolute; right: 40px; bottom: 96px; width: min(400px, calc(100vw - 80px));
   display: flex; flex-direction: column; gap: 4px; }
 #chat-lista { max-height: min(32vh, 260px); overflow: hidden; display: flex; flex-direction: column;
-  gap: 2px; padding: 6px 10px; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,.15));
-  border-left: 2px solid var(--gold-dim); font-size: 14px; line-height: 1.35;
+  gap: 2px; padding: 6px 10px; background: linear-gradient(270deg, rgba(0,0,0,.55), rgba(0,0,0,.15));
+  border-right: 2px solid var(--gold-dim); font-size: 14px; line-height: 1.35;
   mask-image: linear-gradient(transparent, #000 22%); -webkit-mask-image: linear-gradient(transparent, #000 22%); }
 #chat-lista:empty { display: none; }
 .chat-msg { color: #e6dccb; text-shadow: 0 0 3px #000; overflow-wrap: anywhere; }
@@ -254,12 +267,13 @@ button:disabled { opacity: .4; cursor: default; }
 #chat.escrevendo #chat-lista { overflow-y: auto; pointer-events: auto; mask-image: none; -webkit-mask-image: none; }
 /* janela baixa: o chat desce e encolhe, para não cobrir as barras de vida */
 @media (max-height: 700px) {
-  #chat { bottom: 185px; }
-  #chat-lista { max-height: calc(100vh - 185px - 150px); }
+  #chat-lista { max-height: 28vh; }
 }
 
 @media (max-width: 640px) {
-  #chat { left: 8px; bottom: 210px; width: calc(100vw - 16px); }
+  #chat { right: 8px; bottom: 200px; width: calc(100vw - 16px); }
+  #equip { transform: scale(.75); transform-origin: left bottom; }
+  #notifications { left: 16px; bottom: 200px; }
   #bars { left: 16px; top: 16px; }
   #equip { left: 8px; bottom: 16px; }
   #souls { right: 16px; bottom: 16px; }

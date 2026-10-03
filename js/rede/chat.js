@@ -49,6 +49,9 @@ export class ChatGlobal {
       else if (e.key === 'Escape') { e.preventDefault(); this.fecharEscrita(); }
     };
     this.entrada.addEventListener('keydown', this.aoTeclar);
+    // a caixa muda de altura com a janela: a última mensagem continua à vista
+    this.aoRedimensionar = () => { this.lista.scrollTop = this.lista.scrollHeight; };
+    addEventListener('resize', this.aoRedimensionar);
     this.entrada.maxLength = MAX_TEXTO;
 
     this.ler();
@@ -132,6 +135,7 @@ export class ChatGlobal {
     clearInterval(this.timer);
     this.fecharRT?.();
     this.entrada.removeEventListener('keydown', this.aoTeclar);
+    removeEventListener('resize', this.aoRedimensionar);
     if (this.escrevendo) this.fecharEscrita();
     this.el.classList.add('hidden');
   }

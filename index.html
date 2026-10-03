@@ -23,10 +23,15 @@
     </div>
     <div id="buffs"></div>
 
+    <!-- A cruz do Dark Souls: em cima (vazio, o lugar da magia), esquerda = mão
+         esquerda, direita = mão direita, embaixo = item rápido; a cruzinha no meio -->
     <div id="equip">
+      <div class="slot" id="slot-top"><div class="icon"></div></div>
       <div class="slot" id="slot-left"><div class="icon"></div><div class="count"></div><div class="label"></div></div>
       <div class="slot" id="slot-weapon"><div class="icon"></div><div class="label"></div></div>
       <div class="slot" id="slot-quick"><div class="icon"></div><div class="count"></div><div class="label"></div></div>
+      <svg id="dpad" viewBox="0 0 30 30" aria-hidden="true"><path d="M10 1h10v9h9v10h-9v9H10v-9H1V10h9z" fill="#0c0b0a" stroke="#d8cdb8" stroke-width="2" stroke-linejoin="round"/><path d="M15 6v18M6 15h18" stroke="#d8cdb8" stroke-width="2"/></svg>
+      <div id="equip-nome"></div>
     </div>
 
     <div id="souls"><span class="souls-icon"></span><span id="souls-value">0</span></div>

@@ -166,6 +166,9 @@ export class UI {
       this.quickSlot.querySelector('.icon').innerHTML = q ? inv.iconFor(q) : '';
       this.quickSlot.querySelector('.count').textContent = q ? inv.count(q) : '';
       this.quickSlot.querySelector('.label').textContent = q ? ITEMS[q].name : '';
+      // o nome do item rápido fica ao lado do losango de baixo (como no Dark Souls)
+      this.equipNome ??= document.getElementById('equip-nome');
+      this.equipNome.textContent = q ? ITEMS[q].name : '';
       const w = p.weapon;
       this.weaponSlot.querySelector('.icon').innerHTML = w.icon;
       this.weaponSlot.querySelector('.label').textContent = w.name;
