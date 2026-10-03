@@ -23,6 +23,8 @@ html, body {
 #game, #game canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 /* Gradação de cor sombria: menos saturação, mais contraste, vinheta */
 #game canvas { filter: saturate(0.62) contrast(1.12) brightness(0.96) sepia(0.12); }
+/* qualidade Baixa (js/graficos.js): sem o filtro de cor, que custa na tela inteira */
+body.sem-filtro #game canvas { filter: none; }
 #game::after { content: ''; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
 .hidden { display: none !important; }
 
@@ -246,6 +248,10 @@ button:disabled { opacity: .4; cursor: default; }
 #levelup button { padding: 2px 12px; font-size: 16px; }
 #levelup .desc { color: var(--text-dim); font-size: 13px; }
 .pause-panel { text-align: center; }
+#graficos-opcoes { display: flex; gap: 6px; justify-content: center; align-items: center; margin: 14px 0 4px; }
+#graficos-opcoes span { color: var(--text-dim); font-size: 14px; margin-right: 6px; }
+#graficos-opcoes button { padding: 6px 14px; font-size: 13px; }
+#graficos-opcoes button.ativo { border-color: var(--gold); color: #fff3d6; background: rgba(90, 65, 30, .55); }
 
 /* Chat global: sempre aberto no canto de baixo à DIREITA, sobre o contador de almas
    (à esquerda fica a cruz dos itens; no meio de baixo, a barra do chefe).

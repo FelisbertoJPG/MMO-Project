@@ -64,6 +64,8 @@ export class Effects {
   }
 
   spawn(p) {
+    // qualidade gráfica (graficos.js): no Médio/Baixo, só uma parte das partículas nasce
+    if (this.fator < 1 && Math.random() > this.fator) return;
     if (this.parts.length >= this.max) this.parts.shift();
     p.age = 0;
     p.gravity ??= 0; p.drag ??= 0;

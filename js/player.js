@@ -561,12 +561,10 @@ export class Player {
         this.game.effects.spawn({ pos: this.torchLight.position.clone(), vel: new THREE.Vector3((Math.random() - 0.5) * 0.4, 1 + Math.random(), (Math.random() - 0.5) * 0.4), color: [1, 0.55, 0.2], size: 0.06, life: 0.7, gravity: -0.2 });
       }
     } else this.torchLight.intensity = 0;
-    // Tocha apagada não redesenha o mapa de sombras dela (um cubo: seis vistas
-    // do cenário por quadro; medido junto à fogueira da masmorra: de 27 para 38
-    // quadros por segundo sem ele). `autoUpdate` e
-    // não `visible`/`castShadow`: esses dois mudam a conta de luzes do shader, e
-    // acender a tocha recompilaria tudo.
-    this.torchLight.shadow.autoUpdate = this.torchLight.intensity > 0;
+    // Quando a sombra da tocha é redesenhada (só acesa; no Médio, a cada 2
+    // quadros) quem decide é `Graficos.update` (js/graficos.js) — com
+    // `needsUpdate`, e não `visible`/`castShadow`, que mudariam a conta de luzes
+    // do shader e recompilariam tudo ao acender a tocha.
 
     // Brilho de resina
     const blade = this.model.slotR;

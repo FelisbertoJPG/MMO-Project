@@ -17,6 +17,7 @@ import { Online } from './rede/online.js';
 import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
 import { ControlesToque, ehToque } from './toque.js';
+import { Graficos, qualidadeSalva } from './graficos.js';
 import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
 import { tokenValido } from './rede/supabase.js';
@@ -29,7 +30,10 @@ const CHAVE_ENDERECO = 'masmorra:mundo';
 class Game {
   constructor() {
     const container = document.getElementById('game');
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // A qualidade gráfica (js/graficos.js) vem antes do renderizador: o
+    // antisserrilhado só se escolhe ao criar o contexto WebGL.
+    this.graficos = new Graficos(this, qualidadeSalva(ehToque()));
+    this.renderer = new THREE.WebGLRenderer({ antialias: Graficos.antialias(this.graficos.nome), powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
@@ -98,6 +102,10 @@ class Game {
     this.player.startInCell();
     this.bindUI();
     this.onResize();
+    // Aplica a qualidade gráfica e COMPILA todos os shaders agora, na tela de
+    // carregamento — compilar na hora em que algo aparece era um engasgo.
+    this.graficos.aplicar();
+    this.marcarGraficos();
     // A conta guardada reabre sozinha; sem rede em 6 s, segue offline.
     await Promise.race([this.online.iniciar(), new Promise((ok) => setTimeout(ok, 6000))]);
     // Há um servidor nosso por trás da página, ou só arquivos (GitHub Pages)? Decide onde o save mora.
@@ -204,6 +212,11 @@ class Game {
       if (this.online.chat?.escrevendo) { this.online.chat.fecharEscrita(); return; }
       this.openMenu('pause');
     });
+  }
+
+  /** Destaca, no menu de pausa, a qualidade gráfica em uso. */
+  marcarGraficos() {
+    for (const b of document.querySelectorAll('#graficos-opcoes button')) b.classList.toggle('ativo', b.dataset.q === this.graficos.nome);
   }
 
   /** Grava o progresso (ver `save.js`): `{aoSair}` = a página está fechando; `{nuvem}` = já, na nuvem. */
@@ -322,6 +335,9 @@ class Game {
       this.prepararMundo();
     });
     $('sair-mundo-btn').addEventListener('click', () => this.voltarAoInicio());
+    for (const b of document.querySelectorAll('#graficos-opcoes button')) {
+      b.addEventListener('click', () => { this.graficos.trocar(b.dataset.q); this.marcarGraficos(); });
+    }
   }
 
   /**
@@ -923,6 +939,7 @@ class Game {
       this.shake = Math.max(0, this.shake - dt * 2.5);
     }
     this.toque?.update();
+    this.graficos.update();
     this.ui.update(dt);
     this.input.endFrame();
     this.renderer.render(this.scene, this.camera);
