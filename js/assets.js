@@ -2,7 +2,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
-import { USAR_GUERREIRO } from './guerreiro.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
 // a gaveta dele. Um .glb em assets/dungeon/ que NÃO esteja aqui existe no disco
@@ -137,7 +136,7 @@ export const Assets = {
   mapaNome: 'emergencia',
   modelos: {},   // nome → modelo de blocos (MODELOS)
   animais: {},   // nome → { scene, clips } (ANIMAIS_MODELOS)
-  guerreiro: null,   // o corpo novo do jogador, em teste (guerreiro.js; só com ?guerreiro)
+  guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
 
   async load(onProgress = () => {}) {
     const loader = new GLTFLoader();
@@ -146,7 +145,7 @@ export const Assets = {
       ['char', 'UAL2', 'assets/characters/UAL2.glb'],
       ...PROPS.map((n) => ['prop', n, `assets/dungeon/${n}.glb`]),
       ...ANIMAIS_MODELOS.map((n) => ['animal', n, `assets/animais/${n}.glb`]),
-      ...(USAR_GUERREIRO ? [['guerreiro', 'guerreiro', 'assets/guerreiro/guerreiro.glb']] : []),
+      ['guerreiro', 'guerreiro', 'assets/guerreiro/guerreiro.glb'],   // o corpo do jogador (guerreiro.js)
     ];
     let done = 0;
     await Promise.all(jobs.map(async ([kind, name, url]) => {
@@ -225,7 +224,7 @@ export const Assets = {
     return { scene, materials };
   },
 
-  // o guerreiro (guerreiro.js) só é baixado quando alguém o usa: são 3 MB
+  // de novo, se o carregamento do começo falhou (o provador tenta outra vez)
   carregarGuerreiro() {
     this._guerreiro ??= new GLTFLoader().loadAsync('assets/guerreiro/guerreiro.glb')
       .then((gltf) => { this.guerreiro = gltf.scene; return true; })

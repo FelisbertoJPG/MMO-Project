@@ -78,7 +78,7 @@ class Game {
     this.effects = new Effects(this);
     this.projectiles = new Projectiles(this);
     this.ui = new UI(this);
-    this.provador = new Provador(this);   // Shift+G: os designs do guerreiro (depuração)
+    this.provador = new Provador(this);   // Shift+G: os corpos do jogador (guerreiro.js)
     this.inventory = new Inventory(this);
     this.player = new Player(this);
     this.enemies = spawnEnemies(this);
@@ -402,7 +402,6 @@ class Game {
     if (salvo) aplicarProgresso(this, salvo);
     this.world.destrancarCela();   // no mundo de todos ninguém acorda preso
     this.entrarNoJogo();
-    this.provador.aoEntrarNoMundo();   // no MMO, o guerreiro (em teste)
     this.online.comecarPartida();
     if (salvo) { this.snapCamera(); this.ui.centerMessage('Mundo online', 'info', 3000); }
     else this.comecarFora();
@@ -433,14 +432,32 @@ class Game {
     setTimeout(() => location.reload(), 4500);
   }
 
+  /**
+   * A PORTA DE ENTRADA (03/10/2026). Sem conta: e-mail e senha, "Criar conta" e
+   * "Jogar Offline" — que abre só o quadro da Jornada (`escolheuOffline`). Logado:
+   * os dois quadros, com o Mundo online na frente.
+   */
   mostrarConta() {
-    const o = this.online, st = document.getElementById('conta-status');
+    const o = this.online, st = document.getElementById('conta-status'), modos = document.getElementById('modos');
     document.getElementById('conta').classList.remove('hidden');
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    if (o.estado === 'deslogado') st.innerHTML = `Jogando offline · <a id="conta-abrir">Entrar ou criar conta</a>${o.motivo ? `<br><small>${esc(o.motivo)}</small>` : ''}`;
+    // `?teste=Nome` (as duas janelas do teste local, sem conta) conta como logado
+    const logado = o.estado !== 'deslogado' || new URLSearchParams(location.search).has('teste');
+    modos.classList.toggle('online', logado);
+    modos.classList.toggle('offline', !logado);
+    if (!logado && !this.escolheuOffline) {
+      // a porta: só o formulário
+      modos.classList.add('hidden');
+      st.innerHTML = o.motivo ? `<small>${esc(o.motivo)}</small>` : '';
+      this.abrirFormConta(this.criandoConta);
+      return;
+    }
+    modos.classList.remove('hidden');
+    document.getElementById('conta-form').classList.add('hidden');
+    if (o.estado === 'deslogado') st.innerHTML = `Jogando offline · <a id="conta-abrir">Entrar ou criar conta</a>`;
     else if (o.estado === 'logado') st.innerHTML = `Conectado como <b>${esc(o.nome)}</b> · <a id="conta-sair">Sair</a>`;
     else st.innerHTML = `<b>${esc(o.nome)}</b> · ${esc(o.motivo)} · <a id="conta-sair">Sair</a>`;
-    document.getElementById('conta-abrir')?.addEventListener('click', (e) => { e.preventDefault(); this.abrirFormConta(); });
+    document.getElementById('conta-abrir')?.addEventListener('click', (e) => { e.preventDefault(); this.escolheuOffline = false; this.mostrarConta(); });
     document.getElementById('conta-sair')?.addEventListener('click', async (e) => {
       e.preventDefault();
       await this.online.sair();
@@ -451,24 +468,19 @@ class Game {
   abrirFormConta(criar = false) {
     this.criandoConta = criar;
     document.getElementById('conta-form').classList.remove('hidden');
-    document.getElementById('conta-status').classList.add('hidden');
     document.getElementById('conta-nome').classList.toggle('hidden', !criar);
+    // criando: o botão principal cria, e o outro volta para "entrar"
     document.getElementById('conta-ok').textContent = criar ? 'Criar conta' : 'Entrar';
-    document.getElementById('conta-alternar').textContent = criar ? 'Já tenho conta' : 'Não tem conta? Criar uma';
+    document.getElementById('conta-criar').textContent = criar ? 'Já tenho conta' : 'Criar conta';
     document.getElementById('conta-senha').autocomplete = criar ? 'new-password' : 'current-password';
     document.getElementById('conta-erro').textContent = '';
-    document.getElementById(criar ? 'conta-nome' : 'conta-email').focus();
-  }
-
-  fecharFormConta() {
-    document.getElementById('conta-form').classList.add('hidden');
-    document.getElementById('conta-status').classList.remove('hidden');
+    if (!ehToque()) document.getElementById(criar ? 'conta-nome' : 'conta-email').focus();
   }
 
   bindConta() {
     const $ = (id) => document.getElementById(id);
-    $('conta-cancelar').addEventListener('click', () => this.fecharFormConta());
-    $('conta-alternar').addEventListener('click', (e) => { e.preventDefault(); this.abrirFormConta(!this.criandoConta); });
+    $('conta-criar').addEventListener('click', () => this.abrirFormConta(!this.criandoConta));
+    $('jogar-offline').addEventListener('click', () => { this.escolheuOffline = true; this.mostrarConta(); });
     $('conta-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = $('conta-email').value.trim(), senha = $('conta-senha').value, nome = $('conta-nome').value.trim();
@@ -486,7 +498,7 @@ class Game {
         return;
       }
       $('conta-senha').value = '';
-      this.fecharFormConta();
+      this.criandoConta = false;
       await this.prepararTitulo();
     });
   }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
-import { USAR_GUERREIRO } from './guerreiro.js';
+import { corpoGuardado, armaduraDe } from './guerreiro.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { ITEMS, UNARMED, TORCH_LIFE } from './items.js';
 import { START_POS } from './world.js';
@@ -12,7 +12,7 @@ const _v = new THREE.Vector3();
 export class Player {
   constructor(game) {
     this.game = game;
-    this.model = new CharacterModel({ outfit: 'knight', corpo: USAR_GUERREIRO ? 'guerreiro' : null });
+    this.model = new CharacterModel({ outfit: 'knight', armadura: armaduraDe(corpoGuardado()) });   // o corpo do provador
     game.scene.add(this.model.root);
     this.pos = this.model.root.position;
     this.radius = 0.42;
@@ -630,6 +630,7 @@ export class Player {
     // Em espaços apertados a câmera encosta no personagem: esconde o modelo
     const headDist = camera.position.distanceTo(_v.set(this.pos.x, this.pos.y + 1.55, this.pos.z));
     this.model.scene.visible = headDist > 0.95 || this.dead;
+    if (this.model.guerreiro) this.model.guerreiro.cena.visible = this.model.scene.visible;
     const look = target.clone();
     look.y += 0.35;
     if (this.lockTarget) look.lerp(new THREE.Vector3(this.lockTarget.pos.x, this.lockTarget.height * 0.55, this.lockTarget.pos.z), 0.3);

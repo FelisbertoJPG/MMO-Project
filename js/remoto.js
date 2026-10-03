@@ -8,6 +8,7 @@
 // no nível 1 ninguém o ataca, porque ele não está em `game.jogadores`.
 import * as THREE from 'three';
 import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
+import { armaduraDe } from './guerreiro.js';
 import { ITEMS } from './items.js';
 
 /** Quanto atrás do "agora" o boneco é desenhado: é a folga para interpolar entre dois recados. */
@@ -155,6 +156,14 @@ export class JogadorRemoto {
     }
     if (atual.d !== this.maos.d || atual.e !== this.maos.e) this.equipar(atual.d, atual.e);
     if (atual.h != null) this.hpFrac = atual.h;
+    if (atual.c && atual.c !== this.corpo) this.vestir(atual.c);
+  }
+
+  /** O corpo que o outro escolheu no provador (guerreiro.js); os materiais voltam a ser tingidos. */
+  vestir(c) {
+    this.corpo = c;
+    this.model.usarGuerreiro(armaduraDe(c));
+    this.aplicarAparencia();
   }
 
   equipar(d, e) {

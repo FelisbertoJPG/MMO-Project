@@ -18,6 +18,7 @@
  */
 import { Assets } from '../assets.js';
 import { ITEMS } from '../items.js';
+import { CORPOS, corpoDe } from '../guerreiro.js';
 
 /** Sobe quando o formato muda de um jeito que o cliente antigo leria errado. */
 export const VERSAO = 1;
@@ -60,6 +61,7 @@ export function instantaneo(player, id) {
     e: inv.equipped.left ?? null,
     st: player.state,
     h: r2(Math.max(0, player.hp / player.maxHp)),   // a barra do oponente no duelo
+    c: corpoDe(m),   // o corpo (guerreiro.js): os outros desenham o mesmo
   };
 }
 
@@ -84,6 +86,7 @@ export function limparInstantaneo(c, { limites = null, meuId = null } = {}) {
     d: item(c.d, ['weapon']), e: item(c.e, ['shield', 'torch']),
     st: typeof c.st === 'string' && c.st.length <= 24 ? c.st : 'free',
     h: Number.isFinite(c.h) ? Math.min(1, Math.max(0, c.h)) : null,   // opcional
+    c: CORPOS.includes(c.c) ? c.c : 'antigo',   // opcional: sem ele (rastro antigo), o boneco antigo
   };
 }
 

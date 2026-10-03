@@ -2,6 +2,7 @@ import { ITEMS } from './items.js';
 import { RECEITAS } from './receitas.js';
 import { req } from './rede/supabase.js';
 import { temSaveEmArquivo } from './hospedagem.js';
+import { CELL } from './world.js';
 
 // Progresso do jogador. Os inimigos comuns NÃO entram: eles renascem a cada
 // fogueira, então continuar é como acordar depois de um descanso. O que fica é
@@ -23,6 +24,11 @@ import { temSaveEmArquivo } from './hospedagem.js';
 // subir o jogo em outra porta, e cada porta ter o seu `localStorage` — não vale.
 const URL_SAVE = '/__save';
 const VERSAO = 1;
+// A REVISÃO DO MAPA em que o save foi gravado (`jogador.mapa`). Na 2 (03/10/2026)
+// a MATA abriu 14 colunas entre a floresta e o acampamento: tudo da coluna 26 em
+// diante andou 84 m para leste. Save sem ela é de antes — ver `aplicarProgresso`.
+const MAPA_REV = 2;
+const MATA_X = 25.5 * CELL, MATA_ANDOU = 14 * CELL;
 const NUVEM_MS = 60_000;
 let ultimaNuvem = 0;
 
@@ -115,6 +121,7 @@ export function coletar(game) {
       nivel: p.level, vigor: p.vigor, endurance: p.endurance, strength: p.strength,
       almas, vida: p.dead ? null : Math.ceil(p.hp), pos,
       fogueira: p.fogueira,
+      mapa: MAPA_REV,
       receitas: [...p.receitas],   // as descobertas na panela   // onde renasce (save de antes das duas fogueiras não tem: é a da masmorra)
     },
     inventario: {
@@ -145,6 +152,9 @@ export function aplicarProgresso(game, s) {
   // dele; portas, névoa e chefes são do mundo de todos e vêm de quem o simula.
   const doMundo = game.modo !== 'mmo';
   const existe = (id) => id && ITEMS[id];
+  // Save de antes da mata (MAPA_REV): o que estava do acampamento para lá andou junto
+  const deAntesDaMata = !(j.mapa >= MAPA_REV);
+  const andou = (x) => (deAntesDaMata && x > MATA_X ? x + MATA_ANDOU : x);
 
   // Inventário
   inv.items.clear();
@@ -191,8 +201,8 @@ export function aplicarProgresso(game, s) {
   });
   (m.tochas ?? []).forEach((acesa, i) => { if (!acesa && w.torches[i]) w.takeTorch(w.torches[i]); });
   for (const x of [...w.pickups]) w.removePickup(x);
-  for (const x of m.itensNoChao ?? []) if (existe(x?.id) && Number.isFinite(x.x) && Number.isFinite(x.z)) w.addPickup(x.id, x.qtd, { x: x.x, z: x.z }, x.fixo);
-  if (m.mancha) w.setBloodstain({ x: m.mancha.x, z: m.mancha.z }, m.mancha.almas);
+  for (const x of m.itensNoChao ?? []) if (existe(x?.id) && Number.isFinite(x.x) && Number.isFinite(x.z)) w.addPickup(x.id, x.qtd, { x: andou(x.x), z: x.z }, x.fixo);
+  if (m.mancha) w.setBloodstain({ x: andou(m.mancha.x), z: m.mancha.z }, m.mancha.almas);
 
   if (doMundo && m.carrascoVencido) {
     game.boss.defeated = true;
@@ -209,11 +219,18 @@ export function aplicarProgresso(game, s) {
 
   // Onde acordar: onde estava, ou na última fogueira em que descansou
   p.fogueira = w.fogueira(j.fogueira).id;
+  // De antes da mata, renasce no acampamento NOVO: no Mundo online, todos (é lá que
+  // se nasce); na Jornada, quem estava do acampamento para lá
+  let pos = j.pos;
+  if (deAntesDaMata && (!doMundo || (pos && pos.x > MATA_X))) {
+    p.fogueira = w.fogueira('acampamento').id;
+    pos = null;
+  }
   p.respawn();
-  if (j.pos) {
-    p.pos.set(j.pos.x, j.pos.y, j.pos.z);
+  if (pos) {
+    p.pos.set(pos.x, pos.y, pos.z);
     p.pos.y = w.alturaChao(p.pos);
-    p.facing = j.pos.rumo ?? Math.PI;
+    p.facing = pos.rumo ?? Math.PI;
     p.camYaw = p.facing;
   }
   if (j.vida != null) p.hp = Math.min(p.maxHp, Math.max(1, j.vida));

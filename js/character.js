@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { buildOutfit, makeWeapon, makeShield } from './gear.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
-import { CorpoGuerreiro, ARMADURA_TESTE } from './guerreiro.js';
+import { CorpoGuerreiro } from './guerreiro.js';
 
 // Golpes: tempos em SEGUNDOS do clipe (medidos pela velocidade da ponta da lâmina).
 // from/to recortam trechos de clipes longos (combos); hit = janela de dano; arc = abertura do golpe.
@@ -28,7 +28,7 @@ export const ATTACKS = {
 };
 
 export class CharacterModel {
-  constructor({ outfit = 'knight', scale = 1, skinTint = null, hideBody = false, corpo = null } = {}) {
+  constructor({ outfit = 'knight', scale = 1, skinTint = null, hideBody = false, armadura = false } = {}) {
     const { scene, materials } = Assets.character();
     this.scene = scene;
     // Traje montado na pose T (antes de qualquer transformação/animação)
@@ -61,8 +61,9 @@ export class CharacterModel {
     this.actions = {};
     this.current = null; this.currentName = null;
     this.slotR = null; this.slotL = null;
-    // o corpo do guerreiro (em teste, guerreiro.js): o manequim segue animando, invisível
-    this.guerreiro = corpo === 'guerreiro' && Assets.guerreiro ? new CorpoGuerreiro(this, ARMADURA_TESTE) : null;
+    // o corpo do guerreiro (guerreiro.js): o manequim segue animando, invisível.
+    // `armadura` como em `usarGuerreiro` (false = só o manequim, o padrão dos inimigos)
+    this.guerreiro = armadura !== false && Assets.guerreiro ? new CorpoGuerreiro(this, armadura) : null;
   }
 
   // O PROVADOR (provador.js) troca o corpo com o jogo rodando: `false` = o boneco

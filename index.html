@@ -104,20 +104,21 @@
       <!-- o que a última atualização trouxe, quando a página recarregou sozinha (js/versao.js) -->
       <div id="aviso-versao" class="hidden"></div>
       <div id="loading"><div class="load-bar"><div class="load-fill"></div></div><div class="load-text">Carregando modelos...</div></div>
-      <!-- Conta (opcional): sem ela o jogo é todo offline -->
+      <!-- A PORTA DE ENTRADA (main.js, mostrarConta): sem conta, e-mail e senha + criar
+           conta + jogar offline (que abre só a Jornada); logado, os dois modos, o online na frente -->
       <div id="conta" class="hidden">
         <div id="conta-status"></div>
         <form id="conta-form" class="hidden" autocomplete="on">
           <input id="conta-nome" class="hidden" maxlength="24" placeholder="Nome no jogo">
           <input id="conta-email" type="email" placeholder="E-mail" autocomplete="email">
           <input id="conta-senha" type="password" placeholder="Senha" autocomplete="current-password">
-          <div class="conta-botoes"><button type="submit" id="conta-ok">Entrar</button><button type="button" id="conta-cancelar">Cancelar</button></div>
-          <a href="#" id="conta-alternar">Não tem conta? Criar uma</a>
+          <div class="conta-botoes"><button type="submit" id="conta-ok">Entrar</button><button type="button" id="conta-criar">Criar conta</button></div>
           <div id="conta-erro"></div>
+          <button type="button" id="jogar-offline">Jogar Offline</button>
         </form>
       </div>
       <!-- Os DOIS modos de jogo (js/modo.js). A Jornada é o jogo de sempre; o Mundo online é o MMO. -->
-      <div id="modos">
+      <div id="modos" class="hidden">
         <div class="modo" id="modo-offline">
           <h2>Jornada</h2>
           <p class="modo-dica" id="jornada-dica">O seu mundo, no seu ritmo. O progresso fica neste computador. Chame um amigo pela tecla <b>O</b>.</p>

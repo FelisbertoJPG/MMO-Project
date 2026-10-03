@@ -1,24 +1,17 @@
-// O PROVADOR (03/10/2026) — ferramenta de DEPURAÇÃO do corpo novo (guerreiro.js).
-// Shift+G abre/fecha um painel com os designs do guerreiro: sem armadura, as três
-// armaduras do pacote (A1, A2, A3) e o boneco antigo. A escolha fica guardada no
-// navegador (localStorage) e vale de novo na próxima vez.
-//
-// No Mundo online o jogador já entra com o guerreiro (o que estiver escolhido; da
-// primeira vez, sem armadura). Na Jornada nada muda até alguém abrir o provador.
-// É só VISUAL e LOCAL: os outros jogadores continuam vendo o boneco antigo.
+// O PROVADOR (03/10/2026) — Shift+G abre/fecha um painel com os corpos do jogador
+// (guerreiro.js): o guerreiro sem armadura, as três armaduras do pacote (A1, A2, A3)
+// e o boneco antigo. A escolha fica guardada no navegador (`guardarCorpo`) e viaja
+// no instantâneo, então os outros jogadores veem o mesmo corpo.
 import { Assets } from './assets.js';
+import { guardarCorpo, armaduraDe, corpoDe } from './guerreiro.js';
 
-const CHAVE = 'masmorra.provador';
 const OPCOES = [
-  { id: 'nu', nome: 'Sem armadura', armadura: null },
-  { id: 'A1', nome: 'Armadura 1 — couro', armadura: 'A1' },
-  { id: 'A2', nome: 'Armadura 2 — placas', armadura: 'A2' },
-  { id: 'A3', nome: 'Armadura 3 — capuz', armadura: 'A3' },
-  { id: 'antigo', nome: 'Boneco antigo', armadura: false },
+  { id: 'nu', nome: 'Sem armadura' },
+  { id: 'A1', nome: 'Armadura 1 — couro' },
+  { id: 'A2', nome: 'Armadura 2 — placas' },
+  { id: 'A3', nome: 'Armadura 3 — capuz' },
+  { id: 'antigo', nome: 'Boneco antigo' },
 ];
-
-const lerEscolha = () => { try { return localStorage.getItem(CHAVE); } catch { return null; } };
-const gravarEscolha = (id) => { try { localStorage.setItem(CHAVE, id); } catch { /* sem armazenamento: só não lembra */ } };
 
 export class Provador {
   constructor(game) {
@@ -57,10 +50,7 @@ export class Provador {
   }
 
   // a opção atual, pelo que o boneco está usando agora
-  atual() {
-    const g = this.game.player?.model?.guerreiro;
-    return !g ? 'antigo' : g.armadura ?? 'nu';
-  }
+  atual() { return corpoDe(this.game.player.model); }
 
   marcar() {
     const id = this.atual();
@@ -68,22 +58,16 @@ export class Provador {
   }
 
   async escolher(id) {
-    const op = OPCOES.find((o) => o.id === id);
-    if (!op) return;
-    gravarEscolha(id);
-    if (op.armadura !== false && !Assets.guerreiro) {
+    if (!OPCOES.some((o) => o.id === id)) return;
+    guardarCorpo(id);
+    const armadura = armaduraDe(id);
+    if (armadura !== false && !Assets.guerreiro) {
       this.estado.textContent = 'carregando o guerreiro…';
       const ok = await Assets.carregarGuerreiro();
       this.estado.textContent = ok ? '' : 'não consegui carregar o guerreiro (veja o console)';
       if (!ok) return;
     }
-    this.game.player.model.usarGuerreiro(op.armadura);
+    this.game.player.model.usarGuerreiro(armadura);
     this.marcar();
-  }
-
-  // ao entrar no Mundo online: o guerreiro, com o design guardado (da primeira vez, sem armadura)
-  aoEntrarNoMundo() {
-    const id = lerEscolha() ?? 'nu';
-    if (id !== 'antigo') this.escolher(id);
   }
 }

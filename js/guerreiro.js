@@ -1,7 +1,7 @@
-// O GUERREIRO (03/10/2026, em TESTE) — no Mundo online o jogador já entra com ele,
-// sem armadura; o PROVADOR (Shift+G, `provador.js`) troca entre as armaduras dele
-// e o boneco antigo. Na Jornada, só pelo provador ou com `?guerreiro` na URL.
-// É só VISUAL e só na tela de quem usa: os outros jogadores seguem vendo o boneco antigo.
+// O GUERREIRO (03/10/2026) — o corpo do jogador, nos dois modos. O PROVADOR
+// (Shift+G, `provador.js`) troca entre o sem armadura, as três armaduras dele e o
+// boneco antigo; a escolha fica no navegador (`corpoGuardado`) e VIAJA no
+// instantâneo (`c`, protocolo.js), para os outros verem o mesmo corpo.
 //
 // Um corpo novo para o jogador, vindo do "Low Poly Axe Warrior" (FBX da loja da
 // Unity, convertido para assets/guerreiro/guerreiro.glb): o corpo nu em peças, as
@@ -25,10 +25,20 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 
-const parametro = new URLSearchParams(location.search).get('guerreiro');
-// `?guerreiro` liga; `?guerreiro=A1` (ou A2, A3) veste uma das armaduras dele; sem valor = nu
-export const USAR_GUERREIRO = parametro !== null;
-export const ARMADURA_TESTE = /^A[123]$/i.test(parametro ?? '') ? parametro.toUpperCase() : null;
+// Os corpos, pelo nome que viaja na rede e fica guardado: 'antigo' = o manequim UAL
+export const CORPOS = ['nu', 'A1', 'A2', 'A3', 'antigo'];
+const CHAVE = 'masmorra.provador';
+/** O corpo escolhido neste navegador (da primeira vez, o guerreiro sem armadura). */
+export function corpoGuardado() {
+  let c = null;
+  try { c = localStorage.getItem(CHAVE); } catch { /* sem armazenamento */ }
+  return CORPOS.includes(c) ? c : 'nu';
+}
+export function guardarCorpo(c) { try { localStorage.setItem(CHAVE, c); } catch { /* só não lembra */ } }
+/** nome do corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo) */
+export const armaduraDe = (c) => (c === 'antigo' ? false : c === 'nu' || !CORPOS.includes(c) ? null : c);
+/** o corpo que um boneco está usando agora */
+export const corpoDe = (modelo) => (!modelo.guerreiro ? 'antigo' : modelo.guerreiro.armadura ?? 'nu');
 
 // osso UAL → osso do guerreiro
 const PARES = {
@@ -75,8 +85,13 @@ export class CorpoGuerreiro {
     }
 
     // o manequim UAL some (corpo e traje), mas continua animando
+    // — menos as ARMAS: trocado com o jogo rodando (o provador), a arma ainda está
+    // na mão do UAL e vai para a do guerreiro logo depois (`usarGuerreiro`); escondê-la
+    // aqui a deixava invisível na mão nova
     this.escondidos = [];
-    modelo.scene.traverse((o) => { if (o.isMesh && o.visible) { o.visible = false; this.escondidos.push(o); } });
+    const armas = new Set();
+    for (const slot of [modelo.slotR, modelo.slotL]) slot?.traverse((o) => armas.add(o));
+    modelo.scene.traverse((o) => { if (o.isMesh && o.visible && !armas.has(o)) { o.visible = false; this.escondidos.push(o); } });
 
     // a pose T dos dois, no espaço do pivot. A do UAL vem do manequim-FONTE
     // (Assets.baseScene, que nunca anima): o boneco pode estar no meio de um golpe
