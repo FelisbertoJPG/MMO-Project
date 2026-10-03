@@ -3,6 +3,7 @@ import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js'
 import { Interpolador, giroCurto, loopa } from './remoto.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { CELL, S } from './world.js';
+import { Animal } from './animais.js';
 
 const _v = new THREE.Vector3();
 
@@ -542,19 +543,30 @@ export function spawnEnemies(game) {
   add('rogue', 9, 4, Math.PI / 2);
   add('mage', 9, 11, Math.PI, {}, 0, -0.5);
   add('mage', 13, 3, Math.PI / 2);
-  // Floresta e ruínas (mapa `floresta`): só onde a célula É ar livre — com o
-  // mapa `original` ativo ela é rocha, e o inimigo nasceria dentro da pedra.
-  const fora = (type, r, c, facing, opts = {}) => {
-    if (game.world?.isOpenAir?.(r, c)) add(type, r, c, facing, opts);
+  // Floresta e mata (mapa `floresta`): só onde a célula É ar livre — com o
+  // mapa `original` ativo ela é rocha, e o bicho nasceria dentro da pedra.
+  // OS ANIMAIS (03/10/2026, js/animais.js) no lugar dos esqueletos da floresta,
+  // e a MATA (colunas 26–39) cheia deles. Sempre no FIM da lista e sempre na
+  // mesma ordem: o `netId` de cada um é a posição aqui (`e<i>`, ver main.js).
+  // Sem o modelo (.glb faltando), o animal simplesmente não nasce.
+  const bicho = (tipo, r, c, facing = Math.random() * Math.PI * 2, dx = 0, dz = 0) => {
+    if (game.world?.isOpenAir?.(r, c) && Animal.existe(tipo)) list.push(new Animal(game, tipo, at(r, c, dx, dz), facing));
   };
-  fora('minion', 15, 18, -Math.PI / 2, { dormant: true });
-  fora('minion', 17, 19, -Math.PI / 2, { dormant: true });
-  fora('minion', 14, 20, -Math.PI / 2, { dormant: true });
-  fora('rogue', 12, 22, Math.PI / 2);
-  // A estrada do acampamento (02/10/2026): o primeiro susto de quem nasce do
-  // lado de fora, já longe da fogueira de lá. Sempre no FIM da lista: o `netId`
-  // de cada inimigo é a posição dele aqui (`e<i>`, ver main.js).
-  fora('minion', 15, 27, Math.PI / 2, { dormant: true });
-  fora('minion', 17, 26, Math.PI / 2, { dormant: true });
+  // a floresta da masmorra: uma alcateia, uma raposa e um cervo
+  bicho('lobo', 15, 18, -Math.PI / 2);
+  bicho('lobo', 17, 19, -Math.PI / 2);
+  bicho('lobo', 14, 20, -Math.PI / 2);
+  bicho('raposa', 12, 22);
+  bicho('cervo', 19, 22);
+  // a mata: pacíficos em bando, os neutros sozinhos, e a outra alcateia no fundo
+  bicho('cervo', 12, 30); bicho('cervo', 13, 31, undefined, 0.6, 0.4); bicho('cervo', 12, 32);
+  bicho('cervoReal', 14, 34);
+  bicho('raposa', 20, 29); bicho('raposa', 11, 36);
+  bicho('cavalo', 18, 35); bicho('cavalo', 19, 36, undefined, 0.5, 0);
+  bicho('touro', 16, 37);
+  bicho('lobo', 19, 31); bicho('lobo', 20, 32); bicho('lobo', 18, 30);
+  // a saída do acampamento (onde ficavam dois esqueletos): caça fácil para quem nasce ali
+  bicho('cervo', 15, 41, Math.PI / 2);
+  bicho('cervo', 17, 40, Math.PI / 2);
   return list;
 }

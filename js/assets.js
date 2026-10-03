@@ -37,6 +37,11 @@ export const PROPS = [
 // modelo do editor de cenas e trazidos por `ferramentas/levar-modelo.mjs` —
 // que também mantém esta lista. A montagem deles é `js/blocos.js`, uma CÓPIA
 // da do editor (não edite lá: ver o cabeçalho do arquivo).
+// Os ANIMAIS (03/10/2026, pacote Ultimate Animated Animals da Quaternius):
+// GLB em assets/animais/<nome>.glb, com o esqueleto e as animações de cada um
+// (Idle, Walk, Gallop, Attack…, Death). Quem os usa é `js/animais.js`.
+export const ANIMAIS_MODELOS = ['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
+
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
 
 /** Um modelo de blocos, ou `null` com o motivo no console (o jogo abre sem ele). */
@@ -130,6 +135,7 @@ export const Assets = {
   mapa: null,
   mapaNome: 'emergencia',
   modelos: {},   // nome → modelo de blocos (MODELOS)
+  animais: {},   // nome → { scene, clips } (ANIMAIS_MODELOS)
 
   async load(onProgress = () => {}) {
     const loader = new GLTFLoader();
@@ -137,17 +143,26 @@ export const Assets = {
       ['char', 'UAL1', 'assets/characters/UAL1.glb'],
       ['char', 'UAL2', 'assets/characters/UAL2.glb'],
       ...PROPS.map((n) => ['prop', n, `assets/dungeon/${n}.glb`]),
+      ...ANIMAIS_MODELOS.map((n) => ['animal', n, `assets/animais/${n}.glb`]),
     ];
     let done = 0;
     await Promise.all(jobs.map(async ([kind, name, url]) => {
-      const gltf = await loader.loadAsync(url);
+      // um animal faltando não derruba o jogo: ele só não nasce (animais.js)
+      const gltf = kind === 'animal' ? await loader.loadAsync(url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await loader.loadAsync(url);
+      if (!gltf) { onProgress(++done / jobs.length); return; }
       gltf.scene.traverse((c) => {
         if (c.isMesh) {
           c.castShadow = true; c.receiveShadow = true;
           if (c.material) { c.material.roughness = 1; c.material.metalness = 0; }
         }
       });
-      if (kind === 'char') {
+      if (kind === 'animal') {
+        // a cor está no material (low poly, sem textura): escurecida para a noite,
+        // como a natureza, uma vez por material
+        const vistos = new Set();
+        gltf.scene.traverse((c) => { if (c.isMesh && !vistos.has(c.material)) { vistos.add(c.material); c.material.color.multiply(new THREE.Color(0xb0b8b0)); } });
+        this.animais[name] = { scene: gltf.scene, clips: gltf.animations };
+      } else if (kind === 'char') {
         for (const clip of gltf.animations) this.clips[clip.name] ??= clip;
         if (name === 'UAL1') this.baseScene = gltf.scene;
       } else this.props[name] = gltf.scene;

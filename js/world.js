@@ -81,9 +81,9 @@ const TORCHES = [
 const TOCHAS_DE_ESTACA = [
   { cell: [16, 14], off: [-1.3, -2.3] },   // a entrada da masmorra (o arco), uma de cada lado
   { cell: [16, 14], off: [-1.3, 2.3] },
-  { cell: [15, 28], off: [1.2, 0.8] },     // o portão do acampamento, junto à cerca
-  { cell: [17, 28], off: [1.2, -0.8] },
-  { cell: [13, 34], off: [0.5, 2.2] },     // ao lado do cabide de armas
+  { cell: [15, 42], off: [1.2, 0.8] },     // o portão do acampamento, junto à cerca
+  { cell: [17, 42], off: [1.2, -0.8] },
+  { cell: [13, 48], off: [0.5, 2.2] },     // ao lado do cabide de armas
 ];
 
 /**
@@ -142,7 +142,7 @@ const CHESTS = [
   // o do ACAMPAMENTO, atrás da barraca do norte. No FIM da lista: o save
   // guarda os baús pela ordem, e um no meio embaralharia os saves antigos
   // (`buildChests` pula o que cai na rocha: o mapa `original` não tem acampamento).
-  { cell: [12, 33], wall: 'n', items: [['firebomb', 2], ['lostSoul', 1]] },
+  { cell: [12, 47], wall: 'n', items: [['firebomb', 2], ['lostSoul', 1]] },
 ];
 
 // Itens no chão (alguns junto a cadáveres)
@@ -165,9 +165,9 @@ const MESSAGES = [
   { cell: [13, 7], text: 'Fogo é a fraqueza dos ossos', off: [0, 1] },
   { cell: [7, 7], text: 'O Carrasco aguarda. Role através do machado.', off: [0, 1] },
   // o acampamento e a estrada (só existem no mapa `floresta` estendido — `buildMessages` pula as que caem na rocha)
-  { cell: [16, 38], text: 'O desabamento fechou a estrada. Só resta seguir em frente.', off: [-1.5, 1.4] },
-  { cell: [16, 29], text: 'A masmorra fica a oeste, depois da floresta. Não vá de mãos vazias.', off: [0, 1.6] },
-  { cell: [16, 27], text: 'Há ossos sob a relva. Pise leve.', off: [1.5, -1.2] },
+  { cell: [16, 52], text: 'O desabamento fechou a estrada. Só resta seguir em frente.', off: [-1.5, 1.4] },
+  { cell: [16, 43], text: 'A masmorra fica a oeste, depois da floresta. Não vá de mãos vazias.', off: [0, 1.6] },
+  { cell: [16, 41], text: 'Há ossos sob a relva. Pise leve.', off: [1.5, -1.2] },
 ];
 
 const DIRS = { n: [-1, 0], s: [1, 0], w: [0, -1], e: [0, 1] };
@@ -181,7 +181,11 @@ export const START_POS = new THREE.Vector3(5 * CELL, 0, 24 * CELL);
 // fogueira. É onde nasce quem entra no MUNDO ONLINE (`Player.startOutside`).
 // O `decorar-acampamento.mjs` do editor de cenas LÊ esta linha para arrumar as
 // barracas em volta — mudou aqui, rode a ferramenta de novo.
-export const CAMP_POS = new THREE.Vector3(33.5 * CELL, 0, 16 * CELL);
+// 03/10/2026: a MATA abriu 14 colunas entre a floresta e o acampamento, que foi
+// de 26–39 para 40–53 (e a decoração dele andou junto no decor.json). A
+// ferramenta do editor ainda assume "da coluna 26 em diante": ajuste-a antes de
+// rodá-la de novo, ou ela redecora a mata como se fosse o acampamento.
+export const CAMP_POS = new THREE.Vector3(47.5 * CELL, 0, 16 * CELL);
 /**
  * As FOGUEIRAS, no plural. `acordar` = onde se renasce, em metros a partir do
  * fogo, e `rumo` = para onde se acorda olhando. A da masmorra é a primeira: é
