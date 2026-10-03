@@ -181,7 +181,10 @@ export class CharacterModel {
    * para o cabo, 14 cm abaixo do direito e do MESMO lado (as duas fecham o cabo pelo
    * mesmo lado). Quando o cabo está longe demais para o braço esquerdo, o direito
    * TRAZ a arma para perto do corpo (IK também), com a mão no mesmo giro — a lâmina
-   * só anda, não torce.
+   * só anda, não torce. O cabo fica SEMPRE NA FRENTE do peito (nos eixos do tronco:
+   * os ombros dão o lado, o mundo dá o alto), senão o braço esquerdo atravessava o
+   * corpo para pegar uma espada do lado direito; e os cotovelos apontam para fora e
+   * para baixo (`polo`).
    */
   segurarComAsDuas(peso) {
     const g = this.guerreiro;
@@ -198,15 +201,31 @@ export class CharacterModel {
     const sL = ombroL.getWorldPosition(_sL), sR = ombroR.getWorldPosition(_sR);
     const alcL = (sL.distanceTo(cotL.getWorldPosition(_t1)) + _t1.distanceTo(maoL.getWorldPosition(_t2))) * 0.97;
     const alcR = (sR.distanceTo(cotR.getWorldPosition(_t1)) + _t1.distanceTo(pulsoR)) * 0.97;
+    // os eixos do tronco: lado (ombro esq. → dir.), alto (o do mundo), frente
+    const lado = _lado.subVectors(sR, sL).normalize(), alto = _alto.set(0, 1, 0);
+    const frente = _frente.crossVectors(alto, lado).normalize();
+    const peito = _peito.addVectors(sL, sR).multiplyScalar(0.5).addScaledVector(alto, -0.2);
     const R = _R.copy(pulsoR);
-    for (let k = 0; k < 4; k++) {
+    for (let k = 0; k < 6; k++) {
+      // na frente do peito: as duas mãos a pelo menos FRENTE_MIN dele
+      const zR = _t1.subVectors(R, peito).dot(frente), zL = _t1.addVectors(R, d).sub(peito).dot(frente);
+      const falta = FRENTE_MIN - Math.min(zR, zL);
+      if (falta > 0) R.addScaledVector(frente, falta);
+      // e não muito para os lados: a direita até 28 cm do meio, a esquerda até 15 cm
+      const xR = _t1.subVectors(R, peito).dot(lado), xL = _t1.addVectors(R, d).sub(peito).dot(lado);
+      if (xR > 0.28) R.addScaledVector(lado, 0.28 - xR);
+      if (xL < -0.15) R.addScaledVector(lado, -0.15 - xL);
+      // o que os braços alcançam
       _t1.addVectors(R, d).sub(sL); if (_t1.length() > alcL) _t1.setLength(alcL); R.copy(sL).add(_t1).sub(d);
       _t1.subVectors(R, sR); if (_t1.length() > alcR) _t1.setLength(alcR); R.copy(sR).add(_t1);
     }
+    // os cotovelos: para fora e para baixo, um pouco para trás
+    const poloR = _poloR.copy(sR).addScaledVector(lado, 0.35).addScaledVector(alto, -0.45).addScaledVector(frente, -0.1);
+    const poloL = _poloL.copy(sL).addScaledVector(lado, -0.35).addScaledVector(alto, -0.45).addScaledVector(frente, -0.1);
     R.lerpVectors(pulsoR, R, peso);
     if (R.distanceToSquared(pulsoR) > 1e-6) {
       maoR.getWorldQuaternion(_qMao);
-      ikDoisOssos(ombroR, cotR, maoR, R);
+      ikDoisOssos(ombroR, cotR, maoR, R, poloR);
       // a mão no giro de antes (no mundo): a arma não torce
       maoR.parent.getWorldQuaternion(_qp);
       maoR.quaternion.copy(_qp.invert().multiply(_qMao));
@@ -215,7 +234,7 @@ export class CharacterModel {
     // e a esquerda no cabo
     const alvo = _alvo.copy(R).add(d);
     alvo.lerpVectors(maoL.getWorldPosition(_t2), alvo, peso);
-    ikDoisOssos(ombroL, cotL, maoL, alvo);
+    ikDoisOssos(ombroL, cotL, maoL, alvo, poloL);
   }
 }
 
@@ -229,6 +248,9 @@ const _alvoLocal = new THREE.Vector3(), _alvo = new THREE.Vector3(), _inv = new 
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3();
 const _ba = new THREE.Vector3(), _bc = new THREE.Vector3(), _ac = new THREE.Vector3(), _at = new THREE.Vector3(), _eixo = new THREE.Vector3();
 const _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _qMao = new THREE.Quaternion();
+const FRENTE_MIN = 0.3;   // o cabo, no mínimo isto à frente do peito (m)
+const _lado = new THREE.Vector3(), _alto = new THREE.Vector3(), _frente = new THREE.Vector3(), _peito = new THREE.Vector3(), _poloR = new THREE.Vector3(), _poloL = new THREE.Vector3();
+const _pb = new THREE.Vector3(), _pp = new THREE.Vector3();
 const _pR = new THREE.Vector3(), _d = new THREE.Vector3(), _sL = new THREE.Vector3(), _sR = new THREE.Vector3(), _R = new THREE.Vector3(), _t1 = new THREE.Vector3(), _t2 = new THREE.Vector3();
 // gira o osso `o` no MUNDO por `r` (o pai fica onde está)
 function girarNoMundo(o, r) {
@@ -237,7 +259,7 @@ function girarNoMundo(o, r) {
   o.quaternion.copy(_qp.invert().multiply(r.multiply(_qw)));
   o.updateMatrixWorld(true);
 }
-function ikDoisOssos(osA, osB, osC, alvo) {
+function ikDoisOssos(osA, osB, osC, alvo, polo = null) {
   osA.getWorldPosition(_a); osB.getWorldPosition(_b); osC.getWorldPosition(_c);
   const lab = _a.distanceTo(_b), lcb = _b.distanceTo(_c);
   const lat = THREE.MathUtils.clamp(_a.distanceTo(alvo), Math.abs(lab - lcb) + 0.002, lab + lcb - 0.002);
@@ -253,6 +275,16 @@ function ikDoisOssos(osA, osB, osC, alvo) {
   osC.getWorldPosition(_c);
   _ac.subVectors(_c, _a).normalize(); _at.subVectors(alvo, _a).normalize();
   girarNoMundo(osA, _qr.setFromUnitVectors(_ac, _at));
+  // (3) o POLO: gira o braço em volta da reta ombro→alvo (a mão não sai do lugar)
+  // até o cotovelo ficar do lado do polo
+  if (!polo) return;
+  osB.getWorldPosition(_b);
+  _pb.subVectors(_b, _a).addScaledVector(_at, -_b.clone().sub(_a).dot(_at));
+  _pp.subVectors(polo, _a).addScaledVector(_at, -polo.clone().sub(_a).dot(_at));
+  if (_pb.lengthSq() < 1e-8 || _pp.lengthSq() < 1e-8) return;
+  _pb.normalize(); _pp.normalize();
+  const ang = Math.atan2(_eixo.crossVectors(_pb, _pp).dot(_at), _pb.dot(_pp));
+  girarNoMundo(osA, _qr.setFromAxisAngle(_at, ang));
 }
 
 // Matriz local (relativa ao osso) de uma arma/escudo, calculada na pose T da cena-fonte
