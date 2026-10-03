@@ -195,7 +195,11 @@ class Game {
       if (this.state === 'playing' && !this.menu && !this.input.locked) this.input.requestLock();
     });
     document.addEventListener('pointerlockchange', () => {
-      if (!this.input.locked && this.state === 'playing' && !this.menu) this.openMenu('pause');
+      if (this.input.locked || this.state !== 'playing' || this.menu) return;
+      // Esc com o chat aberto: o navegador solta o mouse antes de a tecla chegar à
+      // caixa — é "desistir de escrever", não "pausar"
+      if (this.online.chat?.escrevendo) { this.online.chat.fecharEscrita(); return; }
+      this.openMenu('pause');
     });
   }
 
@@ -832,6 +836,7 @@ class Game {
       else if (this.lendo?.online && !this.lendo.minha && inp.pressed('Digit2')) this.votarNaMensagem(this.lendo, -1);
       return;
     }
+    if (inp.pressed('Enter') && this.online.chat) { this.online.chat.abrirEscrita(); return; }
     if (this.sessao?.convite && inp.pressed('KeyY')) this.sessao.responderConvite(true);
     if (this.sessao?.convite && inp.pressed('KeyN')) this.sessao.responderConvite(false);
     if (inp.pressed('KeyO') && !p.dead) { this.openMenu('sala'); return; }

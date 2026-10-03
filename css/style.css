@@ -236,7 +236,30 @@ button:disabled { opacity: .4; cursor: default; }
 #levelup .desc { color: var(--text-dim); font-size: 13px; }
 .pause-panel { text-align: center; }
 
+/* Chat global: sempre aberto à esquerda; a nova entra embaixo e as velhas sobem */
+#chat { position: absolute; left: 40px; bottom: 300px; width: min(420px, calc(100vw - 80px));
+  display: flex; flex-direction: column; gap: 4px; }
+#chat-lista { max-height: min(32vh, 260px); overflow: hidden; display: flex; flex-direction: column;
+  gap: 2px; padding: 6px 10px; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,.15));
+  border-left: 2px solid var(--gold-dim); font-size: 14px; line-height: 1.35;
+  mask-image: linear-gradient(transparent, #000 22%); -webkit-mask-image: linear-gradient(transparent, #000 22%); }
+#chat-lista:empty { display: none; }
+.chat-msg { color: #e6dccb; text-shadow: 0 0 3px #000; overflow-wrap: anywhere; }
+.chat-msg b { color: var(--gold); font-weight: 400; font-family: var(--serif); }
+.chat-msg.minha b { color: #9fd0ff; }
+.chat-msg.aviso { color: #d0705a; font-style: italic; }
+#chat-entrada { display: none; pointer-events: auto; background: rgba(0,0,0,.8); border: 1px solid var(--gold);
+  color: #f0e8d8; padding: 7px 10px; font: 15px Georgia, serif; outline: none; }
+#chat.escrevendo #chat-entrada { display: block; }
+#chat.escrevendo #chat-lista { overflow-y: auto; pointer-events: auto; mask-image: none; -webkit-mask-image: none; }
+/* janela baixa: o chat desce e encolhe, para não cobrir as barras de vida */
+@media (max-height: 700px) {
+  #chat { bottom: 185px; }
+  #chat-lista { max-height: calc(100vh - 185px - 150px); }
+}
+
 @media (max-width: 640px) {
+  #chat { left: 8px; bottom: 210px; width: calc(100vw - 16px); }
   #bars { left: 16px; top: 16px; }
   #equip { left: 8px; bottom: 16px; }
   #souls { right: 16px; bottom: 16px; }

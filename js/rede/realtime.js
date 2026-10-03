@@ -24,11 +24,10 @@
  *   • o que um cliente manda para os outros chega como `broadcast`, e **não
  *     passa pelo banco**.
  *
- * **Aqui só existe a face de TRANSMISSÃO** (`ouvirTransmissoes`): recado direto
- * entre clientes — os fantasmas, e mais tarde o co-op. No Duel Academy há uma
- * segunda face, de tabelas, sobre a mesma canalização; se a Masmorra precisar
- * dela, traga-a de lá por cima de `abrirCanal`, sem duplicar a reconexão, o
- * heartbeat e a renovação de token — é a parte que erra calada.
+ * **São DUAS faces sobre UMA canalização**: `ouvirTransmissoes` (recado direto
+ * entre clientes — os fantasmas, a sala) e `ouvirMudancas` (linhas de tabela —
+ * o chat global). O que elas dividem — reconexão, heartbeat, renovação de token —
+ * é a parte que erra calada, e por isso mora uma vez só, em `abrirCanal`.
  *
  * **O RLS vale aqui igual** — para as TABELAS. O `access_token` vai no
  * `phx_join` e o servidor só entrega as linhas que aquele usuário poderia ler
@@ -178,6 +177,38 @@ function abrirCanal(conf, aoEvento, aoEstado = () => {}) {
       anunciar(false);
     },
   };
+}
+
+/**
+ * Abre um canal de TABELAS e chama `aoMudar(evento)` a cada linha que muda
+ * (`{tabela, tipo, novo, antigo}`; `tipo` = 'INSERT'/'UPDATE'/'DELETE').
+ *
+ * Trazida de volta do Duel Academy (03/10/2026) para o CHAT GLOBAL, que é a
+ * tabela `public.mensagens` de lá. O `topico` e o `schema` são parâmetros:
+ * o tópico do Duel Academy (`realtime:classic-duels`) não deve ser reusado.
+ * A RLS vale: só chega a linha que este usuário poderia ler por `select`.
+ *
+ * @returns {() => void} chame para fechar (definitivo: não reconecta).
+ */
+export function ouvirMudancas(conf, aoMudar, aoEstado = () => {}) {
+  const { url, apikey, token, topico, schema = 'public', tabelas } = conf ?? {};
+  const canal = abrirCanal(
+    {
+      url, apikey, token,
+      topico: `realtime:${topico}`,
+      esperaTabelas: true,
+      config: {
+        broadcast: { self: false },
+        presence: { key: '' },
+        postgres_changes: (tabelas ?? []).map((t) => ({
+          event: t.event ?? '*', schema, table: t.table, ...(t.filter ? { filter: t.filter } : {}),
+        })),
+      },
+    },
+    (e) => { if (e.tipo !== 'BROADCAST') aoMudar(e); },
+    aoEstado,
+  );
+  return canal.fechar;
 }
 
 /**

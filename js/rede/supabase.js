@@ -152,11 +152,15 @@ export async function sair() {
  * Pedido autenticado ao PostgREST, no schema `masmorra`. `caminho` é relativo
  * a `/rest/v1/` (`'mensagens?mapa=eq.floresta'`, `'rpc/entrar'`).
  * Devolve `{ok, status, dados, error}` e nunca lança.
+ *
+ * `schema: 'public'` fala com o que é do DUEL ACADEMY — hoje, só o chat global,
+ * que os dois jogos DIVIDEM de propósito (ver `rede/chat.js`). Todo o resto da
+ * Masmorra fica no `masmorra`.
  */
-export async function req(caminho, { method = 'GET', body, prefer, keepalive = false } = {}) {
+export async function req(caminho, { method = 'GET', body, prefer, keepalive = false, schema = SCHEMA } = {}) {
   const headers = { apikey: SUPABASE_KEY };
-  if (method === 'GET' || method === 'HEAD') headers['accept-profile'] = SCHEMA;
-  else headers['content-profile'] = SCHEMA;
+  if (method === 'GET' || method === 'HEAD') headers['accept-profile'] = schema;
+  else headers['content-profile'] = schema;
   try {
     const token = await tokenValido();
     if (token) headers.authorization = `Bearer ${token}`;

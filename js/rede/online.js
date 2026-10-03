@@ -20,6 +20,7 @@ import { sessao, contaId, entrar, cadastrar, sair, rpc } from './supabase.js';
 import { Fantasmas } from './fantasmas.js';
 import { Mensagens } from './mensagens.js';
 import { Mortes } from './mortes.js';
+import { ChatGlobal } from './chat.js';
 
 export class Online {
   constructor(game) {
@@ -89,11 +90,12 @@ export class Online {
     if (game.regras.fantasmas) this.fantasmas = new Fantasmas(game, this);
     this.mensagens = new Mensagens(game, this);
     this.mortes = new Mortes(game, this);
+    this.chat = new ChatGlobal(game);   // o chat global, o mesmo do Duel Academy
   }
 
   pararPartida() {
-    this.fantasmas?.fechar(); this.mensagens?.fechar(); this.mortes?.fechar();
-    this.fantasmas = this.mensagens = this.mortes = null;
+    this.fantasmas?.fechar(); this.mensagens?.fechar(); this.mortes?.fechar(); this.chat?.fechar();
+    this.fantasmas = this.mensagens = this.mortes = this.chat = null;
   }
 
   /** Todo quadro, inclusive com menu aberto (os outros não pausam junto). */
