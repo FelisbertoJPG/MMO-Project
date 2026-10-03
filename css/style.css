@@ -243,10 +243,29 @@ button:disabled { opacity: .4; cursor: default; }
 
 .bonfire-panel { width: min(560px, 94vw); text-align: center; max-height: 92vh; overflow-y: auto; box-sizing: border-box; }
 .panel { scrollbar-width: thin; scrollbar-color: var(--gold-dim) transparent; }
+/* o menu da fogueira: as opções, e cada uma abre a sua tela */
+.bf-botoes { display: flex; flex-direction: column; gap: 10px; align-items: center; margin: 18px 0 6px; }
+.bf-botoes button { width: min(260px, 80%); }
+#bf-nivel > button, #bf-panela > button { margin-top: 6px; }
+/* a panela: as vagas, a despensa e o livro de receitas */
+.panela-vagas { display: flex; gap: 10px; justify-content: center; margin: 4px 0 10px; }
+.vaga { width: 58px; height: 58px; border: 1px dashed var(--gold-dim); background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 0; }
+.vaga.cheia { border-style: solid; border-color: var(--gold); cursor: pointer; }
+.vaga svg { width: 44px; height: 44px; }
+.panela-acoes { text-align: center; }
+#panela-aviso { text-align: center; min-height: 1.2em; margin: 6px 0 4px; color: #e0c890; }
+.panela-sub { font-family: var(--serif); color: var(--gold); font-size: 13px; letter-spacing: 1px; margin: 12px 0 6px; text-align: left; }
+.despensa { display: flex; flex-wrap: wrap; gap: 6px; }
+.ingr { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; }
+.ingr svg { width: 26px; height: 26px; }
+.ingr b { color: #fff3d6; }
+.ingr span { color: var(--text-dim); }
+.livro { display: flex; flex-direction: column; gap: 6px; }
+.rc-icone.desconhecida { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font: 26px var(--serif); color: var(--gold-dim); border: 1px dashed var(--gold-dim); box-sizing: border-box; }
 /* a panela da fogueira */
 .panela-titulo { font-family: var(--serif); font-weight: 400; letter-spacing: 2px; color: var(--gold); font-size: 16px; margin: 4px 0 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .panela-titulo svg { width: 26px; height: 26px; }
-#panela { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; text-align: left; }
+#panela { margin-bottom: 12px; text-align: left; }
 .receita { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border: 1px solid #2c261d; background: rgba(0,0,0,.25); }
 .receita.sem { opacity: .55; }
 .rc-icone svg { width: 44px; height: 44px; }

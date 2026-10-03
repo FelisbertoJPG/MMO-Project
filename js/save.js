@@ -1,4 +1,5 @@
 import { ITEMS } from './items.js';
+import { RECEITAS } from './receitas.js';
 import { req } from './rede/supabase.js';
 import { temSaveEmArquivo } from './hospedagem.js';
 
@@ -113,7 +114,8 @@ export function coletar(game) {
     jogador: {
       nivel: p.level, vigor: p.vigor, endurance: p.endurance, strength: p.strength,
       almas, vida: p.dead ? null : Math.ceil(p.hp), pos,
-      fogueira: p.fogueira,   // onde renasce (save de antes das duas fogueiras não tem: é a da masmorra)
+      fogueira: p.fogueira,
+      receitas: [...p.receitas],   // as descobertas na panela   // onde renasce (save de antes das duas fogueiras não tem: é a da masmorra)
     },
     inventario: {
       itens: [...inv.items.entries()],
@@ -166,6 +168,7 @@ export function aplicarProgresso(game, s) {
 
   // Atributos
   p.level = j.nivel; p.vigor = j.vigor; p.endurance = j.endurance; p.strength = j.strength;
+  p.receitas = new Set((Array.isArray(j.receitas) ? j.receitas : []).filter((id) => typeof id === 'string' && RECEITAS.some((r) => r.id === id)));
   p.souls = j.almas;
   game.ui.displaySouls = j.almas;
 

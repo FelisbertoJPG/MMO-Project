@@ -37,6 +37,7 @@ export class Player {
 
     this.level = 1; this.vigor = 10; this.endurance = 10; this.strength = 10;
     this.souls = 0;
+    this.receitas = new Set();    // receitas descobertas na panela (receitas.js), pelo id
     this.fogueira = 'masmorra';   // a última em que descansou: é onde renasce (ver `World.retorno`)
     // status com tempo (segundos que faltam). As COMIDAS (items.js, `use: 'comer'`)
     // dão `regen` (cura aos poucos, `regenPorSeg`), `folego`, `fortaleza` e `furia`.

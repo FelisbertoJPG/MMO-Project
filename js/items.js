@@ -81,6 +81,7 @@ Object.assign(ICONS, {
   mingau: tigela('#e8d8b0', '<path d="M26 28 q6 6 12 0" stroke="#e0a020" stroke-width="3" fill="none"/>'),
   guisado: tigela('#8a3a1a', '<rect x="22" y="26" width="6" height="5" fill="#a8763a"/><rect x="34" y="28" width="6" height="5" fill="#5a2a14"/>'),
   caldoPicante: tigela('#c8301a', '<path d="M30 26 q4 4 8 2" stroke="#3a6a1f" stroke-width="3" fill="none"/>'),
+  gororoba: tigela('#6a6450', '<circle cx="26" cy="29" r="3" fill="#4a4a3a"/><circle cx="38" cy="30" r="2.5" fill="#8a7a50"/>'),
   chaErva: svg(`<path d="M14 26 h32 v14 q0 14-16 14 q-16 0-16-14z" fill="#e8dcc8" stroke="#5a4a3a" stroke-width="2"/>
     <path d="M46 30 q10 0 8 8 q-2 6-8 4" stroke="#5a4a3a" stroke-width="3" fill="none"/><ellipse cx="30" cy="27" rx="15" ry="4" fill="#7aa04a"/>
     <path d="M24 18 q-3-6 1-10 M34 18 q-3-6 1-10" stroke="#d8d0c0" stroke-width="2" fill="none" opacity=".55"/>`),
@@ -138,6 +139,12 @@ export const ITEMS = {
     name: 'Chá de Erva Amarga', type: 'consumable', icon: ICONS.chaErva, use: 'comer', cura: 20, regen: { porSeg: 6, dur: 40 }, max: 10,
     desc: 'Amargo de doer. Não enche a barriga, mas o corpo se remenda devagar por bastante tempo.',
     stats: { 'Cura': '20 PV + 240 em 40s' },
+  },
+
+  gororoba: {
+    name: 'Gororoba', type: 'consumable', icon: ICONS.gororoba, use: 'comer', cura: 15, max: 10,
+    desc: 'O que sai da panela quando a mistura não é receita nenhuma. Mal dá para engolir, mas alimenta um pouco.',
+    stats: { 'Cura': '15 PV' },
   },
 
   // ---- INGREDIENTES: não se usam sozinhos — vão para a panela da fogueira

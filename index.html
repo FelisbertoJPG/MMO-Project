@@ -178,11 +178,23 @@
   <div id="bonfire-menu" class="overlay hidden">
     <div class="panel bonfire-panel">
       <h2>Fogueira</h2>
-      <div class="bf-sub">Você descansa. A chama restaura seu corpo — e a panela espera os ingredientes.</div>
-      <div id="levelup"></div>
-      <h3 class="panela-titulo">Panela</h3>
-      <div id="panela"></div>
-      <button id="bf-leave">Levantar-se</button>
+      <!-- o que fazer na fogueira: cada opção abre a sua tela (ui.mostrarFogueira) -->
+      <div id="bf-opcoes">
+        <div class="bf-sub">Você descansa. A chama restaura seu corpo.</div>
+        <div class="bf-botoes">
+          <button data-bf="nivel">Subir de nível</button>
+          <button data-bf="panela">Cozinhar</button>
+          <button id="bf-leave">Levantar-se</button>
+        </div>
+      </div>
+      <div id="bf-nivel" class="hidden">
+        <div id="levelup"></div>
+        <button data-bf="opcoes">Voltar</button>
+      </div>
+      <div id="bf-panela" class="hidden">
+        <div id="panela"></div>
+        <button data-bf="opcoes">Voltar</button>
+      </div>
     </div>
   </div>
 
