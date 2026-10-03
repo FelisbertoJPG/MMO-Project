@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
+import { USAR_GUERREIRO } from './guerreiro.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
 // a gaveta dele. Um .glb em assets/dungeon/ que NÃO esteja aqui existe no disco
@@ -136,6 +137,7 @@ export const Assets = {
   mapaNome: 'emergencia',
   modelos: {},   // nome → modelo de blocos (MODELOS)
   animais: {},   // nome → { scene, clips } (ANIMAIS_MODELOS)
+  guerreiro: null,   // o corpo novo do jogador, em teste (guerreiro.js; só com ?guerreiro)
 
   async load(onProgress = () => {}) {
     const loader = new GLTFLoader();
@@ -144,11 +146,12 @@ export const Assets = {
       ['char', 'UAL2', 'assets/characters/UAL2.glb'],
       ...PROPS.map((n) => ['prop', n, `assets/dungeon/${n}.glb`]),
       ...ANIMAIS_MODELOS.map((n) => ['animal', n, `assets/animais/${n}.glb`]),
+      ...(USAR_GUERREIRO ? [['guerreiro', 'guerreiro', 'assets/guerreiro/guerreiro.glb']] : []),
     ];
     let done = 0;
     await Promise.all(jobs.map(async ([kind, name, url]) => {
       // um animal faltando não derruba o jogo: ele só não nasce (animais.js)
-      const gltf = kind === 'animal' ? await loader.loadAsync(url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await loader.loadAsync(url);
+      const gltf = kind === 'animal' || kind === 'guerreiro' ? await loader.loadAsync(url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await loader.loadAsync(url);
       if (!gltf) { onProgress(++done / jobs.length); return; }
       gltf.scene.traverse((c) => {
         if (c.isMesh) {
@@ -162,6 +165,8 @@ export const Assets = {
         const vistos = new Set();
         gltf.scene.traverse((c) => { if (c.isMesh && !vistos.has(c.material)) { vistos.add(c.material); c.material.color.multiply(new THREE.Color(0xb0b8b0)); } });
         this.animais[name] = { scene: gltf.scene, clips: gltf.animations };
+      } else if (kind === 'guerreiro') {
+        this.guerreiro = gltf.scene;
       } else if (kind === 'char') {
         for (const clip of gltf.animations) this.clips[clip.name] ??= clip;
         if (name === 'UAL1') this.baseScene = gltf.scene;
@@ -218,6 +223,14 @@ export const Assets = {
       if (c.isMesh) { c.material = c.material.clone(); materials.push(c.material); c.frustumCulled = false; }
     });
     return { scene, materials };
+  },
+
+  // o guerreiro (guerreiro.js) só é baixado quando alguém o usa: são 3 MB
+  carregarGuerreiro() {
+    this._guerreiro ??= new GLTFLoader().loadAsync('assets/guerreiro/guerreiro.glb')
+      .then((gltf) => { this.guerreiro = gltf.scene; return true; })
+      .catch((e) => { console.warn('[guerreiro] não carregou:', e.message); this._guerreiro = null; return false; });
+    return this.guerreiro ? Promise.resolve(true) : this._guerreiro;
   },
 
   prop(name) { return this.props[name].clone(true); },

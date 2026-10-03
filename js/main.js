@@ -17,6 +17,7 @@ import { Online } from './rede/online.js';
 import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
 import { ControlesToque, ehToque } from './toque.js';
+import { Provador } from './provador.js';
 import { Graficos, qualidadeSalva } from './graficos.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
@@ -77,6 +78,7 @@ class Game {
     this.effects = new Effects(this);
     this.projectiles = new Projectiles(this);
     this.ui = new UI(this);
+    this.provador = new Provador(this);   // Shift+G: os designs do guerreiro (depuração)
     this.inventory = new Inventory(this);
     this.player = new Player(this);
     this.enemies = spawnEnemies(this);
@@ -208,6 +210,7 @@ class Game {
     });
     document.addEventListener('pointerlockchange', () => {
       if (this.input.locked || this.state !== 'playing' || this.menu) return;
+      if (this.provador.aberto) return;   // o provador soltou o mouse para os cliques
       // Esc com o chat aberto: o navegador solta o mouse antes de a tecla chegar à
       // caixa — é "desistir de escrever", não "pausar"
       if (this.online.chat?.escrevendo) { this.online.chat.fecharEscrita(); return; }
@@ -399,6 +402,7 @@ class Game {
     if (salvo) aplicarProgresso(this, salvo);
     this.world.destrancarCela();   // no mundo de todos ninguém acorda preso
     this.entrarNoJogo();
+    this.provador.aoEntrarNoMundo();   // no MMO, o guerreiro (em teste)
     this.online.comecarPartida();
     if (salvo) { this.snapCamera(); this.ui.centerMessage('Mundo online', 'info', 3000); }
     else this.comecarFora();

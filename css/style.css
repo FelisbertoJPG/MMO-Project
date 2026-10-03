@@ -403,3 +403,13 @@ body.toque .hint { display: none; }
   #title-screen .subtitle { font-size: 15px; margin: 4px 0 14px; }
   #title-screen .controls { display: none; }
 }
+
+/* O PROVADOR (js/provador.js): os designs do guerreiro, Shift+G */
+#provador { position: absolute; right: 24px; top: 90px; width: 240px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--gold-dim); pointer-events: auto; z-index: 30; }
+#provador .provador-titulo { font-family: var(--serif); color: var(--gold); display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+#provador .provador-titulo span { font-size: 11px; color: var(--text-dim); flex: 1; }
+#provador .provador-titulo button { padding: 0 8px; font-size: 13px; }
+#provador-lista { display: flex; flex-direction: column; gap: 6px; }
+#provador-lista button { padding: 6px 10px; text-align: left; font-size: 14px; }
+#provador-lista button.ativo { border-color: var(--gold); color: #fff3d6; background: rgba(80, 60, 30, 0.6); }
+#provador-estado { font-size: 12px; color: var(--text-dim); margin-top: 6px; min-height: 14px; }

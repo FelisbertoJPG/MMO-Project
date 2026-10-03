@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
+import { USAR_GUERREIRO } from './guerreiro.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { ITEMS, UNARMED, TORCH_LIFE } from './items.js';
 import { START_POS } from './world.js';
@@ -11,7 +12,7 @@ const _v = new THREE.Vector3();
 export class Player {
   constructor(game) {
     this.game = game;
-    this.model = new CharacterModel({ outfit: 'knight' });
+    this.model = new CharacterModel({ outfit: 'knight', corpo: USAR_GUERREIRO ? 'guerreiro' : null });
     game.scene.add(this.model.root);
     this.pos = this.model.root.position;
     this.radius = 0.42;

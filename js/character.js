@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { buildOutfit, makeWeapon, makeShield } from './gear.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
+import { CorpoGuerreiro, ARMADURA_TESTE } from './guerreiro.js';
 
 // Golpes: tempos em SEGUNDOS do clipe (medidos pela velocidade da ponta da lâmina).
 // from/to recortam trechos de clipes longos (combos); hit = janela de dano; arc = abertura do golpe.
@@ -27,7 +28,7 @@ export const ATTACKS = {
 };
 
 export class CharacterModel {
-  constructor({ outfit = 'knight', scale = 1, skinTint = null, hideBody = false } = {}) {
+  constructor({ outfit = 'knight', scale = 1, skinTint = null, hideBody = false, corpo = null } = {}) {
     const { scene, materials } = Assets.character();
     this.scene = scene;
     // Traje montado na pose T (antes de qualquer transformação/animação)
@@ -60,6 +61,29 @@ export class CharacterModel {
     this.actions = {};
     this.current = null; this.currentName = null;
     this.slotR = null; this.slotL = null;
+    // o corpo do guerreiro (em teste, guerreiro.js): o manequim segue animando, invisível
+    this.guerreiro = corpo === 'guerreiro' && Assets.guerreiro ? new CorpoGuerreiro(this, ARMADURA_TESTE) : null;
+  }
+
+  // O PROVADOR (provador.js) troca o corpo com o jogo rodando: `false` = o boneco
+  // antigo; null = o guerreiro sem armadura; 'A1'/'A2'/'A3' = com uma das dele.
+  // As armas na mão passam para o corpo novo, com a mesma pegada.
+  usarGuerreiro(armadura) {
+    if (armadura === false) {
+      if (!this.guerreiro) return;
+      this.guerreiro.remover();
+      this.guerreiro = null;
+    } else if (this.guerreiro) {
+      this.guerreiro.vestir(armadura);
+      return;
+    } else {
+      if (!Assets.guerreiro) return;
+      this.guerreiro = new CorpoGuerreiro(this, armadura);
+    }
+    for (const lado of ['r', 'l']) {
+      const obj = (lado === 'r' ? this.slotR : this.slotL)?.children[0];
+      if (obj) this.equip(lado, obj);
+    }
   }
 
   duration(name) { return Assets.clips[name]?.duration ?? 1; }
@@ -108,10 +132,12 @@ export class CharacterModel {
     const shield = !!obj.userData.shield;
     const boneName = shield ? 'lowerarm_l' : side === 'r' ? 'hand_r' : 'hand_l';
     const holder = new THREE.Group();
+    let osso = this.scene.getObjectByName(boneName);
     holder.matrix.copy(gripMatrix(boneName, side, shield));
+    if (this.guerreiro) ({ osso, matriz: holder.matrix } = this.guerreiro.pegada(boneName, holder.matrix));
     holder.matrix.decompose(holder.position, holder.quaternion, holder.scale);
     holder.add(obj);
-    this.scene.getObjectByName(boneName).add(holder);
+    osso.add(holder);
     this[key] = holder;
   }
 
@@ -121,7 +147,7 @@ export class CharacterModel {
 
   setEmissive(r, g, b) { for (const m of this.flashMats) m.emissive.setRGB(r, g, b); }
 
-  update(dt) { this.mixer.update(dt); }
+  update(dt) { this.mixer.update(dt); this.guerreiro?.seguir(); }
 }
 
 // Matriz local (relativa ao osso) de uma arma/escudo, calculada na pose T da cena-fonte
