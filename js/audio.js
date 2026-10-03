@@ -111,6 +111,11 @@ export class Sfx {
     this.noise({ dur: 0.09, freq: 1800, q: 2, vol: 0.35, delay: 0.02 });
     this.noise({ dur: 0.12, freq: 1100, q: 2.5, vol: 0.25, delay: 0.09 });
   }
+  // folhas: um farfalhar curto e abafado
+  folhas() {
+    this.noise({ dur: 0.35, freq: 2600, q: 0.6, vol: 0.18, attack: 0.03, sweepTo: 900 });
+    this.noise({ dur: 0.2, freq: 1800, q: 0.8, vol: 0.12, delay: 0.12 });
+  }
   // a panela: borbulhar e o "pronto" da comida
   cozinhar() {
     for (let i = 0; i < 5; i++) this.noise({ dur: 0.08, freq: 500 + Math.random() * 400, q: 6, vol: 0.18, delay: i * 0.11 });

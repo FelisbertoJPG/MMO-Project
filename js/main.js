@@ -18,6 +18,7 @@ import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
 import { ControlesToque, ehToque } from './toque.js';
 import { Graficos, qualidadeSalva } from './graficos.js';
+import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
 import { tokenValido } from './rede/supabase.js';
@@ -227,20 +228,30 @@ class Game {
       for (const [id, peso] of tabela) { r -= peso; if (r <= 0) { item = id; break; } }
       if (item) this.world.addPickup(item, 1, { x: q.pos.x + (Math.random() - 0.5) * 0.6, z: q.pos.z + (Math.random() - 0.5) * 0.6 }, false);
     }
-    this.sessao?.aoQuebrar?.(q);
+    if (!q.cfg.local) this.sessao?.aoQuebrar?.(q);   // a vegetação é de cada um
   }
 
   /**
-   * Cozinha uma receita na panela da fogueira (`receitas.js`): gasta os
-   * ingredientes e dá a comida. Hoje é um clique; o minigame entra aqui depois.
+   * Cozinha a MISTURA que está na panela (até `NA_PANELA` ingredientes, sem
+   * ordem). Bateu com uma receita: sai a comida e a receita fica conhecida.
+   * Não bateu: sai uma gororoba. Os ingredientes se gastam nos dois casos.
+   * Devolve `{receita, nova}` (receita null = gororoba). O minigame entra aqui depois.
    */
-  cozinhar(receita) {
-    const inv = this.inventory;
-    if (!receita || !receita.ingredientes.every(([id, n]) => inv.count(id) >= n)) return false;
-    for (const [id, n] of receita.ingredientes) inv.remove(id, n);
+  cozinhar(ids) {
+    const inv = this.inventory, p = this.player;
+    if (!ids?.length || ids.length > NA_PANELA) return null;
+    const conta = {};
+    for (const id of ids) conta[id] = (conta[id] ?? 0) + 1;
+    if (!Object.entries(conta).every(([id, n]) => ITEMS[id]?.type === 'ingrediente' && inv.count(id) >= n)) return null;
+    for (const [id, n] of Object.entries(conta)) inv.remove(id, n);
+    const receita = receitaDaMistura(ids);
+    if (!receita) { inv.add('gororoba', 1); this.sfx.cozinhar(); return { receita: null, nova: false }; }
+    const nova = !p.receitas.has(receita.id);
+    p.receitas.add(receita.id);
     inv.add(receita.resultado, receita.qtd);
     this.sfx.cozinhar();
-    return true;
+    if (nova) this.ui.centerMessage(`RECEITA DESCOBERTA: ${ITEMS[receita.resultado].name.toUpperCase()}`, 'info', 3200);
+    return { receita, nova };
   }
 
   /** Destaca, no menu de pausa, a qualidade gráfica em uso. */

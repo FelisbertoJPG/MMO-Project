@@ -3,6 +3,7 @@ import { Assets } from './assets.js';
 import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
 
+const flatDistXZ = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 export const S = 1.5; // escala da masmorra (salas e corredores 50% maiores)
 export const CELL = 4 * S;
 export const WALL_H = 4 * S;
@@ -104,8 +105,24 @@ export const QUEBRAVEIS = {
   stool:          { cor: 0x5a3a20, pedacos: 6,  saque: null },
 };
 
+/**
+ * A VEGETAÇÃO também se corta (arbustos, gramas, mato): em vez de lascas, solta
+ * FOLHAS (partículas verdes). Ela é LOCAL — só quem cortou a vê cortada, e ela
+ * cresce de novo `REBROTA_S` segundos depois, com o jogador longe: sincronizar
+ * centenas de matinhos encheria o retrato do Mundo online à toa. E ela continua
+ * nos LOTES da decoração (são ~100 peças): cortar esconde só aquela cópia.
+ */
+const VEGETACAO = /^(Bush_|Grass_|floor_dirt_small_weeds)/;
+export const REBROTA_S = 90;
+export function cfgQuebravel(prop) {
+  if (QUEBRAVEIS[prop]) return QUEBRAVEIS[prop];
+  if (!VEGETACAO.test(prop)) return null;
+  return { folhas: true, local: true, pedacos: 0, saque: prop.startsWith('Bush_') ? 'arbusto' : null };
+}
+
 /** O que cai de um quebrável: `[item, peso]`, sorteado UM; `null` = nada. */
 export const SAQUES = {
+  arbusto: [[null, 6], ['erva', 1]],
   barril:  [[null, 4], ['farinha', 2], ['carneCrua', 2], ['raiz', 2], ['cogumelo', 1], ['paoDuro', 1]],
   chope:   [[null, 3], ['mel', 2], ['erva', 1]],
   caixote: [[null, 4], ['raiz', 2], ['cogumelo', 2], ['pimenta', 1], ['firebomb', 1], ['paoDuro', 1]],
@@ -788,11 +805,14 @@ export class World {
     Assets.decor.forEach((d, i) => {
       const m = this.placeDecor(d);
       if (!m) return;
-      const cfg = QUEBRAVEIS[d.prop];
+      const cfg = cfgQuebravel(d.prop);
       // o quebrável fica SOLTO: some sozinho ao quebrar e volta inteiro depois.
       // `i` (a posição no decor.json) é o nome dele na rede — igual para todos.
-      if (cfg) this.quebraveis.push({ i, prop: d.prop, cfg, raiz: m, pos: m.position.clone(), raio: Math.max(0.45, d.colisao ?? 0.5), circulo: m.userData.circulo, rCirculo: m.userData.circulo?.r ?? 0, quebrado: false });
-      else pecas.push(m);
+      const q = cfg && { i, prop: d.prop, cfg, raiz: m, pos: m.position.clone(), raio: Math.max(0.45, d.colisao ?? 0.5), circulo: m.userData.circulo, rCirculo: m.userData.circulo?.r ?? 0, quebrado: false };
+      if (q) this.quebraveis.push(q);
+      // a vegetação fica nos lotes (o lote guarda onde está cada cópia dela, `q.instancias`)
+      if (!q) pecas.push(m);
+      else if (cfg.local) { m.userData.quebravel = q; pecas.push(m); }
     });
     this.agruparDecoracao(pecas);
 
@@ -837,17 +857,20 @@ export class World {
         const chave = `${m.geometry.uuid}|${mats.map((x) => x.uuid).join(',')}|${m.castShadow}|${m.receiveShadow}|${rx},${rz}`;
         let l = lotes.get(chave);
         if (!l) lotes.set(chave, (l = { malha: m, matrizes: [] }));
+        // um quebrável dentro do lote: ele precisa saber qual cópia é a dele
+        if (raiz.userData.quebravel) (l.donos ??= []).push([raiz.userData.quebravel, l.matrizes.length]);
         l.matrizes.push(m.matrixWorld.clone());
       }
       raiz.removeFromParent();
     }
-    for (const { malha, matrizes } of lotes.values()) {
+    for (const { malha, matrizes, donos } of lotes.values()) {
       const im = new THREE.InstancedMesh(malha.geometry, malha.material, matrizes.length);
       matrizes.forEach((mt, i) => im.setMatrixAt(i, mt));
       im.castShadow = malha.castShadow;
       im.receiveShadow = malha.receiveShadow;
       im.computeBoundingSphere();
       this.scene.add(im);
+      for (const [q, idx] of donos ?? []) (q.instancias ??= []).push({ im, idx, m: matrizes[idx] });
     }
     this.lotesDeDecoracao = lotes.size;
   }
@@ -1007,7 +1030,7 @@ export class World {
   // faz o barril que um quebra aparecer quebrado para os outros, no Mundo
   // online e no co-op — e voltar inteiro quando quem manda o restaura.
   estadoPassagens() {
-    return { portas: this.doors.map((d) => d.open), nevoa: !!this.gateOpen, quebrados: this.quebraveis.filter((q) => q.quebrado).map((q) => q.i) };
+    return { portas: this.doors.map((d) => d.open), nevoa: !!this.gateOpen, quebrados: this.quebraveis.filter((q) => q.quebrado && !q.cfg.local).map((q) => q.i) };
   }
 
   aplicarPassagens({ portas = [], nevoa = false, quebrados = null } = {}) {
@@ -1020,6 +1043,7 @@ export class World {
     if (Array.isArray(quebrados)) {
       const set = new Set(quebrados);
       for (const q of this.quebraveis) {
+        if (q.cfg.local) continue;   // a vegetação é de cada um
         if (set.has(q.i) && !q.quebrado) this.quebrar(q);
         else if (!set.has(q.i) && q.quebrado) this.restaurar(q);
       }
@@ -1043,17 +1067,38 @@ export class World {
   quebrar(q, { origem = null } = {}) {
     if (q.quebrado) return false;
     q.quebrado = true;
-    q.raiz.visible = false;
+    this.mostrarQuebravel(q, false);
     if (q.circulo) q.circulo.r = 0;
+    if (q.cfg.local) q.rebrota = this.time + REBROTA_S;
     const cam = this.game.camera.position;
-    if (q.pos.distanceTo(cam) < 45) this.soltarPedacos(q, origem);
+    if (q.pos.distanceTo(cam) < 45) { if (q.cfg.folhas) this.soltarFolhas(q); else this.soltarPedacos(q, origem); }
     return true;
+  }
+
+  /** Mostra/esconde: a peça solta, ou a(s) cópia(s) dela dentro de um lote. */
+  mostrarQuebravel(q, sim) {
+    if (!q.instancias) { q.raiz.visible = sim; return; }
+    this.zero ??= new THREE.Matrix4().makeScale(0, 0, 0);
+    for (const { im, idx, m } of q.instancias) { im.setMatrixAt(idx, sim ? m : this.zero); im.instanceMatrix.needsUpdate = true; }
+  }
+
+  /** Folhas verdes rodopiando e caindo devagar (a vegetação cortada). */
+  soltarFolhas(q) {
+    const fx = this.game.effects, chao = this.alturaChao(q.pos);
+    const tons = [[0.32, 0.55, 0.18], [0.22, 0.42, 0.12], [0.45, 0.62, 0.2], [0.55, 0.5, 0.18]];
+    for (let k = 0; k < 34; k++) {
+      const c = tons[k % tons.length];
+      fx.spawn({ pos: new THREE.Vector3(q.pos.x + (Math.random() - 0.5) * 0.9, chao + 0.2 + Math.random() * 0.9, q.pos.z + (Math.random() - 0.5) * 0.9),
+        vel: new THREE.Vector3((Math.random() - 0.5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 3),
+        color: c, size: 0.07 + Math.random() * 0.07, life: 1.4 + Math.random() * 1.2, gravity: 2.2, drag: 1.8 });
+    }
+    this.game.sfx.folhas?.();
   }
 
   restaurar(q) {
     if (!q.quebrado) return;
     q.quebrado = false;
-    q.raiz.visible = true;
+    this.mostrarQuebravel(q, true);
     if (q.circulo) q.circulo.r = q.rCirculo;
   }
 
@@ -1334,6 +1379,14 @@ export class World {
   // ---------- Atualização ----------
   update(dt, camera) {
     this.atualizarPedacos(dt);
+    this.rebrotaT = (this.rebrotaT ?? 0) - dt;
+    if (this.rebrotaT <= 0) {
+      this.rebrotaT = 2;
+      const pp = this.game.player.pos;
+      for (const q of this.quebraveis) {
+        if (q.quebrado && q.cfg.local && this.time > q.rebrota && flatDistXZ(q.pos, pp) > 14) this.restaurar(q);
+      }
+    }
     this.time += dt;
     const t = this.time;
     const fx = this.game.effects;
