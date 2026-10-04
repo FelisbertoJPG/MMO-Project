@@ -38,6 +38,8 @@ export const PROPS = [
   'wall_archedwindow_open', 'barrier_column', 'building_windmill_red', 'megakit-RockPath_Round_Wide',
   // levadas pelo editor de cenas (ferramentas/levar-ao-jogo.mjs) — pacotes: estilizada (CC0)
   'estilizada-NormalTree_1', 'estilizada-NormalTree_2', 'estilizada-NormalTree_4', 'estilizada-NormalTree_5',
+  // levadas pelo editor de cenas (ferramentas/levar-ao-jogo.mjs) — pacotes: estilizada (CC0)
+  'estilizada-DeadTree_1', 'estilizada-DeadTree_2', 'estilizada-DeadTree_3',
 ];
 
 // Os MODELOS DE BLOCOS (assets/modelos/<nome>.json), montados no Editor de
