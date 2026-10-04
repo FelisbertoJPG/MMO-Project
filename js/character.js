@@ -203,107 +203,135 @@ export class CharacterModel {
   }
 
   /**
-   * AS DUAS MÃOS na arma de duas mãos (IK, depois da animação — e do retarget, no
-   * guerreiro). Os clipes do UAL são de uma mão; aqui CADA MÃO TEM O SEU PONTO no
-   * cabo, e a ARMA PASSA PELOS DOIS (o eixo vai da esquerda, perto do pomo, para a
-   * direita, perto da guarda): mover uma mão gira a arma em volta da outra.
+   * AS DUAS MÃOS na arma de duas mãos, com a ESPADA SOLTA (04/10/2026). Os clipes do
+   * UAL são de uma mão; aqui a espada não é presa à mão direita: ela tem lugar próprio
+   * e as DUAS mãos vão até ela (IK), cada pulso escolhendo o seu jeito de fechar no cabo.
    *
-   *  1. a animação dá o ponto da direita e a direção da arma; o da esquerda nasce
-   *     `maoEsq.abaixo` para o pomo, na arma da animação;
-   *  2. os dois andam JUNTOS para a frente do peito (`frenteMin`) e para o meio
-   *     (senão o braço esquerdo atravessava o corpo); depois cada um anda o SEU
-   *     ajuste (`cabo`, `maoEsq.pos`: lado/alto/frente do tronco) e fica onde o
-   *     braço dele alcança;
-   *  3. a arma se alinha à reta entre os dois (o menor giro a partir da animação);
-   *  4. cada mão vai ao seu ponto com o seu PULSO: a direita segura a arma com a
-   *     pegada de uma mão × `arma`, a esquerda com a pegada da tocha × `maoEsq.giro`
-   *     — girar o pulso gira a mão em volta da arma, e a arma não sai do lugar;
-   *  5. os cotovelos apontam para fora e para baixo (`polo`).
+   *  1. a espada da animação (mão direita × pegada) mais o ajuste: `espadaGiro` (gira
+   *     em volta do ponto da mão direita) e `cabo` (anda: lado/alto/frente do tronco);
+   *  2. ela anda inteira para a frente do peito (`frenteMin`), para o meio, e até os
+   *     dois pulsos alcançarem — senão um braço atravessaria o corpo;
+   *  3. os pontos das mãos no cabo: a direita em `armaPos`, a esquerda `maoEsq.abaixo`
+   *     para o pomo;
+   *  4. cada mão gira EM VOLTA DO CABO até o pulso ficar o mais reto possível em relação
+   *     ao antebraço (o cotovelo de um IK de teste) — é o que tira o pulso quebrado —, e
+   *     por cima disso vem o giro que se pediu (`arma`, `maoEsq.giro`);
+   *  5. a espada fica onde foi posta, alcance a mão ou não. `ik` mistura tudo com a
+   *     animação (0 = a espada volta à mão direita e as mãos à animação).
    */
   segurarComAsDuas(peso) {
-    // os números desta arma (assets/empunhadura.json, ajustados na tela Empunhadura do editor)
     const e = empunhadura(this.slotR.children[0]?.userData.arma);
-    this.girarArma(1, e);   // a pegada da direita com o pulso (o peso entra nos alvos, no fim)
+    const h = this.slotR, base = h.userData.base;
+    if (!base) return;
     const g = this.guerreiro;
     const osso = (ual, gu) => (g ? g.cena.getObjectByName(gu) : this.scene.getObjectByName(ual));
     const ombroL = osso('upperarm_l', 'ArmL'), cotL = osso('lowerarm_l', 'ElbowL'), maoL = osso('hand_l', 'HandL');
     const ombroR = osso('upperarm_r', 'ArmR'), cotR = osso('lowerarm_r', 'ElbowR'), maoR = osso('hand_r', 'HandR');
+    // a espada volta à pegada de uma mão: é dela que sai a espada da animação
+    h.matrix.copy(base); h.matrix.decompose(h.position, h.quaternion, h.scale);
+    h.userData.girada = true;
     this.root.updateMatrixWorld(true);
     const pegaL = this.pegadaEsquerda();
 
-    // 1. o que a animação dá: a arma na mão direita SEM o pulso (mão × pegada de base)
-    // (os pontos das MÃOS saem da pegada sem o `armaPos`: deslizar a arma não mexe nas mãos)
-    _hL.multiplyMatrices(maoR.matrixWorld, this.slotR.userData.base).decompose(_Rg, _qArma, _t2);
-    const Rg = _Rg, Lg = _Lg.set(0, 0, -e.maoEsq.abaixo).applyQuaternion(_qArma).add(Rg);
-    // e onde a origem da arma fica em relação à mão direita: o `armaPos` (no espaço da arma)
-    const desliza = _desliza.set(e.armaPos[0], e.armaPos[1], e.armaPos[2]);
-    // os eixos do tronco: lado (ombro esq. → dir.), alto (o do mundo), frente
+    // 1. a espada da animação, e o antebraço de cada mão como a animação o tem (no
+    //    espaço da mão: é a referência de "pulso reto")
+    _S0.multiplyMatrices(maoR.matrixWorld, base).decompose(_Sp0, _Sq0, _t2);
+    // o pulso da animação de cada mão: o giro LOCAL dela (contra o antebraço), o giro do
+    // antebraço e a direção dele (cotovelo → pulso) — é o "pulso natural" a imitar
+    pulsoDaAnimacao(maoR, cotR, _natR); pulsoDaAnimacao(maoL, cotL, _natL);
     const sL = ombroL.getWorldPosition(_sL), sR = ombroR.getWorldPosition(_sR);
     const lado = _lado.subVectors(sR, sL).normalize(), alto = _alto.set(0, 1, 0);
     const frente = _frente.crossVectors(alto, lado).normalize();
     const peito = _peito.addVectors(sL, sR).multiplyScalar(0.5).addScaledVector(alto, -0.2);
-    // onde fica cada PULSO em relação ao seu ponto no cabo (no espaço da arma): é o pulso
-    // que o braço tem de alcançar. Direita: a pegada com o pulso; esquerda: giro × pegada⁻¹.
-    const oR = _oR.set(0, 0, 0).applyMatrix4(_inv.copy(this.slotR.matrix).invert()).add(desliza);
-    _qt.setFromEuler(_eu.set(e.maoEsq.giro[0] * GRAU, e.maoEsq.giro[1] * GRAU, e.maoEsq.giro[2] * GRAU));
-    const oL = _oL.set(0, 0, 0).applyMatrix4(_inv.copy(pegaL).invert()).applyQuaternion(_qt);
-    const pulso = (ponto, o, alvo) => alvo.copy(o).applyQuaternion(_qArma).add(ponto);
+    // 2. ANTES do ajuste: a espada da ANIMAÇÃO anda inteira para a frente do peito, para o
+    //    meio, e até os dois pulsos alcançarem (com a pegada PADRÃO: o que se ajusta nas
+    //    mãos não pode empurrar a espada). Depois disso o ajuste vale como foi pedido.
+    const Sq = _Sq.copy(_Sq0), Sp = _Sp.copy(_Sp0);
+    const pR0 = _pRl.set(0, 0, 0), pL0 = _pLl.set(0, 0, -EMPUNHADURA_PADRAO.maoEsq.abaixo);
+    const oR = _oR.set(0, 0, 0).applyMatrix4(_inv.copy(base).invert());
+    const oL = _oL.set(0, 0, 0).applyMatrix4(_inv.copy(pegaL).invert()).add(pL0);
     const alcR = (sR.distanceTo(cotR.getWorldPosition(_t1)) + _t1.distanceTo(maoR.getWorldPosition(_t2))) * 0.97;
     const alcL = (sL.distanceTo(cotL.getWorldPosition(_t1)) + _t1.distanceTo(maoL.getWorldPosition(_t2))) * 0.97;
-    // 2a. os dois JUNTOS (a arma rígida, como na animação): na frente do peito, não muito
-    // para os lados, e onde os DOIS pulsos alcançam — tudo anda pela mesma translação
+    const ponto = (o, alvo) => alvo.copy(o).applyQuaternion(Sq).add(Sp);
     const anda = _anda.set(0, 0, 0);
     for (let k = 0; k < 6; k++) {
-      const R = _t3.addVectors(Rg, anda), L = _t4.addVectors(Lg, anda);
-      const falta = e.frenteMin - Math.min(_t1.subVectors(R, peito).dot(frente), _t1.subVectors(L, peito).dot(frente));
+      const R = ponto(pR0, _t1).add(anda), L = ponto(pL0, _t2).add(anda);
+      const falta = e.frenteMin - Math.min(_t4.subVectors(R, peito).dot(frente), _t4.subVectors(L, peito).dot(frente));
       if (falta > 0) anda.addScaledVector(frente, falta);
-      R.addVectors(Rg, anda); L.addVectors(Lg, anda);
-      const xR = _t1.subVectors(R, peito).dot(lado), xL = _t1.subVectors(L, peito).dot(lado);
+      const xR = _t4.subVectors(ponto(pR0, _t1).add(anda), peito).dot(lado), xL = _t4.subVectors(ponto(pL0, _t2).add(anda), peito).dot(lado);
       if (xR > 0.28) anda.addScaledVector(lado, 0.28 - xR);
       else if (xL < -0.15) anda.addScaledVector(lado, -0.15 - xL);
-      for (const [ponto, o, ombro, alc] of [[Lg, oL, sL, alcL], [Rg, oR, sR, alcR]]) {
-        pulso(_t1.addVectors(ponto, anda), o, _t2).sub(ombro);
-        if (_t2.length() > alc) anda.addScaledVector(_t2, -(1 - alc / _t2.length()));
+      for (const [o, ombro, alc] of [[oL, sL, alcL], [oR, sR, alcR]]) {
+        ponto(o, _t1).add(anda).sub(ombro);
+        if (_t1.length() > alc) anda.addScaledVector(_t1, -(1 - alc / _t1.length()));
       }
     }
-    Rg.add(anda); Lg.add(anda);
-    // 2b. cada mão o SEU ajuste, e o que o pulso dela alcança
-    Rg.addScaledVector(lado, e.cabo[0]).addScaledVector(alto, e.cabo[1]).addScaledVector(frente, e.cabo[2]);
-    Lg.addScaledVector(lado, e.maoEsq.pos[0]).addScaledVector(alto, e.maoEsq.pos[1]).addScaledVector(frente, e.maoEsq.pos[2]);
-    for (const [ponto, o, ombro, alc] of [[Rg, oR, sR, alcR], [Lg, oL, sL, alcL]]) {
-      pulso(ponto, o, _t2).sub(ombro);
-      if (_t2.length() > alc) ponto.addScaledVector(_t2, -(1 - alc / _t2.length()));
-    }
-    // as duas mãos cabem no cabo: nem uma sobre a outra, nem fora dele
-    const eixo = _eixo2.subVectors(Rg, Lg);
-    const dist = THREE.MathUtils.clamp(eixo.length(), 0.07, 0.3);
-    if (eixo.lengthSq() < 1e-8) eixo.set(0, 0, 1).applyQuaternion(_qArma);
-    eixo.normalize();
-    Lg.copy(Rg).addScaledVector(eixo, -dist);
-    // 3. a arma na reta entre as duas mãos (o menor giro a partir da arma da animação)
-    const qArma = _qEixo.setFromUnitVectors(_t1.set(0, 0, 1).applyQuaternion(_qArma), eixo).multiply(_qArma);
-
-    // 4. as mãos: a direita = arma no ponto dela × (pegada com o pulso)⁻¹
-    maoR.getWorldPosition(_pR); maoR.getWorldQuaternion(_qMao);
-    _hR.compose(_t3.copy(desliza).applyQuaternion(qArma).add(Rg), qArma, _um).multiply(_inv.copy(this.slotR.matrix).invert()).decompose(_alvo, _qAlvo, _t2);
-    _alvo.lerpVectors(_pR, _alvo, peso); _qAlvo.copy(_qMao.slerp(_qAlvo, peso));   // (slerpQuaternions com o próprio destino apagaria o alvo)
+    Sp.add(anda);
+    // 3. o AJUSTE: a espada gira (em volta do ponto da mão direita) e anda nos eixos do
+    //    tronco; as mãos correm no cabo cada uma por si (a direita em `armaPos`, a esquerda
+    //    `maoEsq.abaixo` para o pomo) — nenhuma mexe na espada nem na outra
+    Sq.multiply(_qt.setFromEuler(_eu.set(e.espadaGiro[0] * GRAU, e.espadaGiro[1] * GRAU, e.espadaGiro[2] * GRAU)));
+    Sp.addScaledVector(lado, e.cabo[0]).addScaledVector(alto, e.cabo[1]).addScaledVector(frente, e.cabo[2]);
+    const pR = _pRl.set(e.armaPos[0], e.armaPos[1], e.armaPos[2]), pL = _pLl.set(0, 0, -e.maoEsq.abaixo);
+    // a força do grude mistura com a animação (a espada e as mãos)
+    Sp.lerpVectors(_Sp0, Sp, peso); Sq.copy(_qt.copy(_Sq0).slerp(Sq, peso));
     const poloR = _poloR.copy(sR).addScaledVector(lado, 0.35).addScaledVector(alto, -0.45).addScaledVector(frente, -0.1);
-    ikDoisOssos(ombroR, cotR, maoR, _alvo, poloR);
-    porNoMundo(maoR, _qAlvo);
-    // a esquerda: na arma DE VERDADE (onde a direita a deixou — se o braço não alcançou o
-    // ponto pedido, a arma ficou antes dele), `dist` para o pomo
-    this.slotR.updateMatrixWorld(true);
-    this.slotR.matrixWorld.decompose(_Rg, qArma, _t2);
-    _Rg.sub(_t3.copy(desliza).applyQuaternion(qArma));   // da origem da arma ao ponto da mão direita
-    Lg.set(0, 0, -dist).applyQuaternion(qArma).add(_Rg);
-    // = (arma no ponto dela × giro do pulso) × (pegada da tocha)⁻¹
-    maoL.getWorldPosition(_pR); maoL.getWorldQuaternion(_qMao);
-    _qt.setFromEuler(_eu.set(e.maoEsq.giro[0] * GRAU, e.maoEsq.giro[1] * GRAU, e.maoEsq.giro[2] * GRAU));
-    _hL.compose(Lg, _qArma2.copy(qArma).multiply(_qt), _um).multiply(_inv.copy(pegaL).invert()).decompose(_alvo, _qAlvo, _t2);
-    _alvo.lerpVectors(_pR, _alvo, peso); _qAlvo.copy(_qMao.slerp(_qAlvo, peso));   // (slerpQuaternions com o próprio destino apagaria o alvo)
     const poloL = _poloL.copy(sL).addScaledVector(lado, -0.35).addScaledVector(alto, -0.45).addScaledVector(frente, -0.1);
-    ikDoisOssos(ombroL, cotL, maoL, _alvo, poloL);
-    porNoMundo(maoL, _qAlvo);
+
+    // 3–4. cada mão: o giro em volta do cabo que deixa o pulso mais reto, mais o pedido
+    for (const [mao, cot, ombro, polo, pnt, pega, nat, giro, chave] of [
+      [maoR, cotR, ombroR, poloR, pR, base, _natR, e.arma, '_rollR'],
+      [maoL, cotL, ombroL, poloL, pL, pegaL, _natL, e.maoEsq.giro, '_rollL'],
+    ]) {
+      const G = ponto(pnt, _G);   // o ponto da mão no cabo, no mundo
+      const la = ombro.getWorldPosition(_t1).distanceTo(cot.getWorldPosition(_t2)), lb = _t2.distanceTo(mao.getWorldPosition(_t4));
+      _invPega.copy(pega).invert();
+      let melhor = -Infinity, rolo = 0;
+      const S = ombro.getWorldPosition(_Sw), dentro = mao === maoR ? 1 : -1;   // o lado de dentro (lado+ é a direita)
+      for (let k = 0; k < 24; k++) {
+        const th = (k / 24) * Math.PI * 2;
+        _qTeste.copy(Sq).multiply(_qz.setFromAxisAngle(_Z, th));
+        _hT.compose(G, _qTeste, _um).multiply(_invPega).decompose(_w, _qMaoT, _t2);
+        // o cotovelo: o do polo, e girado em volta da reta ombro→pulso (−90° a +90°)
+        cotoveloDoIK(S, _w, la, lb, polo, _cot0);
+        _eixoOP.subVectors(_w, S).normalize();
+        for (let m = -6; m <= 6; m++) {
+          const fi = m * (Math.PI / 12);
+          _cot.copy(_cot0).sub(S).applyAxisAngle(_eixoOP, fi).add(S);
+          // a DOBRA do pulso: o antebraço que a mão espera (o da animação, visto da mão)
+          // contra o que o cotovelo dá — a torção se acerta depois, no próprio antebraço
+          let nota = _t4.copy(nat.naMao).applyQuaternion(_qMaoT).dot(_t3.subVectors(_cot, _w).normalize()) + 0.02 * Math.cos(th) + 0.03 * Math.cos(fi);
+          // cotovelo para DENTRO do corpo (passando do meio do peito) ou para trás das costas: castigo
+          const lat = _t4.subVectors(_cot, peito).dot(lado) * dentro, fr = _t4.dot(frente);
+          if (lat < 0.1) nota -= (0.1 - lat) * 4;
+          if (fr < -0.12) nota -= (-0.12 - fr) * 4;
+          // e o antebraço passando POR DENTRO do tronco (o meio dele no miolo do peito)
+          for (const u of [0.35, 0.65]) {
+            _t3.lerpVectors(_cot, _w, u).sub(peito);
+            const mx = Math.abs(_t3.dot(lado)), mz = _t3.dot(frente);
+            if (mx < 0.2 && mz < 0.12 && Math.abs(_t3.y) < 0.4) nota -= (0.2 - mx) * (0.12 - mz) * 60;
+          }
+          if (nota > melhor) { melhor = nota; rolo = th; _cotMelhor.copy(_cot); }
+        }
+      }
+      polo.copy(_cotMelhor);   // o IK põe o cotovelo do lado do escolhido
+      this[chave] = rolo;
+      _qTeste.copy(Sq).multiply(_qz.setFromAxisAngle(_Z, rolo)).multiply(_qt.setFromEuler(_eu.set(giro[0] * GRAU, giro[1] * GRAU, giro[2] * GRAU)));
+      _hT.compose(G, _qTeste, _um).multiply(_invPega).decompose(_alvo, _qAlvo, _t2);
+      mao.getWorldPosition(_pR); mao.getWorldQuaternion(_qMao);
+      _alvo.lerpVectors(_pR, _alvo, peso); _qAlvo.copy(_qMao.slerp(_qAlvo, peso));
+      ikDoisOssos(ombro, cot, mao, _alvo, polo);
+      porNoMundo(mao, _qAlvo);
+      // a TORÇÃO do pulso volta a ser a da animação: o antebraço gira em volta do próprio
+      // eixo (cotovelo e pulso não saem do lugar) e a mão fica onde estava
+      torcerAntebraco(cot, mao, nat, peso);
+      porNoMundo(mao, _qAlvo);
+    }
+    // 5. a espada onde foi posta, presa à mão só como filha (o osso a leva no quadro seguinte)
+    maoR.updateMatrixWorld(true);
+    h.matrix.copy(_inv.copy(maoR.matrixWorld).invert()).multiply(_S.compose(Sp, Sq, _um));
+    h.matrix.decompose(h.position, h.quaternion, h.scale);
+    h.updateMatrixWorld(true);
   }
 
   /**
@@ -380,25 +408,25 @@ const _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qr = new THRE
 // A EMPUNHADURA de cada arma de duas mãos: os números que a tela Empunhadura do
 // editor de cenas ajusta e grava em `assets/empunhadura.json` (`Assets.empunhadura`).
 // O que faltar no arquivo vem daqui. Distâncias em metros, giros em graus.
-//   cabo      — quanto a mão DIREITA anda (o ponto dela no cabo): [lado, alto, frente] do tronco
-//   frenteMin — as mãos, no mínimo isto à frente do peito
-//   arma      — o PULSO direito: o giro da mão em volta da arma (x, y, z, no espaço da pegada)
-//   maoEsq    — a mão ESQUERDA: `abaixo` da direita no cabo (onde nasce, para o pomo),
-//               `pos` [lado, alto, frente] do tronco (quanto anda) e `giro` [x, y, z], o pulso dela
-// A arma passa pelos pontos das DUAS mãos (`segurarComAsDuas`).
-//   armaPos   — onde a mão direita segura na ARMA: [x, y, z] no espaço da arma (z = ao
-//               longo da lâmina); mexer nele faz a arma deslizar na mão
+// A ESPADA É SOLTA: tem lugar próprio, e as duas mãos vão até ela (`segurarComAsDuas`).
+//   cabo       — quanto a ESPADA anda: [lado, alto, frente] do tronco
+//   espadaGiro — quanto ela gira (x, y, z, no espaço dela, em volta do ponto da mão direita)
+//   frenteMin  — os pontos das mãos, no mínimo isto à frente do peito
+//   armaPos    — onde a mão DIREITA segura na espada: [x, y, z] no espaço dela (z = ao longo)
+//   arma       — o PULSO direito: giro extra da mão no cabo (por cima do giro automático)
+//   maoEsq     — a mão ESQUERDA: `abaixo` da direita no cabo (para o pomo) e `giro`, o pulso
+//                dela; (`pos` ficou sem uso)
 //   ik        — a FORÇA do grude no cabo: 1 = as mãos presas aos seus pontos (IK),
 //               0 = soltas (só a animação e as correções de pose); no meio, misturado
 //   camadas   — as CORREÇÕES DE POSE por animação: { "<clipe>" | "*": [ { t, ossos:
 //               { "<osso do manequim>": [x, y, z] graus } } … ] } (ver `corrigirPose`)
-export const EMPUNHADURA_PADRAO = { ik: 1, armaPos: [0, 0, 0], cabo: [0, 0, 0], frenteMin: 0.3, arma: [0, 0, 0], maoEsq: { abaixo: 0.11, pos: [0, 0, 0], giro: [0, 0, 0] }, camadas: {} };
+export const EMPUNHADURA_PADRAO = { ik: 1, armaPos: [0, 0, 0], espadaGiro: [0, 0, 0], cabo: [0, 0, 0], frenteMin: 0.3, arma: [0, 0, 0], maoEsq: { abaixo: 0.11, pos: [0, 0, 0], giro: [0, 0, 0] }, camadas: {} };
 const v3 = (v, p) => (Array.isArray(v) && v.length === 3 && v.every(Number.isFinite) ? v : p);
 export function empunhadura(arma) {
   const e = (arma && Assets.empunhadura?.[arma]) || {}, p = EMPUNHADURA_PADRAO, m = e.maoEsq ?? {};
   return {
     ik: Number.isFinite(e.ik) ? THREE.MathUtils.clamp(e.ik, 0, 1) : p.ik,
-    armaPos: v3(e.armaPos, p.armaPos),
+    armaPos: v3(e.armaPos, p.armaPos), espadaGiro: v3(e.espadaGiro, p.espadaGiro),
     cabo: v3(e.cabo, p.cabo), frenteMin: Number.isFinite(e.frenteMin) ? e.frenteMin : p.frenteMin, arma: v3(e.arma, p.arma),
     maoEsq: { abaixo: Number.isFinite(m.abaixo) ? m.abaixo : p.maoEsq.abaixo, pos: v3(m.pos, p.maoEsq.pos), giro: v3(m.giro, p.maoEsq.giro) },
     camadas: e.camadas && typeof e.camadas === 'object' ? e.camadas : {},
@@ -410,6 +438,54 @@ const GRAU = Math.PI / 180;
 const _desce = new THREE.Matrix4(), _hL = new THREE.Matrix4(), _mt = new THREE.Matrix4(), _eu = new THREE.Euler();
 const _lado = new THREE.Vector3(), _alto = new THREE.Vector3(), _frente = new THREE.Vector3(), _peito = new THREE.Vector3(), _poloR = new THREE.Vector3(), _poloL = new THREE.Vector3();
 const _pb = new THREE.Vector3(), _pp = new THREE.Vector3();
+// o pulso como a animação o tem: giro local da mão, giro do antebraço e a direção dele
+function pulsoDaAnimacao(mao, cot, alvo) {
+  cot.getWorldQuaternion(alvo.antebraco);
+  mao.getWorldQuaternion(_qa1);
+  alvo.local.copy(alvo.antebraco).invert().multiply(_qa1);
+  alvo.dir.copy(mao.getWorldPosition(_wA)).sub(cot.getWorldPosition(_cotA)).normalize();
+  alvo.naMao.copy(alvo.dir).negate().applyQuaternion(_qa1.invert());   // pulso → cotovelo, no espaço da mão
+  return alvo;
+}
+// a parte de um giro em volta de um eixo (decomposição balanço × torção)
+function torcaoDe(q, eixo, alvo) {
+  const p = q.x * eixo.x + q.y * eixo.y + q.z * eixo.z;
+  alvo.set(eixo.x * p, eixo.y * p, eixo.z * p, q.w);
+  return alvo.lengthSq() < 1e-12 ? alvo.identity() : alvo.normalize();
+}
+// gira o antebraço em volta do PRÓPRIO eixo (o osso da mão é filho dele: a direção do
+// filho é o eixo) até a torção do pulso igualar a da animação
+function torcerAntebraco(cot, mao, nat, peso) {
+  const eixo = _eixoT.copy(mao.position).normalize();
+  cot.getWorldQuaternion(_qa1); mao.getWorldQuaternion(_qb1);
+  const local = _qa1.invert().multiply(_qb1);            // o pulso agora
+  torcaoDe(local, eixo, _tw1); torcaoDe(nat.local, eixo, _tw2);
+  // o antebraço gira por Δ (no local dele) e a mão fica: o pulso vira Δ⁻¹ × pulso. Para a
+  // torção dele virar a da animação: Δ = torção agora × torção da animação⁻¹
+  const delta = _tw1.multiply(_tw2.invert());
+  if (delta.w < 0) delta.set(-delta.x, -delta.y, -delta.z, -delta.w);
+  cot.quaternion.multiply(_tw3.identity().slerp(delta, peso));   // (_tw3: `delta` É o _tw1)
+  cot.updateMatrixWorld(true);
+}
+const _eixoT = new THREE.Vector3(), _tw1 = new THREE.Quaternion(), _tw2 = new THREE.Quaternion(), _tw3 = new THREE.Quaternion();
+const _Sw = new THREE.Vector3(), _cot0 = new THREE.Vector3(), _eixoOP = new THREE.Vector3(), _cotMelhor = new THREE.Vector3();
+const _natR = { antebraco: new THREE.Quaternion(), local: new THREE.Quaternion(), dir: new THREE.Vector3(), naMao: new THREE.Vector3() };
+const _natL = { antebraco: new THREE.Quaternion(), local: new THREE.Quaternion(), dir: new THREE.Vector3(), naMao: new THREE.Vector3() };
+const _qFa = new THREE.Quaternion();
+// onde o IK de dois ossos poria o cotovelo: no círculo entre ombro e pulso, para o lado do polo
+function cotoveloDoIK(S, W, a, b, polo, alvo) {
+  const d = THREE.MathUtils.clamp(S.distanceTo(W), Math.abs(a - b) + 1e-4, a + b - 1e-4);
+  const u = _u.subVectors(W, S).normalize();
+  const ao = (a * a - b * b + d * d) / (2 * d), alt = Math.sqrt(Math.max(0, a * a - ao * ao));
+  const p = _pp2.subVectors(polo, S); p.addScaledVector(u, -p.dot(u));
+  if (p.lengthSq() < 1e-8) p.set(0, -1, 0).addScaledVector(u, u.y); p.normalize();
+  return alvo.copy(S).addScaledVector(u, ao).addScaledVector(p, alt);
+}
+const _cotA = new THREE.Vector3(), _wA = new THREE.Vector3(), _u = new THREE.Vector3(), _pp2 = new THREE.Vector3();
+const _S0 = new THREE.Matrix4(), _S = new THREE.Matrix4(), _hT = new THREE.Matrix4(), _invPega = new THREE.Matrix4();
+const _Sp0 = new THREE.Vector3(), _Sp = new THREE.Vector3(), _Sq0 = new THREE.Quaternion(), _Sq = new THREE.Quaternion();
+const _fR = new THREE.Vector3(), _fL = new THREE.Vector3(), _pRl = new THREE.Vector3(), _pLl = new THREE.Vector3(), _G = new THREE.Vector3(), _w = new THREE.Vector3(), _cot = new THREE.Vector3();
+const _qTeste = new THREE.Quaternion(), _qz = new THREE.Quaternion(), _qMaoT = new THREE.Quaternion(), _Z = new THREE.Vector3(0, 0, 1);
 const _desliza = new THREE.Vector3(), _oR = new THREE.Vector3(), _oL = new THREE.Vector3(), _anda = new THREE.Vector3(), _t3 = new THREE.Vector3(), _t4 = new THREE.Vector3();
 const _Rg = new THREE.Vector3(), _Lg = new THREE.Vector3(), _eixo2 = new THREE.Vector3(), _um = new THREE.Vector3(1, 1, 1);
 const _qAlvo = new THREE.Quaternion(), _qArma = new THREE.Quaternion(), _qArma2 = new THREE.Quaternion(), _qEixo = new THREE.Quaternion(), _hR = new THREE.Matrix4();
