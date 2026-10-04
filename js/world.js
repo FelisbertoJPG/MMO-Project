@@ -223,7 +223,46 @@ export const FOGUEIRAS = [
   { id: 'colinas', nome: 'Colinas do Vento', pos: new THREE.Vector3(-99, 0, -99), acordar: [3.2, 0], rumo: Math.PI / 2 },
 ];
 export const GLOW = { tex: null };
-const _cor1 = new THREE.Color(), _cor2 = new THREE.Color();
+
+// ---------------------------------------------------------------- O CICLO DO DIA
+// Um dia inteiro em DIA_S segundos (20 min), contado pelo relógio de verdade: duas
+// telas — e todos no Mundo online — veem a mesma hora sem trocar recado nenhum.
+export const DIA_S = 20 * 60;
+/** A hora do mundo, de 0 a 24 (0 = meia-noite). */
+// (para testar: `__hora = 12` no console prende o relógio ao meio-dia; `__hora = null` solta)
+export function horaDoMundo(agora = Date.now()) { return Number.isFinite(globalThis.__hora) ? globalThis.__hora : ((agora / 1000) % DIA_S) / DIA_S * 24; }
+// As CHAVES do céu (hora → como está): o resto é interpolado entre a de antes e a de depois.
+// `dia` (0–1) é quanto de sol há — os campos só ficam mais verdes com sol.
+const CEU = [
+  [0, { fundo: 0x0e1830, nevoa: 0x101a30, dens: 0.014, hemi: 2.1, amb: 1.6, lua: 3.0, ceu: 0x46506e, chao: 0x100c08, ambCor: 0x24242e, luz: 0x9db4e8, dia: 0 }],
+  [4.8, { fundo: 0x121a34, nevoa: 0x141d34, dens: 0.013, hemi: 2.1, amb: 1.6, lua: 2.6, ceu: 0x4a5272, chao: 0x120e0a, ambCor: 0x26262f, luz: 0xa0b4e0, dia: 0 }],
+  [6.3, { fundo: 0xc98e78, nevoa: 0xbf9886, dens: 0.009, hemi: 2.4, amb: 1.4, lua: 2.6, ceu: 0xffc3a0, chao: 0x3a3024, ambCor: 0x3a3030, luz: 0xffad78, dia: 0.5 }],
+  [8.5, { fundo: 0x7fb2e8, nevoa: 0xa9c8e8, dens: 0.005, hemi: 3.0, amb: 1.5, lua: 4.0, ceu: 0xd8e8ff, chao: 0x4a5a32, ambCor: 0x404650, luz: 0xfff1d6, dia: 1 }],
+  [15.5, { fundo: 0x7fb2e8, nevoa: 0xa9c8e8, dens: 0.005, hemi: 3.0, amb: 1.5, lua: 4.0, ceu: 0xd8e8ff, chao: 0x4a5a32, ambCor: 0x404650, luz: 0xfff1d6, dia: 1 }],
+  [17.6, { fundo: 0xd98a52, nevoa: 0xcf9a72, dens: 0.007, hemi: 2.6, amb: 1.35, lua: 3.4, ceu: 0xffc890, chao: 0x3d4a2a, ambCor: 0x3c3428, luz: 0xffad5c, dia: 0.7 }],
+  [19.0, { fundo: 0x3a3a68, nevoa: 0x40406a, dens: 0.011, hemi: 2.2, amb: 1.5, lua: 2.6, ceu: 0x6a6a9a, chao: 0x151210, ambCor: 0x2a2836, luz: 0xc0a0d0, dia: 0.1 }],
+  [20.5, { fundo: 0x0e1830, nevoa: 0x101a30, dens: 0.014, hemi: 2.1, amb: 1.6, lua: 3.0, ceu: 0x46506e, chao: 0x100c08, ambCor: 0x24242e, luz: 0x9db4e8, dia: 0 }],
+  [24, null],   // = a da meia-noite
+].map(([h, c]) => [h, c && Object.fromEntries(Object.entries(c).map(([k, v]) => [k, typeof v === 'number' && k !== 'dens' && k !== 'hemi' && k !== 'amb' && k !== 'lua' && k !== 'dia' ? new THREE.Color(v) : v]))]);
+CEU[CEU.length - 1][1] = CEU[0][1];
+/** Como está o céu na hora `h` (0–24). Reaproveita `alvo` (não aloca por quadro). */
+export function cicloDoDia(h, alvo = null) {
+  let i = 0;
+  while (i < CEU.length - 2 && CEU[i + 1][0] <= h) i++;
+  const [ha, a] = CEU[i], [hb, b] = CEU[i + 1], u = hb > ha ? Math.min(1, Math.max(0, (h - ha) / (hb - ha))) : 0;
+  const t = u * u * (3 - 2 * u);
+  const o = alvo ?? { fundo: new THREE.Color(), nevoa: new THREE.Color(), ceu: new THREE.Color(), chao: new THREE.Color(), ambCor: new THREE.Color(), luz: new THREE.Color(), dir: new THREE.Vector3() };
+  for (const k of ['fundo', 'nevoa', 'ceu', 'chao', 'ambCor', 'luz']) o[k].copy(a[k]).lerp(b[k], t);
+  for (const k of ['dens', 'hemi', 'amb', 'lua', 'dia']) o[k] = a[k] + (b[k] - a[k]) * t;
+  // o sol nasce no LESTE (+x) às 6 e se põe no oeste às 18; de noite a mesma luz é a lua,
+  // no arco oposto; sempre um pouco acima do horizonte (luz rasante demais some)
+  const sol = h >= 6 && h < 18, ang = ((sol ? h - 6 : (h + 6) % 24) / 12) * Math.PI;
+  o.dir.set(Math.cos(ang), Math.max(0.25, Math.sin(ang)), 0.35).normalize();
+  return o;
+}
+const _verdeCampos = new THREE.Color(0x3d5a2a);
+// as peças que ganham colisão do próprio tamanho quando o decor.json não diz o raio
+const RAIO_AUTOMATICO = /(^|-)Rock_|^rubble_|^barrier_column/;
 
 const rand = (seed) => { let s = seed; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; };
 
@@ -407,32 +446,25 @@ export class World {
   /** Quanto `pos` está ACIMA do chão dele (o que "no ar" quer dizer). */
   acimaDoChao(pos) { return pos.y - this.alturaChao(pos); }
 
-  // ---------- Iluminação ----------
+  // ---------- Iluminação: dentro, fora e O DIA ----------
   //
-  // Dois climas, e a troca é pela CÉLULA do jogador (`updateAmbience`): dentro
-  // da masmorra, o escuro de sempre; no ar livre ('f'), noite de lua — mais
-  // luz fria de cima, névoa mais rala e azulada. Uma lua acesa o tempo todo
-  // clarearia a masmorra inteira (sem sombras, a luz direcional atravessa
-  // teto e parede), e o clima dela é metade do jogo.
+  // A troca é pela CÉLULA do jogador (`updateAmbience`): dentro da masmorra, o escuro
+  // de sempre; no ar livre ('f', 'a', 'e'), o CÉU DO CICLO DO DIA (`cicloDoDia`, 20 min
+  // por dia, pelo relógio de verdade — no Mundo online todos veem a mesma hora). Uma
+  // luz direcional acesa dentro clarearia a masmorra inteira (sem sombras, ela atravessa
+  // teto e parede), e o clima dela é metade do jogo: por isso ela apaga lá dentro.
   buildLighting() {
     const s = this.scene;
     const dentro = { fundo: new THREE.Color(0x020203), nevoa: new THREE.Color(0x030304), dens: 0.028, hemi: 0.95, amb: 0.8, lua: 0 };
-    const fora = { fundo: new THREE.Color(0x0e1830), nevoa: new THREE.Color(0x101a30), dens: 0.014, hemi: 2.1, amb: 1.6, lua: 3.0 };
     s.background = dentro.fundo.clone();
     s.fog = new THREE.FogExp2(dentro.nevoa.getHex(), dentro.dens);
     const hemi = new THREE.HemisphereLight(0x46506e, 0x100c08, dentro.hemi);
     const amb = new THREE.AmbientLight(0x24242e, dentro.amb);
-    const lua = new THREE.DirectionalLight(0x9db4e8, 0);
-    // a lua vem do LESTE, de frente para a fachada da masmorra: é para lá que
-    // quem está na floresta olha, e de costas para a luz a entrada era um borrão
+    const lua = new THREE.DirectionalLight(0x9db4e8, 0);   // o SOL de dia, a LUA de noite
     lua.position.set(60, 70, 20);
-    s.add(hemi, amb, lua);
-    // os CAMPOS (as Colinas do Vento): um fim de tarde — céu azul-claro, névoa rala, luz
-    // dourada e o chão verde rebatendo no hemisfério (o jeito dos campos de Mondstadt)
-    const campos = { fundo: new THREE.Color(0x5d86b8), nevoa: new THREE.Color(0x8fb0cf), dens: 0.006, hemi: 2.6, amb: 1.25, lua: 3.4,
-      ceu: new THREE.Color(0xbfd6ff), chao: new THREE.Color(0x3d5a2a), luz: new THREE.Color(0xffd9a0) };
-    const base = { ceu: hemi.color.clone(), chao: hemi.groundColor.clone(), luz: lua.color.clone() };
-    this.ambience = { dentro, fora, campos, base, hemi, amb, lua, k: 0, kc: 0 };
+    s.add(hemi, amb, lua, lua.target);
+    const base = { ceu: hemi.color.clone(), chao: hemi.groundColor.clone(), amb: amb.color.clone() };
+    this.ambience = { dentro, base, hemi, amb, lua, k: 0, kc: 0, ceu: cicloDoDia(0) };
   }
 
   /** O jogador está na área do relevo (os campos)? */
@@ -446,25 +478,30 @@ export class World {
     const a = this.ambience;
     const [r, c] = this.cellOf(this.game.player.pos);
     const alvo = this.isOpenAir(r, c) ? 1 : 0, alvoC = this.nosCampos(r, c) ? 1 : 0;
-    if (a.k === alvo && a.kc === alvoC) return;
     // ~1,5 s para trocar: rápido o bastante para a saída "abrir", devagar o
     // bastante para não piscar quem anda na soleira (os campos, ~3 s)
     a.k = alvo > a.k ? Math.min(1, a.k + dt * 0.7) : Math.max(0, a.k - dt * 0.7);
     a.kc = alvoC > a.kc ? Math.min(1, a.kc + dt * 0.35) : Math.max(0, a.kc - dt * 0.35);
-    // o "fora" de agora: a noite da floresta, puxada para os campos por `kc`
-    const F = a.fora, C = a.campos, kc = a.kc, fm = (x, y) => x + (y - x) * kc;
-    const fora = { fundo: _cor1.copy(F.fundo).lerp(C.fundo, kc), nevoa: _cor2.copy(F.nevoa).lerp(C.nevoa, kc), dens: fm(F.dens, C.dens), hemi: fm(F.hemi, C.hemi), amb: fm(F.amb, C.amb), lua: fm(F.lua, C.lua) };
+    // o céu de AGORA (a hora do ciclo); nos campos, o chão rebate mais verde
+    const F = cicloDoDia(horaDoMundo(), a.ceu), kc = a.kc;
+    F.chao.lerp(_verdeCampos, 0.45 * kc * F.dia);
+    F.hemi *= 1 + 0.12 * kc;
     const mix = (x, y) => x + (y - x) * a.k;
     const s = this.scene;
-    s.background.copy(a.dentro.fundo).lerp(fora.fundo, a.k);
-    s.fog.color.copy(a.dentro.nevoa).lerp(fora.nevoa, a.k);
-    s.fog.density = mix(a.dentro.dens, fora.dens);
-    a.hemi.intensity = mix(a.dentro.hemi, fora.hemi);
-    a.amb.intensity = mix(a.dentro.amb, fora.amb);
-    a.lua.intensity = mix(a.dentro.lua, fora.lua);
-    a.hemi.color.copy(a.base.ceu).lerp(C.ceu, kc);
-    a.hemi.groundColor.copy(a.base.chao).lerp(C.chao, kc);
-    a.lua.color.copy(a.base.luz).lerp(C.luz, kc);
+    s.background.copy(a.dentro.fundo).lerp(F.fundo, a.k);
+    s.fog.color.copy(a.dentro.nevoa).lerp(F.nevoa, a.k);
+    s.fog.density = mix(a.dentro.dens, F.dens);
+    a.hemi.intensity = mix(a.dentro.hemi, F.hemi);
+    a.amb.intensity = mix(a.dentro.amb, F.amb);
+    a.lua.intensity = mix(a.dentro.lua, F.lua);
+    a.hemi.color.copy(a.base.ceu).lerp(F.ceu, a.k);
+    a.hemi.groundColor.copy(a.base.chao).lerp(F.chao, a.k);
+    a.amb.color.copy(a.base.amb).lerp(F.ambCor, a.k);
+    a.lua.color.copy(F.luz);
+    // o sol (ou a lua) em volta do jogador, na altura da hora
+    const p = this.game.player.pos;
+    a.lua.position.set(p.x + F.dir.x * 90, p.y + F.dir.y * 90, p.z + F.dir.z * 90);
+    a.lua.target.position.copy(p);
   }
 
   // ---------- Pisos, paredes, tetos ----------
@@ -903,8 +940,35 @@ export class World {
     // `buildGeometry()` montava na matriz.
     if (d.flip) m.rotateX(Math.PI);
     this.scene.add(m);
-    if (d.colisao) { m.userData.circulo = { x: m.position.x, z: m.position.z, r: d.colisao }; this.circles.push(m.userData.circulo); }
+    // PEDRA e ENTULHO sem raio declarado ganham o raio do próprio tamanho (o desabamento
+    // tem de barrar) — menos os que estão em cima da borda com a rocha (a menos de 1,2 m de
+    // uma parede), que já barra, e onde um círculo só comeria o chão de passagem.
+    // `colisao: 0` = não barra.
+    let raio = d.colisao;
+    if (raio === undefined && RAIO_AUTOMATICO.test(d.prop) && !this.pertoDaRocha(px, pz, 1.2)) raio = this.raioDoProp(d.prop) * (d.escala ?? 1);
+    if (raio) { m.userData.circulo = { x: m.position.x, z: m.position.z, r: raio }; this.circles.push(m.userData.circulo); }
     return m;
+  }
+
+  /** `(x, z)` está a menos de `dist` m de uma célula de rocha (uma parede do mapa)? */
+  pertoDaRocha(x, z, dist) {
+    const r0 = Math.round(z / CELL), c0 = Math.round(x / CELL);
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      if (this.isFloor(r0 + dr, c0 + dc)) continue;
+      const dx = Math.max(Math.abs(x - (c0 + dc) * CELL) - CELL / 2, 0), dz = Math.max(Math.abs(z - (r0 + dr) * CELL) - CELL / 2, 0);
+      if (Math.hypot(dx, dz) < dist) return true;
+    }
+    return false;
+  }
+
+  /** Meia largura (m) da planta de um prop em escala 1 — 80% do maior lado (a pedra é redonda). */
+  raioDoProp(nome) {
+    this._raios ??= new Map();
+    if (!this._raios.has(nome)) {
+      const t = new THREE.Box3().setFromObject(Assets.props[nome]).getSize(new THREE.Vector3());
+      this._raios.set(nome, Math.max(t.x, t.z) * 0.4);
+    }
+    return this._raios.get(nome);
   }
 
   buildDecor() {

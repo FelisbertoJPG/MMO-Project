@@ -3,7 +3,7 @@ import { Assets } from './assets.js';
 import { initGear } from './gear.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
-import { World, START_POS, SAQUES } from './world.js';
+import { World, START_POS, SAQUES, horaDoMundo } from './world.js';
 import { Effects, Projectiles, flatDist, yawTo } from './combat.js';
 import { Player } from './player.js';
 import { spawnEnemies } from './enemies.js';
@@ -18,6 +18,7 @@ import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
 import { ControlesToque, ehToque } from './toque.js';
 import { Provador } from './provador.js';
+import { Capim } from './capim.js';
 import { Graficos, qualidadeSalva } from './graficos.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
@@ -75,6 +76,7 @@ class Game {
     }
     initGear(this.renderer);
     this.world = new World(this);
+    this.capim = new Capim(this);   // as graminhas que balançam com o vento (capim.js)
     this.effects = new Effects(this);
     this.projectiles = new Projectiles(this);
     this.ui = new UI(this);
@@ -596,7 +598,8 @@ class Game {
    */
   mostrarCoordenadas() {
     const p = this.player.pos, [lin, col] = this.world.cellOf(p);
-    const texto = `x ${p.x.toFixed(1)}  y ${p.y.toFixed(1)}  z ${p.z.toFixed(1)}  ·  célula [${lin}, ${col}]`;
+    const h = horaDoMundo(), hora = `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
+    const texto = `x ${p.x.toFixed(1)}  y ${p.y.toFixed(1)}  z ${p.z.toFixed(1)}  ·  célula [${lin}, ${col}]  ·  ${hora}`;
     const el = document.getElementById('coordenadas');
     el.textContent = texto;
     el.onclick = () => { navigator.clipboard?.writeText(texto).then(() => this.ui.toast('Coordenadas copiadas.'), () => {}); };
@@ -994,6 +997,7 @@ class Game {
       }
       this.effects.update(dt);
       this.world.update(dt, this.camera);
+      this.capim.update(dt);
       this.player.updateCamera(dt, this.camera);
     }
     this.online.update(dt);

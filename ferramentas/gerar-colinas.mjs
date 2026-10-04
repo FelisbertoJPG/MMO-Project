@@ -132,7 +132,7 @@ for (let r = 0; r < ROWS; r++) {
     if (!naTrilha && rnd() < 0.12) por(pega(MOITAS), r, c, o(), entre(0.9, 1.3));
     for (let k = 0; k < 2; k++) if (rnd() < 0.5) por(pega(CAPIM), r, c, o(), entre(0.8, 1.2));
     if (!naTrilha && rnd() < (bosque ? 0.15 : 0.32)) por(pega(FLORES), r, c, o(), entre(0.7, 1.1));
-    if (!naTrilha && rnd() < 0.07) por(pega(MUSGO), r, c, o(), entre(2.5, 4.5), { colisao: 0.6 });
+    if (!naTrilha && rnd() < 0.07) por(pega(MUSGO), r, c, o(), entre(2.5, 4.5), { colisao: undefined });   // o raio, o jogo mede
   }
 }
 // ---- as RUÍNAS no platô: um anel de colunas (umas quebradas), arcos e muros
@@ -141,7 +141,7 @@ const [pr, pc] = PLATO.centro;
 const noAnel = (ang, raioCel) => { const r = pr + Math.sin(ang) * raioCel, c = pc + Math.cos(ang) * raioCel; const ri = Math.round(r), ci = Math.round(c); return [ri, ci, [(c - ci) * 4, (r - ri) * 4]]; };
 for (let i = 0; i < 10; i++) {
   const [ri, ci, off] = noAnel((i / 10) * Math.PI * 2, 2.2);
-  if (i === 3 || i === 7) por('rubble_half', ri, ci, off, 1.2);   // as que caíram
+  if (i === 3 || i === 7) por('rubble_half', ri, ci, off, 1.2, { colisao: undefined });   // as que caíram
   else por(i % 2 ? 'column' : 'pillar_decorated', ri, ci, off, i % 2 ? 2.4 : 1.3, { colisao: 0.8 });
 }
 for (const [ang, prop] of [[0.35, 'wall_arched'], [2.2, 'wall_archedwindow_open'], [4.1, 'wall_arched'], [5.4, 'wall_broken']]) {
@@ -149,7 +149,7 @@ for (const [ang, prop] of [[0.35, 'wall_arched'], [2.2, 'wall_archedwindow_open'
   novos.push({ prop, cel: [ri, ci], off: off.map(r3), giro: r3(-ang + Math.PI / 2), escala: 1.5 });
 }
 for (let i = 0; i < 9; i++) { const [ri, ci, off] = noAnel(entre(0, Math.PI * 2), entre(0, 1.6)); por(pega(['floor_tile_small_broken_A', 'floor_tile_small_broken_B', 'floor_dirt_small_weeds']), ri, ci, off, 1.5); }
-for (let i = 0; i < 6; i++) { const [ri, ci, off] = noAnel(entre(0, Math.PI * 2), entre(2.6, 4.2)); por(pega(['rubble_large', 'rubble_half', 'barrier_column']), ri, ci, off, entre(0.9, 1.3), { colisao: 0.9 }); }
+for (let i = 0; i < 6; i++) { const [ri, ci, off] = noAnel(entre(0, Math.PI * 2), entre(2.6, 4.2)); por(pega(['rubble_large', 'rubble_half', 'barrier_column']), ri, ci, off, entre(0.9, 1.3), { colisao: undefined }); }   // o desabamento: raio do tamanho dele (o jogo mede)
 for (let i = 0; i < 8; i++) { const [ri, ci, off] = noAnel(entre(0, Math.PI * 2), entre(1, 3.5)); por(pega(FLORES), ri, ci, off, entre(0.7, 1)); }
 // um arco sozinho numa colina (o "portal" que se vê de longe)
 { const k = colinas[3] ?? colinas[2]; novos.push({ prop: 'wall_arched', cel: k.centro, off: [0, 0], giro: 0.6, escala: 1.5 }); por('pillar_decorated', k.centro[0], k.centro[1], [1.9, 0.9], 1.2, { colisao: 0.8 }); }
@@ -164,7 +164,8 @@ for (const d of novos) {
   const pr = d.cel[0] * 4 + d.off[1], pc = d.cel[1] * 4 + d.off[0];
   d.cel = [Math.round(pr / 4), Math.round(pc / 4)];
   d.off = [r3(pc - d.cel[1] * 4), r3(pr - d.cel[0] * 4)];
-  d.colisao ??= 0;
+  if ('colisao' in d && d.colisao === undefined) delete d.colisao;   // pedra e entulho: o jogo mede (RAIO_AUTOMATICO)
+  else d.colisao ??= 0;
 }
 const decor = JSON.parse(fs.readFileSync(decorArq, 'utf8'));
 decor.itens.push(...novos);
