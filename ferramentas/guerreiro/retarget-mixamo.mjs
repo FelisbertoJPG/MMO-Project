@@ -9,6 +9,7 @@
 // `--endireitar=k` (0 a 1) tira a corcunda: o giro que o quadril, a coluna, o pescoço e a cabeça
 // fizeram desde a pose T (que é ereta) é reduzido em k. Os braços guardam o giro que
 // tinham no mundo (as mãos não se soltam do cabo, só acompanham o peito).
+// `--ombros=k` abaixa os ombros: o giro das CLAVÍCULAS desde a pose T reduzido em k.
 //
 // A conta (os dois esqueletos estão na pose T no arquivo): para cada osso UAL com
 // par no Mixamo, o giro que o osso Mixamo fez desde a pose T, NO MUNDO, é aplicado
@@ -25,6 +26,8 @@ console.warn = () => {};
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const [FBX, UAL, NOME, SAIDA] = args;
 const ENDIREITAR = Number(process.argv.find((a) => a.startsWith('--endireitar='))?.split('=')[1] ?? 0);
+const OMBROS = Number(process.argv.find((a) => a.startsWith('--ombros='))?.split('=')[1] ?? 0);
+const CLAVICULAS = new Set(['clavicle_l', 'clavicle_r']);
 const COLUNA = new Set(['pelvis', 'spine_01', 'spine_02', 'spine_03', 'neck_01', 'Head']);
 if (!SAIDA) { console.log('uso: node retarget-mixamo.mjs <anim.fbx> <UAL1.glb> <NomeDoClipe> <saida.json>'); process.exit(1); }
 
@@ -99,6 +102,7 @@ for (let f = 0; f < n; f++) {
       // D = o giro desde a pose T, no mundo; na coluna, reduzido (endireitar)
       const D = q(mixOsso(PARES[o.name])).multiply(tMix[o.name].clone().invert());
       if (ENDIREITAR && COLUNA.has(o.name)) D.slerp(new THREE.Quaternion(), ENDIREITAR);
+      if (OMBROS && CLAVICULAS.has(o.name)) D.slerp(new THREE.Quaternion(), OMBROS);
       w = D.multiply(tUal[o.name]);
     }
     else w = paiQ.clone().multiply(restoLocal.get(o));
@@ -120,6 +124,8 @@ for (let f = 0; f < n; f++) {
   ual.updateMatrixWorld(true);
   const P = (nm) => osso(nm).getWorldPosition(new THREE.Vector3());
   const ang = (a, b) => { const d = b.clone().sub(a); return (Math.atan2(Math.hypot(d.x, d.z), d.y) * 180 / Math.PI).toFixed(1) + '°'; };
+  const el = (l) => { const d = P(`upperarm_${l}`).sub(P(`clavicle_${l}`)); return (Math.atan2(d.y, Math.hypot(d.x, d.z)) * 180 / Math.PI).toFixed(1); };
+  console.log(`  ombros: a clavícula sobe ${el('l')}° (esq) ${el('r')}° (dir) — num idle normal, ~0°`);
   console.log(`  postura: quadril→peito ${ang(P('pelvis'), P('spine_03'))} | peito→cabeça ${ang(P('spine_03'), P('Head'))} | quadril→cabeça ${ang(P('pelvis'), P('Head'))} (0° = ereto)`);
 }
 const trilhas = [];

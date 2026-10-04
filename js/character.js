@@ -244,6 +244,17 @@ export class CharacterModel {
     const doClipe = entre > 0.04 && entre < 0.35;
     if (doClipe) _Sq0.premultiply(_qz.setFromUnitVectors(_t4.set(0, 0, 1).applyQuaternion(_Sq0), _t3.subVectors(_Sp0, _t1).normalize()));
     const abaixoBase = doClipe ? entre : EMPUNHADURA_PADRAO.maoEsq.abaixo;
+    // ...e aí as MÃOS são as do clipe, intocadas: só a espada vai de uma palma à outra (o
+    // IK com a busca automática do giro trocava de escolha entre quadros e o braço dava
+    // uma "flicada" de ~5 cm)
+    if (doClipe) {
+      maoR.updateMatrixWorld(true);
+      _S.compose(_Sp0, _qt.copy(_Sq0), _um);
+      h.matrix.copy(_inv.copy(maoR.matrixWorld).invert()).multiply(_S);
+      h.matrix.decompose(h.position, h.quaternion, h.scale);
+      h.updateMatrixWorld(true);
+      return;
+    }
     // o pulso da animação de cada mão: o giro LOCAL dela (contra o antebraço), o giro do
     // antebraço e a direção dele (cotovelo → pulso) — é o "pulso natural" a imitar
     pulsoDaAnimacao(maoR, cotR, _natR); pulsoDaAnimacao(maoL, cotL, _natL);
