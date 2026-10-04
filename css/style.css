@@ -149,6 +149,8 @@ button:disabled { opacity: .4; cursor: default; }
 #conta-status b { color: #e9dcc0; font-weight: 400; font-family: var(--serif); }
 #conta-form { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 #conta-form a { align-self: center; }
+#coordenadas { font: 13px ui-monospace, monospace; color: var(--text-dim); margin: -4px 0 10px; cursor: pointer; user-select: all; }
+#coordenadas:hover { color: var(--gold); }
 #jogar-offline { margin-top: 6px; background: transparent; }
 /* logado: o Mundo online na frente da Jornada; offline: só a Jornada */
 #modos.online #modo-mmo { order: -1; }

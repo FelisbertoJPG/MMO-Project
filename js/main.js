@@ -590,12 +590,24 @@ class Game {
   }
 
   // ---------- Menus ----------
+  /**
+   * As COORDENADAS no menu de pausa: x y z em metros (y = altura do pé) e a célula do
+   * mapa [linha, coluna] — para o jogador dizer "em x y z tem um bug". Clicar copia.
+   */
+  mostrarCoordenadas() {
+    const p = this.player.pos, [lin, col] = this.world.cellOf(p);
+    const texto = `x ${p.x.toFixed(1)}  y ${p.y.toFixed(1)}  z ${p.z.toFixed(1)}  ·  célula [${lin}, ${col}]`;
+    const el = document.getElementById('coordenadas');
+    el.textContent = texto;
+    el.onclick = () => { navigator.clipboard?.writeText(texto).then(() => this.ui.toast('Coordenadas copiadas.'), () => {}); };
+  }
+
   openMenu(kind) {
     this.menu = kind;
     this.input.clearAll();
     if (kind === 'inventory') this.inventory.open();
     if (kind === 'bonfire') this.ui.openBonfire();
-    if (kind === 'pause') document.getElementById('pause').classList.remove('hidden');
+    if (kind === 'pause') { this.mostrarCoordenadas(); document.getElementById('pause').classList.remove('hidden'); }
     if (kind === 'sala') this.salaUI.abrir();
     if (kind === 'escrever') {
       document.getElementById('msg-writer').classList.remove('hidden');
