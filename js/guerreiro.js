@@ -42,7 +42,7 @@ export const armaduraDe = (c) => (c === 'antigo' ? false : c === 'nu' || !CORPOS
 export const corpoDe = (modelo) => (!modelo.guerreiro ? 'antigo' : modelo.guerreiro.armadura ?? 'nu');
 
 // osso UAL → osso do guerreiro
-const PARES = {
+export const PARES = {
   root: 'Root', pelvis: 'Hips', spine_01: 'Spine003', spine_02: 'Spine002', spine_03: 'Spine001',
   neck_01: 'Neck', Head: 'Head',
   thigh_l: 'Thighl', calf_l: 'Shinl', foot_l: 'Footl', ball_l: 'ToeL',
