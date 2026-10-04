@@ -502,6 +502,15 @@ export class World {
     const p = this.game.player.pos;
     a.lua.position.set(p.x + F.dir.x * 90, p.y + F.dir.y * 90, p.z + F.dir.z * 90);
     a.lua.target.position.copy(p);
+    // o FILTRO DE COR (style.css): sombrio na masmorra, quase limpo ao ar livre
+    const kf = Math.round(a.k * 50) / 50;
+    if (kf !== a.filtroK) {
+      a.filtroK = kf;
+      const st = document.documentElement.style;
+      st.setProperty('--filtro-sat', (0.62 + (1.0 - 0.62) * kf).toFixed(3));
+      st.setProperty('--filtro-con', (1.12 + (1.04 - 1.12) * kf).toFixed(3));
+      st.setProperty('--filtro-sep', (0.12 + (0.02 - 0.12) * kf).toFixed(3));
+    }
   }
 
   // ---------- Pisos, paredes, tetos ----------

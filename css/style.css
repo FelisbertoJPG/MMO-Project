@@ -22,7 +22,9 @@ html, body {
 }
 #game, #game canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 /* Gradação de cor sombria: menos saturação, mais contraste, vinheta */
-#game canvas { filter: saturate(0.62) contrast(1.12) brightness(0.96) sepia(0.12); }
+/* o filtro de cor sombrio é da MASMORRA: ao ar livre ele afrouxa (world.js, updateAmbience,
+   mexe nestas variáveis pelo `k` do lugar) — senão a grama e o céu ficavam foscos e cinza */
+#game canvas { filter: saturate(var(--filtro-sat, 0.62)) contrast(var(--filtro-con, 1.12)) brightness(0.96) sepia(var(--filtro-sep, 0.12)); }
 /* qualidade Baixa (js/graficos.js): sem o filtro de cor, que custa na tela inteira */
 body.sem-filtro #game canvas { filter: none; }
 #game::after { content: ''; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
