@@ -525,6 +525,8 @@ export class World {
     const p = this.game.player.pos;
     a.lua.position.set(p.x + F.dir.x * 90, p.y + F.dir.y * 90, p.z + F.dir.z * 90);
     a.lua.target.position.copy(p);
+    // o CÉU desenhado (sol, lua, nuvens) e o reflexo dele (ceu.js)
+    this.game.ceu?.update(dt, F, horaDoMundo(), a.k, a.dentro.fundo);
     // o FILTRO DE COR (style.css): sombrio na masmorra, quase limpo ao ar livre
     const kf = Math.round(a.k * 50) / 50;
     if (kf !== a.filtroK) {

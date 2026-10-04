@@ -29,9 +29,10 @@ function grimeTexture(seed, base = 180, spread = 70) {
   return t;
 }
 
-export function initGear(renderer) {
-  const pm = new THREE.PMREMGenerator(renderer);
-  Gear.env = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+// `reflexo`: o mapa de ambiente do CÉU (ceu.js) — as armas refletem o céu de agora; sem
+// ele, o estúdio de antes (RoomEnvironment)
+export function initGear(renderer, reflexo = null) {
+  Gear.env = reflexo ?? new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
   const grime = grimeTexture(7);
   const rust = grimeTexture(31, 150, 110);
   const cloth = grimeTexture(55, 170, 90);

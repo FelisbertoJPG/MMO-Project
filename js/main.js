@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { initGear } from './gear.js';
+import { Ceu } from './ceu.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
 import { World, START_POS, SAQUES, horaDoMundo } from './world.js';
@@ -74,7 +75,10 @@ class Game {
       text.textContent = 'Erro ao carregar modelos: ' + e.message;
       throw e;
     }
-    initGear(this.renderer);
+    // o CÉU antes de tudo: o reflexo dele é o mapa de ambiente das armas e do mundo, e tem
+    // de existir antes da primeira compilação dos shaders (senão recompila no meio do jogo)
+    this.ceu = new Ceu(this);
+    initGear(this.renderer, this.ceu.reflexo);
     this.world = new World(this);
     this.capim = new Capim(this);   // as graminhas que balançam com o vento (capim.js)
     this.effects = new Effects(this);
