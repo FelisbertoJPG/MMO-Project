@@ -69,8 +69,9 @@ export class CharacterModel {
     this.guerreiro = armadura !== false && Assets.guerreiro ? new CorpoGuerreiro(this, armadura) : null;
   }
 
-  // O PROVADOR (provador.js) troca o corpo com o jogo rodando: `false` = o boneco
-  // antigo; null = o guerreiro sem armadura; 'A1'/'A2'/'A3' = com uma das dele.
+  // Troca o corpo com o jogo rodando (o provador, e a armadura equipada): `false` = o
+  // boneco antigo; null = o guerreiro sem armadura; senão o código da armadura dele
+  // (um dígito por lugar, guerreiro.js `NU`).
   // As armas na mão passam para o corpo novo, com a mesma pegada.
   usarGuerreiro(armadura) {
     if (armadura === false) {

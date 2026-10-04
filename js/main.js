@@ -12,7 +12,7 @@ import { Dragao } from './dragao.js';
 import { Inventory } from './inventory.js';
 import { UI } from './ui.js';
 import { ITEMS } from './items.js';
-import { lerProgresso, salvarProgresso, aplicarProgresso, apagarProgresso } from './save.js';
+import { lerProgresso, salvarProgresso, aplicarProgresso, apagarProgresso, fichaAtual } from './save.js';
 import { Online } from './rede/online.js';
 import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
@@ -400,7 +400,8 @@ class Game {
     if (!r.ok) { bt.disabled = false; st.textContent = r.error; return; }
     this.modo = 'mmo';
     this.sessao = r.mundo;
-    const salvo = r.mundo.personagem;
+    // personagem de outra ficha (ficha.js) recomeça do zero: é o reset de todos
+    const salvo = fichaAtual(r.mundo.personagem);
     if (salvo) aplicarProgresso(this, salvo);
     this.world.destrancarCela();   // no mundo de todos ninguém acorda preso
     this.entrarNoJogo();
@@ -678,6 +679,7 @@ class Game {
     this.sfx.victory();
     this.ui.centerMessage(chefe.titulo, 'victory', 5500);
     this.inventory.add(chefe.alma, 1);
+    for (const id of chefe.armadura ?? []) if (!this.inventory.count(id)) this.inventory.add(id, 1);
     this.player.hp = this.player.maxHp;
     this.salvar({ nuvem: true });
   }

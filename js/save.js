@@ -3,6 +3,7 @@ import { RECEITAS } from './receitas.js';
 import { req } from './rede/supabase.js';
 import { temSaveEmArquivo } from './hospedagem.js';
 import { CELL, NASCER } from './world.js';
+import { FICHA, LUGARES } from './ficha.js';
 
 // Progresso do jogador. Os inimigos comuns NÃO entram: eles renascem a cada
 // fogueira, então continuar é como acordar depois de um descanso. O que fica é
@@ -34,21 +35,28 @@ let ultimaNuvem = 0;
 
 const urlLocal = (conta) => (conta ? `${URL_SAVE}?conta=${encodeURIComponent(conta)}` : URL_SAVE);
 const valido = (d) => (d?.versao === VERSAO ? d : null);
+/**
+ * O save é da FICHA de agora (ficha.js `FICHA`: a revisão das regras de nível e
+ * atributos)? Save de outra revisão NÃO é aberto — o personagem recomeça do zero e o
+ * save novo grava por cima. É o reset de todos os jogadores (04/10/2026: a ficha 2).
+ * Não é "falhou em ler": o save foi lido, e é de propósito que ele não vale mais.
+ */
+export const fichaAtual = (d) => (d?.jogador?.ficha === FICHA ? d : null);
 const chaveNavegador = (conta) => `masmorra:save:${conta ?? 'sem-conta'}`;
 
 async function lerLocal(conta) {
   if (!temSaveEmArquivo()) {
-    try { return valido(JSON.parse(localStorage.getItem(chaveNavegador(conta)))); } catch { return null; }
+    try { return fichaAtual(valido(JSON.parse(localStorage.getItem(chaveNavegador(conta))))); } catch { return null; }
   }
   try {
     const r = await fetch(urlLocal(conta), { cache: 'no-store' });
-    return r.ok ? valido(await r.json()) : null;
+    return r.ok ? fichaAtual(valido(await r.json())) : null;
   } catch { return null; }
 }
 
 async function lerNuvem(conta) {
   const r = await req(`saves?select=dados&dono=eq.${encodeURIComponent(conta)}`);
-  return r.ok && Array.isArray(r.dados) ? valido(r.dados[0]?.dados) : null;
+  return r.ok && Array.isArray(r.dados) ? fichaAtual(valido(r.dados[0]?.dados)) : null;
 }
 
 /**
@@ -118,6 +126,7 @@ export function coletar(game) {
     versao: VERSAO,
     salvoEm: new Date().toISOString(),
     jogador: {
+      ficha: FICHA,   // a revisão das regras (ficha.js): save de outra não é aberto
       nivel: p.level, vigor: p.vigor, endurance: p.endurance, strength: p.strength,
       almas, vida: p.dead ? null : Math.ceil(p.hp), pos,
       fogueira: p.fogueira,
@@ -127,7 +136,7 @@ export function coletar(game) {
     },
     inventario: {
       itens: [...inv.items.entries()],
-      equipado: { weapon: inv.equipped.weapon, left: inv.equipped.left, rings: [...inv.equipped.rings] },
+      equipado: { weapon: inv.equipped.weapon, left: inv.equipped.left, rings: [...inv.equipped.rings], armadura: { ...inv.equipped.armadura } },
       ultimoEscudo: inv.lastShield, tocha: inv.torchTime,
       cinto: [...inv.belt], cintoIdx: inv.beltIdx,
     },
@@ -168,6 +177,11 @@ export function aplicarProgresso(game, s) {
   inv.equipped.weapon = existe(eq.weapon) ? eq.weapon : null;
   inv.equipped.left = existe(eq.left) ? eq.left : null;
   inv.equipped.rings = eq.rings.map((r) => (existe(r) ? r : null));
+  // a armadura: cada lugar só aceita peça daquele lugar, e que esteja no inventário
+  for (const l of LUGARES) {
+    const id = eq.armadura?.[l];
+    inv.equipped.armadura[l] = existe(id) && ITEMS[id].lugar === l && inv.items.has(id) ? id : null;
+  }
   inv.lastShield = existe(s.inventario.ultimoEscudo) ? s.inventario.ultimoEscudo : null;
   inv.torchTime = s.inventario.tocha ?? 0;
   inv.belt = [0, 1, 2, 3].map((i) => {

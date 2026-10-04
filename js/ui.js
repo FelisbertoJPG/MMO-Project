@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ITEMS, ICON_PANELA } from './items.js';
+import { custoDoNivel, curva, VITALIDADE, RESISTENCIA_VIGOR, RESISTENCIA_CARGA, FORCA } from './ficha.js';
 import { RECEITAS, podeCozinhar, listaDaReceita, NA_PANELA } from './receitas.js';
 import { fmtTime } from './inventory.js';
 
@@ -97,7 +98,7 @@ export class UI {
   }
 
   // ---------- Fogueira / level up ----------
-  levelCost() { return Math.round(160 * Math.pow(1.13, this.game.player.level - 1)); }
+  levelCost() { return custoDoNivel(this.game.player.level); }
 
   /** A fogueira abre no menu de OPÇÕES; cada opção mostra a sua tela (`mostrarFogueira`). */
   openBonfire() {
@@ -183,10 +184,13 @@ export class UI {
     const p = this.game.player;
     const cost = this.levelCost();
     const can = p.souls >= cost;
+    // quanto o PRÓXIMO ponto rende (ficha.js: cada atributo rende menos a cada ponto)
+    const mais = (faixas, v) => curva(v + 1, faixas) - curva(v, faixas);
+    const n = (x) => (Math.round(x * 10) / 10).toString().replace('.', ',');
     const attrs = [
-      ['vigor', 'Vitalidade', `Vida máx.: ${p.maxHp}`],
-      ['endurance', 'Resistência', `Vigor máx.: ${p.maxStamina}`],
-      ['strength', 'Força', `Dano: +${Math.round((p.strength - 10) * 6)}%`],
+      ['vigor', 'Vitalidade', `Vida máx.: ${p.maxHp} <i>(próximo: +${n(mais(VITALIDADE, p.vigor))})</i>`],
+      ['endurance', 'Resistência', `Vigor máx.: ${p.maxStamina} · Carga: ${p.cargaMax} <i>(próximo: +${n(mais(RESISTENCIA_VIGOR, p.endurance))} / +${n(mais(RESISTENCIA_CARGA, p.endurance))})</i>`],
+      ['strength', 'Força', `Bônus de força: +${Math.round(p.bonusForca * 100)}% × escala da arma <i>(próximo: +${n(mais(FORCA, p.strength) * 100)}%)</i>`],
     ];
     this.levelup.innerHTML = `<div class="lv-head"><span>Nível <b>${p.level}</b></span><span>Almas <b>${p.souls}</b></span><span>Custo <b style="color:${can ? '#c8a86a' : '#8a3a3a'}">${cost}</b></span></div>` +
       attrs.map(([k, label, desc]) => `<div>${label}<div class="desc">${desc}</div></div><b style="font-family:Cinzel;font-weight:400">${p[k]}</b><button data-attr="${k}" ${can ? '' : 'disabled'}>+</button>`).join('');

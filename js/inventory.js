@@ -1,7 +1,11 @@
 import { ITEMS, TORCH_LIFE } from './items.js';
+import { LUGARES, NOME_DO_LUGAR, ESCALA, SEM_REQUISITO } from './ficha.js';
 
-const TYPE_LABEL = { consumable: 'Consumível', ingrediente: 'Ingrediente — vai para a panela da fogueira', weapon: 'Arma', shield: 'Escudo', torch: 'Mão esquerda — fonte de luz', ring: 'Anel', key: 'Item especial' };
-const TAB_TYPES = { consumable: ['consumable'], ingrediente: ['ingrediente'], weapon: ['weapon', 'shield', 'torch'], ring: ['ring'], key: ['key'] };
+const TYPE_LABEL = { consumable: 'Consumível', ingrediente: 'Ingrediente — vai para a panela da fogueira', weapon: 'Arma', shield: 'Escudo', torch: 'Mão esquerda — fonte de luz', ring: 'Anel', key: 'Item especial', armadura: 'Armadura' };
+const TAB_TYPES = { consumable: ['consumable'], ingrediente: ['ingrediente'], weapon: ['weapon', 'shield', 'torch'], armadura: ['armadura'], ring: ['ring'], key: ['key'] };
+const pct = (v) => `${Math.round(v * 100)}%`;
+/** Armadura vazia: um lugar para cada peça (ficha.js `LUGARES`). */
+export const armaduraVazia = () => Object.fromEntries(LUGARES.map((l) => [l, null]));
 
 export const fmtTime = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -10,7 +14,7 @@ export class Inventory {
     this.game = game;
     this.items = new Map();
     // O morto-vivo acorda na cela sem nada
-    this.equipped = { weapon: null, left: null, rings: [null, null] };
+    this.equipped = { weapon: null, left: null, rings: [null, null], armadura: armaduraVazia() };
     this.lastShield = null;
     this.torchTime = 0;
     this.belt = [null, null, null, null];
@@ -43,6 +47,8 @@ export class Inventory {
       // Primeira arma/escudo encontrados já são equipados, como no início de DS
       const p = this.game.player;
       if (def.type === 'weapon' && !this.equipped.weapon) { this.equipped.weapon = id; p?.refreshEquipment(); }
+      // a primeira peça de cada lugar já é vestida
+      if (def.type === 'armadura' && !this.equipped.armadura[def.lugar]) { this.equipped.armadura[def.lugar] = id; p?.refreshEquipment(); }
       if (def.type === 'shield' && !this.lastShield) {
         this.lastShield = id;
         if (!this.equipped.left) { this.equipped.left = id; p?.refreshEquipment(); }
@@ -94,6 +100,9 @@ export class Inventory {
     } else if (def.type === 'torch') {
       if (this.equipped.left === 'torch') this.equipped.left = this.lastShield;
       else { this.equipped.left = 'torch'; this.game.sfx.torchIgnite(); }
+    } else if (def.type === 'armadura') {
+      const a = this.equipped.armadura;
+      a[def.lugar] = a[def.lugar] === id ? null : id;
     } else if (def.type === 'ring') {
       const r = this.equipped.rings;
       const at = r.indexOf(id);
@@ -115,7 +124,7 @@ export class Inventory {
     this.render();
   }
 
-  isEquipped(id) { return this.equipped.weapon === id || this.equipped.left === id || this.equipped.rings.includes(id); }
+  isEquipped(id) { return this.equipped.weapon === id || this.equipped.left === id || this.equipped.rings.includes(id) || this.equipped.armadura[ITEMS[id]?.lugar] === id; }
 
   open() { this.isOpen = true; this.el.classList.remove('hidden'); this.render(); }
   close() { this.isOpen = false; this.el.classList.add('hidden'); }
@@ -165,15 +174,21 @@ export class Inventory {
     const def = ITEMS[id], p = this.game.player;
     q('.d-icon').innerHTML = this.iconFor(id);
     q('.d-name').textContent = def.name;
-    q('.d-type').textContent = TYPE_LABEL[def.type] + (def.twoHanded ? ' (duas mãos)' : '');
+    q('.d-type').textContent = TYPE_LABEL[def.type] + (def.twoHanded ? ' (duas mãos)' : '') + (def.lugar ? ` — ${NOME_DO_LUGAR[def.lugar]}` : '');
     let stats = def.stats ? { ...def.stats } : {};
     if (def.type === 'weapon') {
+      const fraco = p.strength < (def.requisito ?? 0);
       stats = {
-        'Dano': `${def.damage} → ${Math.round(def.damage * (1 + (p.strength - 10) * 0.06))}`,
+        'Dano': `${def.damage} → ${Math.round(def.damage * p.forcaNaArma(def))}`,
+        'Escala (força)': `${def.escala ?? 'E'} (+${pct(p.bonusForca * ESCALA[def.escala ?? 'E'])})`,
+        'Força mínima': def.requisito ? (fraco ? `<b style="color:#c85a4a">${def.requisito} — golpes a ${pct(SEM_REQUISITO)}</b>` : def.requisito) : '—',
+        'Peso': def.peso ?? 0,
         'Velocidade': def.speed >= 1.3 ? 'Muito rápida' : def.speed >= 1.05 ? 'Rápida' : def.speed >= 0.95 ? 'Média' : 'Lenta',
         'Custo de vigor': def.stamina, 'Alcance': def.reach.toFixed(1) + ' m', 'Quebra de postura': def.poise,
       };
     }
+    if (def.type === 'armadura') stats = { 'Absorção': pct(def.absorcao), 'Equilíbrio': `+${def.equilibrio}`, 'Peso': def.peso };
+    if (def.type === 'shield' || def.type === 'torch') stats['Peso'] = def.peso ?? 0;
     if (id === 'torch') stats['Restante'] = fmtTime(this.torchTime);
     if (def.type === 'consumable' || def.type === 'ingrediente') stats['Quantidade'] = `${this.count(id)} / ${def.max}`;
     q('.d-stats').innerHTML = Object.entries(stats).map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
@@ -186,6 +201,7 @@ export class Inventory {
     if (def.type === 'shield') btn(this.equipped.left === id ? 'Desequipar' : 'Equipar (mão esq.)', () => this.equip(id));
     if (def.type === 'torch') btn(this.equipped.left === 'torch' ? 'Apagar e guardar' : 'Acender (mão esq.)', () => this.equip(id));
     if (def.type === 'ring') btn(this.equipped.rings.includes(id) ? 'Remover' : 'Equipar', () => this.equip(id));
+    if (def.type === 'armadura') btn(this.equipped.armadura[def.lugar] === id ? 'Tirar' : 'Vestir', () => this.equip(id));
     if (def.type === 'consumable') btn(this.belt.includes(id) ? 'Tirar do cinto' : 'Pôr no cinto', () => this.toggleBelt(id));
   }
 
@@ -193,12 +209,16 @@ export class Inventory {
     const p = this.game.player;
     const w = p.weapon;
     const rings = this.equipped.rings.filter(Boolean).map((r) => ITEMS[r].name).join(', ') || '—';
+    const carga = p.carga;
     const rows = [
       ['Nível', p.level], ['Almas', p.souls],
       ['Vida', `${Math.ceil(p.hp)} / ${p.maxHp}`], ['Vigor', p.maxStamina],
       ['Força', p.strength], ['Mão direita', w.name], ['Dano da arma', Math.round(w.damage * p.damageMul)],
       ['Mão esquerda', this.equipped.left ? ITEMS[this.equipped.left].name : '—'],
-      ['Equilíbrio', p.poise], ['Defesa', `${Math.round(p.defense * 100)}%`], ['Anéis', rings],
+      ...LUGARES.map((l) => [NOME_DO_LUGAR[l], this.equipped.armadura[l] ? ITEMS[this.equipped.armadura[l]].name : '—']),
+      ['Equilíbrio', p.poise], ['Defesa', pct(p.defense)],
+      ['Carga', `${p.peso} / ${p.cargaMax} — <span style="color:${carga.fracao > 1 ? '#c85a4a' : carga.fracao > 0.7 ? '#c8a86a' : 'inherit'}">${carga.nome}</span>`],
+      ['Anéis', rings],
     ];
     this.statsEl.innerHTML = rows.map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
   }

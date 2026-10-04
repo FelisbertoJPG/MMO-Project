@@ -1,15 +1,12 @@
 // O PROVADOR (03/10/2026) — Shift+G abre/fecha um painel com os corpos do jogador
-// (guerreiro.js): o guerreiro sem armadura, as três armaduras do pacote (A1, A2, A3)
-// e o boneco antigo. A escolha fica guardada no navegador (`guardarCorpo`) e viaja
-// no instantâneo, então os outros jogadores veem o mesmo corpo.
+// (guerreiro.js): o guerreiro ou o boneco antigo. Desde 04/10/2026 a ARMADURA do
+// guerreiro vem do equipamento (ficha.js, `Player.vestirArmadura`), não daqui. A escolha
+// fica guardada no navegador (`guardarCorpo`) e o corpo viaja no instantâneo.
 import { Assets } from './assets.js';
-import { guardarCorpo, armaduraDe, corpoDe } from './guerreiro.js';
+import { guardarCorpo } from './guerreiro.js';
 
 const OPCOES = [
-  { id: 'nu', nome: 'Sem armadura' },
-  { id: 'A1', nome: 'Armadura 1 — couro' },
-  { id: 'A2', nome: 'Armadura 2 — placas' },
-  { id: 'A3', nome: 'Armadura 3 — capuz' },
+  { id: 'nu', nome: 'Guerreiro (veste a armadura equipada)' },
   { id: 'antigo', nome: 'Boneco antigo' },
 ];
 
@@ -50,7 +47,7 @@ export class Provador {
   }
 
   // a opção atual, pelo que o boneco está usando agora
-  atual() { return corpoDe(this.game.player.model); }
+  atual() { return this.game.player.model.guerreiro ? 'nu' : 'antigo'; }
 
   marcar() {
     const id = this.atual();
@@ -60,14 +57,13 @@ export class Provador {
   async escolher(id) {
     if (!OPCOES.some((o) => o.id === id)) return;
     guardarCorpo(id);
-    const armadura = armaduraDe(id);
-    if (armadura !== false && !Assets.guerreiro) {
+    if (id !== 'antigo' && !Assets.guerreiro) {
       this.estado.textContent = 'carregando o guerreiro…';
       const ok = await Assets.carregarGuerreiro();
       this.estado.textContent = ok ? '' : 'não consegui carregar o guerreiro (veja o console)';
       if (!ok) return;
     }
-    this.game.player.model.usarGuerreiro(armadura);
+    this.game.player.model.usarGuerreiro(id === 'antigo' ? false : this.game.player.codigoDaArmadura);
     this.marcar();
   }
 }

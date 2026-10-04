@@ -25,21 +25,38 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
+import { LUGARES } from './ficha.js';
 
-// Os corpos, pelo nome que viaja na rede e fica guardado: 'antigo' = o manequim UAL
-export const CORPOS = ['nu', 'A1', 'A2', 'A3', 'antigo'];
+// O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
+// CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
+// pernas), 0 = nada ali, 1/2/3 = a peça do conjunto A1/A2/A3 do modelo. '0000' = nu,
+// '0213' = sem elmo, peito da malha, braços de couro, pernas de placas (04/10/2026: a
+// armadura vem do EQUIPAMENTO; antes vinha do provador, inteira).
+export const NU = '0000';
+const CODIGO = /^[0-3]{4}$/;
+/** O corpo que veio da rede é válido? (os nomes de antes — 'nu', 'A1'… — ainda valem) */
+export const corpoValido = (c) => c === 'antigo' || CODIGO.test(c) || ['nu', 'A1', 'A2', 'A3'].includes(c);
+/** corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo; senão o código) */
+export function armaduraDe(c) {
+  if (c === 'antigo') return false;
+  if (CODIGO.test(c)) return c;
+  const velho = /^A([123])$/.exec(c ?? '');
+  return velho ? velho[1].repeat(4) : NU;
+}
+/** O código da armadura a partir do que está vestido: { cabeca: 2, peito: 1, … } (conjuntos) */
+export const codigoDaArmadura = (conjuntos) => LUGARES.map((l) => conjuntos[l] ?? 0).join('');
+
+// O PROVADOR (Shift+G) só escolhe entre o guerreiro ('nu': veste o que está equipado)
+// e o boneco antigo; a escolha fica neste navegador
 const CHAVE = 'masmorra.provador';
-/** O corpo escolhido neste navegador (da primeira vez, o guerreiro sem armadura). */
 export function corpoGuardado() {
   let c = null;
   try { c = localStorage.getItem(CHAVE); } catch { /* sem armazenamento */ }
-  return CORPOS.includes(c) ? c : 'nu';
+  return c === 'antigo' ? 'antigo' : 'nu';
 }
 export function guardarCorpo(c) { try { localStorage.setItem(CHAVE, c); } catch { /* só não lembra */ } }
-/** nome do corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo) */
-export const armaduraDe = (c) => (c === 'antigo' ? false : c === 'nu' || !CORPOS.includes(c) ? null : c);
-/** o corpo que um boneco está usando agora */
-export const corpoDe = (modelo) => (!modelo.guerreiro ? 'antigo' : modelo.guerreiro.armadura ?? 'nu');
+/** o corpo que um boneco está usando agora (o que vai na rede) */
+export const corpoDe = (modelo) => (!modelo.guerreiro ? 'antigo' : modelo.guerreiro.armadura ?? NU);
 
 // osso UAL → osso do guerreiro
 export const PARES = {
@@ -61,6 +78,10 @@ for (const [l, L, cot] of [['l', 'L', 'l'], ['r', 'R', 'r']]) {
 
 // o que é peça de armadura (o resto é o corpo): A1_…, A2_…, A3_… e os machados
 const ARMADURA = /^A([123])_/;
+// a que LUGAR cada peça de armadura pertence, pelo nome (o resto — Armor, ombreiras,
+// cinto, bolsas, tanga — é do peito)
+const LUGAR_DA_PECA = [['cabeca', /Helmet/i], ['bracos', /Forearm/i], ['pernas', /Boot|Pant|Knee|Thigh/i]];
+export const lugarDaPeca = (nome) => LUGAR_DA_PECA.find(([, re]) => re.test(nome))?.[0] ?? 'peito';
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
 
@@ -186,16 +207,21 @@ export class CorpoGuerreiro {
     this.pivoInv = new THREE.Matrix4();
   }
 
-  // a armadura dele: null = sem armadura; 'A1', 'A2' ou 'A3'. Os machados do pacote
-  // nunca aparecem (as armas são as do jogo).
+  // a armadura dele: o CÓDIGO (um dígito por lugar, ver `NU`); null = sem armadura.
+  // Cada peça do arquivo entra se o lugar dela pede o conjunto dela. Os machados do
+  // pacote nunca aparecem (as armas são as do jogo).
   vestir(armadura) {
+    armadura = armaduraDe(armadura ?? NU) || NU;
     this.armadura = armadura;
     for (const o of this.rigidas) o.visible = false;
-    const usadas = this.pecas.filter((o) => { const a = o.name.match(ARMADURA); return !a || `A${a[1]}` === armadura; });
+    const usadas = this.pecas.filter((o) => {
+      const a = o.name.match(ARMADURA);
+      return !a || armadura[LUGARES.indexOf(lugarDaPeca(o.name))] === a[1];
+    });
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     const material = (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
-    const geo = material ? geometriaFundida(armadura ?? 'nu', usadas, this.ordem) : null;
+    const geo = material ? geometriaFundida(armadura, usadas, this.ordem) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);
     if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
     if (!this.fundida) {

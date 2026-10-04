@@ -1,6 +1,18 @@
 // Definições de itens + ícones em SVG
 const svg = (inner) => `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
 
+// AS ARMADURAS: um desenho por lugar, na cor do conjunto (couro, malha, placas)
+const armaduraIcone = {
+  cabeca: (c, b) => svg(`<path d="M14 40 q0-26 18-28 q18 2 18 28 v8 h-10 v-10 h-16 v10 h-10z" fill="${c}" stroke="${b}" stroke-width="2"/>
+    <path d="M22 30 h20" stroke="${b}" stroke-width="3"/><path d="M32 12 v14" stroke="${b}" stroke-width="2" opacity=".6"/>`),
+  peito: (c, b) => svg(`<path d="M18 12 l8 -2 q6 6 12 0 l8 2 l10 10 -6 8 -4 -3 v29 h-28 v-29 l-4 3 -6 -8z" fill="${c}" stroke="${b}" stroke-width="2"/>
+    <path d="M32 18 v38" stroke="${b}" stroke-width="2" opacity=".5"/><path d="M22 40 h20" stroke="${b}" stroke-width="2" opacity=".6"/>`),
+  bracos: (c, b) => svg(`<path d="M10 22 l14 -6 l10 26 -14 6z" fill="${c}" stroke="${b}" stroke-width="2"/><path d="M30 22 l14 -6 l10 26 -14 6z" fill="${c}" stroke="${b}" stroke-width="2"/>
+    <path d="M14 30 l12 -5 M34 30 l12 -5" stroke="${b}" stroke-width="2" opacity=".6"/>`),
+  pernas: (c, b) => svg(`<path d="M18 8 h28 l-2 22 -4 28 h-8 l-2 -26 -2 26 h-8 l-4 -28z" fill="${c}" stroke="${b}" stroke-width="2"/>
+    <path d="M18 16 h28" stroke="${b}" stroke-width="3"/><circle cx="24" cy="36" r="3" fill="${b}"/><circle cx="40" cy="36" r="3" fill="${b}"/>`),
+};
+
 const ICONS = {
   firebomb: svg(`<circle cx="30" cy="38" r="18" fill="#2a2320" stroke="#6b5a45" stroke-width="2"/>
     <path d="M36 21 q6-8 12-6" stroke="#8a7a5a" stroke-width="3" fill="none"/>
@@ -94,11 +106,45 @@ export const ICON_PANELA = ICONS.panela;
 
 export const UNARMED = {
   id: 'unarmed', name: 'Punhos', type: 'weapon', icon: ICONS.fist,
-  damage: 9, speed: 1.0, stamina: 10, reach: 1.2, poise: 6,
+  damage: 9, speed: 1.0, stamina: 10, reach: 1.2, poise: 6, escala: 'E', peso: 0,
   light: ['jab', 'cross'], heavy: 'cross',
 };
 
 export const TORCH_LIFE = 3600; // segundos acesa na mão (1 hora)
+
+/**
+ * AS ARMADURAS (04/10/2026) — três conjuntos, um por armadura do guerreiro (o corpo do
+ * jogador, guerreiro.js: `conjunto` 1, 2 ou 3 é o A1/A2/A3 do modelo), em quatro lugares
+ * (ficha.js `LUGARES`; o couro não tem elmo — o modelo também não). `absorcao` = a fração
+ * do golpe que a peça segura (somada às outras), `peso` conta na carga, `equilibrio`
+ * soma ao do jogador (aguenta mais golpes sem cambalear). Os três conjuntos:
+ * couro (leve: 16%, peso 6), malha (média: 29%, peso 14), placas (pesada: 40%, peso 24).
+ */
+function armaduras() {
+  const CONJ = {
+    1: { nome: 'do Batedor', cor: '#8a5a32', borda: '#3a2210', desc: 'Couro curtido de um batedor da estrada. Leve: quase não atrapalha o rolamento.' },
+    2: { nome: 'do Sentinela', cor: '#8a8f96', borda: '#2a2e34', desc: 'Malha e placas de um sentinela da masmorra. Protege bem sem pesar demais.' },
+    3: { nome: 'do Cavaleiro Caído', cor: '#4e5866', borda: '#c8a24a', desc: 'Placas pesadas de uma ordem que desafiou o Carrasco. Segura muito, mas pede resistência para ser carregada.' },
+  };
+  const PECA = { cabeca: ['Elmo', 'Capacete'], peito: ['Peitoral', 'Peitoral'], bracos: ['Braçadeiras', 'Braçadeiras'], pernas: ['Grevas', 'Calças'] };
+  // [absorção, peso, equilíbrio] por conjunto e lugar
+  const NUM = {
+    1: { peito: [0.08, 3, 2], bracos: [0.03, 1, 1], pernas: [0.05, 2, 1] },
+    2: { cabeca: [0.05, 2, 2], peito: [0.12, 6, 6], bracos: [0.04, 2, 2], pernas: [0.08, 4, 4] },
+    3: { cabeca: [0.07, 3.5, 4], peito: [0.16, 10, 12], bracos: [0.06, 3.5, 4], pernas: [0.11, 7, 8] },
+  };
+  const itens = {};
+  for (const [k, c] of Object.entries(CONJ)) {
+    for (const [lugar, [absorcao, peso, equilibrio]] of Object.entries(NUM[k])) {
+      itens[`arm${k}_${lugar}`] = {
+        name: `${PECA[lugar][k === '1' && lugar === 'pernas' ? 1 : 0]} ${c.nome}`, type: 'armadura', lugar, conjunto: Number(k),
+        icon: armaduraIcone[lugar](c.cor, c.borda), desc: c.desc,
+        absorcao, peso, equilibrio,
+      };
+    }
+  }
+  return itens;
+}
 
 export const ITEMS = {
   // ---- COMIDAS (substituem o Estus): `use: 'comer'`. `cura` na hora; `regen`
@@ -182,28 +228,34 @@ export const ITEMS = {
     use: 'home', max: 10, stats: { 'Efeito': 'Teleporte' },
   },
 
+  // ARMAS (ficha.js): `escala` = quanto a arma aproveita da força (E a A), `requisito` =
+  // força mínima (abaixo dela, golpes fracos), `peso` = o que conta na carga
   dagger: {
     name: 'Adaga Enferrujada', type: 'weapon', icon: ICONS.dagger, model: 'dagger',
     desc: 'Encontrada junto a um prisioneiro que nunca saiu da cela. Curta, veloz e barata de usar.',
     damage: 17, speed: 1.25, stamina: 9, reach: 1.5, poise: 8,
+    escala: 'D', requisito: 6, peso: 1,
     light: ['slashA', 'slashB'], heavy: 'dash',
   },
   longsword: {
     name: 'Espada Longa', type: 'weapon', icon: ICONS.longsword, model: 'longsword',
     desc: 'Espada reta de um guarda da masmorra. Equilibrada e confiável.',
     damage: 30, speed: 0.85, stamina: 16, reach: 2.0, poise: 20,
+    escala: 'C', requisito: 10, peso: 3,
     light: ['slashA', 'slashB', 'slashC'], heavy: 'overhead',
   },
   axe: {
     name: 'Machado de Batalha', type: 'weapon', icon: ICONS.axe, model: 'axe',
     desc: 'Machado pesado de um carcereiro. Golpes brutais que quebram a postura.',
     damage: 40, speed: 0.72, stamina: 21, reach: 1.9, poise: 35,
+    escala: 'B', requisito: 14, peso: 4.5,
     light: ['slashC', 'slashB'], heavy: 'overhead',
   },
   greatsword: {
     name: 'Espadão do Cavaleiro', type: 'weapon', icon: ICONS.greatsword, model: 'greatsword', twoHanded: true,
     desc: 'Espada colossal de um cavaleiro que tentou desafiar o Carrasco. Empunhada com as duas mãos.',
     damage: 62, speed: 0.9, stamina: 30, reach: 2.5, poise: 60,
+    escala: 'A', requisito: 18, peso: 9,
     guarda: 0.5,   // bloqueia com a própria lâmina (o escudo vai para as costas)
     light: ['heavy1', 'heavy2', 'heavy3', 'heavy4'], heavy: 'overhead',
   },
@@ -211,17 +263,17 @@ export const ITEMS = {
   shieldRound: {
     name: 'Escudo Redondo de Madeira', type: 'shield', icon: ICONS.shieldRound, model: 'round',
     desc: 'Escudo simples de tábuas com aro de ferro. Bloqueia, mas cansa o braço.',
-    stability: 0.45, stats: { 'Estabilidade': '45' },
+    stability: 0.45, peso: 2.5, stats: { 'Estabilidade': '45' },
   },
   shieldKnight: {
     name: 'Escudo do Cavaleiro', type: 'shield', icon: ICONS.shieldKnight, model: 'knight',
     desc: 'Escudo de aço com o brasão de uma ordem extinta. Absorve golpes pesados com facilidade.',
-    stability: 0.75, stats: { 'Estabilidade': '75' },
+    stability: 0.75, peso: 7, stats: { 'Estabilidade': '75' },
   },
   torch: {
     name: 'Tocha', type: 'torch', icon: ICONS.torch, model: 'torch',
     desc: 'Tocha arrancada da parede da masmorra. Empunhada na mão esquerda, ilumina o caminho e queima inimigos (botão direito). Queima por 1 hora enquanto estiver na mão. Só é possível carregar uma.',
-    damage: 20, burn: 6, stats: { 'Dano': '20 + fogo', 'Duração': '1 hora acesa' },
+    damage: 20, burn: 6, peso: 0.5, stats: { 'Dano': '20 + fogo', 'Duração': '1 hora acesa' },
   },
 
   ringLife: {
@@ -239,6 +291,8 @@ export const ITEMS = {
     desc: 'Anel de uma ordem de ermitãos. Aumenta a recuperação de vigor em 25%.',
     effect: { staminaRegen: 0.25 }, stats: { 'Vigor': '+25% regen.' },
   },
+
+  ...armaduras(),
 
   cellKey: {
     name: 'Chave da Cela', type: 'key', icon: ICONS.key,

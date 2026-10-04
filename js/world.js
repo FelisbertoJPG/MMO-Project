@@ -133,9 +133,11 @@ export const SAQUES = {
 // Baús: célula, parede de apoio e conteúdo
 const CHESTS = [
   { cell: [19, 10], wall: 'n', items: [['paoDuro', 3], ['ensopado', 2]] },
-  { cell: [23, 1], wall: 'w', items: [['bone', 2]] },
+  // AS ARMADURAS (items.js, ficha.js): o couro no começo (acampamento e masmorra), o elmo
+  // da malha mais adiante; o resto da malha cai do Guerreiro Esqueleto, as placas dos chefes
+  { cell: [23, 1], wall: 'w', items: [['bone', 2], ['arm1_bracos', 1]] },
   { cell: [15, 11], wall: 'n', items: [['shieldRound', 1]] },
-  { cell: [9, 12], wall: 'n', items: [['firebomb', 3]] },
+  { cell: [9, 12], wall: 'n', items: [['firebomb', 3], ['arm2_cabeca', 1]] },
   { cell: [13, 2], wall: 's', items: [['ringLife', 1], ['lostSoul', 1]] },
   // na parede SUL da alcova: a leste agora é a saída para a floresta (`arco`),
   // e encostado nela o baú ficava no meio da passagem
@@ -143,7 +145,7 @@ const CHESTS = [
   // o do ACAMPAMENTO, atrás da barraca do norte. No FIM da lista: o save
   // guarda os baús pela ordem, e um no meio embaralharia os saves antigos
   // (`buildChests` pula o que cai na rocha: o mapa `original` não tem acampamento).
-  { cell: [12, 47], wall: 'n', items: [['firebomb', 2], ['lostSoul', 1]] },
+  { cell: [12, 47], wall: 'n', items: [['firebomb', 2], ['lostSoul', 1], ['arm1_peito', 1], ['arm1_pernas', 1]] },
 ];
 
 // Itens no chão (alguns junto a cadáveres)

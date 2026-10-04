@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
-import { corpoGuardado, armaduraDe } from './guerreiro.js';
+import { corpoGuardado, NU, codigoDaArmadura } from './guerreiro.js';
+import {
+  curva, VIDA_BASE, VITALIDADE, VIGOR_BASE, RESISTENCIA_VIGOR, CARGA_BASE, RESISTENCIA_CARGA,
+  FORCA, ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES,
+} from './ficha.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { ITEMS, UNARMED, TORCH_LIFE } from './items.js';
 import { START_POS, NASCER } from './world.js';
@@ -16,7 +20,8 @@ export const MAO_OCUPADA = ['heal', 'item', 'interact', 'dead', 'rest', 'restUp'
 export class Player {
   constructor(game) {
     this.game = game;
-    this.model = new CharacterModel({ outfit: 'knight', armadura: armaduraDe(corpoGuardado()) });   // o corpo do provador
+    // o corpo: o guerreiro (a armadura vem do equipamento, `refreshEquipment`) ou, pelo provador, o boneco antigo
+    this.model = new CharacterModel({ outfit: 'knight', armadura: corpoGuardado() === 'antigo' ? false : NU });
     game.scene.add(this.model.root);
     this.pos = this.model.root.position;
     this.radius = 0.42;
@@ -73,11 +78,36 @@ export class Player {
     for (const id of this.inv.equipped.rings) if (id) v += ITEMS[id].effect[key] ?? 0;
     return v;
   }
-  get maxHp() { return Math.round((200 + (this.vigor - 10) * 22) * (1 + this.ringEffect('hpMul'))); }
-  get maxStamina() { return 90 + (this.endurance - 10) * 6; }
-  get poise() { return 12 + this.ringEffect('poise'); }
-  get defense() { return this.ringEffect('defense') + (this.buffs.fortaleza > 0 ? 0.15 : 0); }
-  get damageMul() { return (1 + (this.strength - 10) * 0.06) * (this.buffs.resin > 0 ? 1.35 : 1) * (this.buffs.furia > 0 ? 1.2 : 1); }
+  // AS CONTAS DA FICHA (ficha.js): cada atributo rende menos a cada ponto, a força vale o
+  // quanto a ARMA aproveita dela, e a armadura defende mas pesa
+  get maxHp() { return Math.round((VIDA_BASE + curva(this.vigor, VITALIDADE)) * (1 + this.ringEffect('hpMul'))); }
+  get maxStamina() { return Math.round(VIGOR_BASE + curva(this.endurance, RESISTENCIA_VIGOR)); }
+  get cargaMax() { return Math.round((CARGA_BASE + curva(this.endurance, RESISTENCIA_CARGA)) * 10) / 10; }
+  /** As peças de armadura vestidas (as definições, de ITEMS). */
+  get armaduras() { return LUGARES.map((l) => this.inv.equipped.armadura[l]).filter(Boolean).map((id) => ITEMS[id]); }
+  /** O peso carregado: as duas mãos (o escudo nas costas conta) e a armadura. */
+  get peso() {
+    const eq = this.inv.equipped;
+    let p = (eq.weapon ? ITEMS[eq.weapon].peso ?? 0 : 0) + (eq.left ? ITEMS[eq.left].peso ?? 0 : 0);
+    for (const a of this.armaduras) p += a.peso;
+    return Math.round(p * 10) / 10;
+  }
+  get carga() { return estadoDaCarga(this.peso, this.cargaMax); }
+  get poise() { return 12 + this.ringEffect('poise') + this.armaduras.reduce((s, a) => s + a.equilibrio, 0); }
+  /** A absorção da armadura vestida (soma das peças). */
+  get absorcao() { return this.armaduras.reduce((s, a) => s + a.absorcao, 0); }
+  get defense() { return Math.min(DEFESA_MAX, this.absorcao + this.ringEffect('defense') + (this.buffs.fortaleza > 0 ? 0.15 : 0)); }
+  /** O bônus de força (antes da escala da arma): +30% no 20, +60% no 40. */
+  get bonusForca() { return curva(this.strength, FORCA); }
+  /** Quanto a força multiplica o dano de uma ARMA: a escala dela, e o requisito. */
+  forcaNaArma(w) { return (1 + this.bonusForca * ESCALA[w.escala ?? 'E']) * (this.strength < (w.requisito ?? 0) ? SEM_REQUISITO : 1); }
+  get damageMul() { return this.forcaNaArma(this.weapon) * (this.buffs.resin > 0 ? 1.35 : 1) * (this.buffs.furia > 0 ? 1.2 : 1); }
+  /** O código do corpo pela armadura vestida (guerreiro.js): um dígito por lugar. */
+  get codigoDaArmadura() {
+    const eq = this.inv.equipped.armadura, conj = {};
+    for (const l of LUGARES) if (eq[l]) conj[l] = ITEMS[eq[l]].conjunto;
+    return codigoDaArmadura(conj);
+  }
   get dead() { return this.state === 'dead'; }
   get iframes() {
     if (this.state === 'roll') { const p = this.stateT / this.st.dur; return p > 0.05 && p < 0.62; }
@@ -149,6 +179,8 @@ export class Player {
     this.model.equip('l', leftObj);
     this.model.equipCostas(costas);
     this.torchFlame.visible = this.left === 'torch';
+    // a ARMADURA no corpo do guerreiro (o boneco antigo, do provador, não a mostra)
+    if (this.model.guerreiro && this.model.guerreiro.armadura !== this.codigoDaArmadura) this.model.usarGuerreiro(this.codigoDaArmadura);
     this.hp = Math.min(this.hp, this.maxHp);
   }
 
@@ -239,9 +271,10 @@ export class Player {
     switch (this.state) {
       case 'free': {
         if (this.buffer && this.tryAction(this.buffer, dir)) break;
-        const sprint = dir && inp.isDown('Space') && this.spaceHeld >= SPRINT_HOLD && this.stamina > 0;
+        const carga = this.carga;
+        const sprint = dir && carga.corre && inp.isDown('Space') && this.spaceHeld >= SPRINT_HOLD && this.stamina > 0;
         const blocking = this.blocking;
-        const speed = blocking ? 1.8 : sprint ? 6.8 : 4.3;
+        const speed = (blocking ? 1.8 : sprint ? 6.8 : 4.3) * carga.passo;
         if (dir) {
           this.pos.addScaledVector(dir, speed * dt);
           this.moveSpeed = speed;
@@ -286,7 +319,7 @@ export class Player {
     // Vigor
     if (this.staminaDelay > 0) this.staminaDelay -= dt;
     else if (!staminaUse && this.state !== 'attack' && this.state !== 'roll') {
-      let regen = 52 * (1 + this.ringEffect('staminaRegen') + (this.buffs.blossom > 0 || this.buffs.folego > 0 ? 0.6 : 0));
+      let regen = 52 * (1 + this.ringEffect('staminaRegen') + (this.buffs.blossom > 0 || this.buffs.folego > 0 ? 0.6 : 0)) * this.carga.regen;
       if (this.blocking) regen *= 0.35;
       this.stamina = Math.min(this.maxStamina, this.stamina + regen * dt);
     }
@@ -423,12 +456,13 @@ export class Player {
   // ---------- Rolamento ----------
   // Rolamento na direção do movimento; sem direção, rola para a frente do personagem
   startRoll(dir) {
-    this.stamina -= ROLL_COST;
+    const carga = this.carga;
+    this.stamina -= ROLL_COST * carga.rolagemCusto;
     this.staminaDelay = 0.55;
     const d = dir ?? new THREE.Vector3(Math.sin(this.facing), 0, Math.cos(this.facing));
     this.facing = Math.atan2(d.x, d.z);
     const dur = 0.78;
-    this.setState('roll', { dir: d.clone(), dur });
+    this.setState('roll', { dir: d.clone(), dur, dist: carga.rolagemDist });
     this.model.play('Roll', { loop: false, duration: dur, restart: true, fade: 0.06 });
     this.game.sfx.roll();
   }
@@ -436,7 +470,7 @@ export class Player {
   updateRoll(dt) {
     const r = this.st;
     const p = Math.min(1, this.stateT / r.dur);
-    const speed = 9 * Math.sin(Math.PI * Math.min(1, p * 1.08));
+    const speed = 9 * (r.dist ?? 1) * Math.sin(Math.PI * Math.min(1, p * 1.08));
     this.pos.addScaledVector(r.dir, speed * dt);
     if (p > 0.82 && this.buffer === 'light' && this.stamina > 0) { this.buffer = null; return this.startAttack('light', 0, r.dir); }
     if (p >= 1) this.setState('free');
@@ -503,7 +537,7 @@ export class Player {
         } else {
           vel = new THREE.Vector3(Math.sin(this.facing) * 10, 4.5, Math.cos(this.facing) * 10);
         }
-        game.projectiles.bomb({ pos: from, vel, damage: def.damage * (1 + (this.strength - 10) * 0.03), radius: def.radius });
+        game.projectiles.bomb({ pos: from, vel, damage: def.damage * (1 + this.bonusForca * 0.5), radius: def.radius });
         game.sfx.swing();
         break;
       }
@@ -533,7 +567,7 @@ export class Player {
       game.effects.sparks((guarda.mao === 'r' ? this.model.handR : this.model.handL).getWorldPosition(new THREE.Vector3()));
       if (this.stamina <= 0) {
         this.stamina = 0;
-        this.hp -= amount * 0.3;
+        this.hp -= amount * 0.3 * DANO_RECEBIDO * (1 - this.defense);
         game.sfx.guardBreak();
         this.knock.copy(pushDir).multiplyScalar(4);
         this.setState('hurt', { dur: 1.1 });
@@ -541,7 +575,7 @@ export class Player {
         game.addShake(0.3);
         if (this.hp <= 0) this.die();
       } else {
-        this.hp -= amount * (1 - stability) * 0.15;
+        this.hp -= amount * (1 - stability) * 0.15 * DANO_RECEBIDO * (1 - this.defense);
         game.sfx.block();
         this.blockHitT = 0.35;
         this.pos.addScaledVector(pushDir, Math.min(0.7, amount * 0.012));
@@ -549,7 +583,8 @@ export class Player {
       }
       return 'blocked';
     }
-    this.hp -= amount * (1 - this.defense);
+    // o golpe vale a tabela do inimigo × DANO_RECEBIDO, menos a defesa (ficha.js)
+    this.hp -= amount * DANO_RECEBIDO * (1 - this.defense);
     game.ui.hurtFlash();
     game.effects.blood(this.pos.clone().setY(this.pos.y + 1.4));
     game.sfx.playerHurt();

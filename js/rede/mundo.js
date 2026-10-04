@@ -70,8 +70,9 @@ const NUVEM_MS = 60_000;
 
 /** Os chefes: o id que viaja, o inimigo no jogo e o que cada um rende. */
 export const CHEFES = {
-  carrasco: { netId: 'carrasco', titulo: 'CARRASCO ABATIDO', alma: 'executionerSoul' },
-  wyrm: { netId: 'wyrm', titulo: 'WYRM DAS CINZAS ABATIDO', alma: 'wyrmSoul' },
+  // `armadura`: as peças das PLACAS do Cavaleiro Caído que o chefe dá (só as que faltam)
+  carrasco: { netId: 'carrasco', titulo: 'CARRASCO ABATIDO', alma: 'executionerSoul', armadura: ['arm3_peito', 'arm3_cabeca'] },
+  wyrm: { netId: 'wyrm', titulo: 'WYRM DAS CINZAS ABATIDO', alma: 'wyrmSoul', armadura: ['arm3_bracos', 'arm3_pernas'] },
 };
 
 const r2 = (v) => Math.round(v * 100) / 100;

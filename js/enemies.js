@@ -30,7 +30,8 @@ export const ENEMY_TYPES = {
       { id: 'w2', anim: 'overhead', dmg: 36, poise: 55, reach: 2.1, range: 0, follow: true, lunge: 1.8, speed: 0.75 },
       { anim: 'dash', dmg: 38, poise: 60, reach: 2.0, range: 6, minRange: 3.2, lunge: 6.5, speed: 0.75, trackMul: 1.4 },
     ],
-    drops: [['resin', 0.4], ['lostSoul', 0.3], ['carneCrua', 0.35]],
+    // a MALHA do Sentinela (rara; a primeira que sair é a que cai — ver onEnemyKilled)
+    drops: [['arm2_peito', 0.05], ['arm2_bracos', 0.06], ['arm2_pernas', 0.06], ['resin', 0.4], ['lostSoul', 0.3], ['carneCrua', 0.35]],
   },
   rogue: {
     name: 'Ladino Esqueleto', outfit: 'skRogue', skeleton: true, hp: 85, souls: 110, speed: 3.6,
