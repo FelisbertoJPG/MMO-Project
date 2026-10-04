@@ -168,7 +168,7 @@ const MESSAGES = [
   { cell: [13, 7], text: 'Fogo é a fraqueza dos ossos', off: [0, 1] },
   { cell: [7, 7], text: 'O Carrasco aguarda. Role através do machado.', off: [0, 1] },
   // o acampamento e a estrada (só existem no mapa `floresta` estendido — `buildMessages` pula as que caem na rocha)
-  { cell: [16, 52], text: 'O desabamento fechou a estrada. Só resta seguir em frente.', off: [-1.5, 1.4] },
+  { cell: [16, 52], text: 'A leste, depois das árvores, o vento sopra nas WindHills.', off: [-1.5, 1.4] },
   { cell: [16, 43], text: 'A masmorra fica a oeste, depois da floresta. Não vá de mãos vazias.', off: [0, 1.6] },
   { cell: [16, 41], text: 'Há ossos sob a relva. Pise leve.', off: [1.5, -1.2] },
 ];
@@ -223,7 +223,7 @@ export const FOGUEIRAS = [
   { id: 'acampamento', nome: 'Acampamento', pos: CAMP_POS, acordar: [3.2, 0], rumo: -Math.PI / 2 },
   // a das COLINAS DO VENTO (a região de relevo a leste do acampamento): o lugar vem da
   // tag `colinas` do mapa; sem ela (ou no mapa `original`) fica na rocha e não é construída
-  { id: 'colinas', nome: 'Colinas do Vento', pos: new THREE.Vector3(-99, 0, -99), acordar: [3.2, 0], rumo: Math.PI / 2 },
+  { id: 'colinas', nome: 'WindHills', pos: new THREE.Vector3(-99, 0, -99), acordar: [3.2, 0], rumo: Math.PI / 2 },
 ];
 export const GLOW = { tex: null };
 
@@ -854,6 +854,7 @@ export class World {
     this.chests = CHESTS.filter((def) => this.isFloor(...def.cell)).map((def) => {
       const p = this.wallAnchor(def.cell, def.wall, 0.8);
       const m = Assets.prop(def.gold ? 'chest_gold' : 'chest');
+      p.y = this.alturaChao(p);   // o do acampamento fica no ar livre, que tem relevo
       m.position.copy(p);
       m.rotation.y = YAW_INTO[def.wall];
       let lid = null;
@@ -901,7 +902,7 @@ export class World {
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW.tex, color: 0xa0c0ff, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5, transparent: true }));
     halo.scale.set(1.3, 1.3, 1);
     g.add(core, halo);
-    g.position.set(pos.x, 0.35, pos.z);
+    g.position.set(pos.x, this.alturaChao(pos) + 0.35, pos.z);   // no relevo, sobre o chão
     this.scene.add(g);
     const p = { type: 'pickup', itemId, qty, pos: new THREE.Vector3(pos.x, 0, pos.z), radius: 1.6, label: 'Pegar item', mesh: g, persistent, seed: Math.random() * 10 };
     this.pickups.push(p);
@@ -963,7 +964,7 @@ export class World {
     const p = this.center(d.cel[0], d.cel[1]);
     const off = d.off ?? [0, 0];
     const px = p.x + off[0] * S, pz = p.z + off[1] * S, rel = this.ch(...d.cel) === 'f' ? this.relevoEm(px, pz) : 0;
-    m.position.set(px, (d.y ?? 0) * S + (rel > 0.05 ? rel - 0.2 : 0), pz);
+    m.position.set(px, (d.y ?? 0) * S + (Math.abs(rel) > 0.05 ? rel - 0.2 : 0), pz);
     m.scale.setScalar(d.escala ?? 1);
     m.rotation.set(0, d.giro ?? 0, 0);
     // `flip` é o TETO: uma placa de piso virada de cabeça para baixo. Um giro em
@@ -1429,6 +1430,7 @@ export class World {
     MESSAGES.forEach((d, i) => {
       if (!this.isFloor(...d.cell)) return;   // mapa sem aquela área
       const p = this.center(d.cell[0], d.cell[1]).add(new THREE.Vector3(d.off[0], 0, d.off[1]));
+      p.y = this.alturaChao(p);
       this.addMessage(p, d.text, { seed: i * 7 + 3 });
     });
   }
@@ -1495,7 +1497,7 @@ export class World {
     this.clearBloodstain();
     if (souls <= 0) return;
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW.tex, color: 0x40ff90, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-    s.scale.set(1.1, 1.1, 1); s.position.set(pos.x, 0.5, pos.z);
+    s.scale.set(1.1, 1.1, 1); s.position.set(pos.x, this.alturaChao(pos) + 0.5, pos.z);
     this.scene.add(s);
     this.bloodstain = { type: 'bloodstain', pos: new THREE.Vector3(pos.x, 0, pos.z), radius: 1.6, label: `Recuperar almas (${souls})`, souls, mesh: s };
     this.interactables.push(this.bloodstain);
