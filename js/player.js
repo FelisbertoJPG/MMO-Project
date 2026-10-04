@@ -655,6 +655,8 @@ export class Player {
     this.camLift = best;
     const cam = target.clone().addScaledVector(best.dir, -best.dist);
     cam.y = THREE.MathUtils.clamp(cam.y, this.pos.y + 0.5, ceil);
+    // nas colinas, a câmera não entra no morro atrás (o chão sob ELA)
+    cam.y = Math.max(cam.y, world.alturaChao(cam) + 0.6);
     camera.position.lerp(cam, 1 - Math.exp(-dt * 18));
     // Em espaços apertados a câmera encosta no personagem: esconde o modelo
     const headDist = camera.position.distanceTo(_v.set(this.pos.x, this.pos.y + 1.55, this.pos.z));

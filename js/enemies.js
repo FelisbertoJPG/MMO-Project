@@ -568,5 +568,15 @@ export function spawnEnemies(game) {
   // a saída do acampamento (onde ficavam dois esqueletos): caça fácil para quem nasce ali
   bicho('cervo', 15, 41, Math.PI / 2);
   bicho('cervo', 17, 40, Math.PI / 2);
+  // as COLINAS DO VENTO (04/10/2026, a leste do acampamento): manadas nos campos abertos,
+  // cavalos selvagens no vale do moinho, um touro e um cervo real nas encostas, raposas
+  // nas bordas — e uma alcateia guardando as ruínas do platô
+  bicho('cervo', 12, 68); bicho('cervo', 13, 69, undefined, 0.6, 0.3); bicho('cervo', 11, 70);
+  bicho('cervo', 20, 84); bicho('cervo', 21, 85, undefined, -0.5, 0.4);
+  bicho('cavalo', 19, 66); bicho('cavalo', 20, 67, undefined, 0.6, 0); bicho('cavalo', 18, 75);
+  bicho('cervoReal', 5, 82);
+  bicho('touro', 14, 98);
+  bicho('raposa', 4, 72); bicho('raposa', 21, 95); bicho('raposa', 9, 101);
+  bicho('lobo', 12, 90); bicho('lobo', 11, 96); bicho('lobo', 5, 92);
   return list;
 }

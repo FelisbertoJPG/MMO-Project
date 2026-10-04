@@ -3,8 +3,159 @@
   "ativo": "floresta",
   "marcos": {
     "_leiame": "As TAGS de lugar de cada variante, em [linha, coluna] (meia coluna vale: 47.5 = entre a 47 e a 48). inicio = onde a Jornada começa (a cela); masmorra e acampamento = as fogueiras; nascer = a fogueira onde nasce o personagem novo do Mundo online. Mudou o `nascer`? Quem estava salvo acorda nele (save.js).",
-    "original": { "inicio": [24, 5], "masmorra": [20, 7] },
-    "floresta": { "inicio": [24, 5], "masmorra": [20, 7], "acampamento": [16, 47.5], "nascer": "acampamento" }
+    "original": {
+      "inicio": [
+        24,
+        5
+      ],
+      "masmorra": [
+        20,
+        7
+      ]
+    },
+    "floresta": {
+      "inicio": [
+        24,
+        5
+      ],
+      "masmorra": [
+        20,
+        7
+      ],
+      "acampamento": [
+        16,
+        47.5
+      ],
+      "nascer": "acampamento",
+      "colinas": [
+        16,
+        61
+      ]
+    }
+  },
+  "relevo": {
+    "_leiame": "O RELEVO de cada variante (world.js, montarRelevo): a altura do chão de ar livre (f) dentro de `area` [[linha, coluna] de cima à esquerda, [linha, coluna] de baixo à direita] é a soma das `colinas` (centro [linha, coluna], raio em células, altura em m; `plano` = a fração do raio que é o topo chato), indo a zero perto da rocha e da borda da área (`borda`, em células). Fora da área, o chão é plano como sempre.",
+    "floresta": {
+      "area": [
+        [
+          1,
+          55
+        ],
+        [
+          24,
+          107
+        ]
+      ],
+      "borda": 2.2,
+      "colinas": [
+        {
+          "centro": [
+            8,
+            93
+          ],
+          "raio": 6.5,
+          "altura": 8,
+          "plano": 0.5
+        },
+        {
+          "centro": [
+            17,
+            71
+          ],
+          "raio": 5.5,
+          "altura": 7,
+          "plano": 0.35
+        },
+        {
+          "centro": [
+            16,
+            65
+          ],
+          "raio": 3.9,
+          "altura": 6
+        },
+        {
+          "centro": [
+            17,
+            96
+          ],
+          "raio": 4.3,
+          "altura": 4.1
+        },
+        {
+          "centro": [
+            12,
+            74
+          ],
+          "raio": 4.5,
+          "altura": 2.7
+        },
+        {
+          "centro": [
+            9,
+            69
+          ],
+          "raio": 3.7,
+          "altura": 2.9
+        },
+        {
+          "centro": [
+            16,
+            102
+          ],
+          "raio": 4.3,
+          "altura": 4.9
+        },
+        {
+          "centro": [
+            15,
+            87
+          ],
+          "raio": 5.9,
+          "altura": 6
+        },
+        {
+          "centro": [
+            4,
+            85
+          ],
+          "raio": 5.9,
+          "altura": 6.1
+        },
+        {
+          "centro": [
+            20,
+            81
+          ],
+          "raio": 4.7,
+          "altura": 4.3
+        },
+        {
+          "centro": [
+            19,
+            91
+          ],
+          "raio": 5.7,
+          "altura": 3.3
+        },
+        {
+          "centro": [
+            12,
+            63
+          ],
+          "raio": 4.6,
+          "altura": 3.1
+        },
+        {
+          "centro": [
+            11,
+            81
+          ],
+          "raio": 4,
+          "altura": 4.5
+        }
+      ]
+    }
   },
   "mapas": {
     "original": [
@@ -36,32 +187,32 @@
       "###############"
     ],
     "floresta": [
-      "#######################################################",
-      "####XXXXXXX############################################",
-      "###XXXXXXXXX###aaaaaaaaa###############################",
-      "###XXXXXXXXX###aaaaaaaaa###############################",
-      "###XXXXXXXXX###aaaaaaaaa###############################",
-      "###XXXXXXXXX###aaaaaaaaa###############################",
-      "####XXXXXXX####aaaaaaaaa###############################",
-      "#######.#######aaaaaaaaa###############################",
-      "#######,#######aaaaaaaaa###############################",
-      "##...........######e###################################",
-      "##...........####fffff#######fffffff###################",
-      "##...........###ffffffff####ffffffffff#################",
-      "##...........###fffffffff##ffffffffffff######ffffff####",
-      "##...........##ffffffffff#ffffffffffffff####ffffffff###",
-      "#######.#######fffffffffffffffffffffffff##fffffffffff##",
-      "###.........###ffffffffffffffffffffffffffffffffffffff##",
-      "###..........,ffffffffffffffffffffffffffffffffffffffff#",
-      "###.........###ffffffffffffffffffffffffffffffffffffff##",
-      "#######.#######ffffffffff#ffffffffffffff##fffffffffff##",
-      "####.......#####fffffffff#ffffffffffffff####ffffffff###",
-      "####.......######fffffff###ffffffffffff######ffffff####",
-      "####.......#######fffff#####ffffffffff#################",
-      "#######.######################ffffff###################",
-      "#.............#########################################",
-      "#c#c#c#c#c#c###########################################",
-      "#######################################################"
+      "#############################################################################################################",
+      "####XXXXXXX##################################################################################################",
+      "###XXXXXXXXX###aaaaaaaaa##################################################fffffffffffffffff##################",
+      "###XXXXXXXXX###aaaaaaaaa###############################################fffffffffffffffffffffff###############",
+      "###XXXXXXXXX###aaaaaaaaa############################################ffffffffffffffffffffffffffff#############",
+      "###XXXXXXXXX###aaaaaaaaa##########################################fffffffff#fffffffffffffffffffffffff########",
+      "####XXXXXXX####aaaaaaaaa#######################################fffffffffff###ffffffffffffffffffffffffff######",
+      "#######.#######aaaaaaaaa#####################################ffffffffffffff#fffffffffffffffffffffffffff######",
+      "#######,#######aaaaaaaaa#####################################fffffffffffffffffffffffffffffffffffffffffff#####",
+      "##...........######e########################################ffffffffffffffffffffffffffffffffffffffffffff#####",
+      "##...........####fffff#######fffffff#######################ffffffffffffffffffffffffffffffffffffffffff#fff####",
+      "##...........###ffffffff####ffffffffff#####################fffffffffffffffffffffffffffffffffffffffff###ff####",
+      "##...........###fffffffff##ffffffffffff######ffffff########ffffffffffffffffffffffffffffffffffffffffff#fff####",
+      "##...........##ffffffffff#ffffffffffffff####ffffffff#######ffffffffffffffffffffffffffffffffffffffffffffff####",
+      "#######.#######fffffffffffffffffffffffff##fffffffffff######ffffffffffffffffffffffffffffffffffffffffffffff####",
+      "###.........###ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff####",
+      "###..........,ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff#####",
+      "###.........###ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff###ffffffffffffff#####",
+      "#######.#######ffffffffff#ffffffffffffff##fffffffffff########ffffffffffffffffffffffffff###fffffffffffff######",
+      "####.......#####fffffffff#ffffffffffffff####ffffffff###########ffffffffffffffffffffffff###ffffffffffff#######",
+      "####.......######fffffff###ffffffffffff######ffffff##############ffffffffffffffffffffffffffffffffffff########",
+      "####.......#######fffff#####ffffffffff############################fffffffffffffffffffffffffffffffff##########",
+      "#######.######################ffffff################################fffffffffffffffffffffffffffff############",
+      "#.............#########################################################fffffffffffffffff#####f###############",
+      "#c#c#c#c#c#c#################################################################################################",
+      "#############################################################################################################"
     ]
   }
 }

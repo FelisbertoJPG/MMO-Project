@@ -198,10 +198,10 @@ export const CAMP_POS = new THREE.Vector3(47.5 * CELL, 0, 16 * CELL);
  */
 export function aplicarMarcos(m = {}) {
   const cel = (v) => (Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v : null);
-  for (const [nome, pos] of [['inicio', START_POS], ['masmorra', BONFIRE_POS], ['acampamento', CAMP_POS]]) {
-    const c = cel(m[nome]);
-    if (c) pos.set(c[1] * CELL, 0, c[0] * CELL);
-  }
+  const c0 = cel(m.inicio);
+  if (c0) START_POS.set(c0[1] * CELL, 0, c0[0] * CELL);
+  // cada fogueira pela tag do mesmo nome (`masmorra`, `acampamento`, `colinas`…)
+  for (const f of FOGUEIRAS) { const c = cel(m[f.id]); if (c) f.pos.set(c[1] * CELL, 0, c[0] * CELL); }
   NASCER.id = typeof m.nascer === 'string' && FOGUEIRAS.some((f) => f.id === m.nascer) ? m.nascer : 'acampamento';
 }
 /** A fogueira onde se nasce no Mundo online (a tag `nascer`) e a assinatura do lugar dela. */
@@ -218,8 +218,12 @@ export const NASCER = {
 export const FOGUEIRAS = [
   { id: 'masmorra', nome: 'Sala da Fogueira', pos: BONFIRE_POS, acordar: [0, 2.6], rumo: Math.PI },
   { id: 'acampamento', nome: 'Acampamento', pos: CAMP_POS, acordar: [3.2, 0], rumo: -Math.PI / 2 },
+  // a das COLINAS DO VENTO (a região de relevo a leste do acampamento): o lugar vem da
+  // tag `colinas` do mapa; sem ela (ou no mapa `original`) fica na rocha e não é construída
+  { id: 'colinas', nome: 'Colinas do Vento', pos: new THREE.Vector3(-99, 0, -99), acordar: [3.2, 0], rumo: Math.PI / 2 },
 ];
 export const GLOW = { tex: null };
+const _cor1 = new THREE.Color(), _cor2 = new THREE.Color();
 
 const rand = (seed) => { let s = seed; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; };
 
@@ -271,6 +275,7 @@ export class World {
     GLOW.tex = glowTexture();
 
     this.buildLighting();
+    this.montarRelevo(Assets.relevo);   // a altura do chão das colinas, antes do chão e da decoração
     this.buildGeometry();
     this.buildTorches();
     this.buildChests();
@@ -331,6 +336,7 @@ export class World {
   alturaChao(pos) {
     const [r, c] = this.cellOf(pos);
     const t = this.ch(r, c);
+    if (t === 'f') return this.relevoEm(pos.x, pos.z);
     if (t === 'a') return WALL_H;
     if (t !== 'e') return 0;
     const d = this.subidaDaEscada(r, c);
@@ -338,6 +344,64 @@ export class World {
     // o quanto se avançou na direção da subida, de 0 (borda baixa) a 1 (alta)
     const k = ((pos.x - c * CELL) * d[1] + (pos.z - r * CELL) * d[0]) / CELL + 0.5;
     return WALL_H * Math.min(1, Math.max(0, k));
+  }
+
+  // ---------- O RELEVO: as COLINAS (04/10/2026) ----------
+  //
+  // A altura do chão de ar livre ('f') numa ÁREA do mapa vem de `relevo` no mapa.json
+  // (`Assets.relevo`): a soma de colinas suaves (cosseno; `plano` = topo chato), indo a
+  // zero perto da rocha e da borda da área (`borda`, em células) — então a colina nunca
+  // encosta num paredão nem num chão plano de fora com degrau. A altura é calculada UMA
+  // vez numa grade de CELL/4 (a mesma da grama: o chão que se vê é o chão que se pisa)
+  // e lida com interpolação bilinear. A colisão é uma planta (x, z): o relevo não barra,
+  // só ergue. Fora da área (e sem `relevo`), tudo plano como sempre.
+  montarRelevo(rel) {
+    this.relevo = null;
+    const area = rel?.area, colinas = Array.isArray(rel?.colinas) ? rel.colinas : [];
+    if (!Array.isArray(area) || area.length !== 2 || !colinas.length) return;
+    const [[r0, c0], [r1, c1]] = area, N = 4, passo = CELL / N, borda = (rel.borda ?? 2) * CELL;
+    const x0 = c0 * CELL - CELL / 2, z0 = r0 * CELL - CELL / 2;
+    const nx = (c1 - c0 + 1) * N + 1, nz = (r1 - r0 + 1) * N + 1;
+    const h = new Float32Array(nx * nz);
+    const dentro = (r, c) => r >= r0 && r <= r1 && c >= c0 && c <= c1 && this.ch(r, c) === 'f';
+    const viz = Math.ceil(rel.borda ?? 2) + 1;
+    for (let k = 0; k < nz; k++) {
+      for (let i = 0; i < nx; i++) {
+        const x = x0 + i * passo, z = z0 + k * passo;
+        // a distância (m) até a célula mais perto que NÃO é relevo (rocha, fora da área)
+        const cr = Math.round(z / CELL), cc = Math.round(x / CELL);
+        let dist = borda;
+        for (let dr = -viz; dr <= viz; dr++) for (let dc = -viz; dc <= viz; dc++) {
+          const rr = cr + dr, ccc = cc + dc;
+          if (dentro(rr, ccc)) continue;
+          const dx = Math.max(Math.abs(x - ccc * CELL) - CELL / 2, 0), dz = Math.max(Math.abs(z - rr * CELL) - CELL / 2, 0);
+          dist = Math.min(dist, Math.hypot(dx, dz));
+        }
+        if (dist <= 0) continue;
+        let alt = 0;
+        for (const col of colinas) {
+          const d = Math.hypot(z / CELL - col.centro[0], x / CELL - col.centro[1]) / col.raio;
+          if (d >= 1) continue;
+          const p = col.plano ?? 0, t = d <= p ? 0 : (d - p) / (1 - p);
+          alt += col.altura * 0.5 * (1 + Math.cos(Math.PI * t));
+        }
+        const s = Math.min(1, dist / borda);
+        h[k * nx + i] = alt * s * s * (3 - 2 * s);
+      }
+    }
+    this.relevo = { x0, z0, nx, nz, passo, h };
+    this.areaRelevo = area;
+  }
+
+  /** A altura do RELEVO em (x, z): 0 fora da área das colinas. */
+  relevoEm(x, z) {
+    const R = this.relevo;
+    if (!R) return 0;
+    const fi = (x - R.x0) / R.passo, fk = (z - R.z0) / R.passo;
+    if (fi < 0 || fk < 0 || fi >= R.nx - 1 || fk >= R.nz - 1) return 0;
+    const i = Math.floor(fi), k = Math.floor(fk), u = fi - i, v = fk - k, n = R.nx, h = R.h;
+    const a = h[k * n + i], b = h[k * n + i + 1], c = h[(k + 1) * n + i], d = h[(k + 1) * n + i + 1];
+    return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
   }
 
   /** Quanto `pos` está ACIMA do chão dele (o que "no ar" quer dizer). */
@@ -363,26 +427,44 @@ export class World {
     // quem está na floresta olha, e de costas para a luz a entrada era um borrão
     lua.position.set(60, 70, 20);
     s.add(hemi, amb, lua);
-    this.ambience = { dentro, fora, hemi, amb, lua, k: 0 };
+    // os CAMPOS (as Colinas do Vento): um fim de tarde — céu azul-claro, névoa rala, luz
+    // dourada e o chão verde rebatendo no hemisfério (o jeito dos campos de Mondstadt)
+    const campos = { fundo: new THREE.Color(0x5d86b8), nevoa: new THREE.Color(0x8fb0cf), dens: 0.006, hemi: 2.6, amb: 1.25, lua: 3.4,
+      ceu: new THREE.Color(0xbfd6ff), chao: new THREE.Color(0x3d5a2a), luz: new THREE.Color(0xffd9a0) };
+    const base = { ceu: hemi.color.clone(), chao: hemi.groundColor.clone(), luz: lua.color.clone() };
+    this.ambience = { dentro, fora, campos, base, hemi, amb, lua, k: 0, kc: 0 };
+  }
+
+  /** O jogador está na área do relevo (os campos)? */
+  nosCampos(r, c) {
+    const A = this.areaRelevo;
+    return !!A && this.ch(r, c) === 'f' && r >= A[0][0] && r <= A[1][0] && c >= A[0][1] && c <= A[1][1];
   }
 
   /** Aproxima o clima do lugar em que o jogador está (0 = masmorra, 1 = ar livre). */
   updateAmbience(dt) {
     const a = this.ambience;
     const [r, c] = this.cellOf(this.game.player.pos);
-    const alvo = this.isOpenAir(r, c) ? 1 : 0;
-    if (a.k === alvo) return;
+    const alvo = this.isOpenAir(r, c) ? 1 : 0, alvoC = this.nosCampos(r, c) ? 1 : 0;
+    if (a.k === alvo && a.kc === alvoC) return;
     // ~1,5 s para trocar: rápido o bastante para a saída "abrir", devagar o
-    // bastante para não piscar quem anda na soleira
+    // bastante para não piscar quem anda na soleira (os campos, ~3 s)
     a.k = alvo > a.k ? Math.min(1, a.k + dt * 0.7) : Math.max(0, a.k - dt * 0.7);
+    a.kc = alvoC > a.kc ? Math.min(1, a.kc + dt * 0.35) : Math.max(0, a.kc - dt * 0.35);
+    // o "fora" de agora: a noite da floresta, puxada para os campos por `kc`
+    const F = a.fora, C = a.campos, kc = a.kc, fm = (x, y) => x + (y - x) * kc;
+    const fora = { fundo: _cor1.copy(F.fundo).lerp(C.fundo, kc), nevoa: _cor2.copy(F.nevoa).lerp(C.nevoa, kc), dens: fm(F.dens, C.dens), hemi: fm(F.hemi, C.hemi), amb: fm(F.amb, C.amb), lua: fm(F.lua, C.lua) };
     const mix = (x, y) => x + (y - x) * a.k;
     const s = this.scene;
-    s.background.copy(a.dentro.fundo).lerp(a.fora.fundo, a.k);
-    s.fog.color.copy(a.dentro.nevoa).lerp(a.fora.nevoa, a.k);
-    s.fog.density = mix(a.dentro.dens, a.fora.dens);
-    a.hemi.intensity = mix(a.dentro.hemi, a.fora.hemi);
-    a.amb.intensity = mix(a.dentro.amb, a.fora.amb);
-    a.lua.intensity = mix(a.dentro.lua, a.fora.lua);
+    s.background.copy(a.dentro.fundo).lerp(fora.fundo, a.k);
+    s.fog.color.copy(a.dentro.nevoa).lerp(fora.nevoa, a.k);
+    s.fog.density = mix(a.dentro.dens, fora.dens);
+    a.hemi.intensity = mix(a.dentro.hemi, fora.hemi);
+    a.amb.intensity = mix(a.dentro.amb, fora.amb);
+    a.lua.intensity = mix(a.dentro.lua, fora.lua);
+    a.hemi.color.copy(a.base.ceu).lerp(C.ceu, kc);
+    a.hemi.groundColor.copy(a.base.chao).lerp(C.chao, kc);
+    a.lua.color.copy(a.base.luz).lerp(C.luz, kc);
   }
 
   // ---------- Pisos, paredes, tetos ----------
@@ -502,7 +584,7 @@ export class World {
       for (let i = 0; i <= N; i++) {
         for (let k = 0; k <= N; k++) {
           const x = cx - CELL / 2 + i * passo, z = cz - CELL / 2 + k * passo;
-          pos.push(x, 0.01, z);
+          pos.push(x, 0.01 + this.relevoEm(x, z), z);
           const chave = `${x.toFixed(2)},${z.toFixed(2)}`;
           if (!tom.has(chave)) tom.set(chave, verdes[Math.floor(r() * verdes.length)].clone().multiplyScalar(0.85 + r() * 0.3));
           const c = tom.get(chave);
@@ -810,7 +892,8 @@ export class World {
     const m = Assets.prop(d.prop);
     const p = this.center(d.cel[0], d.cel[1]);
     const off = d.off ?? [0, 0];
-    m.position.set(p.x + off[0] * S, (d.y ?? 0) * S, p.z + off[1] * S);
+    const px = p.x + off[0] * S, pz = p.z + off[1] * S, rel = this.ch(...d.cel) === 'f' ? this.relevoEm(px, pz) : 0;
+    m.position.set(px, (d.y ?? 0) * S + (rel > 0.05 ? rel - 0.2 : 0), pz);
     m.scale.setScalar(d.escala ?? 1);
     m.rotation.set(0, d.giro ?? 0, 0);
     // `flip` é o TETO: uma placa de piso virada de cabeça para baixo. Um giro em
@@ -987,6 +1070,7 @@ export class World {
     light.position.y = 1.3;
     g.add(light);
     g.position.copy(def.pos);
+    g.position.y = this.alturaChao(def.pos);   // (nas colinas, o chão tem altura)
     this.scene.add(g);
     this.circles.push({ x: def.pos.x, z: def.pos.z, r: 0.85 });
     this.interactables.push({ type: 'bonfire', fogueira: def.id, pos: def.pos.clone(), radius: 2.8, label: 'Descansar na fogueira' });

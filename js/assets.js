@@ -31,6 +31,13 @@ export const PROPS = [
   // levadas pelo editor de cenas (ferramentas/levar-ao-jogo.mjs) — pacotes: hex, natureza (CC0)
   'tent', 'weaponrack', 'target', 'wheelbarrow', 'fence_wood_straight', 'resource_lumber',
   'sack', 'crate_open', 'bucket_water', 'natureza-TreeStump',
+  // levadas pelo editor de cenas (ferramentas/levar-ao-jogo.mjs) — pacotes: estilizada, megakit, natureza, masmorra, hex (CC0)
+  'estilizada-MapleTree_2', 'megakit-CommonTree_1',
+  'estilizada-BirchTree_2', 'megakit-Flower_3_Group', 'estilizada-Bush_Flowers', 'estilizada-Flower_1_Clump',
+  'estilizada-Flower_4_Clump', 'megakit-Grass_Wispy_Tall', 'natureza-Rock_Moss_4', 'natureza-Rock_Moss_6',
+  'wall_archedwindow_open', 'barrier_column', 'building_windmill_red', 'megakit-RockPath_Round_Wide',
+  // levadas pelo editor de cenas (ferramentas/levar-ao-jogo.mjs) — pacotes: estilizada (CC0)
+  'estilizada-NormalTree_1', 'estilizada-NormalTree_2', 'estilizada-NormalTree_4', 'estilizada-NormalTree_5',
 ];
 
 // Os MODELOS DE BLOCOS (assets/modelos/<nome>.json), montados no Editor de
@@ -136,6 +143,8 @@ async function carregarMapa() {
     // mensagem deixada na `floresta` não pode aparecer dentro da rocha do `original`.
     Assets.mapaNome = ativo;
     // as TAGS de lugar desta variante (world.js, aplicarMarcos); faltando, valem as do código
+    // o RELEVO desta variante (world.js, montarRelevo): sem ele, tudo plano
+    Assets.relevo = d.relevo?.[ativo] ?? null;
     const m = d.marcos?.[ativo];
     Assets.marcos = m && typeof m === 'object' && !Array.isArray(m) ? m : {};
     if (!Array.isArray(linhas) || !linhas.length) throw new Error(`a variante "${ativo}" está vazia`);
@@ -161,7 +170,8 @@ export const Assets = {
   grama: null,   // a cor do chão do ar livre (decor.json), ou null = a de sempre
   mapa: null,
   mapaNome: 'emergencia',
-  marcos: {},    // as tags de lugar da variante ativa (mapa.json → `marcos`): ver world.js
+  marcos: {},
+  relevo: null,  // as colinas da variante ativa (mapa.json → `relevo`): ver world.js    // as tags de lugar da variante ativa (mapa.json → `marcos`): ver world.js
   modelos: {},   // nome → modelo de blocos (MODELOS)
   animais: {},   // nome → { scene, clips } (ANIMAIS_MODELOS)
   empunhadura: {},   // arma de duas mãos → os ajustes da pegada (assets/empunhadura.json; character.js)
