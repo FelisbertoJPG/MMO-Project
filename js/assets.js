@@ -45,6 +45,17 @@ export const ANIMAIS_MODELOS = ['cervo', 'cervoReal', 'raposa', 'lobo', 'touro',
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
 
 /** Um modelo de blocos, ou `null` com o motivo no console (o jogo abre sem ele). */
+// os ajustes da pegada das armas de duas mãos (a tela Empunhadura do editor grava);
+// faltando ou torto, valem os números padrão do character.js
+export async function carregarEmpunhadura() {
+  try {
+    const r = await fetch('assets/empunhadura.json', { cache: 'no-store' });
+    if (!r.ok) return {};
+    const j = await r.json();
+    return j && typeof j === 'object' && !Array.isArray(j) ? (j.armas ?? {}) : {};
+  } catch { return {}; }
+}
+
 async function carregarModelo(nome) {
   try {
     const r = await fetch(`assets/modelos/${nome}.json`, { cache: 'no-store' });
@@ -136,6 +147,7 @@ export const Assets = {
   mapaNome: 'emergencia',
   modelos: {},   // nome → modelo de blocos (MODELOS)
   animais: {},   // nome → { scene, clips } (ANIMAIS_MODELOS)
+  empunhadura: {},   // arma de duas mãos → os ajustes da pegada (assets/empunhadura.json; character.js)
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
 
   async load(onProgress = () => {}) {
@@ -175,6 +187,7 @@ export const Assets = {
     // Depois dos glTF e antes de `new World(...)`, que é síncrono: assim o
     // mundo já encontra o mapa e a decoração prontos, e o boot não muda de forma.
     const [mapa, decor] = await Promise.all([carregarMapa(), carregarDecor()]);
+    this.empunhadura = await carregarEmpunhadura();
     this.mapa = mapa; this.decor = decor.itens; this.grama = decor.grama;
     for (const [nome, m] of await Promise.all(MODELOS.map(async (n) => [n, await carregarModelo(n)]))) {
       if (m) this.modelos[nome] = m;

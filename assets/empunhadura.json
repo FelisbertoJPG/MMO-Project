@@ -1,0 +1,31 @@
+{
+  "_leiame": "Os ajustes da pegada das armas de duas mãos (character.js, EMPUNHADURA_PADRAO): feitos na tela Empunhadura do editor de cenas. Distâncias em metros, giros em graus.",
+  "armas": {
+    "greatsword": {
+      "cabo": [
+        0,
+        0,
+        0
+      ],
+      "frenteMin": 0.3,
+      "arma": [
+        0,
+        0,
+        0
+      ],
+      "maoEsq": {
+        "abaixo": 0.11,
+        "desloca": [
+          0,
+          0,
+          0
+        ],
+        "giro": [
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  }
+}

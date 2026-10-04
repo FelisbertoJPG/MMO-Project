@@ -142,6 +142,7 @@ export class CharacterModel {
     holder.matrix.copy(gripMatrix(boneName, side, shield));
     if (this.guerreiro) ({ osso, matriz: holder.matrix } = this.guerreiro.pegada(boneName, holder.matrix));
     holder.matrix.decompose(holder.position, holder.quaternion, holder.scale);
+    holder.userData.base = holder.matrix.clone();   // a pegada sem o ajuste da EMPUNHADURA
     holder.add(obj);
     osso.add(holder);
     this[key] = holder;
@@ -176,6 +177,20 @@ export class CharacterModel {
     if (this.pesoDuasMaos > 0.01 && this.slotR) this.fecharDedosEsquerdos(this.pesoDuasMaos);
     this.guerreiro?.seguir();
     if (this.pesoDuasMaos > 0.01 && this.slotR) this.segurarComAsDuas(this.pesoDuasMaos);
+    else if (this.slotR?.userData.girada) this.girarArma(0);   // largou: a arma volta à pegada de uma mão
+  }
+
+  // o giro da arma na mão direita que a EMPUNHADURA pede (só com as duas mãos), no peso
+  girarArma(peso, e = null) {
+    const h = this.slotR, base = h.userData.base;
+    if (!base) return;
+    h.matrix.copy(base);
+    if (e && peso > 0) {
+      _qt.setFromEuler(_eu.set(e.arma[0] * GRAU, e.arma[1] * GRAU, e.arma[2] * GRAU));
+      h.matrix.multiply(_mt.makeRotationFromQuaternion(_qr.identity().slerp(_qt, peso)));
+    }
+    h.matrix.decompose(h.position, h.quaternion, h.scale);
+    h.userData.girada = !!(e && peso > 0);
   }
 
   /**
@@ -190,6 +205,9 @@ export class CharacterModel {
    * para baixo (`polo`).
    */
   segurarComAsDuas(peso) {
+    // os números desta arma (assets/empunhadura.json, ajustados na tela Empunhadura do editor)
+    const e = empunhadura(this.slotR.children[0]?.userData.arma);
+    this.girarArma(peso, e);
     const g = this.guerreiro;
     const osso = (ual, gu) => (g ? g.cena.getObjectByName(gu) : this.scene.getObjectByName(ual));
     const ombroL = osso('upperarm_l', 'ArmL'), cotL = osso('lowerarm_l', 'ElbowL'), maoL = osso('hand_l', 'HandL');
@@ -197,9 +215,12 @@ export class CharacterModel {
     this.root.updateMatrixWorld(true);
     // A MÃO ESQUERDA FECHADA NO CABO: a mesma pegada com que ela segura a tocha
     // (`gripMatrix` da mão esquerda; no guerreiro, passada para o osso dele), posta
-    // num ponto do cabo ABAIXO_NO_CABO para o pomo. Daí sai onde o pulso tem de ficar
+    // num ponto do cabo (`maoEsq.abaixo` para o pomo). Daí sai onde o pulso tem de ficar
     // E o giro da mão — o polegar para o lado da lâmina, como o da direita.
     const pegaL = this.pegadaEsquerda();
+    // o ponto do cabo da mão esquerda: `abaixo` para o pomo, mais o deslocamento e o giro dela
+    _desce.makeRotationFromEuler(_eu.set(e.maoEsq.giro[0] * GRAU, e.maoEsq.giro[1] * GRAU, e.maoEsq.giro[2] * GRAU))
+      .setPosition(e.maoEsq.desloca[0], e.maoEsq.desloca[1], e.maoEsq.desloca[2] - e.maoEsq.abaixo);
     const maoLQuer = _hL.copy(this.slotR.matrixWorld).multiply(_desce).multiply(_inv.copy(pegaL).invert());
     const pulsoR = maoR.getWorldPosition(_pR);
     const d = _d.setFromMatrixPosition(maoLQuer).sub(pulsoR);   // pulso direito → pulso esquerdo, no mundo (a arma é rígida)
@@ -213,15 +234,22 @@ export class CharacterModel {
     const peito = _peito.addVectors(sL, sR).multiplyScalar(0.5).addScaledVector(alto, -0.2);
     const R = _R.copy(pulsoR);
     for (let k = 0; k < 6; k++) {
-      // na frente do peito: as duas mãos a pelo menos FRENTE_MIN dele
+      // na frente do peito: as duas mãos a pelo menos `frenteMin` dele
       const zR = _t1.subVectors(R, peito).dot(frente), zL = _t1.addVectors(R, d).sub(peito).dot(frente);
-      const falta = FRENTE_MIN - Math.min(zR, zL);
+      const falta = e.frenteMin - Math.min(zR, zL);
       if (falta > 0) R.addScaledVector(frente, falta);
       // e não muito para os lados: a direita até 28 cm do meio, a esquerda até 15 cm
       const xR = _t1.subVectors(R, peito).dot(lado), xL = _t1.addVectors(R, d).sub(peito).dot(lado);
       if (xR > 0.28) R.addScaledVector(lado, 0.28 - xR);
       if (xL < -0.15) R.addScaledVector(lado, -0.15 - xL);
       // o que os braços alcançam
+      _t1.addVectors(R, d).sub(sL); if (_t1.length() > alcL) _t1.setLength(alcL); R.copy(sL).add(_t1).sub(d);
+      _t1.subVectors(R, sR); if (_t1.length() > alcR) _t1.setLength(alcR); R.copy(sR).add(_t1);
+    }
+    // o deslocamento do cabo que a empunhadura pede (lado, alto, frente — nos eixos do
+    // tronco), e de novo o que os braços alcançam
+    R.addScaledVector(lado, e.cabo[0]).addScaledVector(alto, e.cabo[1]).addScaledVector(frente, e.cabo[2]);
+    for (let k = 0; k < 3; k++) {
       _t1.addVectors(R, d).sub(sL); if (_t1.length() > alcL) _t1.setLength(alcL); R.copy(sL).add(_t1).sub(d);
       _t1.subVectors(R, sR); if (_t1.length() > alcR) _t1.setLength(alcR); R.copy(sR).add(_t1);
     }
@@ -293,10 +321,26 @@ function dedosDaTocha() {
 const _alvoLocal = new THREE.Vector3(), _alvo = new THREE.Vector3(), _inv = new THREE.Matrix4();
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3();
 const _ba = new THREE.Vector3(), _bc = new THREE.Vector3(), _ac = new THREE.Vector3(), _at = new THREE.Vector3(), _eixo = new THREE.Vector3();
-const _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _qMao = new THREE.Quaternion();
-const FRENTE_MIN = 0.3;   // o cabo, no mínimo isto à frente do peito (m)
-const ABAIXO_NO_CABO = 0.11;   // a mão esquerda, este tanto abaixo da direita no cabo (m), para o pomo
-const _desce = new THREE.Matrix4().makeTranslation(0, 0, -ABAIXO_NO_CABO), _hL = new THREE.Matrix4();
+const _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _qMao = new THREE.Quaternion(), _qt = new THREE.Quaternion();
+// A EMPUNHADURA de cada arma de duas mãos: os números que a tela Empunhadura do
+// editor de cenas ajusta e grava em `assets/empunhadura.json` (`Assets.empunhadura`).
+// O que faltar no arquivo vem daqui. Distâncias em metros, giros em graus.
+//   cabo      — quanto o cabo anda além do que o IK achou: [lado, alto, frente] do tronco
+//   frenteMin — o cabo, no mínimo isto à frente do peito
+//   arma      — o giro extra da arma na mão direita (x, y, z, no espaço da pegada)
+//   maoEsq    — a mão esquerda: `abaixo` da direita no cabo (para o pomo), `desloca`
+//               [x, y, z] e `giro` [x, y, z] no espaço da arma
+export const EMPUNHADURA_PADRAO = { cabo: [0, 0, 0], frenteMin: 0.3, arma: [0, 0, 0], maoEsq: { abaixo: 0.11, desloca: [0, 0, 0], giro: [0, 0, 0] } };
+const v3 = (v, p) => (Array.isArray(v) && v.length === 3 && v.every(Number.isFinite) ? v : p);
+export function empunhadura(arma) {
+  const e = (arma && Assets.empunhadura?.[arma]) || {}, p = EMPUNHADURA_PADRAO, m = e.maoEsq ?? {};
+  return {
+    cabo: v3(e.cabo, p.cabo), frenteMin: Number.isFinite(e.frenteMin) ? e.frenteMin : p.frenteMin, arma: v3(e.arma, p.arma),
+    maoEsq: { abaixo: Number.isFinite(m.abaixo) ? m.abaixo : p.maoEsq.abaixo, desloca: v3(m.desloca, p.maoEsq.desloca), giro: v3(m.giro, p.maoEsq.giro) },
+  };
+}
+const GRAU = Math.PI / 180;
+const _desce = new THREE.Matrix4(), _hL = new THREE.Matrix4(), _mt = new THREE.Matrix4(), _eu = new THREE.Euler();
 const _lado = new THREE.Vector3(), _alto = new THREE.Vector3(), _frente = new THREE.Vector3(), _peito = new THREE.Vector3(), _poloR = new THREE.Vector3(), _poloL = new THREE.Vector3();
 const _pb = new THREE.Vector3(), _pp = new THREE.Vector3();
 const _pR = new THREE.Vector3(), _d = new THREE.Vector3(), _sL = new THREE.Vector3(), _sR = new THREE.Vector3(), _R = new THREE.Vector3(), _t1 = new THREE.Vector3(), _t2 = new THREE.Vector3();
@@ -369,7 +413,7 @@ function costasMatrix() {
   return costasCache;
 }
 
-export function weaponMesh(kind) { return makeWeapon(kind); }
+export function weaponMesh(kind) { const w = makeWeapon(kind); w.userData.arma = kind; return w; }
 export function shieldMesh(kind) { const s = makeShield(kind); s.userData.shield = true; return s; }
 
 // ---------------------------------------------------------------- a armadura fundida
