@@ -10,7 +10,8 @@
  * célula), então ninguém vê o capim pular. O vento é do shader (`onBeforeCompile`): a
  * ponta da folha anda numa onda que corre pelo mundo, e o pé fica parado; nada disso
  * custa CPU por quadro. A altura do pé é a do chão (`alturaChao`), então o capim sobe as
- * colinas. Longe do jogador as folhas encolhem até sumir (sem borda dura).
+ * colinas. Não nasce sobre peça que não é NATUREZA (`World.podeCapim`, categorias.js).
+ * Longe do jogador as folhas encolhem até sumir (sem borda dura).
  *
  * Quantos TUFOS por célula vem da qualidade gráfica (`capim` em graficos.js): no Baixo,
  * nenhum. O tufo é o que deixa o capim volumoso sem pesar: menos instâncias, cada uma com
@@ -134,9 +135,12 @@ export class Capim {
             const alt = (0.4 + rnd() * 0.4) * (1 - longe * 0.6), larg = 0.9 + rnd() * 0.5;
             q.setFromEuler(e.set((rnd() - 0.5) * 0.2, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.2));
             m.compose(pos, q, s.set(larg, alt, larg));
+            const t = this.tons[Math.floor(rnd() * this.tons.length)], v1 = rnd(), v2 = rnd(), v3 = rnd();
+            // em cima de peça que não é natureza (fogueira, barril, parede, pedra…), nada de
+            // capim (World.podeCapim). Os sorteios já foram feitos: a célula não muda o resto
+            if (!w.podeCapim(pos.x, pos.z, 0.3 * larg)) continue;
             this.malha.setMatrixAt(i, m);
-            const t = this.tons[Math.floor(rnd() * this.tons.length)];
-            cor.setXYZ(i, t.r * (0.85 + rnd() * 0.3), t.g * (0.85 + rnd() * 0.3), t.b * (0.85 + rnd() * 0.3));
+            cor.setXYZ(i, t.r * (0.85 + v1 * 0.3), t.g * (0.85 + v2 * 0.3), t.b * (0.85 + v3 * 0.3));
             i++;
           }
         }

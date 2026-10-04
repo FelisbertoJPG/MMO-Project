@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
+import { categoriaDaPeca, CRESCE_CAPIM } from './categorias.js';
 import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
 
@@ -296,6 +297,10 @@ export class World {
     this.scene = game.scene;
     this.boxes = [];
     this.circles = [];
+    // o chão SEM CAPIM: a planta (retângulo em x/z) de cada peça que não é natureza, por
+    // célula (`marcarSemCapim`, `podeCapim`); e as peças do decor.json por categoria
+    this.semCapim = new Map();
+    this.decorPorCategoria = { natureza: [], pedra: [], construcao: [], objeto: [] };
     this.interactables = [];
     this.pickups = [];
     this.torches = [];
@@ -853,6 +858,7 @@ export class World {
       m.traverse((c) => { if (/lid$/.test(c.name)) lid = c; });
       this.scene.add(m);
       this.circles.push({ x: p.x, z: p.z, r: 0.85 });
+      this.marcarSemCapim(p.x - 0.9, p.z - 0.9, p.x + 0.9, p.z + 0.9);
       const chest = { def, mesh: m, lid, open: false, t: 0, pos: p };
       chest.interact = { type: 'chest', chest, pos: p.clone(), radius: 2.0, label: 'Abrir baú' };
       this.interactables.push(chest.interact);
@@ -965,6 +971,15 @@ export class World {
     // `buildGeometry()` montava na matriz.
     if (d.flip) m.rotateX(Math.PI);
     this.scene.add(m);
+    // a CATEGORIA (categorias.js): o capim só cresce sobre a natureza; a planta das outras
+    // peças vira chão sem capim (a caixa do modelo girada e escalada, em x/z)
+    const cat = categoriaDaPeca(d.prop);
+    m.userData.categoria = cat;
+    if (!CRESCE_CAPIM.has(cat)) {
+      m.updateMatrix();
+      const b = this.caixaDoProp(d.prop).clone().applyMatrix4(m.matrix);
+      this.marcarSemCapim(b.min.x, b.min.z, b.max.x, b.max.z);
+    }
     // PEDRA e ENTULHO sem raio declarado ganham o raio do próprio tamanho (o desabamento
     // tem de barrar) — menos os que estão em cima da borda com a rocha (a menos de 1,2 m de
     // uma parede), que já barra, e onde um círculo só comeria o chão de passagem.
@@ -986,14 +1001,42 @@ export class World {
     return false;
   }
 
+  /** A caixa de um prop em escala 1, sem giro (guardada: é a mesma para todas as cópias). */
+  caixaDoProp(nome) {
+    this._caixas ??= new Map();
+    if (!this._caixas.has(nome)) this._caixas.set(nome, new THREE.Box3().setFromObject(Assets.props[nome]));
+    return this._caixas.get(nome);
+  }
+
   /** Meia largura (m) da planta de um prop em escala 1 — 80% do maior lado (a pedra é redonda). */
   raioDoProp(nome) {
     this._raios ??= new Map();
     if (!this._raios.has(nome)) {
-      const t = new THREE.Box3().setFromObject(Assets.props[nome]).getSize(new THREE.Vector3());
+      const t = this.caixaDoProp(nome).getSize(new THREE.Vector3());
       this._raios.set(nome, Math.max(t.x, t.z) * 0.4);
     }
     return this._raios.get(nome);
+  }
+
+  /** Nada de capim no retângulo (x0, z0)–(x1, z1): guardado em cada célula que ele toca. */
+  marcarSemCapim(x0, z0, x1, z1) {
+    const ret = [x0, z0, x1, z1];
+    for (let r = Math.round(z0 / CELL); r <= Math.round(z1 / CELL); r++) {
+      for (let c = Math.round(x0 / CELL); c <= Math.round(x1 / CELL); c++) {
+        if (c < 0 || c >= this.cols) continue;
+        const k = r * this.cols + c;
+        if (!this.semCapim.has(k)) this.semCapim.set(k, []);
+        this.semCapim.get(k).push(ret);
+      }
+    }
+  }
+
+  /** O capim pode nascer em (x, z)? `folga` = o quanto o tufo se abre em volta do pé. */
+  podeCapim(x, z, folga = 0) {
+    const l = this.semCapim.get(Math.round(z / CELL) * this.cols + Math.round(x / CELL));
+    if (!l) return true;
+    for (const [x0, z0, x1, z1] of l) if (x > x0 - folga && x < x1 + folga && z > z0 - folga && z < z1 + folga) return false;
+    return true;
   }
 
   buildDecor() {
@@ -1005,6 +1048,7 @@ export class World {
     Assets.decor.forEach((d, i) => {
       const m = this.placeDecor(d);
       if (!m) return;
+      this.decorPorCategoria[m.userData.categoria].push({ i, prop: d.prop, obj: m });
       const cfg = cfgQuebravel(d.prop);
       // o quebrável fica SOLTO: some sozinho ao quebrar e volta inteiro depois.
       // `i` (a posição no decor.json) é o nome dele na rede — igual para todos.
@@ -1104,6 +1148,7 @@ export class World {
     for (const def of FOGUEIRAS) {
       if (!this.isFloor(...this.cellOf(def.pos))) continue;
       this.fogueiras.push({ ...def, ...this.buildBonfire(def) });
+      this.marcarSemCapim(def.pos.x - 1.2, def.pos.z - 1.2, def.pos.x + 1.2, def.pos.z + 1.2);
     }
   }
 
