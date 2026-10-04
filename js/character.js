@@ -169,9 +169,12 @@ export class CharacterModel {
 
   update(dt) {
     this.mixer.update(dt);
-    this.guerreiro?.seguir();
     const meta = this.duasMaos && this.slotR ? 1 : 0;
     this.pesoDuasMaos += (meta - this.pesoDuasMaos) * Math.min(1, dt * 10);
+    // os dedos da esquerda FECHADOS no cabo — no manequim, ANTES do retarget (o
+    // guerreiro copia os dedos dele)
+    if (this.pesoDuasMaos > 0.01 && this.slotR) this.fecharDedosEsquerdos(this.pesoDuasMaos);
+    this.guerreiro?.seguir();
     if (this.pesoDuasMaos > 0.01 && this.slotR) this.segurarComAsDuas(this.pesoDuasMaos);
   }
 
@@ -192,11 +195,14 @@ export class CharacterModel {
     const ombroL = osso('upperarm_l', 'ArmL'), cotL = osso('lowerarm_l', 'ElbowL'), maoL = osso('hand_l', 'HandL');
     const ombroR = osso('upperarm_r', 'ArmR'), cotR = osso('lowerarm_r', 'ElbowR'), maoR = osso('hand_r', 'HandR');
     this.root.updateMatrixWorld(true);
-    // o pulso esquerdo no espaço da arma: o do direito, 14 cm para o pomo (−Z)
-    _alvoLocal.set(0, 0, 0).applyMatrix4(_inv.copy(this.slotR.matrix).invert());
-    _alvoLocal.z -= 0.14;
+    // A MÃO ESQUERDA FECHADA NO CABO: a mesma pegada com que ela segura a tocha
+    // (`gripMatrix` da mão esquerda; no guerreiro, passada para o osso dele), posta
+    // num ponto do cabo ABAIXO_NO_CABO para o pomo. Daí sai onde o pulso tem de ficar
+    // E o giro da mão — o polegar para o lado da lâmina, como o da direita.
+    const pegaL = this.pegadaEsquerda();
+    const maoLQuer = _hL.copy(this.slotR.matrixWorld).multiply(_desce).multiply(_inv.copy(pegaL).invert());
     const pulsoR = maoR.getWorldPosition(_pR);
-    const d = _d.copy(_alvoLocal).applyMatrix4(this.slotR.matrixWorld).sub(pulsoR);   // direito → esquerdo, no mundo
+    const d = _d.setFromMatrixPosition(maoLQuer).sub(pulsoR);   // pulso direito → pulso esquerdo, no mundo (a arma é rígida)
     // onde o pulso direito tem de ficar para os DOIS braços alcançarem (umas voltas de ajuste)
     const sL = ombroL.getWorldPosition(_sL), sR = ombroR.getWorldPosition(_sR);
     const alcL = (sL.distanceTo(cotL.getWorldPosition(_t1)) + _t1.distanceTo(maoL.getWorldPosition(_t2))) * 0.97;
@@ -231,11 +237,51 @@ export class CharacterModel {
       maoR.quaternion.copy(_qp.invert().multiply(_qMao));
       maoR.updateMatrixWorld(true);
     }
-    // e a esquerda no cabo
-    const alvo = _alvo.copy(R).add(d);
+    // e a esquerda no cabo: o pulso no lugar, e a mão no giro da pegada
+    this.slotR.updateMatrixWorld(true);
+    maoLQuer.copy(this.slotR.matrixWorld).multiply(_desce).multiply(_inv.copy(pegaL).invert());
+    const alvo = _alvo.setFromMatrixPosition(maoLQuer);
     alvo.lerpVectors(maoL.getWorldPosition(_t2), alvo, peso);
     ikDoisOssos(ombroL, cotL, maoL, alvo, poloL);
+    maoLQuer.decompose(_t1, _qMao, _t2);
+    maoL.getWorldQuaternion(_qw);
+    _qw.slerp(_qMao, peso);
+    maoL.parent.getWorldQuaternion(_qp);
+    maoL.quaternion.copy(_qp.invert().multiply(_qw));
+    maoL.updateMatrixWorld(true);
   }
+
+  // Os clipes de uma mão deixam a esquerda ABERTA (ela está livre): no cabo, os dedos
+  // vão para a pose de quem segura a tocha (o primeiro quadro do `Idle_Torch_Loop`)
+  fecharDedosEsquerdos(peso) {
+    const dedos = dedosDaTocha();
+    if (!this._dedosL) this._dedosL = [...dedos.keys()].map((n) => this.scene.getObjectByName(n));
+    let i = 0;
+    for (const q of dedos.values()) { const o = this._dedosL[i++]; if (o) o.quaternion.slerp(q, peso); }
+  }
+
+  // a pegada da mão esquerda (osso da mão → arma), a da tocha; no guerreiro, no osso dele
+  pegadaEsquerda() {
+    const chave = this.guerreiro ?? this;
+    if (this._pegaL?.chave !== chave) {
+      const naUal = gripMatrix('hand_l', 'l', false);
+      this._pegaL = { chave, m: this.guerreiro ? this.guerreiro.pegada('hand_l', naUal.clone()).matriz : naUal.clone() };
+    }
+    return this._pegaL.m;
+  }
+}
+
+// os dedos da mão esquerda (falanges 01–03) no primeiro quadro do clipe da tocha
+let dedosTocha = null;
+function dedosDaTocha() {
+  if (dedosTocha) return dedosTocha;
+  dedosTocha = new Map();
+  const clip = Assets.clips.Idle_Torch_Loop;
+  for (const t of clip?.tracks ?? []) {
+    const [osso, prop] = t.name.split('.');
+    if (prop === 'quaternion' && /^(thumb|index|middle|ring|pinky)_0[123]_l$/.test(osso)) dedosTocha.set(osso, new THREE.Quaternion().fromArray(t.values, 0));
+  }
+  return dedosTocha;
 }
 
 // ---------------------------------------------------------------- IK de dois ossos
@@ -249,6 +295,8 @@ const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3
 const _ba = new THREE.Vector3(), _bc = new THREE.Vector3(), _ac = new THREE.Vector3(), _at = new THREE.Vector3(), _eixo = new THREE.Vector3();
 const _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _qMao = new THREE.Quaternion();
 const FRENTE_MIN = 0.3;   // o cabo, no mínimo isto à frente do peito (m)
+const ABAIXO_NO_CABO = 0.11;   // a mão esquerda, este tanto abaixo da direita no cabo (m), para o pomo
+const _desce = new THREE.Matrix4().makeTranslation(0, 0, -ABAIXO_NO_CABO), _hL = new THREE.Matrix4();
 const _lado = new THREE.Vector3(), _alto = new THREE.Vector3(), _frente = new THREE.Vector3(), _peito = new THREE.Vector3(), _poloR = new THREE.Vector3(), _poloL = new THREE.Vector3();
 const _pb = new THREE.Vector3(), _pp = new THREE.Vector3();
 const _pR = new THREE.Vector3(), _d = new THREE.Vector3(), _sL = new THREE.Vector3(), _sR = new THREE.Vector3(), _R = new THREE.Vector3(), _t1 = new THREE.Vector3(), _t2 = new THREE.Vector3();
