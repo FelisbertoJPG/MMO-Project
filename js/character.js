@@ -279,9 +279,9 @@ export class CharacterModel {
     const poloL = _poloL.copy(sL).addScaledVector(lado, -0.35).addScaledVector(alto, -0.45).addScaledVector(frente, -0.1);
 
     // 3–4. cada mão: o giro em volta do cabo que deixa o pulso mais reto, mais o pedido
-    for (const [mao, cot, ombro, polo, pnt, pega, nat, giro, chave] of [
-      [maoR, cotR, ombroR, poloR, pR, base, _natR, e.arma, '_rollR'],
-      [maoL, cotL, ombroL, poloL, pL, pegaL, _natL, e.maoEsq.giro, '_rollL'],
+    for (const [mao, cot, ombro, polo, pnt, pega, nat, giro, chave, ld] of [
+      [maoR, cotR, ombroR, poloR, pR, base, _natR, e.arma, '_rollR', 'r'],
+      [maoL, cotL, ombroL, poloL, pL, pegaL, _natL, e.maoEsq.giro, '_rollL', 'l'],
     ]) {
       const G = ponto(pnt, _G);   // o ponto da mão no cabo, no mundo
       const la = ombro.getWorldPosition(_t1).distanceTo(cot.getWorldPosition(_t2)), lb = _t2.distanceTo(mao.getWorldPosition(_t4));
@@ -320,12 +320,27 @@ export class CharacterModel {
       _hT.compose(G, _qTeste, _um).multiply(_invPega).decompose(_alvo, _qAlvo, _t2);
       mao.getWorldPosition(_pR); mao.getWorldQuaternion(_qMao);
       _alvo.lerpVectors(_pR, _alvo, peso); _qAlvo.copy(_qMao.slerp(_qAlvo, peso));
+      // O COTOVELO que se pediu: gira em volta da reta ombro→pulso (o que estava no
+      // automático, mais `cotovelos` e as chaves `cotovelo_r`/`_l` desta animação)
+      const i2 = ld === 'r' ? 0 : 1;
+      const giroCot = (e.cotovelos[i2] + this.extraDaCamada(e, `cotovelo_${ld}`)) * GRAU * peso;
+      if (giroCot) polo.sub(_Sw).applyAxisAngle(_eixoOP.subVectors(_alvo, _Sw).normalize(), giroCot).add(_Sw);
       ikDoisOssos(ombro, cot, mao, _alvo, polo);
       porNoMundo(mao, _qAlvo);
       // a TORÇÃO do pulso volta a ser a da animação: o antebraço gira em volta do próprio
       // eixo (cotovelo e pulso não saem do lugar) e a mão fica onde estava
       torcerAntebraco(cot, mao, nat, peso);
       porNoMundo(mao, _qAlvo);
+      // a TORÇÃO DO BÍCEPS que se pediu: o braço gira em volta do próprio eixo (`bracos`
+      // e as chaves `braco_r`/`_l`); antebraço e mão ficam onde estavam
+      const giroBraco = (e.bracos[i2] + this.extraDaCamada(e, `braco_${ld}`)) * GRAU * peso;
+      if (giroBraco) {
+        cot.getWorldQuaternion(_qFa);
+        ombro.quaternion.multiply(_qz.setFromAxisAngle(_eixoT.copy(cot.position).normalize(), giroBraco));
+        ombro.updateMatrixWorld(true);
+        porNoMundo(cot, _qFa);
+        porNoMundo(mao, _qAlvo);
+      }
     }
     // 5. a espada onde foi posta, presa à mão só como filha (o osso a leva no quadro seguinte)
     maoR.updateMatrixWorld(true);
@@ -341,6 +356,20 @@ export class CharacterModel {
    * A camada `*` vale para as animações sem camada própria. Feitas na tela
    * Empunhadura (modo Pose) para desfazer o que o IK deforma.
    */
+  // uma chave de NÚMERO das camadas (`cotovelo_r`, `braco_l`…: graus no primeiro campo),
+  // interpolada no tempo do clipe como as de osso; sem chave, 0
+  extraDaCamada(e, nome) {
+    const chaves = e.camadas[this.currentName] ?? e.camadas['*'];
+    if (!chaves?.length) return 0;
+    const t = this.current?.time ?? 0;
+    let i = 0;
+    while (i < chaves.length - 1 && chaves[i + 1].t <= t) i++;
+    const a = chaves[i], b = chaves[Math.min(i + 1, chaves.length - 1)];
+    const va = a.ossos[nome]?.[0] ?? 0, vb = b.ossos[nome]?.[0] ?? 0;
+    if (t < chaves[0].t || b === a || b.t <= a.t) return va;
+    return va + (vb - va) * THREE.MathUtils.clamp((t - a.t) / (b.t - a.t), 0, 1);
+  }
+
   corrigirPose(e, peso) {
     const chaves = e.camadas[this.currentName] ?? e.camadas['*'];
     if (!chaves?.length) return;
@@ -416,17 +445,23 @@ const _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qr = new THRE
 //   arma       — o PULSO direito: giro extra da mão no cabo (por cima do giro automático)
 //   maoEsq     — a mão ESQUERDA: `abaixo` da direita no cabo (para o pomo) e `giro`, o pulso
 //                dela; (`pos` ficou sem uso)
+//   cotovelos  — [dir, esq] graus: o cotovelo gira em volta da reta ombro→pulso (o braço
+//                todo muda sem a mão sair do cabo), por cima da escolha automática
+//   bracos     — [dir, esq] graus: a torção do BÍCEPS (o braço em volta do próprio eixo)
+//   (os dois também por chave nas `camadas`: `cotovelo_r`, `cotovelo_l`, `braco_r`, `braco_l`)
 //   ik        — a FORÇA do grude no cabo: 1 = as mãos presas aos seus pontos (IK),
 //               0 = soltas (só a animação e as correções de pose); no meio, misturado
 //   camadas   — as CORREÇÕES DE POSE por animação: { "<clipe>" | "*": [ { t, ossos:
 //               { "<osso do manequim>": [x, y, z] graus } } … ] } (ver `corrigirPose`)
-export const EMPUNHADURA_PADRAO = { ik: 1, armaPos: [0, 0, 0], espadaGiro: [0, 0, 0], cabo: [0, 0, 0], frenteMin: 0.3, arma: [0, 0, 0], maoEsq: { abaixo: 0.11, pos: [0, 0, 0], giro: [0, 0, 0] }, camadas: {} };
+export const EMPUNHADURA_PADRAO = { ik: 1, armaPos: [0, 0, 0], espadaGiro: [0, 0, 0], cotovelos: [0, 0], bracos: [0, 0], cabo: [0, 0, 0], frenteMin: 0.3, arma: [0, 0, 0], maoEsq: { abaixo: 0.11, pos: [0, 0, 0], giro: [0, 0, 0] }, camadas: {} };
+const v2 = (v, p) => (Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v : p);
 const v3 = (v, p) => (Array.isArray(v) && v.length === 3 && v.every(Number.isFinite) ? v : p);
 export function empunhadura(arma) {
   const e = (arma && Assets.empunhadura?.[arma]) || {}, p = EMPUNHADURA_PADRAO, m = e.maoEsq ?? {};
   return {
     ik: Number.isFinite(e.ik) ? THREE.MathUtils.clamp(e.ik, 0, 1) : p.ik,
     armaPos: v3(e.armaPos, p.armaPos), espadaGiro: v3(e.espadaGiro, p.espadaGiro),
+    cotovelos: v2(e.cotovelos, p.cotovelos), bracos: v2(e.bracos, p.bracos),
     cabo: v3(e.cabo, p.cabo), frenteMin: Number.isFinite(e.frenteMin) ? e.frenteMin : p.frenteMin, arma: v3(e.arma, p.arma),
     maoEsq: { abaixo: Number.isFinite(m.abaixo) ? m.abaixo : p.maoEsq.abaixo, pos: v3(m.pos, p.maoEsq.pos), giro: v3(m.giro, p.maoEsq.giro) },
     camadas: e.camadas && typeof e.camadas === 'object' ? e.camadas : {},
