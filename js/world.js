@@ -396,6 +396,22 @@ export class World {
   // só ergue. Fora da área (e sem `relevo`), tudo plano como sempre.
   montarRelevo(rel) {
     this.relevo = null;
+    // OS PONTOS (o formato do editor de cenas: `passo` m e `pontos` {"i,k": altura}, em
+    // coordenadas do mundo; o que o decorador esculpe) vencem as colinas: valem no MAPA
+    // INTEIRO (em células `f`), sem rampa automática — o chão é o que foi esculpido.
+    const pontos = rel?.pontos && typeof rel.pontos === 'object' ? rel.pontos : null;
+    if (pontos) {
+      const pp = rel.passo > 0 ? rel.passo : 2, N = 4, passo = CELL / N;
+      const x0 = -CELL / 2, z0 = -CELL / 2, nx = this.cols * N + 1, nz = this.rows * N + 1, h = new Float32Array(nx * nz);
+      const no = (i, k) => { const v = pontos[`${i},${k}`]; return Number.isFinite(v) ? v : 0; };
+      for (let k = 0; k < nz; k++) for (let i = 0; i < nx; i++) {
+        const fx = (x0 + i * passo) / pp, fz = (z0 + k * passo) / pp, a = Math.floor(fx), b = Math.floor(fz), tx = fx - a, tz = fz - b;
+        h[k * nx + i] = no(a, b) * (1 - tx) * (1 - tz) + no(a + 1, b) * tx * (1 - tz) + no(a, b + 1) * (1 - tx) * tz + no(a + 1, b + 1) * tx * tz;
+      }
+      this.relevo = { x0, z0, nx, nz, passo, h };
+      this.areaRelevo = Array.isArray(rel.area) && rel.area.length === 2 ? rel.area : null;   // os campos (o clima)
+      return;
+    }
     const area = rel?.area, colinas = Array.isArray(rel?.colinas) ? rel.colinas : [];
     if (!Array.isArray(area) || area.length !== 2 || !colinas.length) return;
     const [[r0, c0], [r1, c1]] = area, N = 4, passo = CELL / N, borda = (rel.borda ?? 2) * CELL;
