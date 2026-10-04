@@ -22,14 +22,14 @@ export const QUALIDADES = {
     nome: 'Alto', pixelRatio: 2, antialias: true,
     // a luz da tocha na mão: um cubo de sombras (seis vistas do cenário)
     sombra: { mapa: 512, aCada: 1 }, tipoSombra: THREE.PCFSoftShadowMap,
-    luzes: 8, filtroDeCor: true, particulas: 1, capim: 140,
+    luzes: 8, filtroDeCor: true, particulas: 1, capim: 55,
   },
   medio: {
     nome: 'Médio', pixelRatio: 1.25, antialias: true,
     // metade da resolução, redesenhada a cada 2 quadros (o alcance da sombra o
     // three.js tira da distância da luz a cada quadro — não é opção aqui)
     sombra: { mapa: 256, aCada: 2 }, tipoSombra: THREE.PCFShadowMap,
-    luzes: 5, filtroDeCor: true, particulas: 0.7, capim: 70,
+    luzes: 5, filtroDeCor: true, particulas: 0.7, capim: 28,
   },
   baixo: {
     nome: 'Baixo', pixelRatio: 1, antialias: false,

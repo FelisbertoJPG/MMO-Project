@@ -2,7 +2,9 @@
  * O CAPIM (04/10/2026) — as graminhas que cobrem o chão de ar livre e balançam com o
  * vento (o jeito dos campos de Mondstadt).
  *
- * Um `InstancedMesh` só, de folhas finas (5 vértices cada), posto nas células de
+ * Um `InstancedMesh` só, de TUFOS (cada instância é um tufo de `FOLHAS_POR_TUFO` folhas
+ * largas e afinando, abertas para fora como um leque — o capim agrupado dos campos de
+ * Mondstadt, ver `grass/` na raiz), posto nas células de
  * floresta ('f') EM VOLTA do jogador (`RAIO` células): quando ele muda de célula, as
  * folhas são remontadas — cada célula sempre com as MESMAS folhas (sorteio pela própria
  * célula), então ninguém vê o capim pular. O vento é do shader (`onBeforeCompile`): a
@@ -10,29 +12,60 @@
  * custa CPU por quadro. A altura do pé é a do chão (`alturaChao`), então o capim sobe as
  * colinas. Longe do jogador as folhas encolhem até sumir (sem borda dura).
  *
- * Quantas folhas por célula vem da qualidade gráfica (`capim` em graficos.js): no Baixo,
- * nenhuma. Sem sombra (seriam milhares de folhas na sombra da tocha).
+ * Quantos TUFOS por célula vem da qualidade gráfica (`capim` em graficos.js): no Baixo,
+ * nenhum. O tufo é o que deixa o capim volumoso sem pesar: menos instâncias, cada uma com
+ * várias folhas. Sem sombra (seriam milhares de folhas na sombra da tocha).
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { CELL } from './world.js';
 
 const RAIO = 6;   // células em volta do jogador (~36 m)
+const FOLHAS_POR_TUFO = 6;
+const TUFOS_MAX = 60;   // por célula (o Alto usa 55)
+
+/**
+ * A geometria do TUFO (uma só, dividida por todas as instâncias; a variedade vem do giro
+ * e da escala de cada uma): as folhas saem de perto do centro, cada uma inclinada para
+ * fora e curvada (o meio anda menos que a ponta). Altura 0 a 1 em `position.y` — é o que
+ * o vento do shader usa para saber o quanto a ponta anda. Cor por vértice: escura no pé,
+ * verde no meio e a ponta mais clara e amarelada (o tom do campo vem da instância).
+ */
+function geometriaDoTufo() {
+  let sem = 977;
+  const rnd = () => ((sem = (sem * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const pos = [], cor = [], idx = [];
+  for (let f = 0; f < FOLHAS_POR_TUFO; f++) {
+    const a = (f / FOLHAS_POR_TUFO) * Math.PI * 2 + (rnd() - 0.5) * 0.9;
+    const dx = Math.cos(a), dz = Math.sin(a);
+    const r0 = 0.03 + rnd() * 0.14, inclina = 0.2 + rnd() * 0.35;
+    const h = 0.65 + rnd() * 0.35, w = 0.05 + rnd() * 0.03;
+    // a face da folha: de lado para a direção em que ela se inclina, com um pouco de giro
+    const t = a + Math.PI / 2 + (rnd() - 0.5) * 0.8, wx = Math.cos(t), wz = Math.sin(t);
+    const bx = dx * r0, bz = dz * r0, b = pos.length / 3;
+    const ponto = (subida, lado, larg) => {
+      const curva = inclina * subida * subida;   // curva: o meio anda menos que a ponta
+      pos.push(bx + dx * curva + wx * lado * larg, subida * h, bz + dz * curva + wz * lado * larg);
+    };
+    ponto(0, -1, w); ponto(0, 1, w); ponto(0.5, -1, w * 0.7); ponto(0.5, 1, w * 0.7); ponto(1, 0, 0);
+    cor.push(0.45, 0.48, 0.4, 0.45, 0.48, 0.4, 0.88, 0.98, 0.72, 0.88, 0.98, 0.72, 1.12, 1.22, 0.62);
+    idx.push(b, b + 1, b + 2, b + 2, b + 1, b + 3, b + 2, b + 3, b + 4);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  // a normal para CIMA: a folha não escurece de lado (é como o capim estilizado faz)
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(pos.length / 3).fill([0, 1, 0]).flat(), 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cor, 3));
+  g.setIndex(idx);
+  return g;
+}
 
 export class Capim {
   constructor(game) {
     this.game = game;
     this.celula = null;
     this.tempo = { value: 0 };
-    // a folha: larga no pé, ponta fina, 1 m de altura (cada uma ganha a sua escala)
-    const g = new THREE.BufferGeometry();
-    const w = 0.035;
-    g.setAttribute('position', new THREE.Float32BufferAttribute([-w, 0, 0, w, 0, 0, -w * 0.6, 0.5, 0, w * 0.6, 0.5, 0, 0, 1, 0], 3));
-    // a normal para CIMA: a folha fina não escurece de lado (é como o capim estilizado faz)
-    g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
-    // escura no pé, clara na ponta
-    g.setAttribute('color', new THREE.Float32BufferAttribute([0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 1, 1, 1], 3));
-    g.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4]);
+    const g = geometriaDoTufo();
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTempo = this.tempo;
@@ -56,7 +89,7 @@ export class Capim {
         vec3 normal = normalize( vNormal );
         vec3 nonPerturbedNormal = normal;`);
     };
-    this.maximo = (2 * RAIO + 1) ** 2 * 160;
+    this.maximo = (2 * RAIO + 1) ** 2 * TUFOS_MAX;
     this.malha = new THREE.InstancedMesh(g, mat, this.maximo);
     this.malha.count = 0;
     this.malha.frustumCulled = false;   // as folhas estão em volta do jogador: sempre há o que ver
@@ -68,8 +101,8 @@ export class Capim {
     game.scene.add(this.malha);
   }
 
-  /** Quantas folhas por célula (a qualidade gráfica; 0 = sem capim). */
-  get densidade() { return this.game.graficos?.q.capim ?? 120; }
+  /** Quantos tufos por célula (a qualidade gráfica; 0 = sem capim). */
+  get densidade() { return Math.min(TUFOS_MAX, this.game.graficos?.q.capim ?? 55); }
 
   /** Remonta já (a qualidade mudou). */
   refazer() { this.celula = null; }
@@ -98,9 +131,9 @@ export class Capim {
           for (let k = 0; k < quantas && i < this.maximo; k++) {
             pos.set(c * CELL + (rnd() - 0.5) * CELL, 0, r * CELL + (rnd() - 0.5) * CELL);
             pos.y = w.alturaChao(pos);
-            const alt = (0.25 + rnd() * 0.35) * (1 - longe * 0.6);
-            q.setFromEuler(e.set((rnd() - 0.5) * 0.35, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.35));
-            m.compose(pos, q, s.set(1, alt, 1));
+            const alt = (0.4 + rnd() * 0.4) * (1 - longe * 0.6), larg = 0.9 + rnd() * 0.5;
+            q.setFromEuler(e.set((rnd() - 0.5) * 0.2, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.2));
+            m.compose(pos, q, s.set(larg, alt, larg));
             this.malha.setMatrixAt(i, m);
             const t = this.tons[Math.floor(rnd() * this.tons.length)];
             cor.setXYZ(i, t.r * (0.85 + rnd() * 0.3), t.g * (0.85 + rnd() * 0.3), t.b * (0.85 + rnd() * 0.3));
