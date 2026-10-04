@@ -835,7 +835,7 @@ class Game {
           world.removePickup(it);
           this.sfx.pickup();
           if (it.itemId === 'cellKey') this.ui.toast('Talvez abra a porta da cela...');
-        }, { dur: 1.0, at: 0.45, face });
+        }, { dur: 1.3, at: 0.45, face });   // abaixar, pegar e levantar (Farm_Harvest)
         break;
       case 'torch':
         if (inv.count('torch')) { this.ui.toast('Você só pode carregar uma tocha por vez.'); this.sfx.locked(); break; }

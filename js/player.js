@@ -11,7 +11,7 @@ const ROLL_COST = 22;
 const _v = new THREE.Vector3();
 
 // estados em que a mão esquerda faz outra coisa (ou o boneco está no chão): sem as duas mãos na arma
-export const MAO_OCUPADA = ['heal', 'item', 'dead', 'rest', 'restUp', 'lying', 'standing'];
+export const MAO_OCUPADA = ['heal', 'item', 'interact', 'dead', 'rest', 'restUp', 'lying', 'standing'];
 
 export class Player {
   constructor(game) {
@@ -453,7 +453,9 @@ export class Player {
   startInteract(anim, fn, { dur = 1.0, at = 0.45, face } = {}) {
     this.lockTarget = null;
     this.setState('interact', { fn, dur, at, face, done: false });
-    const clip = { PickUp: 'PickUp_Table', Interact: 'Interact', Chest: 'Chest_Open' }[anim] ?? anim;
+    // PEGAR DO CHÃO = o Farm_Harvest do UAL: a mão desce a ~26 cm do chão aos 45% do clipe —
+    // o mesmo `at` em que o item é entregue (o PickUp_Table, de antes, nem baixava a mão)
+    const clip = { PickUp: 'Farm_Harvest', Interact: 'Interact', Chest: 'Chest_Open' }[anim] ?? anim;
     this.model.play(clip, { loop: false, duration: dur / 0.85, restart: true, fade: 0.12 });
   }
 
