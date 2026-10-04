@@ -40,11 +40,24 @@ export const PROPS = [
 // Os ANIMAIS (03/10/2026, pacote Ultimate Animated Animals da Quaternius):
 // GLB em assets/animais/<nome>.glb, com o esqueleto e as animações de cada um
 // (Idle, Walk, Gallop, Attack…, Death). Quem os usa é `js/animais.js`.
+// ANIMAÇÕES vindas de fora (Mixamo…), já passadas para o esqueleto do manequim UAL por
+// `ferramentas/guerreiro/retarget-mixamo.mjs`: assets/animacoes/<nome>.json
+// (AnimationClip.toJSON). Entram em Assets.clips pelo NOME do clipe, como as do UAL;
+// faltando uma, o jogo segue com as de sempre.
+export const ANIMACOES = ['greatsword-idle'];
 export const ANIMAIS_MODELOS = ['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
 
 /** Um modelo de blocos, ou `null` com o motivo no console (o jogo abre sem ele). */
+export async function carregarAnimacao(nome) {
+  try {
+    const r = await fetch(`assets/animacoes/${nome}.json`, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return THREE.AnimationClip.parse(await r.json());
+  } catch (e) { console.warn(`[animação] sem assets/animacoes/${nome}.json:`, e.message); return null; }
+}
+
 // os ajustes da pegada das armas de duas mãos (a tela Empunhadura do editor grava);
 // faltando ou torto, valem os números padrão do character.js
 export async function carregarEmpunhadura() {
@@ -188,6 +201,7 @@ export const Assets = {
     // mundo já encontra o mapa e a decoração prontos, e o boot não muda de forma.
     const [mapa, decor] = await Promise.all([carregarMapa(), carregarDecor()]);
     this.empunhadura = await carregarEmpunhadura();
+    for (const clip of await Promise.all(ANIMACOES.map(carregarAnimacao))) if (clip) this.clips[clip.name] = clip;
     this.mapa = mapa; this.decor = decor.itens; this.grama = decor.grama;
     for (const [nome, m] of await Promise.all(MODELOS.map(async (n) => [n, await carregarModelo(n)]))) {
       if (m) this.modelos[nome] = m;

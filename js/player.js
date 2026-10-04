@@ -4,6 +4,7 @@ import { corpoGuardado, armaduraDe } from './guerreiro.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { ITEMS, UNARMED, TORCH_LIFE } from './items.js';
 import { START_POS } from './world.js';
+import { Assets } from './assets.js';
 
 const SPRINT_HOLD = 0.28;
 const ROLL_COST = 22;
@@ -442,6 +443,8 @@ export class Player {
   }
 
   get idleAnim() {
+    // arma de duas mãos (sem a tocha na esquerda): a guarda de espadão do Mixamo, se carregou
+    if (this.weapon.twoHanded && !this.torchLit && Assets.clips.GreatSword_Idle) return 'GreatSword_Idle';
     if (this.weapon.model) return 'Sword_Idle';
     return this.torchLit ? 'Idle_Torch_Loop' : 'Idle_Loop';
   }

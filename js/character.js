@@ -236,6 +236,14 @@ export class CharacterModel {
     // 1. a espada da animação, e o antebraço de cada mão como a animação o tem (no
     //    espaço da mão: é a referência de "pulso reto")
     _S0.multiplyMatrices(maoR.matrixWorld, base).decompose(_Sp0, _Sq0, _t2);
+    // Um clipe de DUAS MÃOS (o GreatSword_Idle do Mixamo…) já traz as palmas juntas: aí a
+    // espada vai de uma palma à outra, como o clipe a segura, e a esquerda fica na
+    // distância dele — o IK só faz o ajuste fino. Num clipe de uma mão, nada muda.
+    _t1.setFromMatrixPosition(_hT.multiplyMatrices(maoL.matrixWorld, pegaL));   // a palma esquerda da animação
+    const entre = _t1.distanceTo(_Sp0);
+    const doClipe = entre > 0.04 && entre < 0.35;
+    if (doClipe) _Sq0.premultiply(_qz.setFromUnitVectors(_t4.set(0, 0, 1).applyQuaternion(_Sq0), _t3.subVectors(_Sp0, _t1).normalize()));
+    const abaixoBase = doClipe ? entre : EMPUNHADURA_PADRAO.maoEsq.abaixo;
     // o pulso da animação de cada mão: o giro LOCAL dela (contra o antebraço), o giro do
     // antebraço e a direção dele (cotovelo → pulso) — é o "pulso natural" a imitar
     pulsoDaAnimacao(maoR, cotR, _natR); pulsoDaAnimacao(maoL, cotL, _natL);
@@ -247,14 +255,15 @@ export class CharacterModel {
     //    meio, e até os dois pulsos alcançarem (com a pegada PADRÃO: o que se ajusta nas
     //    mãos não pode empurrar a espada). Depois disso o ajuste vale como foi pedido.
     const Sq = _Sq.copy(_Sq0), Sp = _Sp.copy(_Sp0);
-    const pR0 = _pRl.set(0, 0, 0), pL0 = _pLl.set(0, 0, -EMPUNHADURA_PADRAO.maoEsq.abaixo);
+    const pR0 = _pRl.set(0, 0, 0), pL0 = _pLl.set(0, 0, -abaixoBase);
     const oR = _oR.set(0, 0, 0).applyMatrix4(_inv.copy(base).invert());
     const oL = _oL.set(0, 0, 0).applyMatrix4(_inv.copy(pegaL).invert()).add(pL0);
     const alcR = (sR.distanceTo(cotR.getWorldPosition(_t1)) + _t1.distanceTo(maoR.getWorldPosition(_t2))) * 0.97;
     const alcL = (sL.distanceTo(cotL.getWorldPosition(_t1)) + _t1.distanceTo(maoL.getWorldPosition(_t2))) * 0.97;
     const ponto = (o, alvo) => alvo.copy(o).applyQuaternion(Sq).add(Sp);
     const anda = _anda.set(0, 0, 0);
-    for (let k = 0; k < 6; k++) {
+    // (num clipe de duas mãos a postura é a dele: não empurra)
+    for (let k = 0; k < (doClipe ? 0 : 6); k++) {
       const R = ponto(pR0, _t1).add(anda), L = ponto(pL0, _t2).add(anda);
       const falta = e.frenteMin - Math.min(_t4.subVectors(R, peito).dot(frente), _t4.subVectors(L, peito).dot(frente));
       if (falta > 0) anda.addScaledVector(frente, falta);
@@ -272,7 +281,8 @@ export class CharacterModel {
     //    `maoEsq.abaixo` para o pomo) — nenhuma mexe na espada nem na outra
     Sq.multiply(_qt.setFromEuler(_eu.set(e.espadaGiro[0] * GRAU, e.espadaGiro[1] * GRAU, e.espadaGiro[2] * GRAU)));
     Sp.addScaledVector(lado, e.cabo[0]).addScaledVector(alto, e.cabo[1]).addScaledVector(frente, e.cabo[2]);
-    const pR = _pRl.set(e.armaPos[0], e.armaPos[1], e.armaPos[2]), pL = _pLl.set(0, 0, -e.maoEsq.abaixo);
+    // (a esquerda: a distância do clipe — ou a padrão — mais o que se ajustou)
+    const pR = _pRl.set(e.armaPos[0], e.armaPos[1], e.armaPos[2]), pL = _pLl.set(0, 0, -(abaixoBase + e.maoEsq.abaixo - EMPUNHADURA_PADRAO.maoEsq.abaixo));
     // a força do grude mistura com a animação (a espada e as mãos)
     Sp.lerpVectors(_Sp0, Sp, peso); Sq.copy(_qt.copy(_Sq0).slerp(Sq, peso));
     const poloR = _poloR.copy(sR).addScaledVector(lado, 0.35).addScaledVector(alto, -0.45).addScaledVector(frente, -0.1);
