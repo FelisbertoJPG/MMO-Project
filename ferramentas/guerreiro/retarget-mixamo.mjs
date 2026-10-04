@@ -4,7 +4,11 @@
 // sempre (guerreiro.js) — nada mais muda.
 //
 // Uso (desta pasta):
-//   node retarget-mixamo.mjs "<animação.fbx>" ../../assets/characters/UAL1.glb <NomeDoClipe> ../../assets/animacoes/<arquivo>.json
+//   node retarget-mixamo.mjs "<animação.fbx>" ../../assets/characters/UAL1.glb <NomeDoClipe> ../../assets/animacoes/<arquivo>.json [--endireitar=0.6]
+//
+// `--endireitar=k` (0 a 1) tira a corcunda: o giro que o quadril, a coluna, o pescoço e a cabeça
+// fizeram desde a pose T (que é ereta) é reduzido em k. Os braços guardam o giro que
+// tinham no mundo (as mãos não se soltam do cabo, só acompanham o peito).
 //
 // A conta (os dois esqueletos estão na pose T no arquivo): para cada osso UAL com
 // par no Mixamo, o giro que o osso Mixamo fez desde a pose T, NO MUNDO, é aplicado
@@ -18,7 +22,10 @@ const { FBXLoader } = await import('./addons/FBXLoader.js');
 THREE.TextureLoader.prototype.load = function () { return new THREE.Texture(); };
 console.warn = () => {};
 
-const [, , FBX, UAL, NOME, SAIDA] = process.argv;
+const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const [FBX, UAL, NOME, SAIDA] = args;
+const ENDIREITAR = Number(process.argv.find((a) => a.startsWith('--endireitar='))?.split('=')[1] ?? 0);
+const COLUNA = new Set(['pelvis', 'spine_01', 'spine_02', 'spine_03', 'neck_01', 'Head']);
 if (!SAIDA) { console.log('uso: node retarget-mixamo.mjs <anim.fbx> <UAL1.glb> <NomeDoClipe> <saida.json>'); process.exit(1); }
 
 // ---- o Mixamo, com a animação
@@ -88,7 +95,12 @@ for (let f = 0; f < n; f++) {
   for (const o of ordem) {
     const paiQ = o.parent?.isBone ? mundo.get(o.parent) : q(o.parent);   // o pai que não é osso fica parado
     let w;
-    if (tUal[o.name]) w = q(mixOsso(PARES[o.name])).multiply(tMix[o.name].clone().invert()).multiply(tUal[o.name]);
+    if (tUal[o.name]) {
+      // D = o giro desde a pose T, no mundo; na coluna, reduzido (endireitar)
+      const D = q(mixOsso(PARES[o.name])).multiply(tMix[o.name].clone().invert());
+      if (ENDIREITAR && COLUNA.has(o.name)) D.slerp(new THREE.Quaternion(), ENDIREITAR);
+      w = D.multiply(tUal[o.name]);
+    }
     else w = paiQ.clone().multiply(restoLocal.get(o));
     mundo.set(o, w);
     const local = paiQ.clone().invert().multiply(w);
@@ -98,6 +110,17 @@ for (let f = 0; f < n; f++) {
   const d = hips.getWorldPosition(new THREE.Vector3()).sub(hipsT).multiplyScalar(proporcao).add(pelvisT);
   const pai = pelvis.parent; pai.updateMatrixWorld(true);
   posPelvis.push(...d.applyMatrix4(pai.matrixWorld.clone().invert()).toArray());
+}
+// a postura no meio do clipe (o quanto o tronco e a cabeça inclinam)
+{
+  const f = Math.floor(n * 0.3);
+  ual.updateMatrixWorld(true);
+  for (const o of ordem) { const a = quats.get(o.name); o.quaternion.fromArray(a, f * 4); }
+  pelvis.position.fromArray(posPelvis, f * 3);
+  ual.updateMatrixWorld(true);
+  const P = (nm) => osso(nm).getWorldPosition(new THREE.Vector3());
+  const ang = (a, b) => { const d = b.clone().sub(a); return (Math.atan2(Math.hypot(d.x, d.z), d.y) * 180 / Math.PI).toFixed(1) + '°'; };
+  console.log(`  postura: quadril→peito ${ang(P('pelvis'), P('spine_03'))} | peito→cabeça ${ang(P('spine_03'), P('Head'))} | quadril→cabeça ${ang(P('pelvis'), P('Head'))} (0° = ereto)`);
 }
 const trilhas = [];
 for (const o of ordem) if (tUal[o.name] || o === pelvis) trilhas.push(new THREE.QuaternionKeyframeTrack(`${o.name}.quaternion`, tempos, quats.get(o.name)));
