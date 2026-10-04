@@ -1,6 +1,11 @@
 {
   "_leiame": "Mapas da masmorra. world.js le a variante `ativo`; o editor de cenas grava este arquivo. Um caractere = uma celula. # rocha, . piso, , terra, c cela, X arena, f ar livre (floresta: grama, sem teto), a andar de cima (chao a WALL_H, ao ar livre), e escada (liga o chao ao andar de cima pelas duas pontas).",
   "ativo": "floresta",
+  "marcos": {
+    "_leiame": "As TAGS de lugar de cada variante, em [linha, coluna] (meia coluna vale: 47.5 = entre a 47 e a 48). inicio = onde a Jornada começa (a cela); masmorra e acampamento = as fogueiras; nascer = a fogueira onde nasce o personagem novo do Mundo online. Mudou o `nascer`? Quem estava salvo acorda nele (save.js).",
+    "original": { "inicio": [24, 5], "masmorra": [20, 7] },
+    "floresta": { "inicio": [24, 5], "masmorra": [20, 7], "acampamento": [16, 47.5], "nascer": "acampamento" }
+  },
   "mapas": {
     "original": [
       "###############",

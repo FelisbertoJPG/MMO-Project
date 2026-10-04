@@ -3,7 +3,7 @@ import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js'
 import { corpoGuardado, armaduraDe } from './guerreiro.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { ITEMS, UNARMED, TORCH_LIFE } from './items.js';
-import { START_POS } from './world.js';
+import { START_POS, NASCER } from './world.js';
 import { Assets } from './assets.js';
 
 const SPRINT_HOLD = 0.28;
@@ -114,7 +114,7 @@ export class Player {
    * fogueira de lá, que já é o ponto de retorno. Sem a cena da cela.
    */
   startOutside() {
-    this.fogueira = 'acampamento';
+    this.fogueira = NASCER.id;   // a tag `nascer` do mapa (world.js)
     this.respawn();
   }
 

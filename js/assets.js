@@ -135,6 +135,9 @@ async function carregarMapa() {
     // As mensagens e manchas online são gravadas com o nome do mapa: uma
     // mensagem deixada na `floresta` não pode aparecer dentro da rocha do `original`.
     Assets.mapaNome = ativo;
+    // as TAGS de lugar desta variante (world.js, aplicarMarcos); faltando, valem as do código
+    const m = d.marcos?.[ativo];
+    Assets.marcos = m && typeof m === 'object' && !Array.isArray(m) ? m : {};
     if (!Array.isArray(linhas) || !linhas.length) throw new Error(`a variante "${ativo}" está vazia`);
     // Linha de tamanho diferente é o erro mais fácil de cometer editando à mão,
     // e o jogo o absorveria em silêncio (`ch()` devolve rocha fora da faixa):
@@ -158,6 +161,7 @@ export const Assets = {
   grama: null,   // a cor do chão do ar livre (decor.json), ou null = a de sempre
   mapa: null,
   mapaNome: 'emergencia',
+  marcos: {},    // as tags de lugar da variante ativa (mapa.json → `marcos`): ver world.js
   modelos: {},   // nome → modelo de blocos (MODELOS)
   animais: {},   // nome → { scene, clips } (ANIMAIS_MODELOS)
   empunhadura: {},   // arma de duas mãos → os ajustes da pegada (assets/empunhadura.json; character.js)

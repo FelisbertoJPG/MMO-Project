@@ -186,6 +186,29 @@ export const START_POS = new THREE.Vector3(5 * CELL, 0, 24 * CELL);
 // ferramenta do editor ainda assume "da coluna 26 em diante": ajuste-a antes de
 // rodá-la de novo, ou ela redecora a mata como se fosse o acampamento.
 export const CAMP_POS = new THREE.Vector3(47.5 * CELL, 0, 16 * CELL);
+
+/**
+ * AS TAGS DE LUGAR (`marcos` no mapa.json, 04/10/2026). As posições acima são o
+ * padrão; a variante ativa do mapa pode trazer as suas, em [linha, coluna]:
+ * `inicio` (START_POS), `masmorra` (BONFIRE_POS), `acampamento` (CAMP_POS) e
+ * `nascer` (o id da fogueira onde nasce o personagem novo do Mundo online, e onde
+ * acorda quem estava salvo com outro `nascer` — save.js). Editar o mapa e mudar o
+ * ponto de nascer é só mudar a tag: o código não muda.
+ * Muda os Vector3 NO LUGAR: as FOGUEIRAS e quem importou as constantes os seguem.
+ */
+export function aplicarMarcos(m = {}) {
+  const cel = (v) => (Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v : null);
+  for (const [nome, pos] of [['inicio', START_POS], ['masmorra', BONFIRE_POS], ['acampamento', CAMP_POS]]) {
+    const c = cel(m[nome]);
+    if (c) pos.set(c[1] * CELL, 0, c[0] * CELL);
+  }
+  NASCER.id = typeof m.nascer === 'string' && FOGUEIRAS.some((f) => f.id === m.nascer) ? m.nascer : 'acampamento';
+}
+/** A fogueira onde se nasce no Mundo online (a tag `nascer`) e a assinatura do lugar dela. */
+export const NASCER = {
+  id: 'acampamento',
+  get chave() { const f = FOGUEIRAS.find((x) => x.id === this.id); return `${this.id}@${f ? `${(f.pos.z / CELL).toFixed(2)},${(f.pos.x / CELL).toFixed(2)}` : '?'}`; },
+};
 /**
  * As FOGUEIRAS, no plural. `acordar` = onde se renasce, em metros a partir do
  * fogo, e `rumo` = para onde se acorda olhando. A da masmorra é a primeira: é
@@ -225,6 +248,7 @@ function messageTexture(seed) {
 
 export class World {
   constructor(game) {
+    aplicarMarcos(Assets.marcos);   // as tags de lugar do mapa, antes de montar qualquer coisa
     this.game = game;
     this.scene = game.scene;
     this.boxes = [];

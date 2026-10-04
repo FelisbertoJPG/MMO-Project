@@ -2,7 +2,7 @@ import { ITEMS } from './items.js';
 import { RECEITAS } from './receitas.js';
 import { req } from './rede/supabase.js';
 import { temSaveEmArquivo } from './hospedagem.js';
-import { CELL } from './world.js';
+import { CELL, NASCER } from './world.js';
 
 // Progresso do jogador. Os inimigos comuns NÃO entram: eles renascem a cada
 // fogueira, então continuar é como acordar depois de um descanso. O que fica é
@@ -122,6 +122,7 @@ export function coletar(game) {
       almas, vida: p.dead ? null : Math.ceil(p.hp), pos,
       fogueira: p.fogueira,
       mapa: MAPA_REV,
+      nascer: NASCER.chave,   // onde ficava a tag `nascer` quando gravou (ver aplicarProgresso)
       receitas: [...p.receitas],   // as descobertas na panela   // onde renasce (save de antes das duas fogueiras não tem: é a da masmorra)
     },
     inventario: {
@@ -226,6 +227,14 @@ export function aplicarProgresso(game, s) {
     p.fogueira = w.fogueira('acampamento').id;
     pos = null;
   }
+  // A TAG `nascer` do mapa mudou desde que gravou (o mapa foi editado e o ponto de
+  // nascer foi para outro lugar): no Mundo online todos acordam no novo
+  if (!doMundo && typeof j.nascer === 'string' && j.nascer !== NASCER.chave) {
+    p.fogueira = w.fogueira(NASCER.id).id;
+    pos = null;
+  }
+  // e, em qualquer modo, um lugar salvo que virou ROCHA numa edição do mapa não vale
+  if (pos && !(Number.isFinite(pos.x) && Number.isFinite(pos.z) && w.isFloor(...w.cellOf(pos)))) pos = null;
   p.respawn();
   if (pos) {
     p.pos.set(pos.x, pos.y, pos.z);
