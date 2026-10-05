@@ -26,6 +26,7 @@ import { Assets } from './assets.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { LUGARES } from './ficha.js';
+import { pecasDaTunica } from './tunica.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -82,6 +83,9 @@ const ARMADURA = /^A([123])_/;
 // cinto, bolsas, tanga — é do peito)
 const LUGAR_DA_PECA = [['cabeca', /Helmet/i], ['bracos', /Forearm/i], ['pernas', /Boot|Pant|Knee|Thigh/i]];
 export const lugarDaPeca = (nome) => LUGAR_DA_PECA.find(([, re]) => re.test(nome))?.[0] ?? 'peito';
+// OS NOSSOS DESENHOS: lugar + conjunto que NÃO usam as peças do pacote, e sim uma feita
+// aqui a partir do corpo (`lugar:conjunto` → função que recebe as peças e devolve as dela)
+const DESENHOS = { 'peito:1': pecasDaTunica };   // o peito de couro: a túnica (tunica.js)
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
 
@@ -214,15 +218,20 @@ export class CorpoGuerreiro {
     armadura = armaduraDe(armadura ?? NU) || NU;
     this.armadura = armadura;
     for (const o of this.rigidas) o.visible = false;
+    const desenho = (lugar, conj) => DESENHOS[`${lugar}:${conj}`];
     const usadas = this.pecas.filter((o) => {
       const a = o.name.match(ARMADURA);
-      return !a || armadura[LUGARES.indexOf(lugarDaPeca(o.name))] === a[1];
+      if (!a) return true;
+      const lugar = lugarDaPeca(o.name);
+      return armadura[LUGARES.indexOf(lugar)] === a[1] && !desenho(lugar, a[1]);
     });
+    // os nossos desenhos entram como mais peças da malha fundida
+    LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...d(this.pecas)); });
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     const material = (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
     const geo = material ? geometriaFundida(armadura, usadas, this.ordem) : null;
-    for (const o of this.pecas) o.visible = !geo && usadas.includes(o);
+    for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
     if (!this.fundida) {
       this.fundida = new THREE.SkinnedMesh(geo, material);

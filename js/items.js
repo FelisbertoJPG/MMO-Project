@@ -126,7 +126,8 @@ function armaduras() {
     2: { nome: 'do Sentinela', cor: '#8a8f96', borda: '#2a2e34', desc: 'Malha e placas de um sentinela da masmorra. Protege bem sem pesar demais.' },
     3: { nome: 'do Cavaleiro Caído', cor: '#4e5866', borda: '#c8a24a', desc: 'Placas pesadas de uma ordem que desafiou o Carrasco. Segura muito, mas pede resistência para ser carregada.' },
   };
-  const PECA = { cabeca: ['Elmo', 'Capacete'], peito: ['Peitoral', 'Peitoral'], bracos: ['Braçadeiras', 'Braçadeiras'], pernas: ['Grevas', 'Calças'] };
+  // [nome, nome no couro] — o peito de couro é a TÚNICA (o nosso desenho, tunica.js)
+  const PECA = { cabeca: ['Elmo', 'Capacete'], peito: ['Peitoral', 'Túnica'], bracos: ['Braçadeiras', 'Braçadeiras'], pernas: ['Grevas', 'Calças'] };
   // [absorção, peso, equilíbrio] por conjunto e lugar
   const NUM = {
     1: { peito: [0.08, 3, 2], bracos: [0.03, 1, 1], pernas: [0.05, 2, 1] },
@@ -137,7 +138,7 @@ function armaduras() {
   for (const [k, c] of Object.entries(CONJ)) {
     for (const [lugar, [absorcao, peso, equilibrio]] of Object.entries(NUM[k])) {
       itens[`arm${k}_${lugar}`] = {
-        name: `${PECA[lugar][k === '1' && lugar === 'pernas' ? 1 : 0]} ${c.nome}`, type: 'armadura', lugar, conjunto: Number(k),
+        name: `${PECA[lugar][k === '1' ? 1 : 0]} ${c.nome}`, type: 'armadura', lugar, conjunto: Number(k),
         icon: armaduraIcone[lugar](c.cor, c.borda), desc: c.desc,
         absorcao, peso, equilibrio,
       };
