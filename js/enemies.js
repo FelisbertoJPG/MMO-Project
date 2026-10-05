@@ -57,6 +57,23 @@ export const ENEMY_TYPES = {
   },
 };
 
+/**
+ * O REFORÇO DOS ESQUELETOS (05/10/2026): com a ficha nova (ficha.js) eles ficaram fracos
+ * demais. O ajuste fica AQUI, por cima da tabela, para ser mexido num lugar só: vida,
+ * dano dos golpes, equilíbrio (quanto aguenta sem cambalear), a pausa entre ataques
+ * (menor = mais agressivo) e as almas (um pouco mais, que agora dão mais trabalho).
+ */
+export const REFORCO_ESQUELETOS = { vida: 1.6, dano: 1.2, equilibrio: 1.5, pausa: 0.85, almas: 1.3 };
+for (const t of Object.values(ENEMY_TYPES)) {
+  if (!t.skeleton) continue;
+  const R = REFORCO_ESQUELETOS;
+  t.hp = Math.round(t.hp * R.vida);
+  t.poise = Math.round(t.poise * R.equilibrio);
+  t.souls = Math.round(t.souls * R.almas);
+  t.cooldown = t.cooldown.map((c) => Math.round(c * R.pausa * 100) / 100);
+  for (const a of t.attacks) a.dmg = Math.round(a.dmg * R.dano);
+}
+
 export class Enemy {
   constructor(game, cfg, spawnPos, facing = 0, { dormant = false } = {}) {
     this.game = game;

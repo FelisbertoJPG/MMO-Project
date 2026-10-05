@@ -157,7 +157,7 @@ export class Boss extends Enemy {
       const ang = Math.random() * Math.PI * 2;
       const p = this.alvo.pos.clone().add(new THREE.Vector3(Math.cos(ang) * 4.5, 0, Math.sin(ang) * 4.5));
       game.world.resolve(p, 0.6);
-      const m = new Enemy(game, { ...ENEMY_TYPES.minion, souls: 0, drops: [], hp: 50 }, p, yawTo(p, this.alvo.pos));
+      const m = new Enemy(game, { ...ENEMY_TYPES.minion, souls: 0, drops: [], hp: 80 }, p, yawTo(p, this.alvo.pos));
       m.canEngage = () => !m.alvo.dead;
       m.netId = `lacaio${++game.contLacaios}`;
       Object.defineProperty(m, 'inArenaZone', { get: () => true });

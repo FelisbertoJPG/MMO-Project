@@ -634,7 +634,7 @@ export class Mundo {
 
   criarLacaio(r) {
     const g = this.game;
-    const m = new Enemy(g, { ...ENEMY_TYPES.minion, souls: 0, drops: [], hp: 50 }, new THREE.Vector3(r.x, r.y, r.z), r.g);
+    const m = new Enemy(g, { ...ENEMY_TYPES.minion, souls: 0, drops: [], hp: 80 }, new THREE.Vector3(r.x, r.y, r.z), r.g);
     m.netId = r.netId;
     m.canEngage = () => false;
     g.all.push(m);

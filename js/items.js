@@ -153,43 +153,43 @@ export const ITEMS = {
   // (ver `Player.applyItem` e os `buffs`). Saem da panela da fogueira (`receitas.js`)
   // ou caem de barris e inimigos.
   paoDuro: {
-    name: 'Pão Duro', type: 'consumable', icon: ICONS.paoDuro, use: 'comer', cura: 70, max: 10,
+    name: 'Pão Duro', type: 'consumable', icon: ICONS.paoDuro, use: 'comer', corNaMao: 0xb8843a, cura: 70, max: 10,
     desc: 'Pão de muitos dias, duro como pedra. Mata a fome e fecha um corte ou dois.',
     stats: { 'Cura': '70 PV' },
   },
   carneAssada: {
-    name: 'Carne Assada', type: 'consumable', icon: ICONS.carneAssada, use: 'comer', cura: 140, max: 10,
+    name: 'Carne Assada', type: 'consumable', icon: ICONS.carneAssada, use: 'comer', corNaMao: 0x6a2e14, cura: 140, max: 10,
     desc: 'Carne tostada direto na chama da fogueira. Cura de uma vez só.',
     stats: { 'Cura': '140 PV' },
   },
   ensopado: {
-    name: 'Ensopado de Cogumelos', type: 'consumable', icon: ICONS.ensopado, use: 'comer', cura: 40, regen: { porSeg: 18, dur: 10 }, max: 10,
+    name: 'Ensopado de Cogumelos', type: 'consumable', icon: ICONS.ensopado, use: 'comer', corNaMao: 0x7a5230, cura: 40, regen: { porSeg: 18, dur: 10 }, max: 10,
     desc: 'Cogumelos da caverna cozidos com raiz. Esquenta o corpo e vai curando aos poucos.',
     stats: { 'Cura': '40 PV + 180 em 10s' },
   },
   mingau: {
-    name: 'Mingau com Mel', type: 'consumable', icon: ICONS.mingau, use: 'comer', cura: 60, efeito: { tipo: 'folego', dur: 40 }, max: 10,
+    name: 'Mingau com Mel', type: 'consumable', icon: ICONS.mingau, use: 'comer', corNaMao: 0xe8d8b0, cura: 60, efeito: { tipo: 'folego', dur: 40 }, max: 10,
     desc: 'Farinha, água e mel. Doce e quente: o fôlego volta mais rápido por um tempo.',
     stats: { 'Cura': '60 PV', 'Fôlego': '+60% vigor por 40s' },
   },
   guisado: {
-    name: 'Guisado de Raiz', type: 'consumable', icon: ICONS.guisado, use: 'comer', cura: 50, efeito: { tipo: 'fortaleza', dur: 60 }, max: 10,
+    name: 'Guisado de Raiz', type: 'consumable', icon: ICONS.guisado, use: 'comer', corNaMao: 0x8a3a1a, cura: 50, efeito: { tipo: 'fortaleza', dur: 60 }, max: 10,
     desc: 'Raiz grossa e carne, cozidas até desmanchar. Pesa no estômago e endurece a pele.',
     stats: { 'Cura': '50 PV', 'Fortaleza': '+15% defesa por 60s' },
   },
   caldoPicante: {
-    name: 'Caldo Picante', type: 'consumable', icon: ICONS.caldoPicante, use: 'comer', cura: 30, efeito: { tipo: 'furia', dur: 45 }, max: 10,
+    name: 'Caldo Picante', type: 'consumable', icon: ICONS.caldoPicante, use: 'comer', bebida: true, corNaMao: 0xc8301a, cura: 30, efeito: { tipo: 'furia', dur: 45 }, max: 10,
     desc: 'Pimenta fervida até arder os olhos. Esquenta o sangue: os golpes saem mais fortes.',
     stats: { 'Cura': '30 PV', 'Fúria': '+20% dano por 45s' },
   },
   chaErva: {
-    name: 'Chá de Erva Amarga', type: 'consumable', icon: ICONS.chaErva, use: 'comer', cura: 20, regen: { porSeg: 6, dur: 40 }, max: 10,
+    name: 'Chá de Erva Amarga', type: 'consumable', icon: ICONS.chaErva, use: 'comer', bebida: true, corNaMao: 0x8a9a3a, cura: 20, regen: { porSeg: 6, dur: 40 }, max: 10,
     desc: 'Amargo de doer. Não enche a barriga, mas o corpo se remenda devagar por bastante tempo.',
     stats: { 'Cura': '20 PV + 240 em 40s' },
   },
 
   gororoba: {
-    name: 'Gororoba', type: 'consumable', icon: ICONS.gororoba, use: 'comer', cura: 15, max: 10,
+    name: 'Gororoba', type: 'consumable', icon: ICONS.gororoba, use: 'comer', corNaMao: 0x6a6450, cura: 15, max: 10,
     desc: 'O que sai da panela quando a mistura não é receita nenhuma. Mal dá para engolir, mas alimenta um pouco.',
     stats: { 'Cura': '15 PV' },
   },
@@ -255,8 +255,9 @@ export const ITEMS = {
   greatsword: {
     name: 'Espadão do Cavaleiro', type: 'weapon', icon: ICONS.greatsword, model: 'greatsword', twoHanded: true,
     desc: 'Espada colossal de um cavaleiro que tentou desafiar o Carrasco. Empunhada com as duas mãos.',
-    damage: 62, speed: 0.9, stamina: 30, reach: 2.5, poise: 60,
+    damage: 62, speed: 0.7, stamina: 30, reach: 2.5, poise: 60,
     escala: 'A', requisito: 18, peso: 9,
+    terminaGolpe: true,   // o golpe vai até o FIM da animação: nada o corta (nem outro golpe, nem rolar)
     guarda: 0.5,   // bloqueia com a própria lâmina (o escudo vai para as costas)
     light: ['heavy1', 'heavy2', 'heavy3', 'heavy4'], heavy: 'overhead',
   },

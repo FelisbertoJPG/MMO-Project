@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
 import { corpoGuardado, NU, codigoDaArmadura } from './guerreiro.js';
 import { APARENCIA_PADRAO } from './aparencia.js';
+import { DURACAO as DURACAO_REFEICAO, objetoDaRefeicao } from './refeicao.js';
 import {
   curva, VIDA_BASE, VITALIDADE, VIGOR_BASE, RESISTENCIA_VIGOR, CARGA_BASE, RESISTENCIA_CARGA,
   FORCA, ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES,
@@ -186,7 +187,12 @@ export class Player {
     this.hp = Math.min(this.hp, this.maxHp);
   }
 
-  setState(s, data = {}) { this.state = s; this.stateT = 0; this.st = data; }
+  setState(s, data = {}) {
+    // saindo de uma refeição (acabou ou foi interrompida): o que estava na mão esquerda volta
+    const devolver = this.st?.naMao && s !== this.state;
+    this.state = s; this.stateT = 0; this.st = data;
+    if (devolver) this.refreshEquipment();
+  }
 
   // ---------- Entrada ----------
   moveInput() {
@@ -394,6 +400,9 @@ export class Player {
       poise: (w.poise ?? 10) * (heavy ? 1.8 : 1),
       fire: kind === 'torch',
       hitSet: new Set(), queued: null, swung: false, recovering: false,
+      // de onde o golpe pode ser emendado (outro golpe, rolar): logo depois do acerto, ou
+      // só no FIM da animação nas armas que pedem (`terminaGolpe`: o espadão)
+      solta: w.terminaGolpe ? 1 : (spec.hit[1] - from) / seg + 0.08,
     };
     this.stamina -= w.stamina * (heavy ? 1.6 : 1);
     this.staminaDelay = 0.6;
@@ -443,7 +452,7 @@ export class Player {
       }
     }
     if (p > 0.25 && this.buffer && !a.queued) { a.queued = this.buffer; this.buffer = null; }
-    if (p >= a.hitEnd + 0.08 && a.queued) {
+    if (p >= a.solta && a.queued) {
       const q = a.queued; a.queued = null;
       if ((q === 'light' || q === 'heavy') && this.stamina > 0) return this.startAttack(q, a.combo + 1, dir);
       if (q === 'torch' && this.stamina > 0 && this.torchLit) return this.startAttack('torch', 0, dir);
@@ -497,9 +506,17 @@ export class Player {
 
   startItemUse(id) {
     const def = ITEMS[id];
-    const dur = { heal: 1.3, comer: 1.3, throw: 0.9, resin: 1.0, blossom: 1.0, souls: 0.9, home: 1.8 }[def.use] ?? 1;
-    // comer é como beber o frasco era: lento, e um golpe forte interrompe (estado 'heal')
-    this.setState(def.use === 'heal' || def.use === 'comer' ? 'heal' : 'item', { id, def, dur, applied: false });
+    // COMER e BEBER (refeicao.js): o clipe próprio, com a comida (ou o caneco) na mão esquerda
+    const refeicao = def.use === 'comer' ? (def.bebida ? 'Beber' : 'Comer') : null;
+    const temClipe = refeicao && Assets.clips[refeicao];
+    const dur = temClipe ? DURACAO_REFEICAO[refeicao] : { heal: 1.3, comer: 1.3, throw: 0.9, resin: 1.0, blossom: 1.0, souls: 0.9, home: 1.8 }[def.use] ?? 1;
+    // comer é lento, e um golpe forte interrompe (estado 'heal')
+    this.setState(def.use === 'heal' || def.use === 'comer' ? 'heal' : 'item', { id, def, dur, applied: false, naMao: !!temClipe });
+    if (temClipe) {
+      this.model.equip('l', objetoDaRefeicao(!!def.bebida, def.corNaMao));
+      this.model.play(refeicao, { loop: false, duration: dur, restart: true, fade: 0.15 });
+      return;
+    }
     this.model.play(def.use === 'throw' ? 'OverhandThrow' : 'Consume', { loop: false, duration: def.use === 'throw' ? dur / 0.85 : dur, restart: true });
   }
 

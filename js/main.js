@@ -3,6 +3,7 @@ import { Assets } from './assets.js';
 import { initGear } from './gear.js';
 import { Ceu } from './ceu.js';
 import { EditorDeAparencia } from './aparencia.js';
+import { assarRefeicoes } from './refeicao.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
 import { World, START_POS, SAQUES, horaDoMundo } from './world.js';
@@ -80,6 +81,7 @@ class Game {
     // de existir antes da primeira compilação dos shaders (senão recompila no meio do jogo)
     this.ceu = new Ceu(this);
     initGear(this.renderer, this.ceu.reflexo);
+    assarRefeicoes();   // as animações de comer e beber (refeicao.js), antes de qualquer boneco
     this.world = new World(this);
     this.capim = new Capim(this);   // as graminhas que balançam com o vento (capim.js)
     this.effects = new Effects(this);
