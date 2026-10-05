@@ -108,6 +108,144 @@ const FRAG = /* glsl */`
     #include <colorspace_fragment>
   }`;
 
+// ------------------------------------------------------------ o CLARÃO (o reflexo na lente)
+/**
+ * O CLARÃO (04/10/2026): olhar para o sol (ou a lua) dá um reflexo de lente — um halo
+ * grande no astro, "fantasmas" (anéis e hexágonos) na reta do astro ao centro da tela, e
+ * um véu de luz por cima de tudo quando se olha bem de frente. É uma cena à parte, de
+ * planos aditivos numa câmera ortográfica, desenhada DEPOIS do quadro (`depoisDoQuadro`).
+ *
+ * Some atrás de árvore, parede e nuvem grossa: de 3 em 3 quadros lê-se um quadradinho de
+ * pixels em volta do astro (`readPixels`, um só, e só quando ele está na tela) e compara-se
+ * o disco com o céu logo em volta — à vista, o disco é mais claro. A visibilidade anda suave.
+ * No gráfico Baixo não há clarão (`clarao` da qualidade).
+ */
+function texturaDoClarao(tipo) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  if (tipo === 'halo') {
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  } else if (tipo === 'anel') {
+    const gr = g.createRadialGradient(64, 64, 40, 64, 64, 62);
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  } else {   // hexágono suave
+    g.filter = 'blur(3px)';
+    g.fillStyle = 'rgba(255,255,255,0.55)';
+    g.beginPath();
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + Math.PI / 6; g[i ? 'lineTo' : 'moveTo'](64 + Math.cos(a) * 56, 64 + Math.sin(a) * 56); }
+    g.closePath(); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+// os elementos de cada astro: [textura, lugar na reta (0 = no astro, 1 = no centro da tela,
+// além de 1 = do outro lado), tamanho (fração da altura da tela), cor, força]
+const ELEMENTOS = {
+  sol: [['halo', 0, 1.2, 0xffd9a0, 0.6], ['halo', 0, 0.3, 0xffffff, 0.85], ['hex', 0.42, 0.07, 0xffc890, 0.35], ['anel', 0.7, 0.14, 0xb8d0ff, 0.2],
+    ['hex', 1.22, 0.1, 0x9ad0ff, 0.26], ['hex', 1.5, 0.05, 0xffb0a0, 0.32], ['anel', 1.85, 0.32, 0xffe0b0, 0.12]],
+  lua: [['halo', 0, 0.6, 0xa8c0ff, 0.45], ['hex', 1.3, 0.055, 0xb0c8ff, 0.15], ['anel', 1.7, 0.2, 0xc0d0ff, 0.09]],
+};
+
+// o raio do disco de cada astro (radianos), o mesmo do shader do céu (o `smoothstep` do disco)
+const RAIO_ASTRO = { sol: Math.acos(0.9993), lua: Math.acos(0.99935) };
+
+class Clarao {
+  constructor(game) {
+    this.game = game;
+    this.cena = new THREE.Scene();
+    this.cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 2);
+    const tex = { halo: texturaDoClarao('halo'), anel: texturaDoClarao('anel'), hex: texturaDoClarao('hex') };
+    const plano = new THREE.PlaneGeometry(1, 1);
+    const material = (map, cor) => new THREE.MeshBasicMaterial({ map, color: cor, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, toneMapped: false, fog: false });
+    this.astros = {};
+    for (const [nome, lista] of Object.entries(ELEMENTOS)) {
+      this.astros[nome] = {
+        vis: 0, alvo: 0,
+        partes: lista.map(([t, pos, tam, cor, forca]) => {
+          const m = new THREE.Mesh(plano, material(tex[t], cor));
+          m.userData = { pos, tam, forca };
+          m.visible = false;
+          this.cena.add(m);
+          return m;
+        }),
+      };
+    }
+    // o véu: a tela inteira um pouco mais clara olhando bem para o sol
+    this.veu = new THREE.Mesh(plano, new THREE.MeshBasicMaterial({ color: 0xffe2b8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, toneMapped: false }));
+    this.veu.scale.set(10, 10, 1);
+    this.veu.visible = false;
+    this.cena.add(this.veu);
+    this.quadro = 0;
+    this.px = new Uint8Array(4 * 9);
+    this._v = new THREE.Vector3(); this._f = new THREE.Vector3();
+  }
+
+  /** depois do quadro: `dirs` = { sol, lua } (direções), `forca` = { sol, lua } (0–1) */
+  depois(dt, dirs, forca) {
+    const g = this.game, r = g.renderer, cam = g.camera, q = g.graficos?.q;
+    if (q && q.clarao === false) return;
+    this.quadro++;
+    const aspecto = cam.aspect;
+    this.cam.left = -aspecto; this.cam.right = aspecto; this.cam.updateProjectionMatrix();
+    cam.getWorldDirection(this._f);
+    let algum = false, veu = 0;
+    for (const nome of ['sol', 'lua']) {
+      const a = this.astros[nome], dir = dirs[nome];
+      const p = this._v.copy(cam.position).addScaledVector(dir, 200).project(cam);
+      const naFrente = this._f.dot(dir) > 0.05 && forca[nome] > 0.01;
+      const naTela = naFrente && Math.abs(p.x) < 1.15 && Math.abs(p.y) < 1.15;
+      // a TAMPA: a cor no lugar do astro (só se ele está na tela, de 3 em 3 quadros)
+      if (!naTela) a.alvo = 0;
+      else if (this.quadro % 3 === 0 && Math.abs(p.x) < 0.98 && Math.abs(p.y) < 0.98) {
+        // UM bloco em volta do astro: o miolo (o disco) contra um anel um pouco fora dele.
+        // O astro está à vista se o disco é mais claro que o céu em volta — a lua atrás de
+        // nuvem fina ainda conta; atrás de árvore, parede ou nuvem grossa, não
+        const gl = r.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+        const raioPx = (RAIO_ASTRO[nome] / (cam.fov * Math.PI / 180)) * h;
+        const R = Math.max(4, Math.min(70, Math.round(raioPx * 1.8))), lado = 2 * R + 1;
+        const cx = Math.round((p.x + 1) / 2 * w), cy = Math.round((p.y + 1) / 2 * h);
+        const x0 = Math.max(0, cx - R), y0 = Math.max(0, cy - R), lw = Math.min(w - x0, lado), lh = Math.min(h - y0, lado);
+        if (this.px.length < lw * lh * 4) this.px = new Uint8Array(lado * lado * 4);
+        gl.readPixels(x0, y0, lw, lh, gl.RGBA, gl.UNSIGNED_BYTE, this.px);
+        let miolo = 0, nm = 0, anel = 0, na = 0;
+        const rm = Math.max(1, raioPx * 0.4), ra = raioPx * 1.5;
+        for (let yy = 0; yy < lh; yy++) for (let xx = 0; xx < lw; xx++) {
+          const d = Math.hypot(x0 + xx - cx, y0 + yy - cy), i = (yy * lw + xx) * 4;
+          const v = (this.px[i] + this.px[i + 1] + this.px[i + 2]) / 3;
+          if (d <= rm) { miolo += v; nm++; } else if (d >= ra && d <= R) { anel += v; na++; }
+        }
+        miolo /= Math.max(1, nm); anel /= Math.max(1, na);
+        const contraste = miolo - anel;
+        a.alvo = THREE.MathUtils.smoothstep(contraste, 6, 30) * THREE.MathUtils.smoothstep(miolo, 50, 90);
+        a.ultimo = { miolo: Math.round(miolo), anel: Math.round(anel), R };   // (para conferir)
+      }
+      a.vis += (a.alvo - a.vis) * Math.min(1, dt * 7);
+      const f = a.vis * forca[nome];
+      for (const m of a.partes) {
+        const { pos, tam, forca: fo } = m.userData;
+        m.visible = f > 0.003;
+        if (!m.visible) continue;
+        algum = true;
+        // na reta do astro ao centro (e além, do outro lado)
+        m.position.set(p.x * aspecto * (1 - pos), p.y * (1 - pos), 0);
+        m.scale.set(tam * 2, tam * 2, 1);
+        m.material.opacity = f * fo;
+      }
+      if (nome === 'sol') veu = f * Math.max(0, this._f.dot(dir)) ** 10 * 0.16;
+    }
+    this.veu.material.opacity = veu;
+    this.veu.visible = veu > 0.003;
+    if (!algum && !this.veu.visible) return;
+    const auto = r.autoClear;
+    r.autoClear = false;
+    r.render(this.cena, this.cam);
+    r.autoClear = auto;
+  }
+}
+
 export class Ceu {
   constructor(game) {
     this.game = game;
@@ -150,6 +288,16 @@ export class Ceu {
     // (`Gear.env`, gear.js) e o corpo do guerreiro (guerreiro.js).
     this.desdeReflexo = 0;
     this.kReflexo = 1;
+    // a direção da LUZ do mundo: o sol de dia, a lua de noite (a mesma do desenho), trocando
+    // suave no nascer e no pôr; nunca rasante demais
+    this.luzDir = new THREE.Vector3(0, 1, 0);
+    this.clarao = new Clarao(game);
+    this.forca = { sol: 0, lua: 0 };
+  }
+
+  /** Depois do quadro desenhado (o laço do jogo): o clarão do sol e da lua. */
+  depoisDoQuadro(dt) {
+    this.clarao.depois(dt, { sol: this.uniforms.uSol.value, lua: this.uniforms.uLua.value }, this.forca);
   }
 
   refazerReflexo() { this.pmrem.fromScene(this.cenaReflexo, 0.02, 0.1, 100); }
@@ -177,6 +325,13 @@ export class Ceu {
     // (o arco da lua é inclinado para o sul: no alto da noite fica a ~43°, onde a câmera
     // do jogo alcança; no zênite ninguém a veria)
     U.uLua.value.set(-Math.cos(ang), -Math.sin(ang) * 0.7, -0.75).normalize();
+    const sol = U.uSol.value, lua = U.uLua.value, w = THREE.MathUtils.smoothstep(sol.y, -0.05, 0.15);
+    this.luzDir.copy(lua).lerp(sol, w);
+    this.luzDir.y = Math.max(0.25, this.luzDir.y);
+    this.luzDir.normalize();
+    // quanto cada astro brilha na lente: o sol acima do horizonte, a lua de noite; nada na masmorra
+    this.forca.sol = k * THREE.MathUtils.smoothstep(sol.y, -0.03, 0.08);
+    this.forca.lua = k * THREE.MathUtils.smoothstep(lua.y, -0.02, 0.1) * (1 - F.dia);
     // a abóbada em volta da câmera
     const cam = this.game.camera;
     this.abobada.matrix.makeTranslation(cam.position.x, cam.position.y, cam.position.z);

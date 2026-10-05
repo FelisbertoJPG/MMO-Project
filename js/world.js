@@ -237,14 +237,14 @@ export function horaDoMundo(agora = Date.now()) { return Number.isFinite(globalT
 // As CHAVES do céu (hora → como está): o resto é interpolado entre a de antes e a de depois.
 // `dia` (0–1) é quanto de sol há — os campos só ficam mais verdes com sol.
 const CEU = [
-  [0, { fundo: 0x0e1830, nevoa: 0x101a30, dens: 0.014, hemi: 2.1, amb: 1.6, lua: 3.0, ceu: 0x46506e, chao: 0x100c08, ambCor: 0x24242e, luz: 0x9db4e8, dia: 0 }],
-  [4.8, { fundo: 0x121a34, nevoa: 0x141d34, dens: 0.013, hemi: 2.1, amb: 1.6, lua: 2.6, ceu: 0x4a5272, chao: 0x120e0a, ambCor: 0x26262f, luz: 0xa0b4e0, dia: 0 }],
-  [6.3, { fundo: 0xc98e78, nevoa: 0xbf9886, dens: 0.009, hemi: 2.4, amb: 1.4, lua: 2.6, ceu: 0xffc3a0, chao: 0x3a3024, ambCor: 0x3a3030, luz: 0xffad78, dia: 0.5 }],
-  [8.5, { fundo: 0x7fb2e8, nevoa: 0xa9c8e8, dens: 0.005, hemi: 3.0, amb: 1.5, lua: 4.0, ceu: 0xd8e8ff, chao: 0x4a5a32, ambCor: 0x404650, luz: 0xfff1d6, dia: 1 }],
-  [15.5, { fundo: 0x7fb2e8, nevoa: 0xa9c8e8, dens: 0.005, hemi: 3.0, amb: 1.5, lua: 4.0, ceu: 0xd8e8ff, chao: 0x4a5a32, ambCor: 0x404650, luz: 0xfff1d6, dia: 1 }],
-  [17.6, { fundo: 0xd98a52, nevoa: 0xcf9a72, dens: 0.007, hemi: 2.6, amb: 1.35, lua: 3.4, ceu: 0xffc890, chao: 0x3d4a2a, ambCor: 0x3c3428, luz: 0xffad5c, dia: 0.7 }],
-  [19.0, { fundo: 0x3a3a68, nevoa: 0x40406a, dens: 0.011, hemi: 2.2, amb: 1.5, lua: 2.6, ceu: 0x6a6a9a, chao: 0x151210, ambCor: 0x2a2836, luz: 0xc0a0d0, dia: 0.1 }],
-  [20.5, { fundo: 0x0e1830, nevoa: 0x101a30, dens: 0.014, hemi: 2.1, amb: 1.6, lua: 3.0, ceu: 0x46506e, chao: 0x100c08, ambCor: 0x24242e, luz: 0x9db4e8, dia: 0 }],
+  [0, { fundo: 0x0e1830, nevoa: 0x101a30, dens: 0.015, hemi: 1.05, amb: 0.7, lua: 1.5, ceu: 0x46506e, chao: 0x100c08, ambCor: 0x24242e, luz: 0x9db4e8, dia: 0 }],
+  [4.8, { fundo: 0x121a34, nevoa: 0x141d34, dens: 0.014, hemi: 1.15, amb: 0.75, lua: 1.4, ceu: 0x4a5272, chao: 0x120e0a, ambCor: 0x26262f, luz: 0xa0b4e0, dia: 0 }],
+  [6.3, { fundo: 0xc98e78, nevoa: 0xbf9886, dens: 0.009, hemi: 1.9, amb: 1.0, lua: 2.1, ceu: 0xffc3a0, chao: 0x3a3024, ambCor: 0x3a3030, luz: 0xffad78, dia: 0.5 }],
+  [8.5, { fundo: 0x7fb2e8, nevoa: 0xa9c8e8, dens: 0.005, hemi: 2.5, amb: 1.15, lua: 3.5, ceu: 0xd8e8ff, chao: 0x4a5a32, ambCor: 0x404650, luz: 0xfff1d6, dia: 1 }],
+  [15.5, { fundo: 0x7fb2e8, nevoa: 0xa9c8e8, dens: 0.005, hemi: 2.5, amb: 1.15, lua: 3.5, ceu: 0xd8e8ff, chao: 0x4a5a32, ambCor: 0x404650, luz: 0xfff1d6, dia: 1 }],
+  [17.6, { fundo: 0xd98a52, nevoa: 0xcf9a72, dens: 0.007, hemi: 2.05, amb: 1.0, lua: 2.8, ceu: 0xffc890, chao: 0x3d4a2a, ambCor: 0x3c3428, luz: 0xffad5c, dia: 0.7 }],
+  [19.0, { fundo: 0x3a3a68, nevoa: 0x40406a, dens: 0.012, hemi: 1.45, amb: 0.9, lua: 1.8, ceu: 0x6a6a9a, chao: 0x151210, ambCor: 0x2a2836, luz: 0xc0a0d0, dia: 0.1 }],
+  [20.5, { fundo: 0x0e1830, nevoa: 0x101a30, dens: 0.015, hemi: 1.05, amb: 0.7, lua: 1.5, ceu: 0x46506e, chao: 0x100c08, ambCor: 0x24242e, luz: 0x9db4e8, dia: 0 }],
   [24, null],   // = a da meia-noite
 ].map(([h, c]) => [h, c && Object.fromEntries(Object.entries(c).map(([k, v]) => [k, typeof v === 'number' && k !== 'dens' && k !== 'hemi' && k !== 'amb' && k !== 'lua' && k !== 'dia' ? new THREE.Color(v) : v]))]);
 CEU[CEU.length - 1][1] = CEU[0][1];
@@ -523,10 +523,15 @@ export class World {
     a.lua.color.copy(F.luz);
     // o sol (ou a lua) em volta do jogador, na altura da hora
     const p = this.game.player.pos;
-    a.lua.position.set(p.x + F.dir.x * 90, p.y + F.dir.y * 90, p.z + F.dir.z * 90);
-    a.lua.target.position.copy(p);
-    // o CÉU desenhado (sol, lua, nuvens) e o reflexo dele (ceu.js)
+    // o CÉU desenhado (sol, lua, nuvens) e o reflexo dele (ceu.js); a luz vem de onde o
+    // sol (ou a lua) está desenhado
     this.game.ceu?.update(dt, F, horaDoMundo(), a.k, a.dentro.fundo);
+    const dir = this.game.ceu?.luzDir ?? F.dir;
+    a.lua.position.set(p.x + dir.x * 90, p.y + dir.y * 90, p.z + dir.z * 90);
+    a.lua.target.position.copy(p);
+    // a EXPOSIÇÃO: ao ar livre um pouco menor (o céu claro deixava o cenário lavado); na
+    // masmorra a de sempre (1,2). Só um número do renderizador: não recompila nada
+    this.game.renderer.toneMappingExposure = 1.2 - 0.17 * a.k;
     // o FILTRO DE COR (style.css): sombrio na masmorra, quase limpo ao ar livre
     const kf = Math.round(a.k * 50) / 50;
     if (kf !== a.filtroK) {

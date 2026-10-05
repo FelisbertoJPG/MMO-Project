@@ -23,7 +23,7 @@ export const QUALIDADES = {
     // a luz da tocha na mão: um cubo de sombras (seis vistas do cenário)
     sombra: { mapa: 512, aCada: 1 }, tipoSombra: THREE.PCFSoftShadowMap,
     luzes: 8, filtroDeCor: true, particulas: 1, capim: 55,
-    nuvens: 5, reflexoS: 4,   // o céu (ceu.js): oitavas do ruído das nuvens, segundos entre um reflexo e outro
+    nuvens: 5, reflexoS: 4, clarao: true,   // o céu (ceu.js): oitavas das nuvens, segundos entre um reflexo e outro, o reflexo de lente do sol e da lua
   },
   medio: {
     nome: 'Médio', pixelRatio: 1.25, antialias: true,
@@ -31,13 +31,13 @@ export const QUALIDADES = {
     // three.js tira da distância da luz a cada quadro — não é opção aqui)
     sombra: { mapa: 256, aCada: 2 }, tipoSombra: THREE.PCFShadowMap,
     luzes: 5, filtroDeCor: true, particulas: 0.7, capim: 28,
-    nuvens: 4, reflexoS: 8,
+    nuvens: 4, reflexoS: 8, clarao: true,
   },
   baixo: {
     nome: 'Baixo', pixelRatio: 1, antialias: false,
     sombra: null, tipoSombra: THREE.BasicShadowMap,
     luzes: 3, filtroDeCor: false, particulas: 0.45, capim: 0,
-    nuvens: 2, reflexoS: 20,
+    nuvens: 2, reflexoS: 20, clarao: false,
   },
 };
 

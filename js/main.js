@@ -1030,6 +1030,7 @@ class Game {
     this.ui.update(dt);
     this.input.endFrame();
     this.renderer.render(this.scene, this.camera);
+    this.ceu?.depoisDoQuadro(dt);   // o reflexo de lente do sol e da lua (por cima do quadro)
   }
 }
 
