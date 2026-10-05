@@ -4,6 +4,7 @@ import { req } from './rede/supabase.js';
 import { temSaveEmArquivo } from './hospedagem.js';
 import { CELL, NASCER } from './world.js';
 import { FICHA, LUGARES } from './ficha.js';
+import { aparenciaValida } from './aparencia.js';
 
 // Progresso do jogador. Os inimigos comuns NÃO entram: eles renascem a cada
 // fogueira, então continuar é como acordar depois de um descanso. O que fica é
@@ -127,6 +128,7 @@ export function coletar(game) {
     salvoEm: new Date().toISOString(),
     jogador: {
       ficha: FICHA,   // a revisão das regras (ficha.js): save de outra não é aberto
+      aparencia: p.aparencia,   // o rosto e o cabelo (aparencia.js)
       nivel: p.level, vigor: p.vigor, endurance: p.endurance, strength: p.strength,
       almas, vida: p.dead ? null : Math.ceil(p.hp), pos,
       fogueira: p.fogueira,
@@ -193,6 +195,7 @@ export function aplicarProgresso(game, s) {
 
   // Atributos
   p.level = j.nivel; p.vigor = j.vigor; p.endurance = j.endurance; p.strength = j.strength;
+  if (aparenciaValida(j.aparencia)) p.aparencia = j.aparencia;
   p.receitas = new Set((Array.isArray(j.receitas) ? j.receitas : []).filter((id) => typeof id === 'string' && RECEITAS.some((r) => r.id === id)));
   p.souls = j.almas;
   game.ui.displaySouls = j.almas;

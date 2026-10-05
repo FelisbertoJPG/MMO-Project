@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { initGear } from './gear.js';
 import { Ceu } from './ceu.js';
+import { EditorDeAparencia } from './aparencia.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
 import { World, START_POS, SAQUES, horaDoMundo } from './world.js';
@@ -85,6 +86,7 @@ class Game {
     this.projectiles = new Projectiles(this);
     this.ui = new UI(this);
     this.provador = new Provador(this);   // Shift+G: os corpos do jogador (guerreiro.js)
+    this.editorAparencia = new EditorDeAparencia(this);   // o rosto e o cabelo (pausa → Aparência)
     this.inventory = new Inventory(this);
     this.player = new Player(this);
     this.enemies = spawnEnemies(this);
@@ -210,6 +212,7 @@ class Game {
     addEventListener('pagehide', () => this.salvar({ aoSair: true }));
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.salvar({ aoSair: true }); });
     document.getElementById('resume-btn').addEventListener('click', () => this.closeMenu());
+    document.getElementById('aparencia-btn').addEventListener('click', () => { this.closeMenu(); this.openMenu('aparencia'); });
     document.getElementById('bf-leave').addEventListener('click', () => this.closeMenu());
     this.renderer.domElement.addEventListener('click', () => {
       if (this.state === 'playing' && !this.menu && !this.input.locked) this.input.requestLock();
@@ -594,6 +597,8 @@ class Game {
     this.player.startOutside();
     this.snapCamera();
     this.ui.centerMessage('Acampamento dos Recém-chegados', 'info', 3000);
+    // o personagem NOVO escolhe o rosto antes de sair andando
+    this.after(1.2, () => { if (!this.menu) this.openMenu('aparencia'); });
   }
 
   // ---------- Menus ----------
@@ -617,6 +622,7 @@ class Game {
     if (kind === 'bonfire') this.ui.openBonfire();
     if (kind === 'pause') { this.mostrarCoordenadas(); document.getElementById('pause').classList.remove('hidden'); }
     if (kind === 'sala') this.salaUI.abrir();
+    if (kind === 'aparencia') this.editorAparencia.abrir();
     if (kind === 'escrever') {
       document.getElementById('msg-writer').classList.remove('hidden');
       document.getElementById('msg-erro').textContent = '';
@@ -636,6 +642,7 @@ class Game {
     if (this.menu === 'pause') document.getElementById('pause').classList.add('hidden');
     if (this.menu === 'escrever') document.getElementById('msg-writer').classList.add('hidden');
     if (this.menu === 'sala') this.salaUI.fechar();
+    if (this.menu === 'aparencia') { this.editorAparencia.fechar(); this.salvar({ nuvem: true }); }
     this.menu = null;
     document.activeElement?.blur();
     this.input.clearAll();
@@ -959,7 +966,7 @@ class Game {
   handleMenuInput() {
     const inp = this.input;
     if (this.menu === 'inventory' && (inp.pressed('KeyI') || inp.pressed('Tab') || inp.pressed('Escape'))) this.closeMenu();
-    else if ((this.menu === 'bonfire' || this.menu === 'pause' || this.menu === 'escrever' || this.menu === 'sala') && inp.pressed('Escape')) this.closeMenu();
+    else if ((this.menu === 'bonfire' || this.menu === 'pause' || this.menu === 'escrever' || this.menu === 'sala' || this.menu === 'aparencia') && inp.pressed('Escape')) this.closeMenu();
     else if (this.menu === 'sala' && inp.pressed('KeyO')) this.closeMenu();
   }
 
@@ -1017,6 +1024,7 @@ class Game {
       this.camera.position.z += (Math.random() - 0.5) * s;
       this.shake = Math.max(0, this.shake - dt * 2.5);
     }
+    if (this.menu === 'aparencia') this.editorAparencia.camera(this.camera);   // a câmera no rosto
     this.toque?.update();
     this.graficos.update();
     this.ui.update(dt);

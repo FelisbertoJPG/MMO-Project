@@ -421,3 +421,13 @@ body.toque .hint { display: none; }
 #provador-lista button { padding: 6px 10px; text-align: left; font-size: 14px; }
 #provador-lista button.ativo { border-color: var(--gold); color: #fff3d6; background: rgba(80, 60, 30, 0.6); }
 #provador-estado { font-size: 12px; color: var(--text-dim); margin-top: 6px; min-height: 14px; }
+
+/* O EDITOR DE PERSONAGEM (aparencia.js): à direita, o rosto fica livre à esquerda */
+#aparencia { position: fixed; right: 6vw; top: 50%; transform: translateY(-50%); width: 340px; padding: 18px 20px; background: var(--panel); border: 1px solid var(--gold-dim); z-index: 40; pointer-events: auto; }
+#aparencia .aparencia-titulo { font-family: var(--serif); color: var(--gold); font-size: 22px; letter-spacing: .08em; margin-bottom: 12px; text-align: center; }
+#aparencia .aparencia-linha { display: grid; grid-template-columns: 1fr 34px 132px 34px; align-items: center; gap: 6px; margin: 8px 0; }
+#aparencia .rotulo { color: var(--text-dim); font-size: 13px; }
+#aparencia .valor { text-align: center; color: var(--text); font-size: 14px; }
+#aparencia .seta { padding: 4px 0; }
+#aparencia .aparencia-botoes { display: flex; gap: 8px; margin-top: 14px; }
+#aparencia .aparencia-botoes button { flex: 1; }

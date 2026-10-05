@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
 import { corpoGuardado, NU, codigoDaArmadura } from './guerreiro.js';
+import { APARENCIA_PADRAO } from './aparencia.js';
 import {
   curva, VIDA_BASE, VITALIDADE, VIGOR_BASE, RESISTENCIA_VIGOR, CARGA_BASE, RESISTENCIA_CARGA,
   FORCA, ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES,
@@ -46,6 +47,7 @@ export class Player {
     game.scene.add(this.torchLight);
 
     this.level = 1; this.vigor = 10; this.endurance = 10; this.strength = 10;
+    this.aparencia = APARENCIA_PADRAO;   // o rosto e o cabelo (aparencia.js); vai no save e no corpo que viaja
     this.souls = 0;
     this.receitas = new Set();    // receitas descobertas na panela (receitas.js), pelo id
     this.fogueira = 'masmorra';   // a última em que descansou: é onde renasce (ver `World.retorno`)
@@ -106,7 +108,7 @@ export class Player {
   get codigoDaArmadura() {
     const eq = this.inv.equipped.armadura, conj = {};
     for (const l of LUGARES) if (eq[l]) conj[l] = ITEMS[eq[l]].conjunto;
-    return codigoDaArmadura(conj);
+    return `${codigoDaArmadura(conj)}:${this.aparencia}`;
   }
   get dead() { return this.state === 'dead'; }
   get iframes() {

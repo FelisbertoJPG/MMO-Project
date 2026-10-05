@@ -28,14 +28,17 @@ import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
+import { tingir, APARENCIA_PADRAO, aparenciaValida } from './aparencia.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
 // pernas), 0 = nada ali, 1/2/3 = a peça do conjunto A1/A2/A3 do modelo. '0000' = nu,
 // '0213' = sem elmo, peito da malha, braços de couro, pernas de placas (04/10/2026: a
 // armadura vem do EQUIPAMENTO; antes vinha do provador, inteira).
+// Depois de ':' vem a APARÊNCIA (aparencia.js: pele, cabelo, barba, olhos — 5 dígitos):
+// '0100:21310'. Sem ela, a do modelo.
 export const NU = '0000';
-const CODIGO = /^[0-3]{4}$/;
+const CODIGO = /^[0-9]{4}(:[0-9]{5})?$/;
 /** O corpo que veio da rede é válido? (os nomes de antes — 'nu', 'A1'… — ainda valem) */
 export const corpoValido = (c) => c === 'antigo' || CODIGO.test(c) || ['nu', 'A1', 'A2', 'A3'].includes(c);
 /** corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo; senão o código) */
@@ -215,12 +218,14 @@ export class CorpoGuerreiro {
     this.pivoInv = new THREE.Matrix4();
   }
 
-  // a armadura dele: o CÓDIGO (um dígito por lugar, ver `NU`); null = sem armadura.
+  // a armadura dele: o CÓDIGO (um dígito por lugar, ver `NU`, e a aparência depois de ':');
+  // null = sem armadura.
   // Cada peça do arquivo entra se o lugar dela pede o conjunto dela. Os machados do
   // pacote nunca aparecem (as armas são as do jogo).
   vestir(armadura) {
     armadura = armaduraDe(armadura ?? NU) || NU;
     this.armadura = armadura;
+    const aparencia = armadura.split(':')[1] ?? APARENCIA_PADRAO;
     for (const o of this.rigidas) o.visible = false;
     const desenho = (lugar, conj) => desenhoDe(Assets.armaduras, lugar, conj);
     const usadas = this.pecas.filter((o) => {
@@ -231,11 +236,17 @@ export class CorpoGuerreiro {
     });
     // os nossos desenhos entram como mais peças da malha fundida
     LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas)); });
+    // a APARÊNCIA: as peças de pele, cabelo, barba e olhos tingidas (ou fora: sem cabelo/barba)
+    if (aparenciaValida(aparencia)) for (let i = usadas.length - 1; i >= 0; i--) {
+      if (!usadas[i].isSkinnedMesh) continue;
+      const t = tingir(usadas[i], aparencia);
+      if (t) usadas[i] = t; else usadas.splice(i, 1);
+    }
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     const material = (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
     const geo = material ? geometriaFundida(armadura, usadas, this.ordem) : null;
-    for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos não aparecem)
+    for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos e a aparência não aparecem)   // (sem a fundida, os desenhos não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
     if (!this.fundida) {
       this.fundida = new THREE.SkinnedMesh(geo, material);

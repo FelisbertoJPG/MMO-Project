@@ -206,6 +206,13 @@
     </div>
   </div>
 
+  <!-- O EDITOR DE PERSONAGEM (js/aparencia.js): pele, cabelo, barba, olhos; a câmera vai ao rosto -->
+  <div id="aparencia" class="hidden">
+    <div class="aparencia-titulo">Aparência</div>
+    <div id="aparencia-lista"></div>
+    <div class="aparencia-botoes"><button id="aparencia-sorte">Sortear</button><button id="aparencia-pronto">Pronto</button></div>
+  </div>
+
   <!-- Pausa -->
   <div id="pause" class="overlay hidden">
     <div class="panel pause-panel">
@@ -213,6 +220,7 @@
       <!-- onde o jogador está (para reportar um lugar): Game.mostrarCoordenadas -->
       <div id="coordenadas" title="clique para copiar"></div>
       <button id="resume-btn">Continuar</button>
+      <button id="aparencia-btn">Aparência</button>
       <button id="sair-mundo-btn">Sair para a tela inicial</button>
       <div id="graficos-opcoes"><span>Gráficos</span><button data-q="alto">Alto</button><button data-q="medio">Médio</button><button data-q="baixo">Baixo</button></div>
       <div class="controls small">
