@@ -3,6 +3,7 @@ import { Assets } from './assets.js';
 import { categoriaDaPeca, CRESCE_CAPIM } from './categorias.js';
 import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
+import { LOD } from './lod.js';
 
 const flatDistXZ = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 export const S = 1.5; // escala da masmorra (salas e corredores 50% maiores)
@@ -502,9 +503,12 @@ export class World {
     const [r, c] = this.cellOf(this.game.player.pos);
     const alvo = this.isOpenAir(r, c) ? 1 : 0, alvoC = this.nosCampos(r, c) ? 1 : 0;
     // ~1,5 s para trocar: rápido o bastante para a saída "abrir", devagar o
-    // bastante para não piscar quem anda na soleira (os campos, ~3 s)
-    a.k = alvo > a.k ? Math.min(1, a.k + dt * 0.7) : Math.max(0, a.k - dt * 0.7);
-    a.kc = alvoC > a.kc ? Math.min(1, a.kc + dt * 0.35) : Math.max(0, a.kc - dt * 0.35);
+    // bastante para não piscar quem anda na soleira (os campos, ~3 s). Anda ATÉ o
+    // alvo e para nele: com `Math.max(0, …)` no lugar de `Math.max(alvo, …)`, quem já
+    // estava ao ar livre (k = alvo = 1) caía para 0,97 num quadro e voltava no outro —
+    // a névoa, o céu, a luz e o filtro de cor oscilando a cada quadro (o longe piscava)
+    a.k = alvo > a.k ? Math.min(alvo, a.k + dt * 0.7) : Math.max(alvo, a.k - dt * 0.7);
+    a.kc = alvoC > a.kc ? Math.min(alvoC, a.kc + dt * 0.35) : Math.max(alvoC, a.kc - dt * 0.35);
     // o céu de AGORA (a hora do ciclo); nos campos, o chão rebate mais verde
     const F = cicloDoDia(horaDoMundo(), a.ceu), kc = a.kc;
     F.chao.lerp(_verdeCampos, 0.45 * kc * F.dia);
@@ -985,6 +989,7 @@ export class World {
     // peças vira chão sem capim (a caixa do modelo girada e escalada, em x/z)
     const cat = categoriaDaPeca(d.prop);
     m.userData.categoria = cat;
+    m.userData.prop = d.prop;   // o LOD (lod.js) agrupa os lotes pela peça
     if (!CRESCE_CAPIM.has(cat)) {
       m.updateMatrix();
       const b = this.caixaDoProp(d.prop).clone().applyMatrix4(m.matrix);
@@ -1097,6 +1102,8 @@ export class World {
   agruparDecoracao(pecas) {
     const LOTE = 4 * CELL;
     const lotes = new Map();
+    // os GRUPOS do LOD (lod.js): por peça e região, os lotes dela e onde está cada cópia
+    const grupos = new Map();
     for (const raiz of pecas) {
       let solta = false;
       raiz.traverse((o) => { if (o.isLight || o.isSprite || o.isPoints || o.isSkinnedMesh || o.isLine) solta = true; });
@@ -1106,27 +1113,41 @@ export class World {
       raiz.traverseVisible((o) => { if (o.isMesh) malhas.push(o); });
       if (!malhas.length) continue;
       const rx = Math.floor(raiz.position.x / LOTE), rz = Math.floor(raiz.position.z / LOTE);
+      const prop = raiz.userData.prop ?? '?', chaveG = `${prop}|${rx},${rz}`;
+      let g = grupos.get(chaveG);
+      if (!g) grupos.set(chaveG, (g = { prop, ims: new Set(), matrizes: [], posicoes: [], raioPeca: 0 }));
+      g.matrizes.push(raiz.matrixWorld.clone());
+      g.posicoes.push(raiz.position.clone());
+      if (Assets.props[prop]) g.raioPeca = Math.max(g.raioPeca, this.caixaDoProp(prop).getSize(new THREE.Vector3()).length() / 2 * raiz.scale.x);
       for (const m of malhas) {
         const mats = Array.isArray(m.material) ? m.material : [m.material];
         const chave = `${m.geometry.uuid}|${mats.map((x) => x.uuid).join(',')}|${m.castShadow}|${m.receiveShadow}|${rx},${rz}`;
         let l = lotes.get(chave);
-        if (!l) lotes.set(chave, (l = { malha: m, matrizes: [] }));
+        if (!l) lotes.set(chave, (l = { malha: m, matrizes: [], grupo: g }));
         // um quebrável dentro do lote: ele precisa saber qual cópia é a dele
         if (raiz.userData.quebravel) (l.donos ??= []).push([raiz.userData.quebravel, l.matrizes.length]);
         l.matrizes.push(m.matrixWorld.clone());
       }
       raiz.removeFromParent();
     }
-    for (const { malha, matrizes, donos } of lotes.values()) {
+    for (const { malha, matrizes, donos, grupo } of lotes.values()) {
       const im = new THREE.InstancedMesh(malha.geometry, malha.material, matrizes.length);
       matrizes.forEach((mt, i) => im.setMatrixAt(i, mt));
       im.castShadow = malha.castShadow;
       im.receiveShadow = malha.receiveShadow;
       im.computeBoundingSphere();
       this.scene.add(im);
+      grupo.ims.add(im);
       for (const [q, idx] of donos ?? []) (q.instancias ??= []).push({ im, idx, m: matrizes[idx] });
     }
     this.lotesDeDecoracao = lotes.size;
+    // o meio e o raio de cada grupo (as cópias, mais o tamanho da peça)
+    for (const g of grupos.values()) {
+      g.centro = g.posicoes.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(g.posicoes.length);
+      g.raio = Math.max(...g.posicoes.map((p) => p.distanceTo(g.centro))) + g.raioPeca;
+      delete g.posicoes;
+    }
+    this.lod = new LOD(this, [...grupos.values()]);
   }
 
   /**
@@ -1137,8 +1158,17 @@ export class World {
    * recompila o shader de todo material, e era isso o engasgo ao passar perto
    * de uma fogueira. Cada luz também custa em todo pixel, então o orçamento é
    * o que a qualidade gráfica escolhe (`graficos.js`).
+   *
+   * São DOIS orçamentos (05/10/2026): o de dentro (`luzesNoOrcamento`) e um menor
+   * ao AR LIVRE (`luzesForaNoOrcamento`). Toda luz custa em todo pixel mesmo
+   * longe demais para iluminar alguma coisa, e lá fora uma copa de árvore são
+   * dezenas de camadas de folha: olhando a floresta, as 8 luzes eram ~40% do
+   * quadro (26 → 45 quadros/s sem elas, Radeon 740M). Trocar de orçamento muda o
+   * número de luzes, mas não recompila: os DOIS são compilados no carregamento
+   * (`Graficos.aplicar`) e o three.js guarda os dois programas em cada material.
+   * `fora` (padrão: o jogador está ao ar livre) escolhe qual.
    */
-  distribuirLuzes() {
+  distribuirLuzes(fora = (this.ambience?.k ?? 0) > 0.5) {
     const pp = this.game.player?.pos;
     if (!pp) return;
     const fontes = [
@@ -1148,7 +1178,8 @@ export class World {
     ];
     const d2 = (f) => f.pos.distanceToSquared(pp);
     fontes.sort((a, b) => (b.acesa - a.acesa) || d2(a) - d2(b));
-    const n = Math.min(this.luzesNoOrcamento ?? 8, fontes.length);
+    const orcamento = fora ? (this.luzesForaNoOrcamento ?? this.luzesNoOrcamento) : this.luzesNoOrcamento;
+    const n = Math.min(orcamento ?? 8, fontes.length);
     fontes.forEach((f, i) => { f.luz.visible = i < n; });
   }
 
@@ -1648,6 +1679,7 @@ export class World {
     const t = this.time;
     const fx = this.game.effects;
     this.updateAmbience(dt);
+    this.lod?.update(camera);
 
     for (const f of this.flames) {
       if (!f.g.visible) continue;

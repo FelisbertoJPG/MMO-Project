@@ -348,18 +348,19 @@ export class Ceu {
     this.abobada.matrixAutoUpdate = false;
     game.scene.add(this.abobada);
 
-    // O REFLEXO: o céu numa cena só dele, passado a PMREM numa textura que é sempre a
-    // mesma (o gerador alocaria uma nova a cada vez; guardamos a primeira)
+    // O REFLEXO: o céu numa cena só dele, fotografado num CUBO (`CubeCamera`) e passado a
+    // PMREM numa textura que é sempre a mesma (`alvoReflexo`, criada na primeira vez).
+    // NÃO pelo `pmrem.fromScene` (05/10/2026): a cada chamada ele cria um material para o
+    // fundo do cubo e o descarta no fim — e descartar o único material de um programa faz
+    // o three.js APAGAR o programa, que era compilado de novo a cada reflexo. Conferir a
+    // compilação faz o Chrome esperar a placa: ~100 ms de tranco a cada 4 s (Alto). O cubo
+    // e o `fromCubemap` só usam materiais que existem sempre.
     this.cenaReflexo = new THREE.Scene();
     this.cenaReflexo.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), this.material));
     this.pmrem = new THREE.PMREMGenerator(game.renderer);
-    const alocar = this.pmrem._allocateTargets.bind(this.pmrem);
-    this.pmrem._allocateTargets = () => {
-      const t = alocar();
-      if (!this.alvoReflexo) return (this.alvoReflexo = t);
-      t.dispose();   // nunca usada: a textura nem chega a existir na placa
-      return this.alvoReflexo;
-    };
+    // 256: o mesmo tamanho do reflexo de antes (os shaders que o usam dependem do tamanho);
+    // meio-float: o disco do sol passa de 1 (8×), como na tela
+    this.cubo = new THREE.CubeCamera(0.1, 100, new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: false }));
     this.refazerReflexo();
     this.reflexo = this.alvoReflexo.texture;
     // o reflexo NÃO vai para o mundo todo (`scene.environment`): no chão, na grama e nas
@@ -380,7 +381,11 @@ export class Ceu {
     this.clarao.depois(dt, { sol: this.uniforms.uSol.value, lua: this.uniforms.uLua.value }, this.forca);
   }
 
-  refazerReflexo() { this.pmrem.fromScene(this.cenaReflexo, 0.02, 0.1, 100); }
+  refazerReflexo() {
+    this.cubo.update(this.game.renderer, this.cenaReflexo);
+    // da segunda vez em diante, na MESMA textura: nada é alocado, nada recompila
+    this.alvoReflexo = this.pmrem.fromCubemap(this.cubo.renderTarget.texture, this.alvoReflexo ?? null);
+  }
 
   /**
    * Todo quadro (world.updateAmbience): `F` = o céu da hora (cicloDoDia), `h` = a hora,

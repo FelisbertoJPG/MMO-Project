@@ -22,22 +22,25 @@ export const QUALIDADES = {
     nome: 'Alto', pixelRatio: 2, antialias: true,
     // a luz da tocha na mão: um cubo de sombras (seis vistas do cenário)
     sombra: { mapa: 512, aCada: 1 }, tipoSombra: THREE.PCFSoftShadowMap,
-    luzes: 8, filtroDeCor: true, particulas: 1, capim: 55,
+    luzes: 8, luzesFora: 4, filtroDeCor: true, particulas: 1, capim: 55,   // luzes de cenário: na masmorra / ao ar livre (world.distribuirLuzes)
     nuvens: 5, reflexoS: 4, clarao: true,   // o céu (ceu.js): oitavas das nuvens, segundos entre um reflexo e outro, o reflexo de lente do sol e da lua
+    impostor: 120, limiarPx: 1.5,   // o LOD (lod.js): a partir de quantos metros a árvore vira cartaz; peça com menos pixels de raio que isto some
   },
   medio: {
     nome: 'Médio', pixelRatio: 1.25, antialias: true,
     // metade da resolução, redesenhada a cada 2 quadros (o alcance da sombra o
     // three.js tira da distância da luz a cada quadro — não é opção aqui)
     sombra: { mapa: 256, aCada: 2 }, tipoSombra: THREE.PCFShadowMap,
-    luzes: 5, filtroDeCor: true, particulas: 0.7, capim: 28,
+    luzes: 5, luzesFora: 3, filtroDeCor: true, particulas: 0.7, capim: 28,
     nuvens: 4, reflexoS: 8, clarao: true,
+    impostor: 90, limiarPx: 2.5,
   },
   baixo: {
     nome: 'Baixo', pixelRatio: 1, antialias: false,
     sombra: null, tipoSombra: THREE.BasicShadowMap,
-    luzes: 3, filtroDeCor: false, particulas: 0.45, capim: 0,
+    luzes: 3, luzesFora: 2, filtroDeCor: false, particulas: 0.45, capim: 0,
     nuvens: 2, reflexoS: 20, clarao: false,
+    impostor: 65, limiarPx: 3.5,
   },
 };
 
@@ -81,11 +84,15 @@ export class Graficos {
     }
     if (g.effects) g.effects.fator = q.particulas;
     document.body.classList.toggle('sem-filtro', !q.filtroDeCor);
-    if (g.world) g.world.luzesNoOrcamento = q.luzes;
-    g.world?.distribuirLuzes(true);
+    if (g.world) { g.world.luzesNoOrcamento = q.luzes; g.world.luzesForaNoOrcamento = q.luzesFora; }
     // castShadow e o número de luzes mudam os shaders: recompila uma vez agora,
-    // em vez de engasgar no primeiro quadro
-    if (g.scene && g.camera) r.compile(g.scene, g.camera);
+    // em vez de engasgar no primeiro quadro — com os DOIS orçamentos de luzes (ar
+    // livre e masmorra), para a troca entre eles nunca compilar nada no meio do jogo
+    if (g.scene && g.camera) {
+      if (g.world) for (const fora of [true, false]) { g.world.distribuirLuzes(fora); r.compile(g.scene, g.camera); }
+      else r.compile(g.scene, g.camera);
+    }
+    g.world?.distribuirLuzes();
   }
 
   /** Troca de qualidade (menu de pausa) e guarda a escolha. */
