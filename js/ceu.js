@@ -16,7 +16,9 @@
  *  • o REFLEXO é refeito de tempos em tempos (`REFLEXO_S` da qualidade), e logo quando se
  *    entra ou sai da masmorra; sempre na MESMA textura, então nada recompila;
  *  • o reflexo existe desde o começo (antes da primeira compilação dos shaders), e
- *    dentro da masmorra ele é escuro (o céu "apaga" com o `k` do ar livre).
+ *    dentro da masmorra ele é escuro (o céu "apaga" com o `k` do ar livre);
+ *  • ele vai SÓ para as armas e o corpo do guerreiro — no cenário inteiro ele lavava o
+ *    verde do chão e das folhas.
  */
 import * as THREE from 'three';
 
@@ -142,8 +144,10 @@ export class Ceu {
     };
     this.refazerReflexo();
     this.reflexo = this.alvoReflexo.texture;
-    game.scene.environment = this.reflexo;
-    game.scene.environmentIntensity = 0.45;
+    // o reflexo NÃO vai para o mundo todo (`scene.environment`): no chão, na grama e nas
+    // folhas ele vira uma luz azul-acinzentada por cima de tudo e o verde perde a vida
+    // (foi o que aconteceu na primeira versão). Ele vai só para quem reflete: as armas
+    // (`Gear.env`, gear.js) e o corpo do guerreiro (guerreiro.js).
     this.desdeReflexo = 0;
     this.kReflexo = 1;
   }

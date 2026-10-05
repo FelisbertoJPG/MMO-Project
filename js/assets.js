@@ -78,6 +78,16 @@ export async function carregarEmpunhadura() {
   } catch { return {}; }
 }
 
+/** As ARMADURAS PINTADAS (assets/armaduras.json, casca.js): a lista de desenhos ([] sem o arquivo). */
+export async function carregarArmaduras() {
+  try {
+    const r = await fetch('assets/armaduras.json', { cache: 'no-store' });
+    if (!r.ok) return [];
+    const j = await r.json();
+    return Array.isArray(j?.desenhos) ? j.desenhos.filter((d) => d && typeof d.id === 'string' && d.partes && typeof d.partes === 'object') : [];
+  } catch { return []; }
+}
+
 async function carregarModelo(nome) {
   try {
     const r = await fetch(`assets/modelos/${nome}.json`, { cache: 'no-store' });
@@ -177,6 +187,7 @@ export const Assets = {
   modelos: {},   // nome → modelo de blocos (MODELOS)
   animais: {},   // nome → { scene, clips } (ANIMAIS_MODELOS)
   empunhadura: {},   // arma de duas mãos → os ajustes da pegada (assets/empunhadura.json; character.js)
+  armaduras: [],     // as armaduras PINTADAS (assets/armaduras.json; casca.js, guerreiro.js)
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
 
   async load(onProgress = () => {}) {
@@ -217,6 +228,7 @@ export const Assets = {
     // mundo já encontra o mapa e a decoração prontos, e o boot não muda de forma.
     const [mapa, decor] = await Promise.all([carregarMapa(), carregarDecor()]);
     this.empunhadura = await carregarEmpunhadura();
+    this.armaduras = await carregarArmaduras();
     for (const clip of await Promise.all(ANIMACOES.map(carregarAnimacao))) if (clip) this.clips[clip.name] = clip;
     this.mapa = mapa; this.decor = decor.itens; this.grama = decor.grama;
     for (const [nome, m] of await Promise.all(MODELOS.map(async (n) => [n, await carregarModelo(n)]))) {

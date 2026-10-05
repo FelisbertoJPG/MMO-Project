@@ -26,7 +26,8 @@ import { Assets } from './assets.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { LUGARES } from './ficha.js';
-import { pecasDaTunica } from './tunica.js';
+import { pecasDaCasca, desenhoDe } from './casca.js';
+import { Gear } from './gear.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -83,9 +84,8 @@ const ARMADURA = /^A([123])_/;
 // cinto, bolsas, tanga — é do peito)
 const LUGAR_DA_PECA = [['cabeca', /Helmet/i], ['bracos', /Forearm/i], ['pernas', /Boot|Pant|Knee|Thigh/i]];
 export const lugarDaPeca = (nome) => LUGAR_DA_PECA.find(([, re]) => re.test(nome))?.[0] ?? 'peito';
-// OS NOSSOS DESENHOS: lugar + conjunto que NÃO usam as peças do pacote, e sim uma feita
-// aqui a partir do corpo (`lugar:conjunto` → função que recebe as peças e devolve as dela)
-const DESENHOS = { 'peito:1': pecasDaTunica };   // o peito de couro: a túnica (tunica.js)
+// AS ARMADURAS PINTADAS (casca.js, assets/armaduras.json): o lugar + conjunto que tem
+// desenho NÃO usa as peças do pacote, e sim a casca pintada sobre o corpo
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
 
@@ -100,6 +100,8 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vect
 // mesmo, com `vertexColors`): as outras ganham cor branca — o mesmo que não ter —
 // e todas vão no material com cor de vértice.
 const fundidas = new Map();
+/** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
+export function esquecerFundidas() { for (const g of fundidas.values()) g?.dispose(); fundidas.clear(); }
 function geometriaFundida(chave, pecas, ordem) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
@@ -143,6 +145,8 @@ export class CorpoGuerreiro {
     this.materiais = [...proprio.values()];
     for (const m of this.materiais) {
       m.roughness = 0.85; m.metalness = 0;
+      // o céu de agora (ceu.js), de leve: a armadura e o corpo tomam o tom do dia/noite
+      if (Gear.env) { m.envMap = Gear.env; m.envMapIntensity = 0.5; }
       modelo.flashMats.push(m); modelo.baseEmissive.push(m.emissive.clone());
     }
     // o esqueleto ÚNICO da malha fundida: os ossos da cena, na ordem dela, com o
@@ -218,7 +222,7 @@ export class CorpoGuerreiro {
     armadura = armaduraDe(armadura ?? NU) || NU;
     this.armadura = armadura;
     for (const o of this.rigidas) o.visible = false;
-    const desenho = (lugar, conj) => DESENHOS[`${lugar}:${conj}`];
+    const desenho = (lugar, conj) => desenhoDe(Assets.armaduras, lugar, conj);
     const usadas = this.pecas.filter((o) => {
       const a = o.name.match(ARMADURA);
       if (!a) return true;
@@ -226,7 +230,7 @@ export class CorpoGuerreiro {
       return armadura[LUGARES.indexOf(lugar)] === a[1] && !desenho(lugar, a[1]);
     });
     // os nossos desenhos entram como mais peças da malha fundida
-    LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...d(this.pecas)); });
+    LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas)); });
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     const material = (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas

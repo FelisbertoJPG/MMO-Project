@@ -126,7 +126,7 @@ function armaduras() {
     2: { nome: 'do Sentinela', cor: '#8a8f96', borda: '#2a2e34', desc: 'Malha e placas de um sentinela da masmorra. Protege bem sem pesar demais.' },
     3: { nome: 'do Cavaleiro Caído', cor: '#4e5866', borda: '#c8a24a', desc: 'Placas pesadas de uma ordem que desafiou o Carrasco. Segura muito, mas pede resistência para ser carregada.' },
   };
-  // [nome, nome no couro] — o peito de couro é a TÚNICA (o nosso desenho, tunica.js)
+  // [nome, nome no couro] — o peito de couro é a TÚNICA (pintada: assets/armaduras.json, casca.js)
   const PECA = { cabeca: ['Elmo', 'Capacete'], peito: ['Peitoral', 'Túnica'], bracos: ['Braçadeiras', 'Braçadeiras'], pernas: ['Grevas', 'Calças'] };
   // [absorção, peso, equilíbrio] por conjunto e lugar
   const NUM = {
