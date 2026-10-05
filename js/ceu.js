@@ -115,10 +115,22 @@ const FRAG = /* glsl */`
  * um véu de luz por cima de tudo quando se olha bem de frente. É uma cena à parte, de
  * planos aditivos numa câmera ortográfica, desenhada DEPOIS do quadro (`depoisDoQuadro`).
  *
- * Some atrás de árvore, parede e nuvem grossa: de 3 em 3 quadros lê-se um quadradinho de
- * pixels em volta do astro (`readPixels`, um só, e só quando ele está na tela) e compara-se
- * o disco com o céu logo em volta — à vista, o disco é mais claro. A visibilidade anda suave.
+ * Some atrás de árvore, parede, morro e nuvem grossa. A visibilidade anda suave.
  * No gráfico Baixo não há clarão (`clarao` da qualidade).
+ *
+ * COMO SE SABE SE O ASTRO ESTÁ À VISTA (05/10/2026) — sem NUNCA ler pixels da tela. Antes
+ * era um `readPixels` em volta do astro de 3 em 3 quadros, e ler da tela faz a CPU esperar a
+ * placa terminar o quadro: com o sol ou a lua na tela, um quadro em cada três levava 100–170
+ * ms (Radeon 740M; p95 de 157 ms no pôr do sol, contra 75 sem o clarão). Ler para um buffer
+ * da placa com cerca (`fenceSync`) não resolve no Chrome: a cópia (`getBufferSubData`)
+ * espera do mesmo jeito. Agora:
+ *  • ÁRVORE, PAREDE, MORRO: CONSULTAS DE OCLUSÃO (`ANY_SAMPLES_PASSED` do WebGL2). Depois do
+ *    quadro, `AMOSTRAS` quadradinhos invisíveis em volta do centro do disco, cada um na sua
+ *    consulta, são testados contra a profundidade do quadro NO FUNDO de tudo (onde o céu
+ *    está): passa quem não tem nada na frente. A resposta chega quadros depois e, no Chrome,
+ *    perguntar se ela chegou nunca bloqueia (`lerConsultas`). Fração que passou = à vista.
+ *  • NUVEM: as nuvens não têm profundidade (são o shader do céu), então a cobertura no ponto
+ *    do astro é a MESMA conta do shader feita aqui (`coberturaDeNuvem`).
  */
 function texturaDoClarao(tipo) {
   const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -152,6 +164,49 @@ const ELEMENTOS = {
 // o raio do disco de cada astro (radianos), o mesmo do shader do céu (o `smoothstep` do disco)
 const RAIO_ASTRO = { sol: Math.acos(0.9993), lua: Math.acos(0.99935) };
 
+// os pontos testados no disco (frações do raio, em volta do centro): o centro e um anel
+const AMOSTRAS = [[0, 0], ...Array.from({ length: 6 }, (_, i) => [0.6 * Math.cos(i * Math.PI / 3), 0.6 * Math.sin(i * Math.PI / 3)])];
+
+// o quadradinho de uma amostra, direto em coordenadas da tela, no FUNDO (z = w: profundidade
+// 1, a do céu) — passa no teste de profundidade só onde nada foi desenhado na frente
+const AMOSTRA_VERT = /* glsl */`
+  uniform vec2 uCentro, uTam;
+  void main() { gl_Position = vec4(uCentro + position.xy * uTam, 1.0, 1.0); }`;
+const AMOSTRA_FRAG = /* glsl */`void main() { gl_FragColor = vec4(0.0); }`;
+
+/**
+ * A cobertura de nuvem (0–1) na direção `d`: a MESMA conta das nuvens do shader do céu
+ * (`hash`, `ruido`, `fbm` e o `cobre`), em float32 como na placa (`Math.fround`), para a
+ * nuvem que tapa o astro na tela tapar também o clarão.
+ */
+const f32 = Math.fround;
+const K = { a: f32(123.34), b: f32(456.21), c: f32(45.32), oit: f32(2.03), des: f32(17.1), larga: f32(0.18) };
+const fract = (x) => f32(x - Math.floor(x));
+function hash(x, y) {
+  x = fract(f32(x * K.a)); y = fract(f32(y * K.b));
+  const k = f32(f32(x * f32(x + K.c)) + f32(y * f32(y + K.c)));
+  return fract(f32(f32(x + k) * f32(y + k)));
+}
+function ruido(x, y) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = f32(x - ix), fy = f32(y - iy);
+  const ux = f32(fx * fx * (3 - 2 * fx)), uy = f32(fy * fy * (3 - 2 * fy));
+  const a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1);
+  const ab = a + (b - a) * ux, cd = c + (d - c) * ux;
+  return f32(ab + (cd - ab) * uy);
+}
+function fbm(x, y, oitavas) {
+  let s = 0, a = 0.5;
+  for (let i = 0; i < 5 && i < oitavas; i++) { s += a * ruido(x, y); x = f32(f32(x * K.oit) + K.des); y = f32(f32(y * K.oit) + K.des); a *= 0.5; }
+  return s;
+}
+export function coberturaDeNuvem(d, tempo, oitavas) {
+  if (d.y <= 0 || oitavas <= 0.5) return 0;
+  const k = f32(f32(1.15) / f32(d.y + f32(0.12)));
+  const x = f32(f32(d.x * k) + f32(tempo * f32(0.008))), y = f32(f32(d.z * k) + f32(tempo * f32(0.003)));
+  const n = fbm(x, y, oitavas) * (0.75 + 0.5 * ruido(f32(f32(x * K.larga) + 9), f32(f32(y * K.larga) + 9)));
+  return THREE.MathUtils.smoothstep(n, 0.5, 0.72) * THREE.MathUtils.smoothstep(d.y, 0, 0.25);
+}
+
 class Clarao {
   constructor(game) {
     this.game = game;
@@ -179,8 +234,16 @@ class Clarao {
     this.veu.visible = false;
     this.cena.add(this.veu);
     this.quadro = 0;
-    this.px = new Uint8Array(4 * 9);
     this._v = new THREE.Vector3(); this._f = new THREE.Vector3();
+    // a amostra das consultas de oclusão: sem cor, sem gravar profundidade, só o teste
+    this.amostra = new THREE.Mesh(plano, new THREE.ShaderMaterial({
+      uniforms: { uCentro: { value: new THREE.Vector2() }, uTam: { value: new THREE.Vector2() } },
+      vertexShader: AMOSTRA_VERT, fragmentShader: AMOSTRA_FRAG,
+      depthTest: true, depthWrite: false, colorWrite: false,
+    }));
+    this.amostra.frustumCulled = false;
+    this.cenaAmostra = new THREE.Scene();
+    this.cenaAmostra.add(this.amostra);
   }
 
   /** depois do quadro: `dirs` = { sol, lua } (direções), `forca` = { sol, lua } (0–1) */
@@ -197,30 +260,29 @@ class Clarao {
       const p = this._v.copy(cam.position).addScaledVector(dir, 200).project(cam);
       const naFrente = this._f.dot(dir) > 0.05 && forca[nome] > 0.01;
       const naTela = naFrente && Math.abs(p.x) < 1.15 && Math.abs(p.y) < 1.15;
-      // a TAMPA: a cor no lugar do astro (só se ele está na tela, de 3 em 3 quadros)
+      // a TAMPA (só se o astro está na tela, de 3 em 3 quadros): as consultas pedidas antes
+      // chegam aqui quando a placa as responde
+      const gl = r.getContext();
+      this.lerConsultas(gl, a);
       if (!naTela) a.alvo = 0;
-      else if (this.quadro % 3 === 0 && Math.abs(p.x) < 0.98 && Math.abs(p.y) < 0.98) {
-        // UM bloco em volta do astro: o miolo (o disco) contra um anel um pouco fora dele.
-        // O astro está à vista se o disco é mais claro que o céu em volta — a lua atrás de
-        // nuvem fina ainda conta; atrás de árvore, parede ou nuvem grossa, não
-        const gl = r.getContext(), w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
-        const raioPx = (RAIO_ASTRO[nome] / (cam.fov * Math.PI / 180)) * h;
-        const R = Math.max(4, Math.min(70, Math.round(raioPx * 1.8))), lado = 2 * R + 1;
-        const cx = Math.round((p.x + 1) / 2 * w), cy = Math.round((p.y + 1) / 2 * h);
-        const x0 = Math.max(0, cx - R), y0 = Math.max(0, cy - R), lw = Math.min(w - x0, lado), lh = Math.min(h - y0, lado);
-        if (this.px.length < lw * lh * 4) this.px = new Uint8Array(lado * lado * 4);
-        gl.readPixels(x0, y0, lw, lh, gl.RGBA, gl.UNSIGNED_BYTE, this.px);
-        let miolo = 0, nm = 0, anel = 0, na = 0;
-        const rm = Math.max(1, raioPx * 0.4), ra = raioPx * 1.5;
-        for (let yy = 0; yy < lh; yy++) for (let xx = 0; xx < lw; xx++) {
-          const d = Math.hypot(x0 + xx - cx, y0 + yy - cy), i = (yy * lw + xx) * 4;
-          const v = (this.px[i] + this.px[i + 1] + this.px[i + 2]) / 3;
-          if (d <= rm) { miolo += v; nm++; } else if (d >= ra && d <= R) { anel += v; na++; }
-        }
-        miolo /= Math.max(1, nm); anel /= Math.max(1, na);
-        const contraste = miolo - anel;
-        a.alvo = THREE.MathUtils.smoothstep(contraste, 6, 30) * THREE.MathUtils.smoothstep(miolo, 50, 90);
-        a.ultimo = { miolo: Math.round(miolo), anel: Math.round(anel), R };   // (para conferir)
+      else if (!a.esperando && this.quadro % 3 === 0 && Math.abs(p.x) < 0.98 && Math.abs(p.y) < 0.98) {
+        // as amostras no disco do astro, contra a profundidade deste quadro; a nuvem, pela conta
+        const raioY = Math.tan(RAIO_ASTRO[nome]) / Math.tan(cam.fov * Math.PI / 360);   // o raio do disco, em unidades da tela (−1 a 1) na vertical
+        const U = this.amostra.material.uniforms, px = 2 / gl.drawingBufferHeight;
+        U.uTam.value.set(Math.max(1.5 * px, raioY * 0.2) / aspecto, Math.max(1.5 * px, raioY * 0.2));
+        a.consultas ??= AMOSTRAS.map(() => gl.createQuery());
+        const auto = r.autoClear;
+        r.autoClear = false;
+        AMOSTRAS.forEach(([ox, oy], i) => {
+          U.uCentro.value.set(p.x + ox * raioY / aspecto, p.y + oy * raioY);
+          gl.beginQuery(gl.ANY_SAMPLES_PASSED, a.consultas[i]);
+          r.render(this.cenaAmostra, this.cam);
+          gl.endQuery(gl.ANY_SAMPLES_PASSED);
+        });
+        r.autoClear = auto;
+        a.esperando = true;
+        const U2 = g.ceu.uniforms;
+        a.nuvem = coberturaDeNuvem(dir, U2.uTempo.value, U2.uOitavas.value);
       }
       a.vis += (a.alvo - a.vis) * Math.min(1, dt * 7);
       const f = a.vis * forca[nome];
@@ -243,6 +305,24 @@ class Clarao {
     r.autoClear = false;
     r.render(this.cena, this.cam);
     r.autoClear = auto;
+  }
+
+  /**
+   * As consultas do astro `a`, se a placa já as respondeu (a última responde depois de todas):
+   * a fração das amostras à vista, menos a nuvem, vira `a.alvo`. Se não, volta sem esperar.
+   */
+  lerConsultas(gl, a) {
+    if (!a.esperando) return;
+    const ultima = a.consultas[a.consultas.length - 1];
+    if (!gl.getQueryParameter(ultima, gl.QUERY_RESULT_AVAILABLE)) return;
+    a.esperando = false;
+    let passou = 0;
+    for (const c of a.consultas) if (gl.getQueryParameter(c, gl.QUERY_RESULT)) passou++;
+    const vista = passou / a.consultas.length;
+    // atrás de nuvem fina a lua ainda conta; atrás de nuvem grossa, não
+    const nuvem = 1 - THREE.MathUtils.smoothstep(a.nuvem ?? 0, 0.25, 0.8);
+    a.alvo = vista * nuvem;
+    a.ultimo = { passou, de: a.consultas.length, nuvem: +(a.nuvem ?? 0).toFixed(2) };   // (para conferir)
   }
 }
 
