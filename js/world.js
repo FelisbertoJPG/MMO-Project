@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { categoriaDaPeca, CRESCE_CAPIM } from './categorias.js';
+import { corDoChao, texturaDoChao, REPETE_CHAO } from './campo.js';
 import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
 import { LOD } from './lod.js';
@@ -651,22 +652,20 @@ export class World {
   buildGrass(celulas) {
     const N = 4, passo = CELL / N;
     const pos = [], cor = [], idx = [];
-    const r = rand(7);
-    // Os quatro tons sorteados por vértice. Com `grama` no decor.json (a cor
-    // escolhida na roda do editor de cenas), eles saem DELA, na mesma proporção
-    // de claro/escuro dos verdes de sempre — o mais claro é a cor escolhida.
-    const verdes = Assets.grama
-      ? [0.7, 0.9, 1, 0.73].map((k) => new THREE.Color(Assets.grama).multiplyScalar(k))
-      : [new THREE.Color(0x1f3a1c), new THREE.Color(0x2a4a22), new THREE.Color(0x33502a), new THREE.Color(0x283a1e)];
+    // A COR de cada vértice é a do TERRENO (`corDoChao`, campo.js) — a mesma que tinge o
+    // capim, então o pé do capim some no chão. Por cima, a textura suave repetida
+    // (`texturaDoChao`). O material é Lambert: o chão é fosco, e o Standard custava mais.
     const tom = new Map();   // vértices da borda entre células têm a MESMA cor (sem costura)
+    const uv = [];
     for (const [cx, cz] of celulas) {
       const base = pos.length / 3;
       for (let i = 0; i <= N; i++) {
         for (let k = 0; k <= N; k++) {
           const x = cx - CELL / 2 + i * passo, z = cz - CELL / 2 + k * passo;
           pos.push(x, 0.01 + this.relevoEm(x, z), z);
+          uv.push(x / REPETE_CHAO, z / REPETE_CHAO);
           const chave = `${x.toFixed(2)},${z.toFixed(2)}`;
-          if (!tom.has(chave)) tom.set(chave, verdes[Math.floor(r() * verdes.length)].clone().multiplyScalar(0.85 + r() * 0.3));
+          if (!tom.has(chave)) tom.set(chave, corDoChao(this, x, z));
           const c = tom.get(chave);
           cor.push(c.r, c.g, c.b);
         }
@@ -681,9 +680,10 @@ export class World {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(cor, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setIndex(idx);
     g.computeVertexNormals();
-    const chao = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 }));
+    const chao = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, map: texturaDoChao() }));
     chao.receiveShadow = true;
     this.scene.add(chao);
   }

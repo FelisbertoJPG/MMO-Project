@@ -1,60 +1,48 @@
 /**
- * O CAPIM (04/10/2026) — as graminhas que cobrem o chão de ar livre e balançam com o
- * vento (o jeito dos campos de Mondstadt).
+ * O CAPIM (04/10/2026; em CARTAS desde 05/10/2026) — as graminhas que cobrem o chão de ar
+ * livre e balançam com o vento (o jeito dos campos estilizados).
  *
- * Um `InstancedMesh` só, de TUFOS (cada instância é um tufo de `FOLHAS_POR_TUFO` folhas
- * largas e afinando, abertas para fora como um leque — o capim agrupado dos campos de
- * Mondstadt, ver `grass/` na raiz), posto nas células de
- * floresta ('f') EM VOLTA do jogador (`RAIO` células): quando ele muda de célula, as
- * folhas são remontadas — cada célula sempre com as MESMAS folhas (sorteio pela própria
- * célula), então ninguém vê o capim pular. O vento é do shader (`onBeforeCompile`): a
- * ponta da folha anda numa onda que corre pelo mundo, e o pé fica parado; nada disso
- * custa CPU por quadro. A altura do pé é a do chão (`alturaChao`), então o capim sobe as
- * colinas. Não nasce sobre peça que não é NATUREZA (`World.podeCapim`, categorias.js).
- * Longe do jogador as folhas encolhem até sumir (sem borda dura).
+ * Um `InstancedMesh` só. Cada instância é um TUFO INTEIRO desenhado numa CARTA do atlas
+ * (`campo.js`: capim alto, capim rasteiro, flores, moitinha) em três planos cruzados — 6
+ * triângulos por tufo, recortados pela transparência da imagem (`alphaTest`). Antes eram
+ * folhas de geometria: 18 triângulos por tufo e mais que o dobro de tufos.
+ *
+ * A COR de cada tufo é a do CHÃO embaixo dele (`corDoChao`, a mesma conta do chão): o pé
+ * some no terreno e as manchas amareladas do campo passam pelo capim. As flores não são
+ * tingidas. Os tufos ficam em volta do jogador (`RAIO` células), remontados quando ele
+ * muda de célula, cada célula sempre com o MESMO sorteio (não pula). O vento é do shader
+ * (a ponta anda numa onda que corre pelo mundo; o pé fica parado) e não custa CPU.
+ * Sobe o relevo (`alturaChao`); não nasce sobre peça que não é natureza (`podeCapim`).
  *
  * Quantos TUFOS por célula vem da qualidade gráfica (`capim` em graficos.js): no Baixo,
- * nenhum. O tufo é o que deixa o capim volumoso sem pesar: menos instâncias, cada uma com
- * várias folhas. Sem sombra (seriam milhares de folhas na sombra da tocha).
+ * nenhum. Sem sombra.
  */
 import * as THREE from 'three';
-import { Assets } from './assets.js';
 import { CELL } from './world.js';
+import { atlasDoCapim, corDoChao, CARTAS } from './campo.js';
 
 const RAIO = 6;   // células em volta do jogador (~36 m)
-const FOLHAS_POR_TUFO = 6;
-const TUFOS_MAX = 60;   // por célula (o Alto usa 55)
+const TUFOS_MAX = 30;   // por célula (o Alto usa 22)
+// que carta cada tufo usa (pesos): mais capim, um pouco de flor e de moita
+const SORTEIO = [[CARTAS.capim, 0.48], [CARTAS.capimBaixo, 0.4], [CARTAS.moita, 0.05], [CARTAS.flores, 0.07]];
 
 /**
- * A geometria do TUFO (uma só, dividida por todas as instâncias; a variedade vem do giro
- * e da escala de cada uma): as folhas saem de perto do centro, cada uma inclinada para
- * fora e curvada (o meio anda menos que a ponta). Altura 0 a 1 em `position.y` — é o que
- * o vento do shader usa para saber o quanto a ponta anda. Cor por vértice: escura no pé,
- * verde no meio e a ponta mais clara e amarelada (o tom do campo vem da instância).
+ * A geometria do TUFO: três planos de 1 × 1 cruzados a 60°, o pé em y = 0. `position.y`
+ * (0 a 1) é o que o vento usa; a cor por vértice escurece o pé (sombra de contato).
  */
 function geometriaDoTufo() {
-  let sem = 977;
-  const rnd = () => ((sem = (sem * 1664525 + 1013904223) >>> 0) / 4294967296);
-  const pos = [], cor = [], idx = [];
-  for (let f = 0; f < FOLHAS_POR_TUFO; f++) {
-    const a = (f / FOLHAS_POR_TUFO) * Math.PI * 2 + (rnd() - 0.5) * 0.9;
-    const dx = Math.cos(a), dz = Math.sin(a);
-    const r0 = 0.03 + rnd() * 0.14, inclina = 0.2 + rnd() * 0.35;
-    const h = 0.65 + rnd() * 0.35, w = 0.05 + rnd() * 0.03;
-    // a face da folha: de lado para a direção em que ela se inclina, com um pouco de giro
-    const t = a + Math.PI / 2 + (rnd() - 0.5) * 0.8, wx = Math.cos(t), wz = Math.sin(t);
-    const bx = dx * r0, bz = dz * r0, b = pos.length / 3;
-    const ponto = (subida, lado, larg) => {
-      const curva = inclina * subida * subida;   // curva: o meio anda menos que a ponta
-      pos.push(bx + dx * curva + wx * lado * larg, subida * h, bz + dz * curva + wz * lado * larg);
-    };
-    ponto(0, -1, w); ponto(0, 1, w); ponto(0.5, -1, w * 0.7); ponto(0.5, 1, w * 0.7); ponto(1, 0, 0);
-    cor.push(0.45, 0.48, 0.4, 0.45, 0.48, 0.4, 0.88, 0.98, 0.72, 0.88, 0.98, 0.72, 1.12, 1.22, 0.62);
-    idx.push(b, b + 1, b + 2, b + 2, b + 1, b + 3, b + 2, b + 3, b + 4);
+  const pos = [], uv = [], cor = [], idx = [];
+  for (let p = 0; p < 3; p++) {
+    const a = (p / 3) * Math.PI, dx = Math.cos(a) * 0.5, dz = Math.sin(a) * 0.5, b = pos.length / 3;
+    pos.push(-dx, 0, -dz, dx, 0, dz, dx, 1, dz, -dx, 1, -dz);
+    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    cor.push(0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1);
+    idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  // a normal para CIMA: a folha não escurece de lado (é como o capim estilizado faz)
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  // a normal para CIMA: o tufo não escurece de lado (é como o capim estilizado faz)
   g.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(pos.length / 3).fill([0, 1, 0]).flat(), 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(cor, 3));
   g.setIndex(idx);
@@ -67,10 +55,15 @@ export class Capim {
     this.celula = null;
     this.tempo = { value: 0 };
     const g = geometriaDoTufo();
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+    this.maximo = (2 * RAIO + 1) ** 2 * TUFOS_MAX;
+    // a CARTA de cada tufo (0–3): o shader escolhe o quarto do atlas
+    this.cartas = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo), 1);
+    g.setAttribute('aCarta', this.cartas);
+    const mat = new THREE.MeshLambertMaterial({ map: atlasDoCapim(), vertexColors: true, side: THREE.DoubleSide, alphaTest: 0.45 });
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTempo = this.tempo;
-      sh.vertexShader = 'uniform float uTempo;\n' + sh.vertexShader.replace('#include <project_vertex>', `
+      sh.vertexShader = 'uniform float uTempo;\nattribute float aCarta;\n' + sh.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
+        vMapUv = vMapUv * 0.5 + vec2(mod(aCarta, 2.0), floor(aCarta / 2.0)) * 0.5;`).replace('#include <project_vertex>', `
         vec4 mvPosition = vec4( transformed, 1.0 );
         #ifdef USE_INSTANCING
           mvPosition = instanceMatrix * mvPosition;
@@ -79,7 +72,7 @@ export class Capim {
         float h = position.y;
         float fase = uTempo * 1.7 + mvPosition.x * 0.28 + mvPosition.z * 0.19;
         float onda = sin(fase) * 0.65 + sin(fase * 2.3 + mvPosition.z * 0.7) * 0.25 + sin(uTempo * 0.4 + mvPosition.x * 0.05) * 0.35;
-        float k = h * h * 0.16;
+        float k = h * h * 0.22;
         mvPosition.x += onda * k;
         mvPosition.z += onda * k * 0.55;
         mvPosition = modelViewMatrix * mvPosition;
@@ -90,20 +83,16 @@ export class Capim {
         vec3 normal = normalize( vNormal );
         vec3 nonPerturbedNormal = normal;`);
     };
-    this.maximo = (2 * RAIO + 1) ** 2 * TUFOS_MAX;
     this.malha = new THREE.InstancedMesh(g, mat, this.maximo);
     this.malha.count = 0;
     this.malha.frustumCulled = false;   // as folhas estão em volta do jogador: sempre há o que ver
     this.malha.castShadow = false; this.malha.receiveShadow = false;
     this.malha.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo * 3), 3);
-    // os tons: os da grama do chão (`grama` no decor.json), um pouco mais vivos
-    const base = Assets.grama ? new THREE.Color(Assets.grama) : new THREE.Color(0x33502a);
-    this.tons = [1.15, 1.35, 1.0, 1.5].map((m) => base.clone().multiplyScalar(m));
     game.scene.add(this.malha);
   }
 
   /** Quantos tufos por célula (a qualidade gráfica; 0 = sem capim). */
-  get densidade() { return Math.min(TUFOS_MAX, this.game.graficos?.q.capim ?? 55); }
+  get densidade() { return Math.min(TUFOS_MAX, this.game.graficos?.q.capim ?? 22); }
 
   /** Remonta já (a qualidade mudou). */
   refazer() { this.celula = null; }
@@ -116,7 +105,7 @@ export class Capim {
     if (chave === this.celula) return;
     this.celula = chave;
     const n = this.densidade, m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), pos = new THREE.Vector3();
-    const cor = this.malha.instanceColor;
+    const cor = this.malha.instanceColor, tom = new THREE.Color();
     let i = 0;
     if (n > 0) {
       for (let r = r0 - RAIO; r <= r0 + RAIO; r++) {
@@ -132,15 +121,22 @@ export class Capim {
           for (let k = 0; k < quantas && i < this.maximo; k++) {
             pos.set(c * CELL + (rnd() - 0.5) * CELL, 0, r * CELL + (rnd() - 0.5) * CELL);
             pos.y = w.alturaChao(pos);
-            const alt = (0.4 + rnd() * 0.4) * (1 - longe * 0.6), larg = 0.9 + rnd() * 0.5;
-            q.setFromEuler(e.set((rnd() - 0.5) * 0.2, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.2));
+            // a carta, e o tamanho dela (a carta tem o tufo inteiro: ~1 m de largura)
+            let u = rnd(), carta = SORTEIO[0][0];
+            for (const [k, peso] of SORTEIO) { if ((u -= peso) < 0) { carta = k; break; } }
+            const grande = carta === CARTAS.moita ? 1.25 : carta === CARTAS.capimBaixo ? 0.75 : 1;
+            const alt = (0.55 + rnd() * 0.35) * grande * (1 - longe * 0.5), larg = (0.9 + rnd() * 0.5) * grande;
+            q.setFromEuler(e.set(0, rnd() * Math.PI * 2, 0));
             m.compose(pos, q, s.set(larg, alt, larg));
-            const t = this.tons[Math.floor(rnd() * this.tons.length)], v1 = rnd(), v2 = rnd(), v3 = rnd();
+            const v = 0.92 + rnd() * 0.16;
             // em cima de peça que não é natureza (fogueira, barril, parede, pedra…), nada de
             // capim (World.podeCapim). Os sorteios já foram feitos: a célula não muda o resto
             if (!w.podeCapim(pos.x, pos.z, 0.3 * larg)) continue;
             this.malha.setMatrixAt(i, m);
-            cor.setXYZ(i, t.r * (0.85 + v1 * 0.3), t.g * (0.85 + v2 * 0.3), t.b * (0.85 + v3 * 0.3));
+            this.cartas.setX(i, carta);
+            // a cor: a do CHÃO embaixo (o capim pintado claro vira a cor do terreno); a flor, a dela
+            if (carta === CARTAS.flores) cor.setXYZ(i, v, v, v);
+            else { corDoChao(w, pos.x, pos.z, tom).multiplyScalar(v * 1.25); cor.setXYZ(i, tom.r, tom.g, tom.b); }
             i++;
           }
         }
@@ -149,5 +145,6 @@ export class Capim {
     this.malha.count = i;
     this.malha.instanceMatrix.needsUpdate = true;
     cor.needsUpdate = true;
+    this.cartas.needsUpdate = true;
   }
 }
