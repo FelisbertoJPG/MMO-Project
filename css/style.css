@@ -431,3 +431,15 @@ body.toque .hint { display: none; }
 #aparencia .seta { padding: 4px 0; }
 #aparencia .aparencia-botoes { display: flex; gap: 8px; margin-top: 14px; }
 #aparencia .aparencia-botoes button { flex: 1; }
+
+/* O MONITOR DE DESEMPENHO (js/monitor.js, F3): por cima de tudo, até do menu de pausa,
+   para os botões serem clicáveis com o mouse livre */
+#monitor { position: fixed; top: 8px; right: 8px; z-index: 1000; width: 300px; padding: 8px; background: rgba(8, 7, 6, .82);
+  border: 1px solid var(--gold-dim); font: 12px/1.45 ui-monospace, Consolas, monospace; color: #d8d0c0; pointer-events: auto; }
+#monitor.hidden { display: none; }
+#monitor b { color: var(--gold); font-weight: 600; }
+#monitor canvas { display: block; width: 284px; height: 56px; margin: 6px 0; background: rgba(255, 255, 255, .04); }
+#monitor .mon-botoes { display: flex; flex-wrap: wrap; gap: 4px; }
+#monitor .mon-botoes button { font: 11px ui-monospace, Consolas, monospace; padding: 3px 6px; letter-spacing: 0; }
+#monitor .mon-dica { margin-top: 4px; font-size: 10px; color: var(--text-dim); }
+#monitor-texto { position: fixed; inset: 10% 10%; z-index: 1001; font: 12px ui-monospace, monospace; background: #111; color: #ddd; }

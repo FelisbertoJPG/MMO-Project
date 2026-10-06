@@ -1682,8 +1682,13 @@ export class World {
     this.time += dt;
     const t = this.time;
     const fx = this.game.effects;
+    // o monitor de desempenho (monitor.js) separa o céu (com o reflexo) e o LOD do resto do mundo
+    const M = this.game.monitor;
+    M?.fase('mundo');
     this.updateAmbience(dt);
+    M?.fase('céu');
     this.lod?.update(camera);
+    M?.fase('lod');
 
     for (const f of this.flames) {
       if (!f.g.visible) continue;

@@ -9,6 +9,7 @@ import { Sfx } from './audio.js';
 import { World, START_POS, SAQUES, horaDoMundo } from './world.js';
 import { Effects, Projectiles, flatDist, yawTo } from './combat.js';
 import { Player } from './player.js';
+import { Monitor } from './monitor.js';
 import { spawnEnemies } from './enemies.js';
 import { Boss } from './boss.js';
 import { Dragao } from './dragao.js';
@@ -119,6 +120,7 @@ class Game {
     // carregamento — compilar na hora em que algo aparece era um engasgo.
     this.graficos.aplicar();
     this.marcarGraficos();
+    this.monitor = new Monitor(this);   // o monitor de desempenho (F3; monitor.js)
     // A conta guardada reabre sozinha; sem rede em 6 s, segue offline.
     await Promise.race([this.online.iniciar(), new Promise((ok) => setTimeout(ok, 6000))]);
     // Há um servidor nosso por trás da página, ou só arquivos (GitHub Pages)? Decide onde o save mora.
@@ -215,6 +217,7 @@ class Game {
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.salvar({ aoSair: true }); });
     document.getElementById('resume-btn').addEventListener('click', () => this.closeMenu());
     document.getElementById('aparencia-btn').addEventListener('click', () => { this.closeMenu(); this.openMenu('aparencia'); });
+    document.getElementById('monitor-btn').addEventListener('click', () => this.monitor?.alternar());
     document.getElementById('bf-leave').addEventListener('click', () => this.closeMenu());
     this.renderer.domElement.addEventListener('click', () => {
       if (this.state === 'playing' && !this.menu && !this.input.locked) this.input.requestLock();
@@ -990,34 +993,49 @@ class Game {
       return;
     }
 
+    // o MONITOR de desempenho (monitor.js, F3): cada `M.fase(nome)` fecha o tempo de CPU
+    // gasto desde a marca anterior naquela fase
+    const M = this.monitor;
+    M?.inicio();
     // com alguém junto (na sala) ou no mundo de todos, abrir menu não para o tempo
     const congela = this.menu && this.regras.pausa && !this.sessao?.outros?.length;
     if (congela) {
       this.handleMenuInput();
       this.ui.setPrompt(null);
+      M?.fase('entrada');
       this.player.model.update(dt);
+      M?.fase('jogador');
     } else {
       if (this.menu) { this.handleMenuInput(); this.ui.setPrompt(null); } else this.handleInput();
+      M?.fase('entrada');
       if (this.hitstop > 0) this.hitstop -= dt;
       else {
         this.time += dt;
         this.runTimers();
         this.player.update(dt);
         if (this.dragao.podeAcordar()) this.onDragaoAcorda();
+        M?.fase('jogador');
         for (const e of [...this.all]) e.update(dt);
+        M?.fase('inimigos');
         this.separate();
         for (const e of this.all) if (!e.dead && this.world.acimaDoChao(e.pos) <= 0.01 && e.state !== 'dormant') this.world.resolve(e.pos, e.radius);
         if (this.player.state !== 'fog') this.world.resolve(this.player.pos, this.player.radius);
         this.projectiles.update(dt);
+        M?.fase('colisão');
       }
       this.effects.update(dt);
+      M?.fase('efeitos');
       this.world.update(dt, this.camera);
+      M?.fase('mundo');
       this.capim.update(dt);
+      M?.fase('capim');
       this.player.updateCamera(dt, this.camera);
+      M?.fase('câmera');
     }
     this.online.update(dt);
     this.sessao?.update(dt);
     this.salaUI.update();
+    M?.fase('rede');
 
     if (this.shake > 0 && !this.menu) {
       const s = this.shake * 0.2;
@@ -1031,8 +1049,13 @@ class Game {
     this.graficos.update();
     this.ui.update(dt);
     this.input.endFrame();
+    M?.fase('interface');
     this.renderer.render(this.scene, this.camera);
+    M?.fase('render');
+    M?.depoisDoRender();
     this.ceu?.depoisDoQuadro(dt);   // o reflexo de lente do sol e da lua (por cima do quadro)
+    M?.fase('clarão');
+    M?.fim();
   }
 }
 
