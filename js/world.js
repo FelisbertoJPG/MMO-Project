@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { categoriaDaPeca, CRESCE_CAPIM } from './categorias.js';
-import { corDoChao, texturaDoChao, REPETE_CHAO } from './campo.js';
+import { corDoChao, texturaDoChao, REPETE_CHAO, montarCaminhos, terreiro } from './campo.js';
 import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
 import { LOD } from './lod.js';
@@ -324,6 +324,10 @@ export class World {
 
     this.buildLighting();
     this.montarRelevo(Assets.relevo);   // a altura do chão das colinas, antes do chão e da decoração
+    // os CAMINHOS de terra (campo.js): a estrada, as trilhas e o terreiro das fogueiras —
+    // antes do chão, que pinta a terra, e do capim, que não nasce nela
+    montarCaminhos(this);
+    for (const f of FOGUEIRAS) if (this.isFloor(...this.cellOf(f.pos)) && this.ch(...this.cellOf(f.pos)) === 'f') terreiro(this, f.pos.x, f.pos.z, 3.4);
     this.buildGeometry();
     this.buildTorches();
     this.buildChests();

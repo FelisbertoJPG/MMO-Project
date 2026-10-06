@@ -30,12 +30,13 @@ function ruido(x, z) {
 }
 
 // ------------------------------------------------------------ a cor do terreno
-const _amarelo = new THREE.Color(0x9fb04a), _escuro = new THREE.Color(0x2c5a2e), _base = new THREE.Color();
+const _amarelo = new THREE.Color(0xa8c048), _escuro = new THREE.Color(0x2f6030), _base = new THREE.Color();
+const _vivo = new THREE.Color(0x7cb444), _terra = new THREE.Color(0xb39a6c), _terraEscura = new THREE.Color(0x8f7650);
 let baseGrama = null;
 /** A cor do chão em (x, z), em `alvo` (um THREE.Color). */
 export function corDoChao(world, x, z, alvo = new THREE.Color()) {
   if (!baseGrama) baseGrama = new THREE.Color(Assets.grama ?? '#4e8f4f');
-  _base.copy(baseGrama);
+  _base.copy(baseGrama).lerp(_vivo, 0.45);   // o verde do decor.json puxado para o claro-amarelado
   // manchas largas amareladas (~45 m) e variação fina (~9 m)
   const largo = ruido(x / 45 + 11.3, z / 45 - 4.1), fino = ruido(x / 9 - 2.2, z / 9 + 7.9);
   let amarelo = Math.max(0, largo - 0.45) * 0.9;
@@ -50,6 +51,9 @@ export function corDoChao(world, x, z, alvo = new THREE.Color()) {
   // junto à rocha (a borda do mapa): mais escuro, como sob as árvores
   if (world?.pertoDaRocha?.(x, z, 3)) alvo.lerp(_escuro, 0.3);
   alvo.multiplyScalar(0.92 + fino * 0.16);
+  // os CAMINHOS: terra batida (com manchas mais escuras), a borda virando grama
+  const caminho = caminhoEm(world, x, z);
+  if (caminho > 0.01) alvo.lerp(_base.copy(_terra).lerp(_terraEscura, ruido(x / 2.3, z / 2.3) * 0.6), Math.min(1, caminho * 1.15));
   return alvo;
 }
 
@@ -165,4 +169,73 @@ export function atlasDoCapim() {
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
+}
+
+// ------------------------------------------------------------ os CAMINHOS de terra
+/**
+ * OS CAMINHOS (05/10/2026): onde o chão é TERRA e o capim não nasce — como as trilhas dos
+ * campos estilizados, em que o capim fechado só se abre nas passagens. Uma grade (o passo
+ * do relevo, CELL/4) com 0 = capim e 1 = terra, feita uma vez ao montar o mundo
+ * (`montarCaminhos`, ANTES do chão) e lida por `caminhoEm`:
+ *  • a ESTRADA: uma faixa de terra que serpenteia pela linha 16, da porta da masmorra ao
+ *    acampamento e às WindHills (`ESTRADA`);
+ *  • as TRILHAS de pedra (as `RockPath` do decor.json) e as placas de terra/piso no ar
+ *    livre: uma mancha de terra em volta de cada uma;
+ *  • as FOGUEIRAS: um terreiro em volta.
+ * A borda é suave (a terra vai virando grama), com um ruído para não sair redonda.
+ */
+const ESTRADA = { linha: 16, deColuna: 14.6, ateColuna: 64, meiaLargura: 1.25 };
+const NA_TERRA = /RockPath|^floor_dirt|^floor_tile/;
+const PASSO_CAMINHO = 1.5;
+
+export function montarCaminhos(world) {
+  const CELL = 6, S = 1.5, P = PASSO_CAMINHO;
+  const nx = Math.ceil(world.cols * CELL / P) + 2, nz = Math.ceil(world.rows * CELL / P) + 2;
+  const g = new Float32Array(nx * nz);
+  const x0 = -CELL / 2, z0 = -CELL / 2;
+  const marcar = (x, z, r, forca = 1) => {
+    const i0 = Math.floor((x - r - x0) / P), i1 = Math.ceil((x + r - x0) / P);
+    const k0 = Math.floor((z - r - z0) / P), k1 = Math.ceil((z + r - z0) / P);
+    for (let k = Math.max(0, k0); k <= Math.min(nz - 1, k1); k++) for (let i = Math.max(0, i0); i <= Math.min(nx - 1, i1); i++) {
+      const px = x0 + i * P, pz = z0 + k * P;
+      const borda = r * (0.85 + 0.3 * ruido(px / 3.1 + 5, pz / 3.1 - 2));
+      const v = forca * (1 - sv(Math.min(1, Math.max(0, (Math.hypot(px - x, pz - z) - borda * 0.55) / (borda * 0.45)))));
+      if (v > g[k * nx + i]) g[k * nx + i] = v;
+    }
+  };
+  // a estrada: pontos ao longo da linha central serpenteante
+  for (let c = ESTRADA.deColuna; c <= Math.min(ESTRADA.ateColuna, world.cols - 1); c += 0.12) {
+    const x = c * CELL;
+    const z = ESTRADA.linha * CELL + Math.sin(x / 23) * 2.1 + Math.sin(x / 8.7 + 1.3) * 0.7;
+    const larg = ESTRADA.meiaLargura * (0.8 + 0.5 * ruido(x / 11, 3.3));
+    if (world.ch(Math.round(z / CELL), Math.round(x / CELL)) === 'f') marcar(x, z, larg * 1.6);
+  }
+  // as trilhas de pedra e as placas de terra do decor.json (só no ar livre)
+  for (const d of Assets.decor ?? []) {
+    if (!NA_TERRA.test(d.prop) || world.ch(d.cel[0], d.cel[1]) !== 'f') continue;
+    const x = d.cel[1] * CELL + (d.off?.[0] ?? 0) * S, z = d.cel[0] * CELL + (d.off?.[1] ?? 0) * S;
+    marcar(x, z, /RockPath/.test(d.prop) ? 2.2 * (d.escala ?? 1) : 3.2);
+  }
+  world.caminhos = { g, nx, nz, x0, z0, P };
+}
+
+/** Quanto do chão em (x, z) é terra (0 = capim, 1 = caminho), interpolado. */
+export function caminhoEm(world, x, z) {
+  const c = world?.caminhos;
+  if (!c) return 0;
+  const fx = (x - c.x0) / c.P, fz = (z - c.z0) / c.P, i = Math.floor(fx), k = Math.floor(fz);
+  if (i < 0 || k < 0 || i >= c.nx - 1 || k >= c.nz - 1) return 0;
+  const tx = fx - i, tz = fz - k, a = c.g[k * c.nx + i], b = c.g[k * c.nx + i + 1], d = c.g[(k + 1) * c.nx + i], e = c.g[(k + 1) * c.nx + i + 1];
+  return (a * (1 - tx) + b * tx) * (1 - tz) + (d * (1 - tx) + e * tx) * tz;
+}
+/** Um terreiro de terra em volta de (x, z) — as fogueiras (chamado depois de montadas). */
+export function terreiro(world, x, z, r = 3) {
+  const c = world.caminhos;
+  if (!c) return;
+  for (let k = 0; k < c.nz; k++) for (let i = 0; i < c.nx; i++) {
+    const px = c.x0 + i * c.P, pz = c.z0 + k * c.P, d = Math.hypot(px - x, pz - z);
+    if (d > r) continue;
+    const v = 1 - sv(Math.min(1, Math.max(0, (d - r * 0.55) / (r * 0.45))));
+    if (v > c.g[k * c.nx + i]) c.g[k * c.nx + i] = v;
+  }
 }

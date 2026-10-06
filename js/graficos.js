@@ -22,7 +22,7 @@ export const QUALIDADES = {
     nome: 'Alto', pixelRatio: 2, antialias: true,
     // a luz da tocha na mão: um cubo de sombras (seis vistas do cenário)
     sombra: { mapa: 512, aCada: 1 }, tipoSombra: THREE.PCFSoftShadowMap,
-    luzes: 8, luzesFora: 4, filtroDeCor: true, particulas: 1, capim: 22,   // luzes de cenário: na masmorra / ao ar livre (world.distribuirLuzes)
+    luzes: 8, luzesFora: 4, filtroDeCor: true, particulas: 1, capim: 64,   // luzes de cenário: na masmorra / ao ar livre (world.distribuirLuzes)
     nuvens: 5, reflexoS: 4, clarao: true,   // o céu (ceu.js): oitavas das nuvens, segundos entre um reflexo e outro, o reflexo de lente do sol e da lua
     impostor: 120, limiarPx: 1.5,   // o LOD (lod.js): a partir de quantos metros a árvore vira cartaz; peça com menos pixels de raio que isto some
   },
@@ -31,7 +31,7 @@ export const QUALIDADES = {
     // metade da resolução, redesenhada a cada 2 quadros (o alcance da sombra o
     // three.js tira da distância da luz a cada quadro — não é opção aqui)
     sombra: { mapa: 256, aCada: 2 }, tipoSombra: THREE.PCFShadowMap,
-    luzes: 5, luzesFora: 3, filtroDeCor: true, particulas: 0.7, capim: 12,
+    luzes: 5, luzesFora: 3, filtroDeCor: true, particulas: 0.7, capim: 34,
     nuvens: 4, reflexoS: 8, clarao: true,
     impostor: 90, limiarPx: 2.5,
   },

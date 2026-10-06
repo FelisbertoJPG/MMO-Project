@@ -19,10 +19,10 @@
  */
 import * as THREE from 'three';
 import { CELL } from './world.js';
-import { atlasDoCapim, corDoChao, CARTAS } from './campo.js';
+import { atlasDoCapim, corDoChao, caminhoEm, CARTAS } from './campo.js';
 
 const RAIO = 6;   // células em volta do jogador (~36 m)
-const TUFOS_MAX = 30;   // por célula (o Alto usa 22)
+const TUFOS_MAX = 90;   // por célula (o Alto usa 64)
 // que carta cada tufo usa (pesos): mais capim, um pouco de flor e de moita
 const SORTEIO = [[CARTAS.capim, 0.48], [CARTAS.capimBaixo, 0.4], [CARTAS.moita, 0.05], [CARTAS.flores, 0.07]];
 
@@ -125,13 +125,16 @@ export class Capim {
             let u = rnd(), carta = SORTEIO[0][0];
             for (const [k, peso] of SORTEIO) { if ((u -= peso) < 0) { carta = k; break; } }
             const grande = carta === CARTAS.moita ? 1.25 : carta === CARTAS.capimBaixo ? 0.75 : 1;
-            const alt = (0.55 + rnd() * 0.35) * grande * (1 - longe * 0.5), larg = (0.9 + rnd() * 0.5) * grande;
+            const alt = (0.5 + rnd() * 0.3) * grande * (1 - longe * 0.5), larg = (1.1 + rnd() * 0.6) * grande;
             q.setFromEuler(e.set(0, rnd() * Math.PI * 2, 0));
             m.compose(pos, q, s.set(larg, alt, larg));
             const v = 0.92 + rnd() * 0.16;
             // em cima de peça que não é natureza (fogueira, barril, parede, pedra…), nada de
             // capim (World.podeCapim). Os sorteios já foram feitos: a célula não muda o resto
             if (!w.podeCapim(pos.x, pos.z, 0.3 * larg)) continue;
+            // nos CAMINHOS de terra, nada (a borda vai rareando)
+            const caminho = caminhoEm(w, pos.x, pos.z);
+            if (caminho > 0.25 && rnd() < caminho * 1.6) continue;
             this.malha.setMatrixAt(i, m);
             this.cartas.setX(i, carta);
             // a cor: a do CHÃO embaixo (o capim pintado claro vira a cor do terreno); a flor, a dela
