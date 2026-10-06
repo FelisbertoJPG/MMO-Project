@@ -139,7 +139,7 @@ export class Monitor {
     const iv = this.intervaloAtual;
     // durante o "Diagnosticar aqui" o jogo é mexido de propósito: fora das contas da sessão
     if (iv > 0 && !this.diagnosticando) this.agregar(iv, cpu, regiao, lin, col, Q.chamadas[slot], Q.tri[slot], t);
-    if ((this.n & 31) === 0) this.atualizarMediana();
+    if ((this.n & 7) === 0) this.atualizarMediana();
     if (this.aberto && t - (this.ultPainel ?? 0) > 250) { this.ultPainel = t; this.desenharPainel(); }
   }
 
@@ -206,11 +206,19 @@ export class Monitor {
     this.chamadasDoQuadro = i.calls; this.triDoQuadro = i.triangles;
   }
 
+  /**
+   * A mediana dos últimos 30 quadros (de 8 em 8): curta para acompanhar uma mudança de
+   * patamar — com 120 quadros, depois de trocar de Baixo para Alto, os quadros NORMAIS do
+   * Alto contavam como pico por segundos (17 de 22 "picos" num relatório). Num vetor fixo:
+   * o monitor não gera lixo.
+   */
   atualizarMediana() {
-    const m = Math.min(this.n, 120), v = [];
-    for (let i = 1; i <= m; i++) { const x = this.q.intervalo[(this.n - i) % N]; if (x > 0) v.push(x); }
-    v.sort((a, b) => a - b);
-    if (v.length) this.medianaRecente = v[v.length >> 1];
+    const v = (this._med ??= new Float32Array(30));
+    let k = 0;
+    for (let i = 1; i <= Math.min(this.n, 30); i++) { const x = this.q.intervalo[(this.n - i) % N]; if (x > 0) v[k++] = x; }
+    if (!k) return;
+    const s = v.subarray(0, k).sort();
+    this.medianaRecente = s[k >> 1];
   }
 
   registrarPico(t, intervalo) {
@@ -337,7 +345,7 @@ export class Monitor {
     const linhaResumo = (rot, j) => `${rot.padEnd(14)} FPS ${fmt(j.fps).padStart(5)} · quadro mediana ${fmt(j.mediana)} p95 ${fmt(j.p95)} p99 ${fmt(j.p99)} máx ${fmt(j.max, 0)} ms · CPU ${fmt(j.cpu)} · GPU ${fmt(j.gpu)} ms · ${Math.round(j.chamadas)} chamadas · ${mil(j.tri || 0)} triâng. · lentos >33ms ${j.n ? Math.round(100 * j.lentos33 / j.n) : 0}% >50ms ${j.n ? Math.round(100 * j.lentos50 / j.n) : 0}% >100ms ${j.lentos100}`;
     L.push(linhaResumo('últimos 10 s', ult10));
     L.push(linhaResumo('último 1 min', ult60));
-    L.push(linhaResumo(`guardado (${Math.round(tudo.n / Math.max(tudo.fps || 1, 1))} s)`, tudo));
+    L.push(linhaResumo(`jogado (${Math.round(tudo.n / Math.max(tudo.fps || 1, 1))} s)`, tudo));
     L.push(`gargalo agora (10 s): ${this.gargalo(ult10)}`);
     L.push(`gargalo no último minuto: ${this.gargalo(ult60)}`);
     if (this.eventos.length) {
