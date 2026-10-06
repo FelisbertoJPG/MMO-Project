@@ -81,6 +81,7 @@ export class Monitor {
     this.anterior = null;
     this.diagnostico = null;
     this.janelasDiag = [];   // [início, fim] de cada "Diagnosticar aqui" (fora das contas)
+    this.eventos = [];       // o que mudou os números durante a sessão (qualidade trocada…)
   }
 
   // ------------------------------------------------------------ as marcas do laço
@@ -160,6 +161,14 @@ export class Monitor {
     }
   }
 
+  /** Um acontecimento que muda os números (a troca de qualidade, graficos.js): vai para o
+   *  relatório, e os picos logo depois dele dizem "logo depois de". */
+  evento(texto) {
+    const t = performance.now(), a = this.anterior;
+    this.eventos.push({ t, s: (t - this.sessaoIni) / 1000, relogio: new Date().toLocaleTimeString('pt-BR'), texto, onde: a ? `${a.regiao} [${a.lin}, ${a.col}]` : '' });
+    if (this.eventos.length > 100) this.eventos.shift();
+  }
+
   /** A região do mapa pela célula (as faixas de colunas da variante `floresta`). */
   regiao(lin, col) {
     const w = this.game.world;
@@ -174,7 +183,7 @@ export class Monitor {
     const s = Math.floor((t - this.sessaoIni) / 1000);
     if (!this.seg || this.seg.s !== s) {
       if (this.seg) { this.segundos.push(this.seg); if (this.segundos.length > 7200) this.segundos.shift(); }
-      this.seg = { s, n: 0, soma: 0, max: 0, cpu: 0, gpu: 0, gpuN: 0, chamadas: 0, tri: 0, lentos: 0, regiao };
+      this.seg = { s, n: 0, soma: 0, max: 0, cpu: 0, gpu: 0, gpuN: 0, chamadas: 0, tri: 0, lentos: 0, regiao, qual: this.game.graficos?.q.nome };
     }
     const S = this.seg;
     S.n++; S.soma += iv; S.max = Math.max(S.max, iv); S.cpu += cpu; S.chamadas += chamadas; S.tri += tri; if (iv > 33.4) S.lentos++; S.regiao = regiao;
@@ -331,6 +340,10 @@ export class Monitor {
     L.push(linhaResumo(`guardado (${Math.round(tudo.n / Math.max(tudo.fps || 1, 1))} s)`, tudo));
     L.push(`gargalo agora (10 s): ${this.gargalo(ult10)}`);
     L.push(`gargalo no último minuto: ${this.gargalo(ult60)}`);
+    if (this.eventos.length) {
+      L.push('eventos (os números de antes e de depois não se comparam):');
+      for (const e of this.eventos) L.push(`  ${mmss(e.s)} (${e.relogio}) · ${e.texto}${e.onde ? ` · em ${e.onde}` : ''}`);
+    }
     L.push('');
     L.push('## Onde vai a CPU (média por quadro, último minuto)');
     const ord = this.fases.map((nome, i) => [nome, ult60.fases[i] ?? 0]).sort((a, b) => b[1] - a[1]);
@@ -352,12 +365,12 @@ export class Monitor {
     this.secaoPicos(L);
     this.secaoCena(L);
     L.push('## Linha do tempo (blocos de 10 s, últimos 5 min)');
-    L.push('quando  FPS   máx   CPU   GPU  chamadas  triâng.  lentos  região');
+    L.push('quando  FPS   máx   CPU   GPU  chamadas  triâng.  lentos  qualidade  região');
     const segs = [...this.segundos, ...(this.seg ? [this.seg] : [])].filter((s) => s.s >= sess - 300);
     for (let i = 0; i < segs.length; i += 10) {
       const b = segs.slice(i, i + 10), n = b.reduce((s, x) => s + x.n, 0), soma = b.reduce((s, x) => s + x.soma, 0), gN = b.reduce((s, x) => s + x.gpuN, 0);
       if (!n) continue;
-      L.push(`${mmss(b[0].s)}   ${fmt(1000 * n / soma, 0).padStart(3)}  ${fmt(Math.max(...b.map((x) => x.max)), 0).padStart(4)}  ${fmt(b.reduce((s, x) => s + x.cpu, 0) / n).padStart(4)}  ${fmt(gN ? b.reduce((s, x) => s + x.gpu, 0) / gN : NaN).padStart(4)}  ${String(Math.round(b.reduce((s, x) => s + x.chamadas, 0) / n)).padStart(8)}  ${mil(b.reduce((s, x) => s + x.tri, 0) / n).padStart(8)}  ${String(b.reduce((s, x) => s + x.lentos, 0)).padStart(5)}  ${[...new Set(b.map((x) => x.regiao))].join('→')}`);
+      L.push(`${mmss(b[0].s)}   ${fmt(1000 * n / soma, 0).padStart(3)}  ${fmt(Math.max(...b.map((x) => x.max)), 0).padStart(4)}  ${fmt(b.reduce((s, x) => s + x.cpu, 0) / n).padStart(4)}  ${fmt(gN ? b.reduce((s, x) => s + x.gpu, 0) / gN : NaN).padStart(4)}  ${String(Math.round(b.reduce((s, x) => s + x.chamadas, 0) / n)).padStart(8)}  ${mil(b.reduce((s, x) => s + x.tri, 0) / n).padStart(8)}  ${String(b.reduce((s, x) => s + x.lentos, 0)).padStart(5)}  ${[...new Set(b.map((x) => x.qual))].join('→').padEnd(9)}  ${[...new Set(b.map((x) => x.regiao))].join('→')}`);
     }
     L.push('');
     this.secaoDiagnostico(L, ult60);
@@ -400,7 +413,9 @@ export class Monitor {
     for (const p of piores) {
       const gpu = this.q.gpu[p.slot];
       L.push(`- ${mmss(p.s)} (${p.relogio}) · ${fmt(p.intervalo, 0)} ms (mediana ${fmt(p.mediana, 0)}) · ${p.regiao} [${p.lin}, ${p.col}] x ${fmt(p.x, 0)} z ${fmt(p.z, 0)} olhando ${Math.round(((p.yaw * 180 / Math.PI) % 360 + 360) % 360)}°${p.menu ? ` · menu ${p.menu}` : ''}`);
-      L.push(`    quadro culpado: CPU ${fmt(p.cpu, 0)} ms (${this.topFases(p.fases, 3)}) · GPU ${fmt(gpu, 0)} ms · ${p.chamadas} chamadas · ${mil(p.tri)} triâng. → ${classe(p).map((x) => x[1]).join('; ')}`);
+      // um evento (troca de qualidade…) nos 5 s antes explica o pico melhor que tudo
+      const ev = [...this.eventos].reverse().find((e) => e.t <= p.t && p.t - e.t < 5000);
+      L.push(`    quadro culpado: CPU ${fmt(p.cpu, 0)} ms (${this.topFases(p.fases, 3)}) · GPU ${fmt(gpu, 0)} ms · ${p.chamadas} chamadas · ${mil(p.tri)} triâng. → ${classe(p).map((x) => x[1]).join('; ')}${ev ? ` · logo depois de: ${ev.texto}` : ''}`);
     }
     L.push('');
   }

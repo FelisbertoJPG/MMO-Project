@@ -98,9 +98,12 @@ export class Graficos {
   /** Troca de qualidade (menu de pausa) e guarda a escolha. */
   trocar(nome) {
     if (!QUALIDADES[nome] || nome === this.nome) return;
+    const antes = this.q.nome;
     this.nome = nome;
     try { localStorage.setItem(CHAVE, nome); } catch { }
     this.aplicar();
+    // no relatório do monitor (monitor.js): sem isto, os números de antes e de depois se misturavam
+    this.game.monitor?.evento(`qualidade ${antes} → ${this.q.nome}${this.q.antialias !== this.game.renderer.getContextAttributes().antialias ? ' (o antisserrilhado só muda ao reabrir o jogo)' : ''}`);
   }
 
   /**

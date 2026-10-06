@@ -244,6 +244,18 @@ class Clarao {
     this.amostra.frustumCulled = false;
     this.cenaAmostra = new THREE.Scene();
     this.cenaAmostra.add(this.amostra);
+    // os dois materiais DESENHADOS uma vez agora (06/10/2026): na primeira vez que o sol ou a
+    // lua entrava na tela era um tranco de ~90 ms (visto no monitor de desempenho). Só
+    // `compile` não basta: o Chrome (ANGLE) termina o shader para o Direct3D no primeiro
+    // DESENHO. Não aparece nada — o clarão está com opacidade 0 e a amostra não pinta cor.
+    const r = game.renderer, partes = [...Object.values(this.astros).flatMap((a) => a.partes), this.veu];
+    for (const m of partes) m.visible = true;
+    const auto = r.autoClear;
+    r.autoClear = false;
+    r.render(this.cena, this.cam);
+    r.render(this.cenaAmostra, this.cam);
+    r.autoClear = auto;
+    for (const m of partes) m.visible = false;
   }
 
   /** depois do quadro: `dirs` = { sol, lua } (direções), `forca` = { sol, lua } (0–1) */

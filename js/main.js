@@ -6,7 +6,7 @@ import { EditorDeAparencia } from './aparencia.js';
 import { assarRefeicoes } from './refeicao.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
-import { World, START_POS, SAQUES, horaDoMundo } from './world.js';
+import { World, START_POS, SAQUES, horaDoMundo, CELL } from './world.js';
 import { Effects, Projectiles, flatDist, yawTo } from './combat.js';
 import { Player } from './player.js';
 import { Monitor } from './monitor.js';
@@ -121,6 +121,7 @@ class Game {
     this.graficos.aplicar();
     this.marcarGraficos();
     this.monitor = new Monitor(this);   // o monitor de desempenho (F3; monitor.js)
+    this.preaquecer();
     // A conta guardada reabre sozinha; sem rede em 6 s, segue offline.
     await Promise.race([this.online.iniciar(), new Promise((ok) => setTimeout(ok, 6000))]);
     // Há um servidor nosso por trás da página, ou só arquivos (GitHub Pages)? Decide onde o save mora.
@@ -604,6 +605,39 @@ class Game {
     this.ui.centerMessage('Acampamento dos Recém-chegados', 'info', 3000);
     // o personagem NOVO escolhe o rosto antes de sair andando
     this.after(1.2, () => { if (!this.menu) this.openMenu('aparencia'); });
+  }
+
+  /**
+   * O PRÉ-AQUECIMENTO (06/10/2026), na tela de carregamento: um quadro do mapa INTEIRO visto
+   * de cima, numa câmera ortográfica. O three.js só manda para a placa a textura e a
+   * geometria de um objeto quando ele entra na tela pela primeira vez — era isso o tranco
+   * de ~300 ms do primeiro quadro no mundo, e os de 100+ ms ao girar a câmera para um lado
+   * novo ("+7 texturas, +7 geometrias" no monitor). Assim tudo já sobe aqui. A câmera
+   * ortográfica não muda os shaders (no three.js `isOrthographic` é uniform, não define):
+   * nada compila a mais.
+   *
+   * E DESENHA, não só compila: o Chrome (ANGLE) termina cada shader para o Direct3D no
+   * primeiro desenho — `renderer.compile` não basta. Por isso um quadro com CADA orçamento
+   * de luzes (dentro e ao ar livre: sem o de fora, chegar ao acampamento travava ~400 ms),
+   * os cartazes das árvores com uma cópia cada, e a sombra da tocha redesenhada uma vez.
+   */
+  preaquecer() {
+    const w = this.world, r = this.renderer, larg = w.cols * CELL, prof = w.rows * CELL;
+    const cam = new THREE.OrthographicCamera(-larg / 2 - 10, larg / 2 + 10, prof / 2 + 10, -prof / 2 - 10, 1, 1200);
+    cam.position.set(larg / 2, 600, prof / 2);
+    cam.up.set(0, 0, -1);
+    cam.lookAt(larg / 2, 0, prof / 2);
+    cam.updateMatrixWorld();
+    const cartazes = [...(w.lod?.cartazes?.values() ?? [])];
+    for (const c of cartazes) if (c.malha.count === 0 && c.grupos[0]) { c.malha.setMatrixAt(0, c.grupos[0].matrizes[0]); c.malha.count = 1; c.malha.instanceMatrix.needsUpdate = true; }
+    const tocha = this.player?.torchLight;
+    for (const fora of [true, false]) {
+      w.distribuirLuzes(fora);
+      if (tocha?.castShadow) tocha.shadow.needsUpdate = true;
+      r.render(this.scene, cam);
+    }
+    for (const c of cartazes) if (c.malha.count === 1) { c.malha.count = 0; c.sujo = true; }
+    w.distribuirLuzes();
   }
 
   // ---------- Menus ----------

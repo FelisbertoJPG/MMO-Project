@@ -348,6 +348,18 @@ export class World {
   isArenaCell(r, c) { return this.ch(r, c) === 'X'; }
   // ar livre: a floresta ('f'), o andar de cima ('a') e a escada ('e') que o liga
   isOpenAir(r, c) { return 'fae'.includes(this.ch(r, c)); }
+  /**
+   * A célula é DE DENTRO da masmorra (para o LOD esconder o outro lado, lod.js)? O chão de
+   * lá, ou a rocha encostada nele (onde ficam as paredes) — e, nos dois casos, sem ar livre
+   * a até 2 células: a soleira e a borda continuam visíveis de fora. Rocha funda e a borda
+   * do mapa (árvores e pedras plantadas no `#` em volta dos campos) são de FORA.
+   */
+  ehDeDentro(r, c) {
+    const perto = (raio, teste) => { for (let i = -raio; i <= raio; i++) for (let j = -raio; j <= raio; j++) if (teste(r + i, c + j)) return true; return false; };
+    if (perto(2, (a, b) => this.isOpenAir(a, b))) return false;
+    const chao = (a, b) => this.ch(a, b) !== '#' && !this.isOpenAir(a, b);
+    return chao(r, c) || perto(1, chao);
+  }
   edgeKey(a, b) { return a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]) ? `${a}|${b}` : `${b}|${a}`; }
 
   // ---------- Altura: o ANDAR DE CIMA ----------
@@ -1119,8 +1131,9 @@ export class World {
       const rx = Math.floor(raiz.position.x / LOTE), rz = Math.floor(raiz.position.z / LOTE);
       const prop = raiz.userData.prop ?? '?', chaveG = `${prop}|${rx},${rz}`;
       let g = grupos.get(chaveG);
-      if (!g) grupos.set(chaveG, (g = { prop, ims: new Set(), matrizes: [], posicoes: [], raioPeca: 0 }));
+      if (!g) grupos.set(chaveG, (g = { prop, ims: new Set(), matrizes: [], posicoes: [], raioPeca: 0, nDentro: 0 }));
       g.matrizes.push(raiz.matrixWorld.clone());
+      if (this.ehDeDentro(...this.cellOf(raiz.position))) g.nDentro++;   // peça da masmorra (lod.js: o outro lado)
       g.posicoes.push(raiz.position.clone());
       if (Assets.props[prop]) g.raioPeca = Math.max(g.raioPeca, this.caixaDoProp(prop).getSize(new THREE.Vector3()).length() / 2 * raiz.scale.x);
       for (const m of malhas) {
@@ -1149,6 +1162,7 @@ export class World {
     for (const g of grupos.values()) {
       g.centro = g.posicoes.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(g.posicoes.length);
       g.raio = Math.max(...g.posicoes.map((p) => p.distanceTo(g.centro))) + g.raioPeca;
+      g.dentro = g.nDentro * 2 > g.posicoes.length;   // a maioria das cópias está dentro da masmorra
       delete g.posicoes;
     }
     this.lod = new LOD(this, [...grupos.values()]);
@@ -1180,6 +1194,11 @@ export class World {
       ...this.fogueiras.map((b) => ({ luz: b.light, pos: b.pos, acesa: true })),
       ...this.braziers.map((b) => ({ luz: b.light, pos: b.pos, acesa: b.target > 0 || b.lit > 0.02 })),
     ];
+    // o olho do Carrasco e a brasa do dragão também (06/10/2026): fora do orçamento eles
+    // ficavam SEMPRE visíveis — apagados (intensidade 0), mas pagos em todo pixel do mapa
+    const boss = this.game.boss, dragao = this.game.dragao;
+    if (boss?.eyeGlow) fontes.push({ luz: boss.eyeGlow, pos: boss.pos, acesa: boss.eyeGlow.intensity > 0 });
+    if (dragao?.brasa) fontes.push({ luz: dragao.brasa, pos: dragao.pos, acesa: dragao.brasa.intensity > 0 });
     const d2 = (f) => f.pos.distanceToSquared(pp);
     fontes.sort((a, b) => (b.acesa - a.acesa) || d2(a) - d2(b));
     const orcamento = fora ? (this.luzesForaNoOrcamento ?? this.luzesNoOrcamento) : this.luzesNoOrcamento;

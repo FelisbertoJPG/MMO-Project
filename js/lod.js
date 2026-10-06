@@ -16,6 +16,13 @@
  *  • DETALHE PEQUENO LONGE SOME: peça que ficaria com menos de `limiarPx` pixels de raio na
  *    tela (capim de decoração, flores, pedrinhas) não é desenhada. A conta usa o tamanho
  *    da peça e a altura da tela, então vale para qualquer resolução.
+ *  • O OUTRO LADO SOME (06/10/2026): a masmorra (paredes, pisos, móveis — o grupo é
+ *    `dentro` quando a maioria das cópias está em célula que não é ar livre) era desenhada
+ *    com o jogador no acampamento: atrás da rocha, mas no campo de visão (~130 chamadas e
+ *    ~250 mil triângulos jogados fora, visto no monitor). Ao ar livre, o que é de dentro
+ *    some além de `VER_DENTRO_DE_FORA` m (perto da porta continua, para ver a entrada);
+ *    na masmorra, o que é de fora some além de `VER_FORA_DE_DENTRO` m (a névoa escura de
+ *    dentro já cobre ~95% disso). "Fora" é o `k` do ar livre passando de 0,5.
  *
  * As distâncias vêm da qualidade gráfica (`impostor` em metros e `limiarPx`, graficos.js).
  */
@@ -24,6 +31,7 @@ import { Assets } from './assets.js';
 
 export const VISTAS = 8;
 const RES = 256;   // pixels de cada foto (a textura é VISTAS × RES de largura)
+const VER_DENTRO_DE_FORA = 40, VER_FORA_DE_DENTRO = 60;
 
 /** As peças que viram impostor ao longe: as árvores (o toco não). */
 export const viraImpostor = (prop) => /Tree(?!Stump)/.test(prop);
@@ -164,7 +172,7 @@ export class LOD {
     const r = world.game.renderer;
     const plano = new THREE.PlaneGeometry(1, 1);
     for (const g of grupos) {
-      g.longe = false; g.oculto = false;
+      g.longe = false; g.oculto = false; g.lado = false;
       if (!viraImpostor(g.prop)) continue;
       let c = this.cartazes.get(g.prop);
       if (!c) {
@@ -190,30 +198,26 @@ export class LOD {
     const H = this.world.game.renderer.domElement.clientHeight || innerHeight;
     const foco = (H / 2) / Math.tan(camera.fov * Math.PI / 360);
     const p = camera.position;
+    const fora = (this.world.ambience?.k ?? 0) > 0.5;
     for (const g of this.grupos) {
       const d = Math.max(0, g.centro.distanceTo(p) - g.raio);
-      if (g.cartaz) {
-        // folga de 10 m: quem anda na divisa não fica trocando
-        const longe = g.longe ? d > D - 10 : d > D;
-        if (longe !== g.longe) {
-          g.longe = longe;
-          for (const im of g.ims) im.visible = !longe;
-          g.cartaz.sujo = true;
-        }
-      } else {
-        const alcance = g.raioPeca * foco / limiar;
-        const oculto = g.oculto ? d > alcance * 0.9 : d > alcance;
-        if (oculto !== g.oculto) {
-          g.oculto = oculto;
-          for (const im of g.ims) im.visible = !oculto;
-        }
-      }
+      // as três regras, cada uma com folga para quem anda na divisa não ficar trocando
+      const alemDe = (atual, limite, folga) => (atual ? d > limite - folga : d > limite);
+      const lado = g.dentro === fora && alemDe(g.lado, fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO, 5);
+      const longe = !!g.cartaz && alemDe(g.longe, D, 10);
+      const oculto = !g.cartaz && (g.oculto ? d > g.raioPeca * foco / limiar * 0.9 : d > g.raioPeca * foco / limiar);
+      if (lado === g.lado && longe === g.longe && oculto === g.oculto) continue;
+      // o cartaz aparece se a árvore está longe e do lado de cá
+      if (g.cartaz && (g.longe && !g.lado) !== (longe && !lado)) g.cartaz.sujo = true;
+      g.lado = lado; g.longe = longe; g.oculto = oculto;
+      const visivel = !lado && !longe && !oculto;
+      for (const im of g.ims) im.visible = visivel;
     }
     for (const c of this.cartazes.values()) {
       if (!c.sujo) continue;
       c.sujo = false;
       let n = 0;
-      for (const g of c.grupos) if (g.longe) for (const m of g.matrizes) c.malha.setMatrixAt(n++, m);
+      for (const g of c.grupos) if (g.longe && !g.lado) for (const m of g.matrizes) c.malha.setMatrixAt(n++, m);
       c.malha.count = n;
       c.malha.instanceMatrix.needsUpdate = true;
     }
@@ -221,9 +225,9 @@ export class LOD {
 
   /** Números para conferir (o console: `game.world.lod.resumo()`). */
   resumo() {
-    let cartazes = 0, longe = 0, ocultos = 0;
+    let cartazes = 0, longe = 0, ocultos = 0, outroLado = 0;
     for (const c of this.cartazes.values()) cartazes += c.malha.count;
-    for (const g of this.grupos) { if (g.longe) longe++; if (g.oculto) ocultos++; }
-    return { tiposDeArvore: this.cartazes.size, cartazesNaTela: cartazes, gruposDeArvoreLonge: longe, gruposDeDetalheOcultos: ocultos, grupos: this.grupos.length };
+    for (const g of this.grupos) { if (g.longe) longe++; if (g.oculto) ocultos++; if (g.lado) outroLado++; }
+    return { tiposDeArvore: this.cartazes.size, cartazesNaTela: cartazes, gruposDeArvoreLonge: longe, gruposDeDetalheOcultos: ocultos, gruposDoOutroLado: outroLado, grupos: this.grupos.length };
   }
 }
