@@ -93,6 +93,15 @@ export class Monitor {
     this.ultInicio = t; this.marca = t; this.t0 = t; this.intervaloAtual = intervalo;
     this.atual.fill(0);
     if (intervalo && intervalo > PICO_MS && intervalo > 2.5 * this.medianaRecente && this.anterior && !this.diagnosticando) this.registrarPico(t, intervalo);
+  }
+
+  /**
+   * Logo antes do render principal: começa a medir a GPU. Não no começo do quadro (como era
+   * até 06/10): a consulta de tempo conta também a placa PARADA esperando o JavaScript, e
+   * um quadro lento por CPU (lógica, um script pesado) saía como "GPU". Do render em diante
+   * a placa recebe trabalho seguido.
+   */
+  antesDoRender() {
     if (this.ext && !this.consulta) {
       this.consulta = this.livres.pop() ?? this.gl.createQuery();
       this.gl.beginQuery(this.ext.TIME_ELAPSED_EXT, this.consulta);
@@ -337,7 +346,7 @@ export class Monitor {
     L.push('## Máquina e configuração');
     L.push(`GPU: ${gpuNome}`);
     L.push(`navegador: ${navigator.userAgent.match(/(Chrome|Firefox|Edg|Safari)\/[\d.]+/g)?.join(' ') ?? navigator.userAgent} · núcleos ${navigator.hardwareConcurrency ?? '?'} · memória ${navigator.deviceMemory ?? '?'} GB · ${navigator.platform}`);
-    L.push(`tela: ${innerWidth}×${innerHeight} (devicePixelRatio ${devicePixelRatio}) → desenhando ${gl.drawingBufferWidth}×${gl.drawingBufferHeight} (pixelRatio ${r.getPixelRatio()}) · antisserrilhado ${gl.getContextAttributes().antialias ? 'sim' : 'não'}`);
+    L.push(`tela: ${innerWidth}×${innerHeight} (devicePixelRatio ${devicePixelRatio}) → desenhando ${gl.drawingBufferWidth}×${gl.drawingBufferHeight} (pixelRatio ${fmt(r.getPixelRatio(), 2)}) · antisserrilhado ${gl.getContextAttributes().antialias ? 'sim' : 'não'} · escala de resolução ${Math.round((g.graficos.escala ?? 1) * 100)}% (automática ${g.graficos.auto ? 'ligada' : 'desligada'})`);
     L.push(`qualidade: ${q.nome} — pixelRatio até ${q.pixelRatio}, sombra da tocha ${q.sombra ? `${q.sombra.mapa}px a cada ${q.sombra.aCada}` : 'não'}, luzes ${q.luzes} (ar livre ${q.luzesFora}), capim ${q.capim}, nuvens ${q.nuvens}, clarão ${q.clarao ? 'sim' : 'não'}, cartaz a partir de ${q.impostor} m, detalhe some abaixo de ${q.limiarPx} px`);
     L.push(`cronômetro da GPU: ${this.ext ? 'sim' : 'NÃO (sem o tempo da placa; o gargalo é deduzido)'} · quadros longos do navegador: ${this.tipoLongo ?? 'não'}`);
     L.push('');
@@ -558,7 +567,7 @@ export class Monitor {
     const agora = performance.now(), j = this.janela(agora - 2000), a = this.anterior;
     const q = this.game.graficos.q;
     this.linhas.innerHTML = [
-      `<b>${fmt(j.fps, 0)} FPS</b> · ${fmt(j.mediana)} ms (p95 ${fmt(j.p95, 0)}) · ${q.nome}`,
+      `<b>${fmt(j.fps, 0)} FPS</b> · ${fmt(j.mediana)} ms (p95 ${fmt(j.p95, 0)}) · ${q.nome} ${Math.round((this.game.graficos.escala ?? 1) * 100)}%`,
       `CPU ${fmt(j.cpu)} · GPU ${this.ext ? fmt(j.gpu) : 'n/d'} ms`,
       `gargalo: ${this.gargalo(j).replace(/ \(.*/, '')}`,
       `${Math.round(j.chamadas)} chamadas · ${mil(j.tri || 0)} triâng. · ${this.game.renderer.info.programs?.length} prog.`,

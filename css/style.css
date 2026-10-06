@@ -294,7 +294,9 @@ button:disabled { opacity: .4; cursor: default; }
 #graficos-opcoes { display: flex; gap: 6px; justify-content: center; align-items: center; margin: 14px 0 4px; }
 #graficos-opcoes span { color: var(--text-dim); font-size: 14px; margin-right: 6px; }
 #graficos-opcoes button { padding: 6px 14px; font-size: 13px; }
-#graficos-opcoes button.ativo { border-color: var(--gold); color: #fff3d6; background: rgba(90, 65, 30, .55); }
+#graficos-opcoes button.ativo, #res-auto-btn.ativo { border-color: var(--gold); color: #fff3d6; background: rgba(90, 65, 30, .55); }
+#resolucao-opcao { display: flex; justify-content: center; margin: 4px 0; }
+#res-auto-btn { padding: 5px 14px; font-size: 12px; }
 
 /* Chat global: sempre aberto no canto de baixo à DIREITA, sobre o contador de almas
    (à esquerda fica a cruz dos itens; no meio de baixo, a barra do chefe).

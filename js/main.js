@@ -275,6 +275,11 @@ class Game {
   /** Destaca, no menu de pausa, a qualidade gráfica em uso. */
   marcarGraficos() {
     for (const b of document.querySelectorAll('#graficos-opcoes button')) b.classList.toggle('ativo', b.dataset.q === this.graficos.nome);
+    const auto = document.getElementById('res-auto-btn');
+    if (auto) {
+      auto.classList.toggle('ativo', this.graficos.auto);
+      auto.textContent = `Resolução automática: ${this.graficos.auto ? `sim (${Math.round(this.graficos.escala * 100)}%)` : 'não'}`;
+    }
   }
 
   /** Grava o progresso (ver `save.js`): `{aoSair}` = a página está fechando; `{nuvem}` = já, na nuvem. */
@@ -396,6 +401,7 @@ class Game {
     for (const b of document.querySelectorAll('#graficos-opcoes button')) {
       b.addEventListener('click', () => { this.graficos.trocar(b.dataset.q); this.marcarGraficos(); });
     }
+    document.getElementById('res-auto-btn').addEventListener('click', () => { this.graficos.alternarAuto(); this.marcarGraficos(); });
   }
 
   /**
@@ -620,6 +626,9 @@ class Game {
    * primeiro desenho — `renderer.compile` não basta. Por isso um quadro com CADA orçamento
    * de luzes (dentro e ao ar livre: sem o de fora, chegar ao acampamento travava ~400 ms),
    * os cartazes das árvores com uma cópia cada, e a sombra da tocha redesenhada uma vez.
+   * Também depois de TROCAR a qualidade (`Graficos.trocar`), com os grupos que o LOD
+   * escondeu à mostra: sem isso, girar a câmera depois de trocar travava cada objeto novo
+   * na tela (343 ms "fora do laço" num relatório, logo depois de "Alto → Baixo").
    */
   preaquecer() {
     const w = this.world, r = this.renderer, larg = w.cols * CELL, prof = w.rows * CELL;
@@ -631,11 +640,15 @@ class Game {
     const cartazes = [...(w.lod?.cartazes?.values() ?? [])];
     for (const c of cartazes) if (c.malha.count === 0 && c.grupos[0]) { c.malha.setMatrixAt(0, c.grupos[0].matrizes[0]); c.malha.count = 1; c.malha.instanceMatrix.needsUpdate = true; }
     const tocha = this.player?.torchLight;
+    // o que o LOD escondeu (longe, outro lado, detalhe) também tem de ser desenhado aqui
+    const escondidos = [];
+    for (const g of w.lod?.grupos ?? []) for (const im of g.ims) if (!im.visible) { im.visible = true; escondidos.push(im); }
     for (const fora of [true, false]) {
       w.distribuirLuzes(fora);
       if (tocha?.castShadow) tocha.shadow.needsUpdate = true;
       r.render(this.scene, cam);
     }
+    for (const im of escondidos) im.visible = false;
     for (const c of cartazes) if (c.malha.count === 1) { c.malha.count = 0; c.sujo = true; }
     w.distribuirLuzes();
   }
@@ -659,7 +672,7 @@ class Game {
     this.input.clearAll();
     if (kind === 'inventory') this.inventory.open();
     if (kind === 'bonfire') this.ui.openBonfire();
-    if (kind === 'pause') { this.mostrarCoordenadas(); document.getElementById('pause').classList.remove('hidden'); }
+    if (kind === 'pause') { this.mostrarCoordenadas(); this.marcarGraficos(); document.getElementById('pause').classList.remove('hidden'); }
     if (kind === 'sala') this.salaUI.abrir();
     if (kind === 'aparencia') this.editorAparencia.abrir();
     if (kind === 'escrever') {
@@ -1084,6 +1097,7 @@ class Game {
     this.ui.update(dt);
     this.input.endFrame();
     M?.fase('interface');
+    M?.antesDoRender();
     this.renderer.render(this.scene, this.camera);
     M?.fase('render');
     M?.depoisDoRender();

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
+import { categoriaDaPeca } from './categorias.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
 // a gaveta dele. Um .glb em assets/dungeon/ que NÃO esteja aqui existe no disco
@@ -261,6 +262,30 @@ export const Assets = {
       const stone = /wall|floor|pillar|column|rubble|barrier/.test(name);
       const cor = natureza ? 0xa8b4a8 : stone ? 0x6f6a66 : 0x8a8078;
       this.props[name].traverse((c) => { if (c.isMesh) c.material.color.setHex(cor); });
+    }
+    // A VEGETAÇÃO EM LAMBERT (06/10/2026): árvores, arbustos, mato e flores (categoria
+    // `natureza`) já tinham rugosidade 1 e metal 0 — o brilho especular do MeshStandard
+    // quase não aparece nelas, mas era pago em TODO pixel, para cada luz, em cada camada de
+    // folha. Olhando o acampamento no Alto, as árvores de perto eram metade do quadro (o
+    // teste do lugar do monitor: +112% sem elas). O Lambert ilumina a mesma cor difusa, mais
+    // barato. Um material novo por material antigo (os repetidos continuam repetidos).
+    const lambert = new Map();
+    const paraLambert = (m) => {
+      if (!m?.isMeshStandardMaterial) return m;
+      if (!lambert.has(m)) {
+        lambert.set(m, new THREE.MeshLambertMaterial({
+          name: m.name, color: m.color, map: m.map, alphaMap: m.alphaMap, vertexColors: m.vertexColors,
+          transparent: m.transparent, opacity: m.opacity, alphaTest: m.alphaTest, side: m.side, depthWrite: m.depthWrite,
+          emissive: m.emissive, emissiveMap: m.emissiveMap, emissiveIntensity: m.emissiveIntensity, flatShading: m.flatShading,
+        }));
+      }
+      return lambert.get(m);
+    };
+    for (const name of PROPS) {
+      if (categoriaDaPeca(name) !== 'natureza' || !this.props[name]) continue;
+      this.props[name].traverse((c) => {
+        if (c.isMesh) c.material = Array.isArray(c.material) ? c.material.map(paraLambert) : paraLambert(c.material);
+      });
     }
     this.baseScene.traverse((c) => {
       if (c.isMesh) {
