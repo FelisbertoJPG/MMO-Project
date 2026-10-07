@@ -919,6 +919,8 @@ export class World {
     c.root.rotation.y = yaw;
     c.pose('Death01', 2.38);
     this.scene.add(c.root);
+    // o LOD (lod.js, `personagens`) corta o desenho dele como o dos inimigos
+    (this.cadaveres ??= []).push({ model: c, pos: c.root.position });
     return c;
   }
 
@@ -1150,7 +1152,12 @@ export class World {
     for (const { malha, matrizes, donos, grupo } of lotes.values()) {
       const im = new THREE.InstancedMesh(malha.geometry, malha.material, matrizes.length);
       matrizes.forEach((mt, i) => im.setMatrixAt(i, mt));
-      im.castShadow = malha.castShadow;
+      // peça PEQUENA (capim de decoração, flores, pedrinhas: menos de 1,2 m de raio) não
+      // projeta a sombra da tocha (07/10/2026): com a tocha acesa, a sombra redesenha tudo
+      // que projeta sombra num raio de 24 m SEIS vezes (as faces do cubo) — eram ~2.200
+      // chamadas a mais por quadro no Alto, e a sombra de um tufo de capim mal se vê. Piso e
+      // pedra de caminho também não: são chatos, não fazem sombra que se veja
+      im.castShadow = malha.castShadow && grupo.raioPeca >= 1.2 && !/^floor|RockPath|PathRocks/.test(grupo.prop);
       im.receiveShadow = malha.receiveShadow;
       im.computeBoundingSphere();
       this.scene.add(im);

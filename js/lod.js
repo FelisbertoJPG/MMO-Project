@@ -32,6 +32,7 @@ import { Assets } from './assets.js';
 export const VISTAS = 8;
 const RES = 256;   // pixels de cada foto (a textura é VISTAS × RES de largura)
 const VER_DENTRO_DE_FORA = 40, VER_FORA_DE_DENTRO = 60;
+const PERSONAGEM_LONGE = 110;   // personagem (inimigo, animal) mais longe que isto não é desenhado
 
 /** As peças que viram impostor ao longe: as árvores (o toco não). */
 export const viraImpostor = (prop) => /Tree(?!Stump)/.test(prop);
@@ -220,6 +221,64 @@ export class LOD {
       for (const g of c.grupos) if (g.longe && !g.lado) for (const m of g.matrizes) c.malha.setMatrixAt(n++, m);
       c.malha.count = n;
       c.malha.instanceMatrix.needsUpdate = true;
+    }
+    this.tPersonagens = (this.tPersonagens ?? 0) + 1;
+    if (this.tPersonagens % 8 === 0) this.personagens(camera, fora);
+  }
+
+  /**
+   * OS PERSONAGENS (07/10/2026): inimigos, animais, o Carrasco e o dragão tinham as malhas
+   * animadas SEM corte de câmera (`frustumCulled = false`) — 428 malhas desenhadas em todo
+   * quadro, 315 delas a mais de 40 m (os animais do mapa inteiro, os esqueletos da
+   * masmorra), e com a tocha acesa a sombra dela redesenhava TODAS seis vezes (~1.900
+   * chamadas). Agora, na primeira vez que cada um aparece aqui: o corte de câmera ligado,
+   * com a esfera da pose de agora folgada (como a armadura fundida do character.js). E pela
+   * distância, como a decoração: do outro lado da masmorra além de `VER_DENTRO_DE_FORA` /
+   * `VER_FORA_DE_DENTRO`, ou além de `PERSONAGEM_LONGE` m, o desenho some (por `layers`:
+   * o jogo mexe no `visible` das peças de equipamento). A lógica deles continua igual.
+   */
+  personagens(camera, fora) {
+    const w = this.world, p = camera.position;
+    // só com a partida rodando: na tela de título os animais ainda não animaram, e a pose de
+    // repouso deles tem outro tamanho — a esfera saía pequena (conferido)
+    if (w.game.state === 'title') return;
+    for (const e of [...(w.game.all ?? []), ...(w.cadaveres ?? [])]) {
+      const raiz = e.model?.root ?? e.model?.scene ?? e.root;
+      if (!raiz || !e.pos) continue;
+      if (!e.__lodMalhas) {
+        e.__lodMalhas = [];
+        raiz.traverse((o) => {
+          if (!o.isMesh) return;
+          e.__lodMalhas.push(o);
+          if (o.frustumCulled === false && o.isSkinnedMesh) {
+            // a esfera da POSE DE VERDADE (com os ossos — quando o LOD passa aqui o personagem
+            // já foi desenhado): a da geometria crua ficava no lugar errado nos animais (o
+            // modelo é reescalado na montagem) — conferido: 195 malhas fora da esfera, um
+            // lobo podia sumir na tela. Folgada para as animações e o corpo deitado. A que
+            // for MANUAL (a armadura fundida do character.js, `userData.esferaManual`) fica; a
+            // que o modelo já trazia, não (nos animais ela estava errada). Esfera ruim: sem corte.
+            if (!o.userData.esferaManual) {
+              o.boundingSphere = null;
+              o.computeBoundingSphere();
+              const s = o.boundingSphere;
+              if (!s || !(s.radius > 0.05) || !Number.isFinite(s.center.x)) { o.boundingSphere = null; return; }
+              // folga: o dobro, e no mínimo 4 m a mais — peça pequena (galhada, rabo) anda até
+              // ~2,5 m quando o bicho troca de animação (pastar, correr), conferido
+              s.radius = Math.max(s.radius * 2 + 1.5, s.radius + 4);
+            }
+            o.frustumCulled = true;
+          }
+        });
+        e.__lodOculto = false;
+      }
+      const d = e.pos.distanceTo(p), dentro = !w.isOpenAir(...w.cellOf(e.pos));
+      const folga = e.__lodOculto ? -5 : 0;
+      const oculto = d > PERSONAGEM_LONGE + folga || (dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
+      if (oculto === e.__lodOculto) continue;
+      e.__lodOculto = oculto;
+      // malhas que entraram no modelo depois (arma trocada, armadura) também
+      raiz.traverse((o) => { if (o.isMesh && !e.__lodMalhas.includes(o)) e.__lodMalhas.push(o); });
+      for (const o of e.__lodMalhas) o.layers.set(oculto ? 31 : 0);
     }
   }
 

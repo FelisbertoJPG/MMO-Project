@@ -643,10 +643,16 @@ class Game {
     // o que o LOD escondeu (longe, outro lado, detalhe) também tem de ser desenhado aqui
     const escondidos = [];
     for (const g of w.lod?.grupos ?? []) for (const im of g.ims) if (!im.visible) { im.visible = true; escondidos.push(im); }
+    // a SOMBRA DA TOCHA cobrindo o mapa inteiro, uma vez: cada tipo de peça tem o seu shader
+    // de sombra, e ele só era terminado quando a tocha acesa chegava perto dela pela primeira
+    // vez (trancos de 200–700 ms andando com a tocha acesa entre árvores novas, 07/10)
+    const sombra = tocha?.castShadow ? { dist: tocha.distance, pos: tocha.position.clone() } : null;
+    if (sombra) { tocha.distance = Math.max(larg, prof) * 1.5; tocha.position.set(larg / 2, 30, prof / 2); }
     for (const fora of [true, false]) {
       w.distribuirLuzes(fora);
       if (tocha?.castShadow) tocha.shadow.needsUpdate = true;
       r.render(this.scene, cam);
+      if (sombra) { tocha.distance = sombra.dist; tocha.position.copy(sombra.pos); }
     }
     for (const im of escondidos) im.visible = false;
     for (const c of cartazes) if (c.malha.count === 1) { c.malha.count = 0; c.sujo = true; }

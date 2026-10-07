@@ -708,7 +708,8 @@ function fundirTraje(scene, corpo) {
     malha.receiveShadow = lista.some(({ o }) => o.receiveShadow);
     malha.bind(esqueleto, new THREE.Matrix4());
     // o boneco deitado (cadáver, morte) passa da esfera da pose T: uma folgada
-    malha.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 2.4);
+    malha.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 3);
+    malha.userData.esferaManual = true;   // o LOD (lod.js, `personagens`) não a recalcula
     malha.frustumCulled = corpo.frustumCulled;
     scene.add(malha);
     for (const { o } of lista) {

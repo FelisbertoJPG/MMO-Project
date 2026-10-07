@@ -104,7 +104,24 @@ export class Graficos {
     if (t - R.ini < 1000) return;
     const fps = (1000 * R.quadros) / (t - R.ini);
     R.ini = t; R.quadros = 0;
-    if (!this.auto || document.hidden || this.game.state === 'title' || t < R.esperaAte) return;
+    if (!this.auto || document.hidden || this.game.state === 'title') { R.teste = null; return; }
+    // DEPOIS DE DESCER, CONFERE (07/10/2026): num relatório ela desceu a 70% três vezes sem
+    // ganho nenhum (o limite era a sombra da tocha, não os pixels) — e cada mudança custa um
+    // tranco. O segundo da mudança não conta; com os 2 seguintes, se não ganhou 8%, volta e
+    // não tenta descer de novo por 60 s.
+    if (R.teste) {
+      if (t < R.teste.de) return;
+      R.teste.fps.push(fps);
+      if (R.teste.fps.length < 2) return;
+      const depois = (R.teste.fps[0] + R.teste.fps[1]) / 2, { antes, escala } = R.teste;
+      R.teste = null;
+      if (depois < antes * 1.08) {
+        this.mudarEscala(escala, `não ajudou: ${Math.round(antes)} → ${Math.round(depois)} quadros/s`);
+        R.bloqueioAte = t + 60000;
+      }
+      return;
+    }
+    if (t < R.esperaAte) return;
     // menos pixels só ajudam quando a PLACA é o limite: com o tempo da GPU do monitor
     // (monitor.js), quadro lento por CPU (lógica, chamadas de desenho) não baixa a resolução
     const j = this.game.monitor?.ext ? this.game.monitor.janela(t - 1000) : null;
@@ -112,8 +129,10 @@ export class Graficos {
     R.baixos = fps < FPS_MIN && placa ? R.baixos + 1 : 0;
     R.altos = fps > FPS_MIN + 8 ? R.altos + 1 : 0;
     const min = ESCALA_MIN[this.nome] ?? 0.7;
-    if (R.baixos >= 2 && this.escala > min + 0.001) {
-      this.mudarEscala(Math.max(min, Math.round((this.escala - 0.1) * 100) / 100), `${Math.round(fps)} quadros/s`);
+    if (R.baixos >= 2 && this.escala > min + 0.001 && t >= (R.bloqueioAte ?? 0)) {
+      const escala = this.escala;
+      this.mudarEscala(Math.max(min, Math.round((escala - 0.1) * 100) / 100), `${Math.round(fps)} quadros/s`);
+      R.teste = { antes: fps, escala, de: t + 1500, fps: [] };
     } else if (R.altos >= 5 && this.escala < 0.999) {
       const prox = Math.min(1, Math.round((this.escala + 0.1) * 100) / 100), cresce = (prox / this.escala) ** 2;
       // a previsão: só a parte da PLACA cresce com os pixels (sem o tempo da GPU, o quadro todo)
@@ -131,7 +150,7 @@ export class Graficos {
   aplicar() {
     const g = this.game, q = this.q, r = g.renderer;
     // uma qualidade nova começa de novo em 100%; a automática reajusta se precisar
-    this.escala = 1; this.res.esperaAte = performance.now() + 3000;
+    this.escala = 1; this.res.esperaAte = performance.now() + 3000; this.res.teste = null; this.res.bloqueioAte = 0;
     r.setPixelRatio(this.resolucaoBase);
     r.setSize(innerWidth, innerHeight);
     r.shadowMap.enabled = !!q.sombra;

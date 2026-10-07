@@ -44,9 +44,20 @@ export class Monitor {
     this.q = {
       t: new Float64Array(N), intervalo: new Float32Array(N), cpu: new Float32Array(N), gpu: new Float32Array(N).fill(NaN),
       chamadas: new Uint32Array(N), tri: new Uint32Array(N), fase: new Float32Array(N * MAX_FASES),
+      sombra: new Uint32Array(N),   // das chamadas, quantas foram da passagem de sombra (a tocha)
     };
     this.atual = new Float32Array(MAX_FASES);
     this.zerar();
+    // A PASSAGEM DE SOMBRA (07/10/2026): o three.js a desenha dentro do render e zera o
+    // `renderer.info` antes do desenho principal — as chamadas dela não apareciam. Com a tocha
+    // acesa eram ~2.200 por quadro no Alto (o dobro do resto). Contadas aqui, por fora.
+    const sm = game.renderer.shadowMap, ri = game.renderer.info.render, sombraOrig = sm.render.bind(sm);
+    this.sombraQuadro = 0; this.sombraTriQuadro = 0;
+    sm.render = (...args) => {
+      const c0 = ri.calls, t0 = ri.triangles;
+      sombraOrig(...args);
+      this.sombraQuadro += ri.calls - c0; this.sombraTriQuadro += ri.triangles - t0;
+    };
     // a GPU: consultas de tempo, reaproveitadas
     const gl = game.renderer.getContext();
     this.gl = gl;
@@ -92,6 +103,7 @@ export class Monitor {
     const intervalo = this.ultInicio && t - this.ultInicio < 2000 ? t - this.ultInicio : 0;
     this.ultInicio = t; this.marca = t; this.t0 = t; this.intervaloAtual = intervalo;
     this.atual.fill(0);
+    this.sombraQuadro = 0; this.sombraTriQuadro = 0;
     if (intervalo && intervalo > PICO_MS && intervalo > 2.5 * this.medianaRecente && this.anterior && !this.diagnosticando) this.registrarPico(t, intervalo);
   }
 
@@ -129,7 +141,7 @@ export class Monitor {
     this.lerGpu();
     const info = r.info, cpu = t - this.t0;
     Q.t[slot] = this.t0; Q.intervalo[slot] = this.intervaloAtual; Q.cpu[slot] = cpu; Q.gpu[slot] = NaN;
-    Q.chamadas[slot] = this.chamadasDoQuadro; Q.tri[slot] = this.triDoQuadro;
+    Q.chamadas[slot] = this.chamadasDoQuadro; Q.tri[slot] = this.triDoQuadro; Q.sombra[slot] = this.sombraDoQuadro ?? 0;
     Q.fase.set(this.atual, slot * MAX_FASES);
     // o que mudou desde o quadro anterior (para explicar um pico no próximo) — no MESMO
     // objeto, sem criar nada por quadro (o monitor não pode ser ele mesmo o lixo que mede)
@@ -143,11 +155,11 @@ export class Monitor {
     a.progs = progs; a.tex = tex; a.geo = geo; a.heap = heap;
     a.slot = slot; a.n = this.n; a.cpu = cpu; a.fases.set(this.atual); a.chamadas = Q.chamadas[slot]; a.tri = Q.tri[slot];
     a.regiao = regiao; a.lin = lin; a.col = col; a.x = p?.x ?? 0; a.y = p?.y ?? 0; a.z = p?.z ?? 0;
-    a.yaw = g.player?.camYaw ?? 0; a.menu = g.menu || null;
+    a.yaw = g.player?.camYaw ?? 0; a.menu = g.menu || null; a.sombra = Q.sombra[slot]; a.tocha = !!g.player?.torchLit;
     this.n++;
     const iv = this.intervaloAtual;
     // durante o "Diagnosticar aqui" o jogo é mexido de propósito: fora das contas da sessão
-    if (iv > 0 && !this.diagnosticando) this.agregar(iv, cpu, regiao, lin, col, Q.chamadas[slot], Q.tri[slot], t);
+    if (iv > 0 && !this.diagnosticando) { this.agregar(iv, cpu, regiao, lin, col, Q.chamadas[slot], Q.tri[slot], t); if (a.tocha) this.seg.tocha++; }
     if ((this.n & 7) === 0) this.atualizarMediana();
     if (this.aberto && t - (this.ultPainel ?? 0) > 250) { this.ultPainel = t; this.desenharPainel(); }
   }
@@ -192,7 +204,7 @@ export class Monitor {
     const s = Math.floor((t - this.sessaoIni) / 1000);
     if (!this.seg || this.seg.s !== s) {
       if (this.seg) { this.segundos.push(this.seg); if (this.segundos.length > 7200) this.segundos.shift(); }
-      this.seg = { s, n: 0, soma: 0, max: 0, cpu: 0, gpu: 0, gpuN: 0, chamadas: 0, tri: 0, lentos: 0, regiao, qual: this.game.graficos?.q.nome };
+      this.seg = { s, n: 0, soma: 0, max: 0, cpu: 0, gpu: 0, gpuN: 0, chamadas: 0, tri: 0, lentos: 0, tocha: 0, regiao, qual: this.game.graficos?.q.nome };
     }
     const S = this.seg;
     S.n++; S.soma += iv; S.max = Math.max(S.max, iv); S.cpu += cpu; S.chamadas += chamadas; S.tri += tri; if (iv > 33.4) S.lentos++; S.regiao = regiao;
@@ -212,7 +224,9 @@ export class Monitor {
    *  clarão desenha depois — sem isto as chamadas do quadro sairiam as do clarão. */
   depoisDoRender() {
     const i = this.game.renderer.info.render;
-    this.chamadasDoQuadro = i.calls; this.triDoQuadro = i.triangles;
+    // com as da passagem de sombra (que o `info` já tinha zerado): o número de verdade
+    this.chamadasDoQuadro = i.calls + this.sombraQuadro; this.triDoQuadro = i.triangles + this.sombraTriQuadro;
+    this.sombraDoQuadro = this.sombraQuadro;
   }
 
   /**
@@ -250,21 +264,21 @@ export class Monitor {
   /** As estatísticas dos quadros cujo começo caiu em [t0, t1] (ms de performance.now). */
   janela(t0, t1 = Infinity, comDiagnostico = false) {
     const Q = this.q, iv = [], cpu = [], gpu = [], fases = new Float64Array(MAX_FASES);
-    let chamadas = 0, tri = 0;
+    let chamadas = 0, tri = 0, sombra = 0;
     const foraDoDiag = (t) => comDiagnostico || !this.janelasDiag.some(([a, b]) => t >= a && t <= b);
     for (let i = 1; i <= Math.min(this.n, N); i++) {
       const s = (this.n - i) % N, t = Q.t[s];
       if (t < t0) break;
       if (t > t1 || !(Q.intervalo[s] > 0) || !foraDoDiag(t)) continue;
       iv.push(Q.intervalo[s]); cpu.push(Q.cpu[s]); if (Number.isFinite(Q.gpu[s])) gpu.push(Q.gpu[s]);
-      chamadas += Q.chamadas[s]; tri += Q.tri[s];
+      chamadas += Q.chamadas[s]; tri += Q.tri[s]; sombra += Q.sombra[s];
       for (let f = 0; f < this.fases.length; f++) fases[f] += Q.fase[s * MAX_FASES + f];
     }
     const n = iv.length, soma = iv.reduce((x, y) => x + y, 0), ord = [...iv].sort((x, y) => x - y);
     const media = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
     return {
       n, fps: n ? (1000 * n) / soma : NaN, media: n ? soma / n : NaN, mediana: percentil(ord, 0.5), p95: percentil(ord, 0.95), p99: percentil(ord, 0.99), max: ord[n - 1] ?? NaN,
-      cpu: media(cpu), gpu: media(gpu), gpuN: gpu.length, chamadas: n ? chamadas / n : NaN, tri: n ? tri / n : NaN,
+      cpu: media(cpu), gpu: media(gpu), gpuN: gpu.length, chamadas: n ? chamadas / n : NaN, tri: n ? tri / n : NaN, sombra: n ? sombra / n : NaN,
       fases: [...fases].slice(0, this.fases.length).map((v) => (n ? v / n : 0)),
       lentos33: iv.filter((x) => x > 33.4).length, lentos50: iv.filter((x) => x > 50).length, lentos100: iv.filter((x) => x > 100).length,
     };
@@ -351,7 +365,7 @@ export class Monitor {
     L.push(`cronômetro da GPU: ${this.ext ? 'sim' : 'NÃO (sem o tempo da placa; o gargalo é deduzido)'} · quadros longos do navegador: ${this.tipoLongo ?? 'não'}`);
     L.push('');
     L.push('## Resumo (só jogando)');
-    const linhaResumo = (rot, j) => `${rot.padEnd(14)} FPS ${fmt(j.fps).padStart(5)} · quadro mediana ${fmt(j.mediana)} p95 ${fmt(j.p95)} p99 ${fmt(j.p99)} máx ${fmt(j.max, 0)} ms · CPU ${fmt(j.cpu)} · GPU ${fmt(j.gpu)} ms · ${Math.round(j.chamadas)} chamadas · ${mil(j.tri || 0)} triâng. · lentos >33ms ${j.n ? Math.round(100 * j.lentos33 / j.n) : 0}% >50ms ${j.n ? Math.round(100 * j.lentos50 / j.n) : 0}% >100ms ${j.lentos100}`;
+    const linhaResumo = (rot, j) => `${rot.padEnd(14)} FPS ${fmt(j.fps).padStart(5)} · quadro mediana ${fmt(j.mediana)} p95 ${fmt(j.p95)} p99 ${fmt(j.p99)} máx ${fmt(j.max, 0)} ms · CPU ${fmt(j.cpu)} · GPU ${fmt(j.gpu)} ms · ${Math.round(j.chamadas)} chamadas (${Math.round(j.sombra || 0)} da sombra da tocha) · ${mil(j.tri || 0)} triâng. · lentos >33ms ${j.n ? Math.round(100 * j.lentos33 / j.n) : 0}% >50ms ${j.n ? Math.round(100 * j.lentos50 / j.n) : 0}% >100ms ${j.lentos100}`;
     L.push(linhaResumo('últimos 10 s', ult10));
     L.push(linhaResumo('último 1 min', ult60));
     L.push(linhaResumo(`jogado (${Math.round(tudo.n / Math.max(tudo.fps || 1, 1))} s)`, tudo));
@@ -382,12 +396,12 @@ export class Monitor {
     this.secaoPicos(L);
     this.secaoCena(L);
     L.push('## Linha do tempo (blocos de 10 s, últimos 5 min)');
-    L.push('quando  FPS   máx   CPU   GPU  chamadas  triâng.  lentos  qualidade  região');
+    L.push('quando  FPS   máx   CPU   GPU  chamadas  triâng.  lentos  tocha  qualidade  região');
     const segs = [...this.segundos, ...(this.seg ? [this.seg] : [])].filter((s) => s.s >= sess - 300);
     for (let i = 0; i < segs.length; i += 10) {
       const b = segs.slice(i, i + 10), n = b.reduce((s, x) => s + x.n, 0), soma = b.reduce((s, x) => s + x.soma, 0), gN = b.reduce((s, x) => s + x.gpuN, 0);
       if (!n) continue;
-      L.push(`${mmss(b[0].s)}   ${fmt(1000 * n / soma, 0).padStart(3)}  ${fmt(Math.max(...b.map((x) => x.max)), 0).padStart(4)}  ${fmt(b.reduce((s, x) => s + x.cpu, 0) / n).padStart(4)}  ${fmt(gN ? b.reduce((s, x) => s + x.gpu, 0) / gN : NaN).padStart(4)}  ${String(Math.round(b.reduce((s, x) => s + x.chamadas, 0) / n)).padStart(8)}  ${mil(b.reduce((s, x) => s + x.tri, 0) / n).padStart(8)}  ${String(b.reduce((s, x) => s + x.lentos, 0)).padStart(5)}  ${[...new Set(b.map((x) => x.qual))].join('→').padEnd(9)}  ${[...new Set(b.map((x) => x.regiao))].join('→')}`);
+      L.push(`${mmss(b[0].s)}   ${fmt(1000 * n / soma, 0).padStart(3)}  ${fmt(Math.max(...b.map((x) => x.max)), 0).padStart(4)}  ${fmt(b.reduce((s, x) => s + x.cpu, 0) / n).padStart(4)}  ${fmt(gN ? b.reduce((s, x) => s + x.gpu, 0) / gN : NaN).padStart(4)}  ${String(Math.round(b.reduce((s, x) => s + x.chamadas, 0) / n)).padStart(8)}  ${mil(b.reduce((s, x) => s + x.tri, 0) / n).padStart(8)}  ${String(b.reduce((s, x) => s + x.lentos, 0)).padStart(5)}  ${(Math.round(100 * b.reduce((s, x) => s + (x.tocha ?? 0), 0) / n) + '%').padStart(5)}  ${[...new Set(b.map((x) => x.qual))].join('→').padEnd(9)}  ${[...new Set(b.map((x) => x.regiao))].join('→')}`);
     }
     L.push('');
     this.secaoDiagnostico(L, ult60);
@@ -429,10 +443,10 @@ export class Monitor {
     const piores = [...this.picos].sort((a, b) => b.intervalo - a.intervalo).slice(0, 25).sort((a, b) => a.t - b.t);
     for (const p of piores) {
       const gpu = this.q.gpu[p.slot];
-      L.push(`- ${mmss(p.s)} (${p.relogio}) · ${fmt(p.intervalo, 0)} ms (mediana ${fmt(p.mediana, 0)}) · ${p.regiao} [${p.lin}, ${p.col}] x ${fmt(p.x, 0)} z ${fmt(p.z, 0)} olhando ${Math.round(((p.yaw * 180 / Math.PI) % 360 + 360) % 360)}°${p.menu ? ` · menu ${p.menu}` : ''}`);
+      L.push(`- ${mmss(p.s)} (${p.relogio}) · ${fmt(p.intervalo, 0)} ms (mediana ${fmt(p.mediana, 0)}) · ${p.regiao} [${p.lin}, ${p.col}] x ${fmt(p.x, 0)} z ${fmt(p.z, 0)} olhando ${Math.round(((p.yaw * 180 / Math.PI) % 360 + 360) % 360)}°${p.tocha ? ' · tocha acesa' : ''}${p.menu ? ` · menu ${p.menu}` : ''}`);
       // um evento (troca de qualidade…) nos 5 s antes explica o pico melhor que tudo
       const ev = [...this.eventos].reverse().find((e) => e.t <= p.t && p.t - e.t < 5000);
-      L.push(`    quadro culpado: CPU ${fmt(p.cpu, 0)} ms (${this.topFases(p.fases, 3)}) · GPU ${fmt(gpu, 0)} ms · ${p.chamadas} chamadas · ${mil(p.tri)} triâng. → ${classe(p).map((x) => x[1]).join('; ')}${ev ? ` · logo depois de: ${ev.texto}` : ''}`);
+      L.push(`    quadro culpado: CPU ${fmt(p.cpu, 0)} ms (${this.topFases(p.fases, 3)}) · GPU ${fmt(gpu, 0)} ms · ${p.chamadas} chamadas${p.sombra ? ` (${p.sombra} da sombra)` : ''} · ${mil(p.tri)} triâng. → ${classe(p).map((x) => x[1]).join('; ')}${ev ? ` · logo depois de: ${ev.texto}` : ''}`);
     }
     L.push('');
   }
@@ -453,7 +467,7 @@ export class Monitor {
     const g = this.game, r = g.renderer, info = r.info, cam = g.camera;
     L.push('## A cena agora');
     const mem = performance.memory;
-    L.push(`chamadas ${this.chamadasDoQuadro ?? info.render.calls} · triângulos ${mil(this.triDoQuadro ?? info.render.triangles)} · programas ${info.programs?.length} · texturas ${info.memory.textures} · geometrias ${info.memory.geometries}${mem ? ` · memória JS ${Math.round(mem.usedJSHeapSize / 1048576)} de ${Math.round(mem.jsHeapSizeLimit / 1048576)} MB` : ''}`);
+    L.push(`tocha ${g.player?.torchLit ? 'ACESA' : 'apagada'} · chamadas ${this.chamadasDoQuadro ?? info.render.calls} (${this.sombraDoQuadro ?? 0} da sombra da tocha) · triângulos ${mil(this.triDoQuadro ?? info.render.triangles)} · programas ${info.programs?.length} · texturas ${info.memory.textures} · geometrias ${info.memory.geometries}${mem ? ` · memória JS ${Math.round(mem.usedJSHeapSize / 1048576)} de ${Math.round(mem.jsHeapSizeLimit / 1048576)} MB` : ''}`);
     const luzes = {}; let sombras = 0;
     g.scene.traverse((o) => { if (o.isLight && o.visible) { luzes[o.type] = (luzes[o.type] ?? 0) + 1; if (o.castShadow) sombras++; } });
     L.push(`luzes visíveis: ${Object.entries(luzes).map(([k, v]) => `${v} ${k.replace('Light', '')}`).join(', ')} · projetando sombra: ${sombras} · orçamento ${g.world.luzesNoOrcamento} dentro / ${g.world.luzesForaNoOrcamento} fora`);
@@ -510,6 +524,7 @@ export class Monitor {
     const pix = this.gl.drawingBufferWidth * this.gl.drawingBufferHeight;
     dicas.push(`gargalo no último minuto: ${this.gargalo(j)}.`);
     if (Number.isFinite(j.gpu) && j.gpu > 0.8 * j.mediana && r.getPixelRatio() > 1) dicas.push(`a placa é o limite e o pixelRatio é ${r.getPixelRatio()} (${(pix / 1e6).toFixed(1)} milhões de pixels por quadro): menos resolução rende quase na proporção — ver "metade da resolução" no teste do lugar.`);
+    if (j.sombra > 300) dicas.push(`a sombra da tocha faz ${Math.round(j.sombra)} das ${Math.round(j.chamadas)} chamadas por quadro (ela redesenha 6 vezes o que projeta sombra em 24 m): apagar a tocha de dia, ou menos peças projetando sombra, ou a sombra mais curta.`);
     if (j.chamadas > 1000) dicas.push(`${Math.round(j.chamadas)} chamadas de desenho por quadro é muito para placa integrada: juntar lotes, cortar por distância.`);
     if (j.tri > 2e6) dicas.push(`${mil(j.tri)} triângulos por quadro: LOD/cartaz mais perto, ou peças mais leves.`);
     const nPicos = this.picos.length, comp = this.picos.filter((p) => p.dProg > 0).length, gc = this.picos.filter((p) => p.dHeap < -2).length;
@@ -570,7 +585,7 @@ export class Monitor {
       `<b>${fmt(j.fps, 0)} FPS</b> · ${fmt(j.mediana)} ms (p95 ${fmt(j.p95, 0)}) · ${q.nome} ${Math.round((this.game.graficos.escala ?? 1) * 100)}%`,
       `CPU ${fmt(j.cpu)} · GPU ${this.ext ? fmt(j.gpu) : 'n/d'} ms`,
       `gargalo: ${this.gargalo(j).replace(/ \(.*/, '')}`,
-      `${Math.round(j.chamadas)} chamadas · ${mil(j.tri || 0)} triâng. · ${this.game.renderer.info.programs?.length} prog.`,
+      `${Math.round(j.chamadas)} chamadas${j.sombra > 0 ? ` (sombra ${Math.round(j.sombra)})` : ''} · ${mil(j.tri || 0)} triâng. · ${this.game.renderer.info.programs?.length} prog.`,
       a ? `${a.regiao} [${a.lin}, ${a.col}] · picos ${this.picos.length}` : '',
       this.estadoDiag ? `<i>${this.estadoDiag}…</i>` : '',
     ].filter(Boolean).join('<br>');
