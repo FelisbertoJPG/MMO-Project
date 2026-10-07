@@ -156,6 +156,9 @@ export class Monitor {
     a.slot = slot; a.n = this.n; a.cpu = cpu; a.fases.set(this.atual); a.chamadas = Q.chamadas[slot]; a.tri = Q.tri[slot];
     a.regiao = regiao; a.lin = lin; a.col = col; a.x = p?.x ?? 0; a.y = p?.y ?? 0; a.z = p?.z ?? 0;
     a.yaw = g.player?.camYaw ?? 0; a.menu = g.menu || null; a.sombra = Q.sombra[slot]; a.tocha = !!g.player?.torchLit;
+    // QUAIS shaders compilaram (os programas novos ficam no fim da lista do three.js): o nome
+    // do material e o que o distingue — só quando houve (raro: não gera lixo por quadro)
+    a.novosProgs = a.dProg > 0 ? (info.programs ?? []).slice(-a.dProg).map((pr) => pr.name).join(', ') : null;
     this.n++;
     const iv = this.intervaloAtual;
     // durante o "Diagnosticar aqui" o jogo é mexido de propósito: fora das contas da sessão
@@ -299,7 +302,15 @@ export class Monitor {
   }
 
   // ------------------------------------------------------------ "Diagnosticar aqui"
-  async diagnosticar() {
+  /**
+   * O TESTE DO LUGAR (melhorado em 07/10/2026 — antes eu refazia estes testes à mão, rodada
+   * após rodada). Cada teste desliga UMA coisa e diz o que fazer se ela pesar: `acao` (a
+   * mudança concreta) e `perde` (o que se vê de diferente). A base é medida a cada 2 testes
+   * e cada teste é comparado com a média da base de antes e da de depois (a máquina oscila).
+   * Teste que recompila shader (`lento`) espera mais antes de medir. `copiarNoFim`: o botão
+   * "Diagnosticar e copiar" — o relatório vai para a área de transferência quando acaba.
+   */
+  async diagnosticar(copiarNoFim = false) {
     if (this.diagnosticando) return;
     const g = this.game, w = g.world, r = g.renderer;
     this.diagnosticando = true;
@@ -308,35 +319,53 @@ export class Monitor {
     for (const c of w.lod?.cartazes?.values() ?? []) { cartazes.push(c.malha); lotes.push(c.malha); }
     const camadas = (lista, l) => { for (const o of lista) o.layers.set(l); };
     const q = g.graficos.q, pr = r.getPixelRatio(), luzes = [w.luzesNoOrcamento, w.luzesForaNoOrcamento];
-    const tocha = g.player?.torchLight;
+    const tocha = g.player?.torchLight, acesa = !!g.player?.torchLit && !!q.sombra;
+    const recompilar = () => g.scene.traverse((o) => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
+    const entes = [...(g.all ?? []), ...(w.cadaveres ?? [])];
+    const personagens = (esconder) => { for (const e of entes) for (const o of e.__lodMalhas ?? []) o.layers.set(esconder || e.__lodOculto ? 31 : 0); };
+    const sombraCurta = (m) => { const s = tocha.shadow, orig = s.updateMatrices.bind(s); this._sombraOrig = orig; s.updateMatrices = (l, f) => { orig(l, f); if (s.camera.far !== m) { s.camera.far = m; s.camera.updateProjectionMatrix(); } }; };
+    const impostorAntes = q.impostor, tipoAntes = r.shadowMap.type;
+    // [nome, liga, desliga, ação, o que se perde, recompila?]
     const testes = [
-      ['metade da resolução (¼ dos pixels)', () => r.setPixelRatio(pr / 2), () => r.setPixelRatio(pr)],
-      ['sem a decoração inteira (lotes e cartazes)', () => camadas(lotes, 31), () => camadas(lotes, 0)],
-      ['sem as árvores de perto (lotes de árvore)', () => camadas(arvores, 31), () => camadas(arvores, 0)],
-      ['sem os cartazes de árvore (longe)', () => camadas(cartazes, 31), () => camadas(cartazes, 0)],
-      ['sem as luzes de cenário', () => { w.luzesNoOrcamento = 0; w.luzesForaNoOrcamento = 0; w.distribuirLuzes(); }, () => { [w.luzesNoOrcamento, w.luzesForaNoOrcamento] = luzes; w.distribuirLuzes(); }],
-      ['sem a luz da tocha (e a sombra dela)', () => { if (tocha) tocha.visible = false; }, () => { if (tocha) tocha.visible = true; }],
-      ['sem o capim', () => g.capim?.malha?.layers.set(31), () => g.capim?.malha?.layers.set(0)],
-      ['sem o céu desenhado', () => g.ceu?.abobada.layers.set(31), () => g.ceu?.abobada.layers.set(0)],
-      ['sem o clarão do sol/lua', () => { this._clarao = q.clarao; q.clarao = false; }, () => { q.clarao = this._clarao; }],
-      ['sem NADA na tela (o custo fixo)', () => g.camera.layers.disableAll(), () => g.camera.layers.set(0)],
+      ['metade da resolução (¼ dos pixels)', () => r.setPixelRatio(pr / 2), () => r.setPixelRatio(pr), 'menos resolução (resolução automática, ou `pixelRatio` da qualidade)', 'imagem menos nítida'],
+      ['sem a decoração inteira', () => camadas(lotes, 31), () => camadas(lotes, 0), null, null],
+      ['sem as árvores de perto', () => camadas(arvores, 31), () => camadas(arvores, 0), null, null],
+      [`cartaz a partir de 45 m (hoje ${impostorAntes})`, () => { q.impostor = 45; }, () => { q.impostor = impostorAntes; }, `\`impostor\` da qualidade ${q.nome}: 45 m`, 'árvores a partir de 45 m viram cartaz (de perto um pouco menos detalhe)'],
+      ['sem os cartazes de árvore', () => camadas(cartazes, 31), () => camadas(cartazes, 0), null, null],
+      ['sem os personagens (inimigos, animais)', () => personagens(true), () => personagens(false), 'personagens: cortar mais perto (`PERSONAGEM_LONGE`, lod.js) ou modelos mais leves', 'bichos/inimigos somem mais cedo ao longe'],
+      ['sem as luzes de cenário', () => { w.luzesNoOrcamento = 0; w.luzesForaNoOrcamento = 0; w.distribuirLuzes(); }, () => { [w.luzesNoOrcamento, w.luzesForaNoOrcamento] = luzes; w.distribuirLuzes(); }, `menos luzes de cenário (\`luzes\`/\`luzesFora\` da qualidade ${q.nome}: hoje ${luzes[0]}/${luzes[1]})`, 'menos tochas/fogueiras iluminando ao mesmo tempo', true],
+      ...(acesa ? [
+        ['tocha acesa SEM sombra', () => { tocha.castShadow = false; }, () => { tocha.castShadow = true; }, `sombra da tocha desligada na qualidade ${q.nome}`, 'sem as sombras que a tocha faz (personagem, árvores)', true],
+        ['sombra da tocha sem suavização', () => { r.shadowMap.type = 0; r.shadowMap.needsUpdate = true; recompilar(); }, () => { r.shadowMap.type = tipoAntes; r.shadowMap.needsUpdate = true; recompilar(); }, `\`tipoSombra\` da qualidade ${q.nome}: BasicShadowMap`, 'a borda da sombra da tocha fica serrilhada', true],
+        ['sombra da tocha só até 12 m (hoje 24)', () => sombraCurta(12), () => { tocha.shadow.updateMatrices = this._sombraOrig; }, 'alcance da sombra da tocha 12 m (a luz continua 24)', 'o que está a mais de 12 m da tocha não faz sombra dela'],
+        ['tocha apagada', () => g.player.toggleTorch(), () => g.player.toggleTorch(), 'apagar a tocha quando não precisa (de dia)', 'menos luz em volta'],
+      ] : []),
+      ['sem o capim', () => g.capim?.malha?.layers.set(31), () => g.capim?.malha?.layers.set(0), `capim menos denso (\`capim\` da qualidade ${q.nome}: hoje ${q.capim})`, 'chão menos coberto'],
+      ['sem o céu desenhado', () => g.ceu?.abobada.layers.set(31), () => g.ceu?.abobada.layers.set(0), null, null],
+      ['sem o clarão do sol/lua', () => { this._clarao = q.clarao; q.clarao = false; }, () => { q.clarao = this._clarao; }, 'clarão desligado nesta qualidade', 'sem o reflexo de lente'],
+      ['sem NADA na tela (o custo fixo)', () => g.camera.layers.disableAll(), () => g.camera.layers.set(0), null, null],
     ];
-    const medir = async (ms) => { await new Promise((f) => setTimeout(f, 900)); const t0 = performance.now(); await new Promise((f) => setTimeout(f, ms)); return this.janela(t0, performance.now(), true); };
-    const res = [], janela = [performance.now(), Infinity];
+    const medir = async (espera) => { await new Promise((f) => setTimeout(f, espera)); const t0 = performance.now(); await new Promise((f) => setTimeout(f, 1300)); return this.janela(t0, performance.now(), true); };
+    const res = [], bases = [], janela = [performance.now(), Infinity];
     this.janelasDiag.push(janela);
+    const passo = (txt) => { this.estadoDiag = txt; this.desenharPainel(); };
     try {
+      passo('medindo a base');
+      bases.push(await medir(700));
       for (let i = 0; i < testes.length; i++) {
-        const [nome, liga, desliga] = testes[i];
-        this.estadoDiag = `medindo ${i + 1}/${testes.length}: base`;
-        this.desenharPainel();
-        const base = await medir(1600);
-        this.estadoDiag = `medindo ${i + 1}/${testes.length}: ${nome}`;
-        this.desenharPainel();
-        try { liga(); const com = await medir(1600); res.push({ nome, base, com }); } finally { desliga(); }
+        const [nome, liga, desliga, acao, perde, lento] = testes[i];
+        passo(`medindo ${i + 1}/${testes.length}: ${nome}`);
+        try { liga(); res.push({ nome, acao, perde, antes: bases.length - 1, com: await medir(lento ? 1800 : 700) }); } finally { desliga(); }
+        // a base de novo a cada 2 testes (e no fim): cada teste usa a média das bases em volta
+        if (i % 2 === 1 || i === testes.length - 1) { passo(`medindo ${i + 1}/${testes.length}: base`); bases.push(await medir(lento ? 1800 : 700)); }
+      }
+      for (const x of res) {
+        const b0 = bases[x.antes], b1 = bases[x.antes + 1] ?? b0;
+        x.base = { fps: (b0.fps + b1.fps) / 2, gpu: (b0.gpu + b1.gpu) / 2, chamadas: (b0.chamadas + b1.chamadas) / 2 };
       }
       const p = g.player?.pos, [lin, col] = p ? w.cellOf(p) : [0, 0];
-      this.diagnostico = { quando: new Date().toLocaleTimeString('pt-BR'), s: (performance.now() - this.sessaoIni) / 1000, onde: `${this.regiao(lin, col)} [${lin}, ${col}] x ${fmt(p?.x)} z ${fmt(p?.z)}, olhando ${Math.round(((g.player?.camYaw ?? 0) * 180 / Math.PI) % 360)}°`, res };
-      g.ui?.toast('Diagnóstico pronto: está no relatório.');
+      this.diagnostico = { quando: new Date().toLocaleTimeString('pt-BR'), s: (performance.now() - this.sessaoIni) / 1000, onde: `${this.regiao(lin, col)} [${lin}, ${col}] x ${fmt(p?.x)} z ${fmt(p?.z)}, olhando ${Math.round((((g.player?.camYaw ?? 0) * 180 / Math.PI) % 360 + 360) % 360)}°${acesa ? ', tocha acesa' : ''}, qualidade ${q.nome}`, res };
+      if (!copiarNoFim) g.ui?.toast('Diagnóstico pronto: está no relatório.');
     } finally {
       // um segundo de folga: o último teste ainda pode estar desfazendo (shaders, luzes)
       await new Promise((f) => setTimeout(f, 1000));
@@ -345,6 +374,7 @@ export class Monitor {
       this.ultInicio = 0;   // o intervalo do primeiro quadro depois não conta
       this.desenharPainel();
     }
+    if (copiarNoFim) await this.copiar();
   }
 
   // ------------------------------------------------------------ o relatório
@@ -362,6 +392,8 @@ export class Monitor {
     L.push(`navegador: ${navigator.userAgent.match(/(Chrome|Firefox|Edg|Safari)\/[\d.]+/g)?.join(' ') ?? navigator.userAgent} · núcleos ${navigator.hardwareConcurrency ?? '?'} · memória ${navigator.deviceMemory ?? '?'} GB · ${navigator.platform}`);
     L.push(`tela: ${innerWidth}×${innerHeight} (devicePixelRatio ${devicePixelRatio}) → desenhando ${gl.drawingBufferWidth}×${gl.drawingBufferHeight} (pixelRatio ${fmt(r.getPixelRatio(), 2)}) · antisserrilhado ${gl.getContextAttributes().antialias ? 'sim' : 'não'} · escala de resolução ${Math.round((g.graficos.escala ?? 1) * 100)}% (automática ${g.graficos.auto ? 'ligada' : 'desligada'})`);
     L.push(`qualidade: ${q.nome} — pixelRatio até ${q.pixelRatio}, sombra da tocha ${q.sombra ? `${q.sombra.mapa}px a cada ${q.sombra.aCada}` : 'não'}, luzes ${q.luzes} (ar livre ${q.luzesFora}), capim ${q.capim}, nuvens ${q.nuvens}, clarão ${q.clarao ? 'sim' : 'não'}, cartaz a partir de ${q.impostor} m, detalhe some abaixo de ${q.limiarPx} px`);
+    // o antisserrilhado (MSAA) é escolhido ao criar a página: só dá para medir reabrindo o jogo
+    if (gl.getContextAttributes().antialias) L.push(`antisserrilhado ligado: o teste do lugar não o mede (só reabrindo o jogo). Referência: numa Radeon 740M a 1920×945, no Médio com a tocha acesa, ele custava ~26% (29,1 → 36,7 quadros/s, 07/10/2026).`);
     L.push(`cronômetro da GPU: ${this.ext ? 'sim' : 'NÃO (sem o tempo da placa; o gargalo é deduzido)'} · quadros longos do navegador: ${this.tipoLongo ?? 'não'}`);
     L.push('');
     L.push('## Resumo (só jogando)');
@@ -421,7 +453,7 @@ export class Monitor {
     // cada causa: [categoria (para a contagem), texto (com os números)]
     const classe = (p) => {
       const c = [];
-      if (p.dProg > 0) c.push(['compilou shader', `compilou ${p.dProg} shader(s)`]);
+      if (p.dProg > 0) c.push(['compilou shader', `compilou ${p.dProg} shader(s)${p.novosProgs ? ` (${p.novosProgs})` : ''}`]);
       if (p.dTex > 0 || p.dGeo > 20) c.push(['subiu textura/geometria', `+${p.dTex} textura(s), +${p.dGeo} geometria(s)`]);
       if (p.dHeap < -2) c.push(['coleta de lixo', `coleta de lixo (${fmt(p.dHeap, 0)} MB)`]);
       // o script que o navegador aponta — menos o próprio laço do jogo (o setAnimationLoop
@@ -534,19 +566,22 @@ export class Monitor {
     for (const d of dicas) L.push(`- ${d}`);
     L.push('');
     const D = this.diagnostico;
-    L.push('## Teste do lugar ("Diagnosticar aqui")');
-    if (!D) { L.push('não feito — com o menu de pausa aberto, parado no lugar pesado e olhando para onde pesa, clique "Diagnosticar aqui" e copie de novo.'); return; }
-    L.push(`feito às ${D.quando} (sessão ${mmss(D.s)}) em ${D.onde}. Cada linha: FPS da base logo antes → FPS sem aquilo (ganho). Ganho grande = é ali que se otimiza.`);
+    L.push('## Teste do lugar ("Diagnosticar e copiar")');
+    if (!D) { L.push('não feito — no lugar pesado, olhando para onde pesa: F3, Esc e "Diagnosticar e copiar" (cerca de 1 min; o relatório já sai com ele).'); return; }
+    L.push(`feito às ${D.quando} (sessão ${mmss(D.s)}) em ${D.onde}. Cada linha: FPS da base (média da de antes e da de depois) → FPS com a mudança.`);
     for (const { nome, base, com } of D.res) {
       const ganho = com.fps / base.fps - 1;
       L.push(`${nome.padEnd(44)} ${fmt(base.fps, 1).padStart(5)} → ${fmt(com.fps, 1).padStart(5)} FPS  (${ganho >= 0 ? '+' : ''}${Math.round(ganho * 100)}%)  · GPU ${fmt(base.gpu)} → ${fmt(com.gpu)} ms · ${Math.round(base.chamadas)} → ${Math.round(com.chamadas)} chamadas`);
     }
-    // a leitura: o que mais rende, se são os pixels, e o piso (sem nada na tela)
-    const ganhos = D.res.map(({ nome, base, com }) => ({ nome, g: com.fps / base.fps - 1, base, com }));
-    const util = ganhos.filter((x) => !x.nome.startsWith('sem NADA') && x.g > 0.08).sort((a, b) => b.g - a.g);
+    // a leitura: o que fazer, do que mais rende; se são os pixels; e o piso (sem nada na tela)
+    const ganhos = D.res.map((x) => ({ ...x, g: x.com.fps / x.base.fps - 1 }));
+    const acoes = ganhos.filter((x) => x.acao && x.g >= 0.05).sort((a, b) => b.g - a.g);
     L.push('');
-    if (util.length) L.push(`- aqui o peso está em: ${util.slice(0, 4).map((x) => `${x.nome.replace(/^sem /, '')} (+${Math.round(x.g * 100)}%)`).join(', ')}.`);
-    else L.push('- nada sozinho pesa mais que 8% aqui: o custo está espalhado (ou o lugar já está leve).');
+    L.push('O que fazer aqui (do que mais rende; cada uma sozinha, os ganhos não somam exato):');
+    if (acoes.length) for (const x of acoes) L.push(`  +${String(Math.round(x.g * 100)).padStart(3)}%  ${x.acao} — perde: ${x.perde}`);
+    else L.push('  nada sozinho rende 5% ou mais aqui: o lugar já está leve, ou o custo está espalhado.');
+    const util = ganhos.filter((x) => !x.acao && !x.nome.startsWith('sem NADA') && x.g > 0.08).sort((a, b) => b.g - a.g);
+    if (util.length) L.push(`- onde está o peso (para mexer nas peças): ${util.map((x) => `${x.nome.replace(/^sem (a |o |as |os )?/, '')} (+${Math.round(x.g * 100)}%)`).join(', ')}.`);
     const meia = ganhos.find((x) => x.nome.startsWith('metade'));
     if (meia) L.push(meia.g > 0.35 ? `- os PIXELS pesam (+${Math.round(meia.g * 100)}% com ¼ deles): resolução, camadas de folha/transparência e luz por pixel são o caminho.` : `- os pixels NÃO são o problema aqui (+${Math.round(meia.g * 100)}% com ¼ deles): baixar a resolução quase não ajuda; o peso é de geometria/chamadas ou CPU.`);
     const nada = ganhos.find((x) => x.nome.startsWith('sem NADA'));
@@ -559,14 +594,14 @@ export class Monitor {
     el.id = 'monitor';
     el.className = 'hidden';
     el.innerHTML = `<div class="mon-linhas"></div><canvas width="284" height="56"></canvas>
-      <div class="mon-botoes"><button data-a="copiar">Copiar relatório</button><button data-a="diag">Diagnosticar aqui</button><button data-a="zerar">Zerar</button></div>
+      <div class="mon-botoes"><button data-a="diag">Diagnosticar e copiar</button><button data-a="copiar">Só copiar</button><button data-a="zerar">Zerar</button></div>
       <div class="mon-dica">F3 fecha · Esc libera o mouse para clicar</div>`;
     document.body.appendChild(el);
     this.el = el; this.linhas = el.querySelector('.mon-linhas'); this.cv = el.querySelector('canvas');
     el.addEventListener('click', (e) => {
       const a = e.target.closest('button')?.dataset.a;
       if (a === 'copiar') this.copiar();
-      if (a === 'diag') this.diagnosticar();
+      if (a === 'diag') this.diagnosticar(true);
       if (a === 'zerar') { this.zerar(); this.game.ui?.toast('Monitor zerado.'); }
     });
   }
@@ -588,6 +623,8 @@ export class Monitor {
       `${Math.round(j.chamadas)} chamadas${j.sombra > 0 ? ` (sombra ${Math.round(j.sombra)})` : ''} · ${mil(j.tri || 0)} triâng. · ${this.game.renderer.info.programs?.length} prog.`,
       a ? `${a.regiao} [${a.lin}, ${a.col}] · picos ${this.picos.length}` : '',
       this.estadoDiag ? `<i>${this.estadoDiag}…</i>` : '',
+      // lento e sem teste do lugar recente: o painel mesmo sugere
+      !this.estadoDiag && j.fps < 30 && (!this.diagnostico || (agora - this.sessaoIni) / 1000 - this.diagnostico.s > 300) ? '<i>lento aqui: Esc → "Diagnosticar e copiar"</i>' : '',
     ].filter(Boolean).join('<br>');
     // o gráfico: os últimos quadros (barras), com as linhas de 60 e 30 por segundo
     const c = this.cv.getContext('2d'), W = this.cv.width, H = this.cv.height, esc = H / 66;
