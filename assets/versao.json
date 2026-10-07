@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-10-07.1",
-  "nota": "bem mais leve com a tocha acesa (animais e esqueletos de longe nao sao mais desenhados), sem trancos andando com a tocha, resolucao automatica que desfaz quando nao ajuda"
+  "versao": "2026-10-07.2",
+  "nota": "no Medio o personagem nao pisca mais (a sombra da tocha agora e redesenhada todo quadro)"
 }

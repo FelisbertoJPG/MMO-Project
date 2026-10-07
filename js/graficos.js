@@ -28,9 +28,12 @@ export const QUALIDADES = {
   },
   medio: {
     nome: 'Médio', pixelRatio: 1.25, antialias: true,
-    // metade da resolução, redesenhada a cada 2 quadros (o alcance da sombra o
-    // three.js tira da distância da luz a cada quadro — não é opção aqui)
-    sombra: { mapa: 256, aCada: 2 }, tipoSombra: THREE.PCFShadowMap,
+    // metade da resolução (o alcance da sombra o three.js tira da distância da luz a cada
+    // quadro — não é opção aqui). Redesenhada TODO quadro desde 07/10/2026: a cada 2, a
+    // sombra do personagem (no chão e no corpo) ficava meio passo atrasada num quadro e certa
+    // no outro — o personagem "flicava" no Médio. Depois de os personagens longe saírem da
+    // sombra (lod.js) ela ficou ~7× mais barata: todo quadro custou 0,8 quadro/s.
+    sombra: { mapa: 256, aCada: 1 }, tipoSombra: THREE.PCFShadowMap,
     luzes: 5, luzesFora: 3, filtroDeCor: true, particulas: 0.7, capim: 34,
     nuvens: 4, reflexoS: 8, clarao: true,
     impostor: 90, limiarPx: 2.5,
@@ -195,7 +198,8 @@ export class Graficos {
 
   /**
    * Todo quadro: a sombra da tocha é redesenhada só com a tocha acesa e, no
-   * Médio, a cada 2 quadros (a luz anda com o jogador; a diferença não se nota).
+   * no ritmo `aCada` da qualidade (hoje todo quadro nas duas: a cada 2 o personagem
+   * "flicava" no Médio — a sombra dele ficava meio passo atrasada num quadro sim, outro não).
    */
   update() {
     this.ajustarResolucao();
