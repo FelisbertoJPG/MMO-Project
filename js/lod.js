@@ -242,10 +242,14 @@ export class LOD {
     // só com a partida rodando: na tela de título os animais ainda não animaram, e a pose de
     // repouso deles tem outro tamanho — a esfera saía pequena (conferido)
     if (w.game.state === 'title') return;
+    // no máximo 12 preparados por passada: a esfera da pose percorre todos os vértices com os
+    // ossos — todos de uma vez eram um pico de ~105 ms ao entrar no mundo (visto no monitor)
+    let preparar = 12;
     for (const e of [...(w.game.all ?? []), ...(w.cadaveres ?? [])]) {
       const raiz = e.model?.root ?? e.model?.scene ?? e.root;
       if (!raiz || !e.pos) continue;
       if (!e.__lodMalhas) {
+        if (preparar-- <= 0) continue;
         e.__lodMalhas = [];
         raiz.traverse((o) => {
           if (!o.isMesh) return;

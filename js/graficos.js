@@ -107,7 +107,8 @@ export class Graficos {
     if (t - R.ini < 1000) return;
     const fps = (1000 * R.quadros) / (t - R.ini);
     R.ini = t; R.quadros = 0;
-    if (!this.auto || document.hidden || this.game.state === 'title') { R.teste = null; return; }
+    // `pausaAuto`: o teste do lugar do monitor está medindo (mexer na escala no meio estragaria)
+    if (!this.auto || this.pausaAuto || document.hidden || this.game.state === 'title') { R.teste = null; return; }
     // DEPOIS DE DESCER, CONFERE (07/10/2026): num relatório ela desceu a 70% três vezes sem
     // ganho nenhum (o limite era a sombra da tocha, não os pixels) — e cada mudança custa um
     // tranco. O segundo da mudança não conta; com os 2 seguintes, se não ganhou 8%, volta e

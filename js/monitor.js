@@ -156,9 +156,10 @@ export class Monitor {
     a.slot = slot; a.n = this.n; a.cpu = cpu; a.fases.set(this.atual); a.chamadas = Q.chamadas[slot]; a.tri = Q.tri[slot];
     a.regiao = regiao; a.lin = lin; a.col = col; a.x = p?.x ?? 0; a.y = p?.y ?? 0; a.z = p?.z ?? 0;
     a.yaw = g.player?.camYaw ?? 0; a.menu = g.menu || null; a.sombra = Q.sombra[slot]; a.tocha = !!g.player?.torchLit;
-    // QUAIS shaders compilaram (os programas novos ficam no fim da lista do three.js): o nome
-    // do material e o que o distingue — só quando houve (raro: não gera lixo por quadro)
-    a.novosProgs = a.dProg > 0 ? (info.programs ?? []).slice(-a.dProg).map((pr) => pr.name).join(', ') : null;
+    // QUAIS shaders compilaram (os programas novos ficam no fim da lista do three.js): o TIPO
+    // do material (`type`) e o nome dele (`name`, quase sempre vazio) — só quando houve (raro:
+    // não gera lixo por quadro)
+    a.novosProgs = a.dProg > 0 ? (info.programs ?? []).slice(-a.dProg).map((pr) => pr.type + (pr.name ? ` "${pr.name}"` : '')).join(', ') : null;
     this.n++;
     const iv = this.intervaloAtual;
     // durante o "Diagnosticar aqui" o jogo é mexido de propósito: fora das contas da sessão
@@ -314,6 +315,7 @@ export class Monitor {
     if (this.diagnosticando) return;
     const g = this.game, w = g.world, r = g.renderer;
     this.diagnosticando = true;
+    g.graficos.pausaAuto = true;   // a resolução automática não mexe na escala enquanto mede
     const lotes = [], arvores = [], cartazes = [];
     for (const gr of w.lod?.grupos ?? []) for (const im of gr.ims) { lotes.push(im); if (gr.cartaz) arvores.push(im); }
     for (const c of w.lod?.cartazes?.values() ?? []) { cartazes.push(c.malha); lotes.push(c.malha); }
@@ -364,13 +366,13 @@ export class Monitor {
         x.base = { fps: (b0.fps + b1.fps) / 2, gpu: (b0.gpu + b1.gpu) / 2, chamadas: (b0.chamadas + b1.chamadas) / 2 };
       }
       const p = g.player?.pos, [lin, col] = p ? w.cellOf(p) : [0, 0];
-      this.diagnostico = { quando: new Date().toLocaleTimeString('pt-BR'), s: (performance.now() - this.sessaoIni) / 1000, onde: `${this.regiao(lin, col)} [${lin}, ${col}] x ${fmt(p?.x)} z ${fmt(p?.z)}, olhando ${Math.round((((g.player?.camYaw ?? 0) * 180 / Math.PI) % 360 + 360) % 360)}°${acesa ? ', tocha acesa' : ''}, qualidade ${q.nome}`, res };
+      this.diagnostico = { quando: new Date().toLocaleTimeString('pt-BR'), s: (performance.now() - this.sessaoIni) / 1000, onde: `${this.regiao(lin, col)} [${lin}, ${col}] x ${fmt(p?.x)} z ${fmt(p?.z)}, olhando ${Math.round((((g.player?.camYaw ?? 0) * 180 / Math.PI) % 360 + 360) % 360)}°${acesa ? ', tocha acesa' : ''}, qualidade ${q.nome}`, tela: `${this.gl.drawingBufferWidth}×${this.gl.drawingBufferHeight}`, res };
       if (!copiarNoFim) g.ui?.toast('Diagnóstico pronto: está no relatório.');
     } finally {
       // um segundo de folga: o último teste ainda pode estar desfazendo (shaders, luzes)
       await new Promise((f) => setTimeout(f, 1000));
       janela[1] = performance.now();
-      this.diagnosticando = false; this.estadoDiag = null;
+      this.diagnosticando = false; this.estadoDiag = null; g.graficos.pausaAuto = false;
       this.ultInicio = 0;   // o intervalo do primeiro quadro depois não conta
       this.desenharPainel();
     }
@@ -398,7 +400,8 @@ export class Monitor {
     L.push('');
     L.push('## Resumo (só jogando)');
     const linhaResumo = (rot, j) => `${rot.padEnd(14)} FPS ${fmt(j.fps).padStart(5)} · quadro mediana ${fmt(j.mediana)} p95 ${fmt(j.p95)} p99 ${fmt(j.p99)} máx ${fmt(j.max, 0)} ms · CPU ${fmt(j.cpu)} · GPU ${fmt(j.gpu)} ms · ${Math.round(j.chamadas)} chamadas (${Math.round(j.sombra || 0)} da sombra da tocha) · ${mil(j.tri || 0)} triâng. · lentos >33ms ${j.n ? Math.round(100 * j.lentos33 / j.n) : 0}% >50ms ${j.n ? Math.round(100 * j.lentos50 / j.n) : 0}% >100ms ${j.lentos100}`;
-    L.push(linhaResumo('últimos 10 s', ult10));
+    // os últimos 10 s podem ter sido o próprio teste do lugar (fica fora das contas)
+    L.push(ult10.n ? linhaResumo('últimos 10 s', ult10) : `últimos 10 s    (foram do teste do lugar: fora das contas)`);
     L.push(linhaResumo('último 1 min', ult60));
     L.push(linhaResumo(`jogado (${Math.round(tudo.n / Math.max(tudo.fps || 1, 1))} s)`, tudo));
     L.push(`gargalo agora (10 s): ${this.gargalo(ult10)}`);
@@ -568,24 +571,35 @@ export class Monitor {
     const D = this.diagnostico;
     L.push('## Teste do lugar ("Diagnosticar e copiar")');
     if (!D) { L.push('não feito — no lugar pesado, olhando para onde pesa: F3, Esc e "Diagnosticar e copiar" (cerca de 1 min; o relatório já sai com ele).'); return; }
-    L.push(`feito às ${D.quando} (sessão ${mmss(D.s)}) em ${D.onde}. Cada linha: FPS da base (média da de antes e da de depois) → FPS com a mudança.`);
-    for (const { nome, base, com } of D.res) {
-      const ganho = com.fps / base.fps - 1;
-      L.push(`${nome.padEnd(44)} ${fmt(base.fps, 1).padStart(5)} → ${fmt(com.fps, 1).padStart(5)} FPS  (${ganho >= 0 ? '+' : ''}${Math.round(ganho * 100)}%)  · GPU ${fmt(base.gpu)} → ${fmt(com.gpu)} ms · ${Math.round(base.chamadas)} → ${Math.round(com.chamadas)} chamadas`);
+    // O TETO DA TELA (07/10/2026): a tela não mostra mais quadros do que a frequência dela
+    // (60 numa comum). Se nem "sem NADA" passa de ~60, há teto — e o teste que encosta nele
+    // esconde o ganho (um relatório deu "+25%" para algo que poupava 36% da GPU). Nesses, o
+    // ganho vem pelo TEMPO DA GPU (sem teto): quanto da placa a mudança poupou.
+    const nadaR = D.res.find((x) => x.nome.startsWith('sem NADA'));
+    const teto = nadaR && nadaR.com.fps < 100 ? nadaR.com.fps : Infinity;
+    const ganhos = D.res.map((x) => {
+      const noTeto = Number.isFinite(teto) && (x.com.fps >= 0.93 * teto || x.base.fps >= 0.93 * teto) && Number.isFinite(x.base.gpu) && x.base.gpu > 0;
+      return { ...x, noTeto, g: noTeto ? 1 - x.com.gpu / x.base.gpu : x.com.fps / x.base.fps - 1 };
+    });
+    const pct = (v) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`;
+    L.push(`feito às ${D.quando} (sessão ${mmss(D.s)}) em ${D.onde}, desenhando ${D.tela ?? '?'}. Cada linha: a base (média da de antes e da de depois) → com a mudança.`);
+    if (Number.isFinite(teto)) L.push(`A TELA LIMITA a ~${Math.round(teto)} quadros/s (nem sem desenhar nada passou disso): onde o teste encostou no teto (marcado "pela GPU") o ganho é o tempo de placa poupado — o de quadros/s está escondido pelo teto.`);
+    for (const x of ganhos) {
+      L.push(`${x.nome.padEnd(44)} ${fmt(x.base.fps, 1).padStart(5)} → ${fmt(x.com.fps, 1).padStart(5)} FPS · GPU ${fmt(x.base.gpu)} → ${fmt(x.com.gpu)} ms · ${Math.round(x.base.chamadas)} → ${Math.round(x.com.chamadas)} chamadas  =  ${pct(x.g)}${x.noTeto ? ' pela GPU' : ''}`);
     }
     // a leitura: o que fazer, do que mais rende; se são os pixels; e o piso (sem nada na tela)
-    const ganhos = D.res.map((x) => ({ ...x, g: x.com.fps / x.base.fps - 1 }));
     const acoes = ganhos.filter((x) => x.acao && x.g >= 0.05).sort((a, b) => b.g - a.g);
     L.push('');
-    L.push('O que fazer aqui (do que mais rende; cada uma sozinha, os ganhos não somam exato):');
-    if (acoes.length) for (const x of acoes) L.push(`  +${String(Math.round(x.g * 100)).padStart(3)}%  ${x.acao} — perde: ${x.perde}`);
+    L.push('O que fazer aqui (do que mais rende; cada uma sozinha, os ganhos não somam exato; mudanças de ±5% são ruído da medida):');
+    if (acoes.length) for (const x of acoes) L.push(`  ${pct(x.g).padStart(5)}${x.noTeto ? ' da GPU' : ''}  ${x.acao} — perde: ${x.perde}`);
     else L.push('  nada sozinho rende 5% ou mais aqui: o lugar já está leve, ou o custo está espalhado.');
     const util = ganhos.filter((x) => !x.acao && !x.nome.startsWith('sem NADA') && x.g > 0.08).sort((a, b) => b.g - a.g);
-    if (util.length) L.push(`- onde está o peso (para mexer nas peças): ${util.map((x) => `${x.nome.replace(/^sem (a |o |as |os )?/, '')} (+${Math.round(x.g * 100)}%)`).join(', ')}.`);
+    if (util.length) L.push(`- onde está o peso (para mexer nas peças): ${util.map((x) => `${x.nome.replace(/^sem (a |o |as |os )?/, '')} (${pct(x.g)}${x.noTeto ? ' da GPU' : ''})`).join(', ')}.`);
     const meia = ganhos.find((x) => x.nome.startsWith('metade'));
-    if (meia) L.push(meia.g > 0.35 ? `- os PIXELS pesam (+${Math.round(meia.g * 100)}% com ¼ deles): resolução, camadas de folha/transparência e luz por pixel são o caminho.` : `- os pixels NÃO são o problema aqui (+${Math.round(meia.g * 100)}% com ¼ deles): baixar a resolução quase não ajuda; o peso é de geometria/chamadas ou CPU.`);
-    const nada = ganhos.find((x) => x.nome.startsWith('sem NADA'));
-    if (nada) L.push(`- sem desenhar nada o quadro leva ${fmt(1000 / nada.com.fps)} ms (${fmt(nada.com.fps, 0)} FPS): é o piso (lógica do jogo, interface, navegador). Tudo acima disso é o desenho do lugar.`);
+    if (meia) L.push(meia.g > 0.3 ? `- os PIXELS pesam (${pct(meia.g)}${meia.noTeto ? ' da GPU' : ''} com ¼ deles): resolução, camadas de folha/transparência e luz por pixel são o caminho.` : `- os pixels NÃO são o problema aqui (${pct(meia.g)}${meia.noTeto ? ' da GPU' : ''} com ¼ deles): baixar a resolução quase não ajuda; o peso é de geometria/chamadas ou CPU.`);
+    if (nadaR) L.push(Number.isFinite(teto)
+      ? `- sem desenhar nada: ${fmt(nadaR.com.fps, 0)} quadros/s — o teto da tela, não o piso do jogo. Com a placa a ${fmt(ganhos[0]?.base.gpu)} ms por quadro, o desenho é o que segura abaixo do teto.`
+      : `- sem desenhar nada o quadro leva ${fmt(1000 / nadaR.com.fps)} ms (${fmt(nadaR.com.fps, 0)} FPS): é o piso (lógica do jogo, interface, navegador). Tudo acima disso é o desenho do lugar.`);
   }
 
   // ------------------------------------------------------------ o painel
