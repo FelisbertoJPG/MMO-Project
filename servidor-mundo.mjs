@@ -22,6 +22,7 @@
 //   dano     → só o alvo (`carga.para`; só o simulador pode mandar)
 //   evento   → do simulador: todos (ou `carga.para`); dos outros: só `proj`
 //   acao     → só o simulador (abrir porta, acordar chefe…)
+//   voz      → só `carga.para` (a sinalização do chat de voz; o som vai direto entre os dois, WebRTC)
 //
 // **O estado que sobrevive** (`mundo/estado.json`): portas, névoa, quando cada
 // chefe volta, quando cada inimigo renasce. Quem o escreve é o simulador (vem
@@ -201,6 +202,9 @@ export function criarMundo(raiz) {
       case 'evento':
         if (souSim) return typeof c.para === 'string' ? para(c.para, j.id, evento, carga) : paraOutros(j.id, evento, carga);
         if (c.tipo === 'proj') paraOutros(j.id, evento, carga);   // a cópia visual do projétil de qualquer um
+        return;
+      case 'voz':
+        if (typeof c.para === 'string' && c.para !== j.id && jogadores.has(c.para)) para(c.para, j.id, evento, carga);
         return;
       case 'visivel':
         j.visivel = !!c.v;

@@ -24,6 +24,8 @@
       <div class="bar st"><div class="fill"></div></div>
     </div>
     <div id="buffs"></div>
+    <!-- o chat de voz: "falando" e quem está falando — js/vozui.js -->
+    <div id="voz-hud" class="hidden"></div>
 
     <!-- A cruz do Dark Souls: em cima (vazio, o lugar da magia), esquerda = mão
          esquerda, direita = mão direita, embaixo = item rápido; a cruzinha no meio -->
@@ -143,7 +145,7 @@
         <div><b>Clique Dir.</b> defender / golpe com a tocha</div><div><b>Espaço</b> rolar (toque) / correr (segurar)</div>
         <div><b>Q / Botão do meio</b> travar mira</div><div><b>R</b> usar item rápido</div>
         <div><b>C / Roda</b> trocar item rápido</div><div><b>E</b> interagir</div>
-        <div><b>I / Tab</b> inventário</div><div><b>T</b> acender / guardar tocha</div><div><b>M</b> deixar mensagem (online)</div><div><b>O</b> multijogador (sala, duelo, quem está no mundo)</div><div><b>Enter</b> chat global (online)</div><div><b>Esc</b> pausar</div>
+        <div><b>I / Tab</b> inventário</div><div><b>T</b> acender / guardar tocha</div><div><b>M</b> deixar mensagem (online)</div><div><b>O</b> multijogador (sala, duelo, quem está no mundo)</div><div><b>Enter</b> chat global (online)</div><div><b class="voz-tecla-nome">V</b> segurar para falar (voz; opções no Esc)</div><div><b>Esc</b> pausar</div>
       </div>
     </div>
   </div>
@@ -227,12 +229,18 @@
       <div id="graficos-opcoes"><span>Gráficos</span><button data-q="alto">Alto</button><button data-q="medio">Médio</button><button data-q="baixo">Baixo</button></div>
       <!-- a resolução automática (graficos.js): menos pixels quando os quadros não dão conta -->
       <div id="resolucao-opcao"><button id="res-auto-btn" title="Quando o jogo pesa, desenha com menos pixels (um pouco menos nítido) e volta quando sobra">Resolução automática</button></div>
+      <!-- o chat de voz (js/rede/voz.js, js/vozui.js): o microfone, a tecla de falar e o volume -->
+      <div id="voz-opcoes">
+        <div class="voz-linha"><span>Microfone</span><button data-modo="mudo" title="Você não fala, mas ouve os outros">Desligado</button><button data-modo="aberto" title="O microfone fica sempre ligado">Aberto</button><button data-modo="segurar" title="Fala só com a tecla apertada">Segurar para falar</button></div>
+        <div class="voz-linha"><span>Tecla</span><button id="voz-tecla" title="Clique e aperte a tecla (ou um botão lateral do mouse)">V</button><span>Volume</span><input id="voz-volume" type="range" min="0" max="100" step="5"><div id="voz-medidor" title="O seu microfone"><div></div></div></div>
+        <div id="voz-estado"></div>
+      </div>
       <div class="controls small">
         <div><b>WASD</b> mover</div><div><b>Clique Esq.</b> ataque leve</div>
         <div><b>F</b> ataque pesado</div><div><b>Clique Dir.</b> defender</div>
         <div><b>Espaço</b> rolar / correr</div><div><b>Q</b> travar mira</div>
         <div><b>R</b> usar item</div><div><b>C</b> trocar item</div>
-        <div><b>E</b> interagir</div><div><b>I</b> inventário</div><div><b>T</b> tocha</div><div><b>M</b> mensagem</div><div><b>O</b> multijogador</div><div><b>Enter</b> chat</div>
+        <div><b>E</b> interagir</div><div><b>I</b> inventário</div><div><b>T</b> tocha</div><div><b>M</b> mensagem</div><div><b>O</b> multijogador</div><div><b>Enter</b> chat</div><div><b class="voz-tecla-nome">V</b> falar (voz)</div>
       </div>
     </div>
   </div>

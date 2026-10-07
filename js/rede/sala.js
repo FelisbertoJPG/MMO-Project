@@ -164,6 +164,7 @@ export class Sala {
       case TIPO.DANO: if (de === this.outroId && this.coop && !this.coop.dono) this.coop.receberDano(c); return;
       case TIPO.GOLPE: if (de === this.outroId && this.coop?.dono) this.coop.receberGolpe(c); return;
       case TIPO.EVENTO: if (de === this.outroId) this.coop?.receberEvento(c); return;
+      case TIPO.VOZ: if (de === this.outroId) this.game.voz?.receber(de, c); return;
     }
   }
 
@@ -228,6 +229,9 @@ export class Sala {
   /** O contrato que o jogo lê de qualquer `game.sessao` (a sala tem um; o mundo online, vários). */
   get outros() { return this.outro ? [this.outro] : []; }
   aoProjetil(k, a) { this.coop?.aoProjetil(k, a); }
+  /** O chat de voz (rede/voz.js): o meu id, como o outro o vê, e o cano da sinalização. */
+  get eu() { return this.meuId; }
+  enviarVoz(para, carga) { if (para === this.outroId) this.enviar(TIPO.VOZ, carga); }
 
   // ------------------------------------------------------------ o quadro
 

@@ -42,6 +42,8 @@ export const TIPO = {
   DANO: 'dano',        // anfitrião → convidado: "o inimigo N te acertou"
   MUNDO: 'mundo',      // anfitrião → todos: estado dos inimigos (netId, pos, giro, anim, hp)
   EVENTO: 'evento',    // anfitrião → todos: porta aberta, baú, chefe vencido...
+  // --- o chat de voz (rede/voz.js): só a sinalização do WebRTC; o som vai direto entre os dois
+  VOZ: 'voz',          // {para, t: 'oferta'|'resposta'|'ice'|'tchau'|'nao'|'quero', sdp?, c?}
 };
 
 // Arredonda para o recado ficar curto (centímetro e centésimo de radiano bastam).

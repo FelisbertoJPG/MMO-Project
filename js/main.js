@@ -20,6 +20,8 @@ import { lerProgresso, salvarProgresso, aplicarProgresso, apagarProgresso, ficha
 import { Online } from './rede/online.js';
 import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
+import { Voz } from './rede/voz.js';
+import { VozUI } from './vozui.js';
 import { ControlesToque, ehToque } from './toque.js';
 import { Provador } from './provador.js';
 import { Capim } from './capim.js';
@@ -111,6 +113,9 @@ class Game {
     this.sessao = null;
     this.online = new Online(this);
     this.salaUI = new SalaUI(this);
+    // o chat de voz com quem está junto (rede/voz.js; as opções ficam no menu de pausa)
+    this.voz = new Voz(this);
+    this.vozUI = new VozUI(this);
     // celular: joystick, botões na tela e a tela deitada (js/toque.js)
     if (ehToque()) this.toque = new ControlesToque(this);
     this.player.startInCell();
@@ -1087,7 +1092,9 @@ class Game {
     }
     this.online.update(dt);
     this.sessao?.update(dt);
+    this.voz.update();
     this.salaUI.update();
+    this.vozUI.update();
     M?.fase('rede');
 
     if (this.shake > 0 && !this.menu) {

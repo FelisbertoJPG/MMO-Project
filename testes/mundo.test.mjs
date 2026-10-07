@@ -186,6 +186,22 @@ await teste('evento: do simulador vai a todos (ou ao `para`); dos outros, só o 
   assert.equal(beto.de('acao').length, 0);
 });
 
+await teste('voz (a sinalização do chat de voz) vai SÓ ao `para`, de qualquer um, e nunca volta a quem mandou', async () => {
+  // quem não simula também fala (a voz não é do simulador)
+  await caio.falar('voz', { para: beto.id, t: 'oferta', sdp: 'v=0' });
+  assert.ok(await beto.chegou('voz', (r) => r.de === caio.id && r.carga.t === 'oferta'));
+  await beto.falar('voz', { para: caio.id, t: 'resposta', sdp: 'v=0' });
+  assert.ok(await caio.chegou('voz', (r) => r.de === beto.id && r.carga.t === 'resposta'));
+  // sem `para`, para si mesmo ou para quem não está no mundo: não vai a ninguém
+  await caio.falar('voz', { t: 'ice' });
+  await caio.falar('voz', { para: caio.id, t: 'ice' });
+  await caio.falar('voz', { para: 'teste-ninguem', t: 'ice' });
+  await dormir(80);
+  assert.equal(ana.de('voz').length, 0, 'a voz vazou para quem não era o `para`');
+  assert.equal(caio.de('voz').filter((r) => r.carga.t !== 'resposta').length, 0);
+  assert.equal(beto.de('voz').length, 1);
+});
+
 await teste('quem chega recebe o ÚLTIMO mundo e o estado (portas, relógios)', async () => {
   await ana.falar('mundo', { e: [], est: { portas: [true, false, true], nevoa: false, chefes: { carrasco: 123 } } });
   await dormir(100);

@@ -187,6 +187,15 @@ As diferenças moram em `js/modo.js` (`REGRAS`), e o código pergunta `game.regr
 - [ ] **F7.4 Opcionais**: duelo por convite no acampamento; gestos/chat curto; WebSocket;
   mundo aberto na LAN sem conta (`MUNDO_AUTH=lan`).
 - [x] **F7.5 Documentação**: `CLAUDE.md` (seção "O MUNDO ONLINE"), `README.md`, `LEIA-ME.txt`.
+- [x] **F7.6 Chat de voz** (07/10/2026): `rede/voz.js` — WebRTC direto entre os jogadores,
+  sinalização pelo recado `voz` (o servidor entrega só ao `para`); voz de perto no Mundo
+  online (liga a 40 m, some a 35 m, vem de onde o boneco está), sempre na sala. Opções no
+  menu de pausa: microfone desligado / aberto / segurar para falar, a tecla (padrão V) e
+  o volume. Conferido com dois Chromes headless e microfone falso (MMO local e sala na LAN).
+- [ ] **F7.6b Voz entre redes fechadas**: sem servidor TURN, alguns pares (4G, rede de
+  empresa) não conectam — o painel diz "não conectou com X". Opções: Cloudflare TURN
+  (grátis até 1 TB/mês, mas pede credencial gerada no servidor) ou metered.ca. Falta também
+  ouvir de jogadores reais como ficou (eco sem fone, volume, a distância de 35 m).
 
 ---
 

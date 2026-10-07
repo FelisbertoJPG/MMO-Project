@@ -182,6 +182,8 @@ export class Mundo {
   get outros() { return [...this.remotos.values()]; }
   /** Para o painel: todos os que o servidor diz que estão no mundo, eu inclusive. */
   get presentes() { return [...this.nomes].map(([id, nome]) => ({ id, nome, eu: id === this.eu, simula: id === this.simulador })); }
+  /** O chat de voz (rede/voz.js): a sinalização vai pelo cano, e o servidor a entrega só ao `para`. */
+  enviarVoz(para, carga) { if (this.estado !== 'fora') this.cano?.enviar(TIPO.VOZ, carga); }
   /** Relógio do SERVIDOR, em ms: o mesmo para todos os jogadores. */
   agora() { return Date.now() + this.desvio; }
 
@@ -310,6 +312,7 @@ export class Mundo {
       case TIPO.DANO: if (de === this.simulador && !this.souSim) this.receberDano(c); return;
       case TIPO.ACAO: if (this.souSim) this.receberAcao(c, de); return;
       case TIPO.EVENTO: return this.receberEvento(c, de);
+      case TIPO.VOZ: if (this.nomes.has(de)) this.game.voz?.receber(de, c); return;
     }
   }
 

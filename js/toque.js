@@ -23,6 +23,7 @@
  * O que abre o TECLADO do celular (chat, mensagem) é chamado direto no toque:
  * fora do gesto do dedo o navegador não deixa a caixa de texto ganhar o foco.
  */
+import { TECLA_TOQUE } from './rede/voz.js';
 
 /** É celular/tablet? (`?toque` na URL força, para testar no computador.) */
 export function ehToque() {
@@ -209,8 +210,12 @@ export class ControlesToque {
       else if (g.lendo?.online) ctx.push(['Digit1', 'Boa'], ['Digit2', 'Ruim']);
     }
     if (g.sessao?.convite) ctx.push(['KeyY', 'Aceitar'], ['KeyN', 'Recusar']);
+    // o chat de voz no "segurar para falar", com alguém ligado (rede/voz.js)
+    if (g.voz?.modo === 'segurar' && g.voz.pares.size) ctx.push([TECLA_TOQUE, '🎙 Falar']);
     const chave = ctx.map((c) => c[0]).join();
     if (chave !== this.ctxChave) {
+      // botão que some com o dedo em cima não recebe o "soltou": solta aqui
+      for (const t of (this.ctxChave ?? '').split(',')) if (t) this.inp.soltar(t);
       this.ctxChave = chave;
       this.contexto.innerHTML = '';
       for (const [tecla, rotulo] of ctx) {
