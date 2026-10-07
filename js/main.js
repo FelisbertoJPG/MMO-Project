@@ -340,14 +340,19 @@ class Game {
     return teste ? async () => `teste:${teste}` : tokenValido;
   }
 
-  /** A linha de estado do bloco "Mundo online": quem está lá, ou por que não dá para entrar. */
+  /**
+   * O estado do servidor, embaixo do painel de entrada: a bolinha (`data-estado`:
+   * `ok` verde, `espera` amarela, `erro` vermelha) e quantos estão no mundo — ou
+   * por que não dá para entrar. Libera o "Entrar em Lubellion".
+   */
   async prepararMundo() {
     const bt = document.getElementById('mmo-btn'), st = document.getElementById('mmo-status');
     const base = this.enderecoDoMundo();
     document.getElementById('mmo-onde').textContent = base || (temSaveEmArquivo() ? 'este computador' : serveOMundo() ? 'este endereço' : 'nenhum ainda');
     bt.disabled = true;
-    if (!this.haMundo()) { st.textContent = 'o servidor do mundo ainda não está no ar'; return; }
-    st.textContent = 'procurando o servidor…';
+    const mostrar = (estado, texto) => { st.dataset.estado = estado; st.textContent = texto; };
+    if (!this.haMundo()) { mostrar('erro', 'Servidor ainda não está no ar'); return; }
+    mostrar('espera', 'Procurando o servidor…');
     // Um servidor em plataforma grátis DORME sem visita e leva perto de um minuto
     // para acordar: em vez de desistir no primeiro silêncio, insiste e diz o que
     // está esperando. (O desta própria máquina responde na hora ou não está.)
@@ -359,28 +364,24 @@ class Game {
       info = await Mundo.info(base, i ? 15_000 : 5_000);
       if (velha()) return;
       if (info || Date.now() >= prazo) break;
-      st.textContent = 'acordando o servidor do mundo… (pode levar um minuto)';
+      mostrar('espera', 'Acordando o servidor… (pode levar um minuto)');
       await new Promise((ok) => setTimeout(ok, 3000));
       if (velha()) return;
     }
     const teste = new URLSearchParams(location.search).has('teste');
     if (!info) {
-      st.innerHTML = 'o servidor do mundo não respondeu · <a href="#" id="mmo-denovo">tentar de novo</a>';
-      document.getElementById('mmo-denovo').addEventListener('click', (e) => { e.preventDefault(); this.prepararMundo(); });
+      mostrar('erro', 'Servidor fora do ar · ');
+      const a = Object.assign(document.createElement('a'), { href: '#', textContent: 'tentar de novo' });
+      a.addEventListener('click', (e) => { e.preventDefault(); this.prepararMundo(); });
+      st.append(a);
       return;
     }
-    if (info.mapa && info.mapa !== Assets.mapaNome) { st.textContent = `o servidor está em outro mapa (${info.mapa})`; return; }
-    const quantos = info.jogadores === 1 ? '1 jogador no mundo agora' : `${info.jogadores} jogadores no mundo agora`;
-    if (!this.online.ativo && !teste) {
-      // logado, mas a conta não entrou na Masmorra (Supabase fora, schema não exposto…):
-      // pedir "entre com uma conta" a quem já entrou só confunde
-      const o = this.online;
-      st.textContent = o.estado === 'deslogado' ? `${quantos} · entre com uma conta para jogar online`
-        : `${quantos} · a sua conta não pôde entrar: ${o.motivo || 'tente de novo'}`;
-      return;
-    }
-    st.textContent = info.jogadores >= info.max ? 'o mundo está cheio' : quantos;
-    bt.disabled = info.jogadores >= info.max;
+    if (info.mapa && info.mapa !== Assets.mapaNome) { mostrar('erro', 'O servidor está em outra versão do mapa — atualize a página'); return; }
+    const quantos = info.jogadores === 1 ? '1 jogador' : `${info.jogadores} jogadores`;
+    if (info.jogadores >= info.max) { mostrar('espera', `Servidor cheio · ${quantos}`); return; }
+    mostrar('ok', `Servidor online · ${quantos}`);
+    // a conta logada, mas fora do jogo (Supabase fora, schema não exposto…): o motivo já está no painel
+    bt.disabled = !this.online.ativo && !teste;
   }
 
   bindMundo() {
@@ -397,7 +398,7 @@ class Game {
       let v = $('mmo-endereco').value.trim().replace(/\/+$/, '');
       if (v && !/^https?:\/\//i.test(v)) v = `${location.protocol === 'https:' ? 'https' : 'http'}://${v}`;
       // página https não fala com servidor http: o navegador bloqueia sem dizer por quê
-      if (location.protocol === 'https:' && /^http:\/\//i.test(v)) { $('mmo-status').textContent = 'esta página é https: o servidor do mundo também precisa ser https'; return; }
+      if (location.protocol === 'https:' && /^http:\/\//i.test(v)) { $('mmo-status').dataset.estado = 'erro'; $('mmo-status').textContent = 'Esta página é https: o servidor também precisa ser https'; return; }
       try { if (v) localStorage.setItem(CHAVE_ENDERECO, v); else localStorage.removeItem(CHAVE_ENDERECO); } catch { }
       $('mmo-form').classList.add('hidden');
       this.prepararMundo();
@@ -415,13 +416,14 @@ class Game {
    */
   async entrarNoMundo() {
     if (this.state !== 'title' || this.entrando) return;
-    const bt = document.getElementById('mmo-btn'), st = document.getElementById('mmo-status');
+    const bt = document.getElementById('mmo-btn'), aviso = document.getElementById('entrada-aviso');
     this.entrando = true;
     bt.disabled = true;
-    st.textContent = 'entrando no mundo…';
+    bt.textContent = 'Entrando…';
+    aviso.textContent = '';
     const r = await Mundo.entrar(this, { base: this.enderecoDoMundo(), obterToken: this.tokenDoMundo() });
     this.entrando = false;
-    if (!r.ok) { bt.disabled = false; st.textContent = r.error; return; }
+    if (!r.ok) { bt.disabled = false; bt.textContent = 'Entrar em Lubellion'; aviso.textContent = r.error; return; }
     this.modo = 'mmo';
     this.sessao = r.mundo;
     // personagem de outra ficha (ficha.js) recomeça do zero: é o reset de todos
@@ -430,7 +432,7 @@ class Game {
     this.world.destrancarCela();   // no mundo de todos ninguém acorda preso
     this.entrarNoJogo();
     this.online.comecarPartida();
-    if (salvo) { this.snapCamera(); this.ui.centerMessage('Mundo online', 'info', 3000); }
+    if (salvo) { this.snapCamera(); this.ui.centerMessage('Lubellion', 'info', 3000); }
     else this.comecarFora();
     document.getElementById('sair-mundo-btn').textContent = 'Sair do mundo';
     r.mundo.ligar();
@@ -460,71 +462,73 @@ class Game {
   }
 
   /**
-   * A PORTA DE ENTRADA (03/10/2026). Sem conta: e-mail e senha, "Criar conta" e
-   * "Jogar Offline" — que abre só o quadro da Jornada (`escolheuOffline`). Logado:
-   * os dois quadros, com o Mundo online na frente.
+   * A TELA DE ENTRADA do Lubellion Online (07/10/2026), no jeito da tela de login
+   * de um MMO: o logo e UM painel. Sem conta, o painel tem as abas Entrar / Criar
+   * conta; logado, "Bem-vindo, <nome>" e o botão "Entrar em Lubellion". Embaixo,
+   * o estado do servidor (`prepararMundo`). A Jornada (o modo offline) continua
+   * no código, mas fora da tela: só aparece com `?jornada` na URL (testes).
    */
   mostrarConta() {
-    const o = this.online, st = document.getElementById('conta-status'), modos = document.getElementById('modos');
-    document.getElementById('conta').classList.remove('hidden');
-    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const o = this.online, $ = (id) => document.getElementById(id), url = new URLSearchParams(location.search);
     // `?teste=Nome` (as duas janelas do teste local, sem conta) conta como logado
-    const logado = o.estado !== 'deslogado' || new URLSearchParams(location.search).has('teste');
-    modos.classList.toggle('online', logado);
-    modos.classList.toggle('offline', !logado);
-    if (!logado && !this.escolheuOffline) {
-      // a porta: só o formulário
-      modos.classList.add('hidden');
-      st.innerHTML = o.motivo ? `<small>${esc(o.motivo)}</small>` : '';
+    const teste = url.get('teste');
+    const logado = o.estado !== 'deslogado' || !!teste;
+    $('conta').classList.toggle('hidden', logado);
+    $('entrada').classList.toggle('hidden', !logado);
+    $('modo-offline').classList.toggle('hidden', !url.has('jornada'));
+    if (!logado) {
+      $('conta-status').textContent = o.motivo ?? '';
       this.abrirFormConta(this.criandoConta);
       return;
     }
-    modos.classList.remove('hidden');
-    document.getElementById('conta-form').classList.add('hidden');
-    if (o.estado === 'deslogado') st.innerHTML = `Jogando offline · <a id="conta-abrir">Entrar ou criar conta</a>`;
-    else if (o.estado === 'logado') st.innerHTML = `Conectado como <b>${esc(o.nome)}</b> · <a id="conta-sair">Sair</a>`;
-    else st.innerHTML = `<b>${esc(o.nome)}</b> · ${esc(o.motivo)} · <a id="conta-sair">Sair</a>`;
-    document.getElementById('conta-abrir')?.addEventListener('click', (e) => { e.preventDefault(); this.escolheuOffline = false; this.mostrarConta(); });
-    document.getElementById('conta-sair')?.addEventListener('click', async (e) => {
-      e.preventDefault();
-      await this.online.sair();
-      await this.prepararTitulo();
-    });
+    $('entrada-nome').textContent = teste || o.nome || 'aventureiro';
+    // logado, mas a conta não entrou no jogo (Supabase fora, schema não exposto…)
+    $('entrada-aviso').textContent = o.estado === 'logado' || teste ? '' : o.motivo ?? '';
   }
 
-  abrirFormConta(criar = false) {
+  /** As abas do painel: `criar` = Criar conta (nome e confirmar senha à mostra). */
+  abrirFormConta(criar = false, aviso = '') {
+    const $ = (id) => document.getElementById(id);
     this.criandoConta = criar;
-    document.getElementById('conta-form').classList.remove('hidden');
-    document.getElementById('conta-nome').classList.toggle('hidden', !criar);
-    // criando: o botão principal cria, e o outro volta para "entrar"
-    document.getElementById('conta-ok').textContent = criar ? 'Criar conta' : 'Entrar';
-    document.getElementById('conta-criar').textContent = criar ? 'Já tenho conta' : 'Criar conta';
-    document.getElementById('conta-senha').autocomplete = criar ? 'new-password' : 'current-password';
-    document.getElementById('conta-erro').textContent = '';
-    if (!ehToque()) document.getElementById(criar ? 'conta-nome' : 'conta-email').focus();
+    for (const b of document.querySelectorAll('#conta .abas button')) b.classList.toggle('ativo', (b.dataset.aba === 'criar') === criar);
+    $('campo-nome').classList.toggle('hidden', !criar);
+    $('campo-senha2').classList.toggle('hidden', !criar);
+    $('conta-ok').textContent = criar ? 'Criar conta' : 'Entrar';
+    $('conta-senha').autocomplete = criar ? 'new-password' : 'current-password';
+    $('conta-erro').textContent = aviso;
+    $('conta-erro').classList.toggle('ok', !!aviso);
+    if (!ehToque()) $(criar ? 'conta-nome' : 'conta-email').focus();
   }
 
   bindConta() {
     const $ = (id) => document.getElementById(id);
-    $('conta-criar').addEventListener('click', () => this.abrirFormConta(!this.criandoConta));
-    $('jogar-offline').addEventListener('click', () => { this.escolheuOffline = true; this.mostrarConta(); });
+    for (const b of document.querySelectorAll('#conta .abas button')) {
+      b.addEventListener('click', () => this.abrirFormConta(b.dataset.aba === 'criar'));
+    }
+    $('conta-sair').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await this.online.sair();
+      await this.prepararTitulo();
+    });
     $('conta-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = $('conta-email').value.trim(), senha = $('conta-senha').value, nome = $('conta-nome').value.trim();
       const erro = $('conta-erro');
-      if (!email || !senha) { erro.textContent = 'preencha e-mail e senha'; return; }
-      if (this.criandoConta && nome.length < 3) { erro.textContent = 'o nome precisa ter pelo menos 3 letras'; return; }
+      const falhar = (texto) => { erro.textContent = texto; erro.classList.remove('ok'); };
+      const criar = this.criandoConta;
+      if (criar && nome.length < 3) return falhar('O nome precisa ter pelo menos 3 letras.');
+      if (!email || !email.includes('@')) return falhar('Digite o seu e-mail.');
+      if (!senha) return falhar('Digite a senha.');
+      if (criar && senha.length < 6) return falhar('A senha precisa ter pelo menos 6 caracteres.');
+      if (criar && senha !== $('conta-senha2').value) return falhar('As senhas não são iguais.');
       $('conta-ok').disabled = true;
-      erro.textContent = this.criandoConta ? 'criando…' : 'entrando…';
-      const r = this.criandoConta ? await this.online.cadastrar(email, senha, nome) : await this.online.entrar(email, senha);
+      erro.classList.remove('ok');
+      erro.textContent = criar ? 'Criando a conta…' : 'Entrando…';
+      const r = criar ? await this.online.cadastrar(email, senha, nome) : await this.online.entrar(email, senha);
       $('conta-ok').disabled = false;
-      if (!r.ok) { erro.textContent = r.error; return; }
-      if (r.precisaConfirmar) {
-        this.abrirFormConta(false);
-        $('conta-erro').textContent = 'conta criada! confirme pelo link no seu e-mail e depois entre aqui.';
-        return;
-      }
-      $('conta-senha').value = '';
+      if (!r.ok) return falhar(r.error);
+      $('conta-senha').value = ''; $('conta-senha2').value = '';
+      if (r.precisaConfirmar) return this.abrirFormConta(false, 'Conta criada! Confirme pelo link que mandamos no seu e-mail e depois entre aqui.');
       this.criandoConta = false;
       await this.prepararTitulo();
     });

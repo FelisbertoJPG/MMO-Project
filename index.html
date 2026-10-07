@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>Masmorra do Carrasco</title>
+  <title>Lubellion Online</title>
   <link rel="icon" href="data:," />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=EB+Garamond:ital@0;1&display=swap" rel="stylesheet" />
@@ -98,55 +98,48 @@
     </div>
   </div>
 
-  <!-- Tela de título -->
+  <!-- Tela de título: LUBELLION ONLINE — main.js, mostrarConta / prepararMundo -->
   <div id="title-screen">
     <div class="title-inner">
-      <h1>Masmorra do Carrasco</h1>
-      <p class="subtitle">Você desperta numa cela esquecida. Lá em cima, o Carrasco espera.</p>
+      <h1 class="logo">Lubellion<span>Online</span></h1>
       <!-- o que a última atualização trouxe, quando a página recarregou sozinha (js/versao.js) -->
       <div id="aviso-versao" class="hidden"></div>
-      <div id="loading"><div class="load-bar"><div class="load-fill"></div></div><div class="load-text">Carregando modelos...</div></div>
-      <!-- A PORTA DE ENTRADA (main.js, mostrarConta): sem conta, e-mail e senha + criar
-           conta + jogar offline (que abre só a Jornada); logado, os dois modos, o online na frente -->
-      <div id="conta" class="hidden">
-        <div id="conta-status"></div>
-        <form id="conta-form" class="hidden" autocomplete="on">
-          <input id="conta-nome" class="hidden" maxlength="24" placeholder="Nome no jogo">
-          <input id="conta-email" type="email" placeholder="E-mail" autocomplete="email">
-          <input id="conta-senha" type="password" placeholder="Senha" autocomplete="current-password">
-          <div class="conta-botoes"><button type="submit" id="conta-ok">Entrar</button><button type="button" id="conta-criar">Criar conta</button></div>
-          <div id="conta-erro"></div>
-          <button type="button" id="jogar-offline">Jogar Offline</button>
-        </form>
-      </div>
-      <!-- Os DOIS modos de jogo (js/modo.js). A Jornada é o jogo de sempre; o Mundo online é o MMO. -->
-      <div id="modos" class="hidden">
-        <div class="modo" id="modo-offline">
-          <h2>Jornada</h2>
-          <p class="modo-dica" id="jornada-dica">O seu mundo, no seu ritmo. O progresso fica neste computador. Chame um amigo pela tecla <b>O</b>.</p>
+      <div id="login" class="panel">
+        <div id="loading"><div class="load-bar"><div class="load-fill"></div></div><div class="load-text">Carregando...</div></div>
+        <!-- SEM CONTA: um painel só, com as abas Entrar / Criar conta -->
+        <div id="conta" class="hidden">
+          <div class="abas"><button type="button" data-aba="entrar" class="ativo">Entrar</button><button type="button" data-aba="criar">Criar conta</button></div>
+          <form id="conta-form" autocomplete="on" novalidate>
+            <label id="campo-nome" class="hidden">Nome do personagem<input id="conta-nome" maxlength="24" autocomplete="nickname" spellcheck="false"></label>
+            <label>E-mail<input id="conta-email" type="email" autocomplete="email" spellcheck="false"></label>
+            <label>Senha<input id="conta-senha" type="password" autocomplete="current-password"></label>
+            <label id="campo-senha2" class="hidden">Confirmar senha<input id="conta-senha2" type="password" autocomplete="new-password"></label>
+            <div id="conta-erro"></div>
+            <button type="submit" id="conta-ok" class="principal">Entrar</button>
+          </form>
+          <div id="conta-status"></div>
+        </div>
+        <!-- LOGADO: entrar no mundo -->
+        <div id="entrada" class="hidden">
+          <div class="bem-vindo">Bem-vindo, <b id="entrada-nome"></b></div>
+          <div id="entrada-aviso"></div>
+          <button id="mmo-btn" class="principal" disabled>Entrar em Lubellion</button>
+          <a href="#" id="conta-sair">Trocar de conta</a>
+        </div>
+        <!-- A JORNADA (o modo offline, js/modo.js) não aparece mais na tela: só com `?jornada` na URL -->
+        <div id="modo-offline" class="hidden">
+          <p class="modo-dica" id="jornada-dica"></p>
           <button id="continue-btn" class="hidden">Continuar</button>
           <button id="start-btn" disabled>Iniciar Jornada</button>
         </div>
-        <div class="modo" id="modo-mmo">
-          <h2>Mundo online</h2>
-          <p class="modo-dica">Um mapa só para todos. Você nasce no acampamento, e o personagem fica guardado no servidor.</p>
-          <button id="mmo-btn" disabled>Entrar no mundo</button>
-          <div id="mmo-status"></div>
-          <div class="mmo-servidor">servidor: <span id="mmo-onde">este computador</span> · <a href="#" id="mmo-trocar">trocar</a></div>
-          <form id="mmo-form" class="hidden" autocomplete="off">
-            <input id="mmo-endereco" placeholder="http://endereço:5173 (vazio = este)" spellcheck="false">
-            <button type="submit">Usar</button>
-          </form>
-        </div>
+        <!-- o servidor: uma bolinha (verde/amarela/vermelha) e quantos estão no mundo -->
+        <div id="mmo-status"></div>
       </div>
-      <div class="controls">
-        <div><b>WASD</b> mover</div><div><b>Mouse</b> câmera</div>
-        <div><b>Clique Esq.</b> ataque leve</div><div><b>F</b> ataque pesado</div>
-        <div><b>Clique Dir.</b> defender / golpe com a tocha</div><div><b>Espaço</b> rolar (toque) / correr (segurar)</div>
-        <div><b>Q / Botão do meio</b> travar mira</div><div><b>R</b> usar item rápido</div>
-        <div><b>C / Roda</b> trocar item rápido</div><div><b>E</b> interagir</div>
-        <div><b>I / Tab</b> inventário</div><div><b>T</b> acender / guardar tocha</div><div><b>M</b> deixar mensagem (online)</div><div><b>O</b> multijogador (sala, duelo, quem está no mundo)</div><div><b>Enter</b> chat global (online)</div><div><b class="voz-tecla-nome">V</b> segurar para falar (voz; opções no Esc)</div><div><b>Esc</b> pausar</div>
-      </div>
+      <div class="mmo-servidor">servidor: <span id="mmo-onde">este computador</span> · <a href="#" id="mmo-trocar">trocar</a></div>
+      <form id="mmo-form" class="hidden" autocomplete="off">
+        <input id="mmo-endereco" placeholder="http://endereço:5173 (vazio = este)" spellcheck="false">
+        <button type="submit">Usar</button>
+      </form>
     </div>
   </div>
 

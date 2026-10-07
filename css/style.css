@@ -145,24 +145,14 @@ button:disabled { opacity: .4; cursor: default; }
 .msg-autor { margin-top: 10px; color: var(--text-dim); font-size: 14px; font-family: var(--serif); letter-spacing: 1px; }
 .msg-autor:empty { display: none; }
 
-/* Conta (tela de título) */
-#conta { margin: 0 auto 24px; max-width: 360px; font-size: 15px; color: var(--text-dim); }
-#conta-status a, #conta-form a { color: var(--gold); text-decoration: none; border-bottom: 1px dotted var(--gold-dim); cursor: pointer; }
-#conta-status b { color: #e9dcc0; font-weight: 400; font-family: var(--serif); }
-#conta-form { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-#conta-form a { align-self: center; }
 #coordenadas { font: 13px ui-monospace, monospace; color: var(--text-dim); margin: -4px 0 10px; cursor: pointer; user-select: all; }
 #coordenadas:hover { color: var(--gold); }
-#jogar-offline { margin-top: 6px; background: transparent; }
-/* logado: o Mundo online na frente da Jornada; offline: só a Jornada */
-#modos.online #modo-mmo { order: -1; }
-#modos.offline #modo-mmo { display: none; }
 #conta-form input, #msg-texto { background: rgba(0,0,0,.6); border: 1px solid var(--gold-dim); color: #e9dcc0; padding: 9px 12px;
   font: 16px Georgia, serif; outline: none; }
 #conta-form input:focus, #msg-texto:focus { border-color: var(--gold); }
 .conta-botoes { display: flex; gap: 10px; justify-content: center; }
 .conta-botoes button { padding: 8px 18px; font-size: 14px; }
-#conta-erro, #msg-erro { color: #d0705a; font-size: 14px; min-height: 1em; }
+#msg-erro { color: #d0705a; font-size: 14px; min-height: 1em; }
 
 /* Escrever mensagem */
 .writer-panel { max-width: 520px; width: calc(100% - 32px); text-align: center; }
@@ -170,43 +160,85 @@ button:disabled { opacity: .4; cursor: default; }
 #msg-texto { width: 100%; box-sizing: border-box; resize: none; }
 .writer-rodape { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-dim); margin: 6px 0 14px; }
 
-/* ---------- Título ---------- */
-/* `margin: auto` no filho (e não `align-items: center`): com dois blocos de modo a
-   tela de título ficou mais alta, e centrada pelo pai o topo dela sairia da janela
-   sem dar para rolar até ele */
+/* ---------- Tela de entrada: LUBELLION ONLINE (main.js, mostrarConta) ----------
+   O jeito da tela de login de um MMO: o logo em cima e UM painel no meio (abas
+   Entrar / Criar conta; logado, "Entrar em Lubellion"), o estado do servidor
+   embaixo dele. `margin: auto` no filho (e não `align-items: center`): em tela
+   baixa o topo sairia da janela sem dar para rolar até ele. */
 #title-screen { position: fixed; inset: 0; display: flex; justify-content: center; overflow-y: auto;
-  background: radial-gradient(ellipse at 50% 60%, rgba(40,20,8,.35), rgba(0,0,0,.92) 70%); z-index: 10; }
+  background: radial-gradient(ellipse at 50% 55%, rgba(30,22,12,.25), rgba(0,0,0,.88) 72%); z-index: 10; }
 .title-inner { text-align: center; padding: 16px; margin: auto; }
-/* Os dois modos de jogo, lado a lado (empilham em tela estreita) */
-#modos { display: flex; gap: 20px; justify-content: center; align-items: stretch; flex-wrap: wrap; }
-.modo { flex: 1 1 280px; max-width: 360px; border: 1px solid var(--gold-dim); background: rgba(0,0,0,.42); padding: 16px 20px 20px;
-  display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.modo h2 { font-family: var(--serif); font-weight: 400; letter-spacing: 4px; font-size: 20px; color: var(--gold); margin: 0; text-transform: uppercase; }
-.modo-dica { color: var(--text-dim); font-size: 14px; margin: 0; min-height: 3.4em; }
+#login, #mmo-form { width: min(380px, calc(100vw - 32px)); box-sizing: border-box; margin-left: auto; margin-right: auto; }
+#title-screen .logo { font-family: var(--serif); font-weight: 700; font-size: clamp(40px, 7vw, 72px); letter-spacing: 6px; margin: 0 0 22px;
+  color: #f1e3c2; text-shadow: 0 2px 0 #000, 0 0 36px rgba(230,170,70,.45); line-height: 1; white-space: nowrap; }
+#title-screen .logo span { display: block; font-size: clamp(13px, 1.8vw, 17px); letter-spacing: 12px; margin-top: 8px; color: var(--gold);
+  text-shadow: 0 1px 0 #000; font-weight: 400; padding-left: 12px; }
+#aviso-versao { color: var(--gold); font-size: 14px; margin: -8px 0 14px; }
+
+#login { padding: 18px 24px 14px; text-align: left; background: rgba(14, 12, 10, .9); }
+#login .principal { width: 100%; margin: 0; padding: 11px; font-size: 16px; letter-spacing: 3px;
+  border-color: var(--gold); color: #fff3d6; background: linear-gradient(rgba(110,80,36,.75), rgba(64,44,18,.75)); }
+#login .principal:hover:not(:disabled) { background: linear-gradient(rgba(140,102,46,.85), rgba(84,58,24,.85)); }
+#login .principal:disabled { opacity: .5; cursor: default; }
+
+/* as abas Entrar / Criar conta */
+.abas { display: flex; margin: -4px 0 14px; border-bottom: 1px solid var(--gold-dim); }
+.abas button { flex: 1; margin: 0; padding: 8px 6px; font-size: 14px; letter-spacing: 2px; border: none; background: none;
+  color: var(--text-dim); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.abas button:hover:not(:disabled) { background: none; color: #e9dcc0; }
+.abas button.ativo { color: #fff3d6; border-bottom-color: var(--gold); }
+
+#conta-form { display: flex; flex-direction: column; gap: 10px; }
+#conta-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-dim); letter-spacing: 1px; }
+#conta-form input, #msg-texto { background: rgba(0,0,0,.6); border: 1px solid var(--gold-dim); color: #e9dcc0; padding: 9px 12px;
+  font: 16px Georgia, serif; outline: none; }
+#conta-form input:focus, #msg-texto:focus { border-color: var(--gold); }
+#conta-erro { color: #d0705a; font-size: 14px; min-height: 1.2em; }
+#conta-erro.ok { color: #9fd07a; }
+#conta-status { color: var(--text-dim); font-size: 13px; margin-top: 8px; }
+#conta-status:empty { display: none; }
+
+#entrada { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding-top: 4px; }
+.bem-vindo { font-size: 17px; color: var(--text-dim); }
+.bem-vindo b { color: #f1e3c2; font-family: var(--serif); font-weight: 400; letter-spacing: 1px; }
+#entrada-aviso { color: #d0705a; font-size: 14px; }
+#entrada-aviso:empty { display: none; }
+#conta-sair { color: var(--text-dim); font-size: 13px; text-decoration: none; border-bottom: 1px dotted var(--gold-dim); }
+#conta-sair:hover { color: var(--gold); }
+
+/* a Jornada, só com ?jornada */
+#modo-offline { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #2e2820; text-align: center; }
+.modo-dica { color: var(--text-dim); font-size: 13px; margin: 0; }
 .modo-dica b { color: var(--gold); font-family: var(--serif); font-weight: 400; }
-.modo button { margin: 0; }
-#mmo-status { color: var(--text-dim); font-size: 14px; min-height: 1.2em; }
-.mmo-servidor { color: var(--text-dim); font-size: 13px; }
-.mmo-servidor a, #mmo-status a { color: var(--gold); text-decoration: none; border-bottom: 1px dotted var(--gold-dim); }
-#mmo-form { display: flex; gap: 8px; width: 100%; }
+#modo-offline button { margin: 0; }
+#continue-btn small { display: block; font-size: 12px; letter-spacing: 1px; color: var(--text-dim); margin-top: 2px; }
+
+/* o estado do servidor: a bolinha + quantos estão online */
+#mmo-status { margin-top: 14px; padding-top: 10px; border-top: 1px solid #2e2820; font-size: 13px; color: var(--text-dim); text-align: center; }
+#mmo-status:empty { display: none; }
+#mmo-status::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; background: #777; }
+#mmo-status[data-estado="ok"]::before { background: #6fcf5a; box-shadow: 0 0 6px #6fcf5a; }
+#mmo-status[data-estado="espera"]::before { background: #e0b34a; }
+#mmo-status[data-estado="erro"]::before { background: #d0583f; }
+#mmo-status a { color: var(--gold); text-decoration: none; border-bottom: 1px dotted var(--gold-dim); }
+
+/* trocar o servidor (para testes): discreto, fora do painel */
+.mmo-servidor { color: #5e574b; font-size: 12px; margin-top: 10px; }
+.mmo-servidor a { color: #7d725f; text-decoration: none; border-bottom: 1px dotted #4a4234; }
+#mmo-form { display: flex; gap: 8px; margin-top: 8px; }
 #mmo-form input { flex: 1; min-width: 0; background: rgba(0,0,0,.6); border: 1px solid var(--gold-dim); color: #e9dcc0; padding: 7px 10px; font: inherit; font-size: 14px; }
 #mmo-form input:focus { border-color: var(--gold); outline: none; }
-#mmo-form button { padding: 6px 14px; font-size: 14px; }
+#mmo-form button { padding: 6px 14px; font-size: 14px; margin: 0; }
 #sair-mundo-btn { margin-left: 12px; }
 .mundo-lista { list-style: none; padding: 0; margin: 10px 0; display: flex; flex-direction: column; gap: 4px; }
 .mundo-lista li { font-family: var(--serif); letter-spacing: 1px; color: #e9dcc0; }
 .mundo-lista small { color: var(--text-dim); font-family: inherit; letter-spacing: 0; margin-left: 6px; }
-#continue-btn small { display: block; font-size: 12px; letter-spacing: 1px; color: var(--text-dim); margin-top: 2px; }
-#title-screen h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 8vw, 92px); letter-spacing: 10px; margin: 0;
-  color: #e9dcc0; text-shadow: 0 0 40px rgba(255,120,40,.35); }
-.subtitle { font-style: italic; color: var(--text-dim); font-size: 20px; margin: 10px 0 28px; }
-#aviso-versao { color: var(--gold); font-size: 15px; margin: -14px 0 18px; }
 .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 40px; margin-top: 40px; text-align: left;
   font-size: 15px; color: var(--text-dim); max-width: 640px; margin-left: auto; margin-right: auto; }
 .controls b { color: var(--gold); font-family: var(--serif); font-weight: 400; margin-right: 6px; }
 .controls.small { font-size: 14px; margin-top: 24px; }
 
-#loading { width: min(360px, 80vw); margin: 0 auto 24px; }
+#loading { margin: 6px 0 4px; }
 .load-bar { height: 4px; background: rgba(255,255,255,.08); border: 1px solid #3a3226; }
 .load-fill { height: 100%; width: 0; background: linear-gradient(90deg, #7d6a45, #e4c171); transition: width .2s; }
 .load-text { margin-top: 8px; color: var(--text-dim); font-size: 14px; font-style: italic; }
@@ -426,9 +458,11 @@ body.toque .overlay .panel { max-height: 92vh; overflow-y: auto; padding: 14px 1
 body.toque .inv-panel { height: 92vh; width: 96vw; gap: 14px; }
 body.toque .hint { display: none; }
 @media (max-height: 500px) {
-  #title-screen h1 { font-size: 34px; letter-spacing: 4px; }
-  #title-screen .subtitle { font-size: 15px; margin: 4px 0 14px; }
-  #title-screen .controls { display: none; }
+  #title-screen .logo { font-size: 34px; letter-spacing: 4px; margin-bottom: 10px; }
+  #title-screen .logo span { font-size: 12px; margin-top: 2px; }
+  #login { padding: 12px 18px; }
+  #conta-form { gap: 6px; }
+  #conta-form label { gap: 2px; }
 }
 
 /* O PROVADOR (js/provador.js): os designs do guerreiro, Shift+G */

@@ -386,7 +386,7 @@ export class Monitor {
     const gpuNome = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
     const q = g.graficos.q, sess = (agora - this.sessaoIni) / 1000;
     const tudo = this.janela(this.sessaoIni), ult10 = this.janela(agora - 10000), ult60 = this.janela(agora - 60000);
-    L.push(`# Relatório de desempenho — Masmorra do Carrasco`);
+    L.push(`# Relatório de desempenho — Lubellion Online`);
     L.push(`versão ${this.versao ?? '?'} · gerado ${new Date().toLocaleString('pt-BR')} · sessão ${mmss(sess)} (desde ${this.relogioIni.toLocaleTimeString('pt-BR')}) · modo ${g.modo}${g.sessao?.outros?.length ? ` · ${g.sessao.outros.length} outros jogadores` : ''}`);
     L.push('');
     L.push('## Máquina e configuração');
