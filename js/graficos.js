@@ -111,17 +111,26 @@ export class Graficos {
     if (!this.auto || this.pausaAuto || document.hidden || this.game.state === 'title') { R.teste = null; return; }
     // DEPOIS DE DESCER, CONFERE (07/10/2026): num relatório ela desceu a 70% três vezes sem
     // ganho nenhum (o limite era a sombra da tocha, não os pixels) — e cada mudança custa um
-    // tranco. O segundo da mudança não conta; com os 2 seguintes, se não ganhou 8%, volta e
-    // não tenta descer de novo por 60 s.
+    // tranco. O segundo da mudança não conta; com os 2 seguintes, se não ganhou, volta e
+    // não tenta descer de novo por 30 s.
+    // PELO TEMPO DA PLACA TAMBÉM (08/10/2026): no Alto, logo depois de trocar a qualidade, ela
+    // voltou a 100% com "não ajudou: 28 → 26" — a câmera tinha girado e os quadros/s não
+    // comparavam nada — e passou o minuto seguinte a 23 quadros/s, num lugar onde o teste do
+    // lugar dava +116% com ¼ dos pixels. Ajudou = ganhou 8% de quadros OU a GPU (o que os
+    // pixels mexem) caiu 7%. Com a sombra da tocha como limite (o caso de 07/10) nenhum dos dois muda.
     if (R.teste) {
       if (t < R.teste.de) return;
       R.teste.fps.push(fps);
       if (R.teste.fps.length < 2) return;
-      const depois = (R.teste.fps[0] + R.teste.fps[1]) / 2, { antes, escala } = R.teste;
+      const depois = (R.teste.fps[0] + R.teste.fps[1]) / 2, { antes, gpuAntes, escala } = R.teste;
+      const jd = this.game.monitor?.ext ? this.game.monitor.janela(R.teste.de, t) : null;
+      const gpuDepois = jd?.gpuN > 10 ? jd.gpu : NaN;
       R.teste = null;
-      if (depois < antes * 1.08) {
-        this.mudarEscala(escala, `não ajudou: ${Math.round(antes)} → ${Math.round(depois)} quadros/s`);
-        R.bloqueioAte = t + 60000;
+      const placaAliviou = gpuDepois < gpuAntes * 0.93;   // NaN (sem o cronômetro da GPU) = falso
+      if (depois < antes * 1.08 && !placaAliviou) {
+        const gpu = Number.isFinite(gpuDepois) && Number.isFinite(gpuAntes) ? ` · GPU ${gpuAntes.toFixed(1)} → ${gpuDepois.toFixed(1)} ms` : '';
+        this.mudarEscala(escala, `não ajudou: ${Math.round(antes)} → ${Math.round(depois)} quadros/s${gpu}`);
+        R.bloqueioAte = t + 30000;
       }
       return;
     }
@@ -136,7 +145,7 @@ export class Graficos {
     if (R.baixos >= 2 && this.escala > min + 0.001 && t >= (R.bloqueioAte ?? 0)) {
       const escala = this.escala;
       this.mudarEscala(Math.max(min, Math.round((escala - 0.1) * 100) / 100), `${Math.round(fps)} quadros/s`);
-      R.teste = { antes: fps, escala, de: t + 1500, fps: [] };
+      R.teste = { antes: fps, gpuAntes: j?.gpuN > 10 ? j.gpu : NaN, escala, de: t + 1500, fps: [] };
     } else if (R.altos >= 5 && this.escala < 0.999) {
       const prox = Math.min(1, Math.round((this.escala + 0.1) * 100) / 100), cresce = (prox / this.escala) ** 2;
       // a previsão: só a parte da PLACA cresce com os pixels (sem o tempo da GPU, o quadro todo)

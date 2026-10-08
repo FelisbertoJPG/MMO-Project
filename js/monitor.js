@@ -347,7 +347,20 @@ export class Monitor {
       ['sem o clarão do sol/lua', () => { this._clarao = q.clarao; q.clarao = false; }, () => { q.clarao = this._clarao; }, 'clarão desligado nesta qualidade', 'sem o reflexo de lente'],
       ['sem NADA na tela (o custo fixo)', () => g.camera.layers.disableAll(), () => g.camera.layers.set(0), null, null],
     ];
-    const medir = async (espera) => { await new Promise((f) => setTimeout(f, espera)); const t0 = performance.now(); await new Promise((f) => setTimeout(f, 1300)); return this.janela(t0, performance.now(), true); };
+    // A JANELA ESCONDIDA (08/10/2026): o Chrome para de desenhar quando a janela fica coberta
+    // por outra ou minimizada — num relatório, os 5 últimos testes saíram "NaN" (nenhum quadro
+    // na medida). Escondida, a medida espera ela voltar; a que pegou poucos quadros é refeita.
+    const aparecer = () => new Promise((f) => { const h = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', h); f(); } }; document.addEventListener('visibilitychange', h); h(); });
+    const medir = async (espera) => {
+      for (let tentativa = 0; ; tentativa++) {
+        await aparecer();
+        await new Promise((f) => setTimeout(f, espera));
+        const t0 = performance.now();
+        await new Promise((f) => setTimeout(f, 1300));
+        const j = this.janela(t0, performance.now(), true);
+        if (j.n >= 10 || tentativa >= 2) return j;
+      }
+    };
     const res = [], bases = [], janela = [performance.now(), Infinity];
     this.janelasDiag.push(janela);
     const passo = (txt) => { this.estadoDiag = txt; this.desenharPainel(); };
@@ -581,11 +594,12 @@ export class Monitor {
       const noTeto = Number.isFinite(teto) && (x.com.fps >= 0.93 * teto || x.base.fps >= 0.93 * teto) && Number.isFinite(x.base.gpu) && x.base.gpu > 0;
       return { ...x, noTeto, g: noTeto ? 1 - x.com.gpu / x.base.gpu : x.com.fps / x.base.fps - 1 };
     });
-    const pct = (v) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`;
+    const pct = (v) => (Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%` : '— (sem quadros: a janela do jogo ficou escondida)');
+    const ch = (v) => (Number.isFinite(v) ? String(Math.round(v)) : '—');
     L.push(`feito às ${D.quando} (sessão ${mmss(D.s)}) em ${D.onde}, desenhando ${D.tela ?? '?'}. Cada linha: a base (média da de antes e da de depois) → com a mudança.`);
     if (Number.isFinite(teto)) L.push(`A TELA LIMITA a ~${Math.round(teto)} quadros/s (nem sem desenhar nada passou disso): onde o teste encostou no teto (marcado "pela GPU") o ganho é o tempo de placa poupado — o de quadros/s está escondido pelo teto.`);
     for (const x of ganhos) {
-      L.push(`${x.nome.padEnd(44)} ${fmt(x.base.fps, 1).padStart(5)} → ${fmt(x.com.fps, 1).padStart(5)} FPS · GPU ${fmt(x.base.gpu)} → ${fmt(x.com.gpu)} ms · ${Math.round(x.base.chamadas)} → ${Math.round(x.com.chamadas)} chamadas  =  ${pct(x.g)}${x.noTeto ? ' pela GPU' : ''}`);
+      L.push(`${x.nome.padEnd(44)} ${fmt(x.base.fps, 1).padStart(5)} → ${fmt(x.com.fps, 1).padStart(5)} FPS · GPU ${fmt(x.base.gpu)} → ${fmt(x.com.gpu)} ms · ${ch(x.base.chamadas)} → ${ch(x.com.chamadas)} chamadas  =  ${pct(x.g)}${x.noTeto ? ' pela GPU' : ''}`);
     }
     // a leitura: o que fazer, do que mais rende; se são os pixels; e o piso (sem nada na tela)
     const acoes = ganhos.filter((x) => x.acao && x.g >= 0.05).sort((a, b) => b.g - a.g);
