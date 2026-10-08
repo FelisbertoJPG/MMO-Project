@@ -381,6 +381,61 @@ await teste('MUNDO_SAVES=nuvem (o Render): NADA em disco — nem personagem, nem
   fs.rmSync(pasta2, { recursive: true, force: true });
 });
 
+await teste('/__mundo/ice: o TURN da voz só para quem joga, sem a porta 53, e a Cloudflare chamada uma vez só', async () => {
+  await descer();
+  assert.ok(await subir(), 'o servidor não voltou');
+  // sem as variáveis, o servidor diz que não tem retransmissor (e a voz segue só com STUN)
+  const ivo = await jogador('Ivo');
+  const pedirIce = (corpo) => fetch(`${BASE}/__mundo/ice`, { method: 'POST', body: JSON.stringify(corpo) });
+  let r = await (await pedirIce({ b: ivo.bilhete })).json();
+  assert.equal(r.ok, true);
+  assert.equal(r.iceServers, null);
+  ivo.desligar();
+
+  // uma Cloudflare de mentira, que conta quantas vezes foi chamada
+  const http = await import('node:http');
+  const pedidos = [];
+  const cf = http.createServer((req, res) => {
+    let corpo = '';
+    req.on('data', (c) => { corpo += c; });
+    req.on('end', () => {
+      pedidos.push({ url: req.url, auth: req.headers.authorization, corpo: JSON.parse(corpo) });
+      res.writeHead(201, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ iceServers: [
+        { urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.cloudflare.com:53'] },
+        { urls: ['turn:turn.cloudflare.com:3478?transport=udp', 'turn:turn.cloudflare.com:53?transport=udp', 'turns:turn.cloudflare.com:443?transport=tcp'], username: 'u', credential: 'c' },
+      ] }));
+    });
+  });
+  await new Promise((ok) => cf.listen(0, '127.0.0.1', ok));
+  await descer();
+  assert.ok(await subir({ TURN_CF_ID: 'chave1', TURN_CF_TOKEN: 'segredo', TURN_CF_API: `http://127.0.0.1:${cf.address().port}` }), 'o servidor não subiu');
+  try {
+    // sem bilhete nem conta, nada
+    assert.equal((await pedirIce({})).status, 401);
+    assert.equal((await pedirIce({ b: '0'.repeat(48) })).status, 401);
+    assert.equal((await pedirIce({ token: 'teste:x' })).status, 400, 'nome de teste inválido');
+    assert.equal(pedidos.length, 0, 'quem não joga fez o servidor pedir credencial');
+    // com bilhete (Mundo) e com conta (sala; `teste:` neste servidor)
+    const jaq = await jogador('Jaq');
+    r = await (await pedirIce({ b: jaq.bilhete })).json();
+    assert.deepEqual(r.iceServers, [
+      { urls: ['stun:stun.cloudflare.com:3478'] },
+      { urls: ['turn:turn.cloudflare.com:3478?transport=udp', 'turns:turn.cloudflare.com:443?transport=tcp'], username: 'u', credential: 'c' },
+    ]);
+    r = await (await pedirIce({ token: 'teste:Kau' })).json();
+    assert.equal(r.iceServers.length, 2);
+    // o segredo foi para a Cloudflare, do jeito dela, e só uma vez
+    assert.equal(pedidos.length, 1, 'cada pedido de credencial foi à Cloudflare');
+    assert.equal(pedidos[0].url, '/v1/turn/keys/chave1/credentials/generate-ice-servers');
+    assert.equal(pedidos[0].auth, 'Bearer segredo');
+    assert.equal(pedidos[0].corpo.ttl, 86400);
+    jaq.desligar();
+  } finally {
+    cf.close();
+  }
+});
+
 await descer();
 fs.rmSync(PASTA, { recursive: true, force: true });
 console.log(`\n${passaram} testes passaram${falharam ? `, ${falharam} FALHARAM` : ''}\n`);

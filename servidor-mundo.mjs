@@ -24,6 +24,9 @@
 //   acao     → só o simulador (abrir porta, acordar chefe…)
 //   voz      → só `carga.para` (a sinalização do chat de voz; o som vai direto entre os dois, WebRTC)
 //
+// E `POST /__mundo/ice` entrega as credenciais do retransmissor (TURN) da voz —
+// a quem tem bilhete ou conta (ver `turnDaVoz`).
+//
 // **O estado que sobrevive** (`mundo/estado.json`): portas, névoa, quando cada
 // chefe volta, quando cada inimigo renasce. Quem o escreve é o simulador (vem
 // dentro do `mundo`, campo `est`); o servidor só guarda e entrega — mundo vazio
@@ -301,6 +304,24 @@ export function criarMundo(raiz) {
 
   const arquivoDoPersonagem = (id) => path.join(pastaPersonagens, `${id.toLowerCase()}.json`);
 
+  /**
+   * As rotas de rede do chat de voz (`iceServers`, ver `turnDaVoz`) — só para quem
+   * joga: um jogador do mundo (`b`, o bilhete) ou alguém com conta numa SALA
+   * (`token`, conferido como no `entrar`: a sala não passa por este servidor).
+   * `iceServers: null` = este servidor não tem retransmissor; a voz segue só com STUN.
+   */
+  async function ice(req, res) {
+    const corpo = await lerCorpo(req, 8 * 1024);
+    if (!corpo) return erro(res, 400, 'pedido inválido');
+    const doMundo = typeof corpo.b === 'string' && BILHETE.test(corpo.b) && porBilhete.has(corpo.b);
+    if (!doMundo) {
+      if (typeof corpo.token !== 'string') return erro(res, 401, 'bilhete inválido — entre de novo');
+      const quem = await conferirToken(corpo.token, { modoAuth, supabase });
+      if (quem.erro) return erro(res, quem.status ?? 401, quem.erro);
+    }
+    json(res, 200, { ok: true, iceServers: await turnDaVoz() });
+  }
+
   /** Atende `/__mundo/*`. Devolve false se a rota não é daqui. */
   function atender(req, res, urlPath) {
     if (!urlPath.startsWith('/__mundo/')) return false;
@@ -312,6 +333,7 @@ export function criarMundo(raiz) {
       return true;
     }
     if (rota === 'entrar' && req.method === 'POST') { entrar(req, res).catch((e) => { console.warn('[mundo] entrar:', e); erro(res, 500, 'falha no servidor'); }); return true; }
+    if (rota === 'ice' && req.method === 'POST') { ice(req, res).catch((e) => { console.warn('[mundo] ice:', e); erro(res, 500, 'falha no servidor'); }); return true; }
 
     // daqui para baixo, só com bilhete
     const b = new URL(req.url, 'http://x').searchParams.get('b') ?? '';
@@ -370,6 +392,71 @@ async function conferirToken(token, { modoAuth, supabase }) {
   } catch {
     return { erro: 'o servidor não conseguiu falar com o Supabase para conferir a conta', status: 502 };
   }
+}
+
+// ------------------------------------------------------------ o retransmissor da voz
+
+/** Validade das credenciais pedidas à Cloudflare; o servidor as reaproveita até a metade disso. */
+const TURN_VALIDADE_S = 24 * 3600;
+let turn = null, pedindoTurn = null, turnFalhouAte = 0;
+
+/**
+ * O RETRANSMISSOR (TURN) do chat de voz (08/10/2026): a lista `iceServers` para o
+ * `RTCPeerConnection`, ou null sem ele. Só com STUN, celular no 4G não fechava a
+ * conexão com ninguém ("não conectou"): a operadora não deixa entrar ligação
+ * direta. Com o TURN, o áudio dá a volta pela Cloudflare (1000 GB/mês grátis; voz
+ * a 32 kbps é ~15 MB por hora por pessoa).
+ *
+ * A chave é SEGREDO e fica aqui (variáveis `TURN_CF_ID` e `TURN_CF_TOKEN`, no
+ * painel do Render): o jogo recebe só credenciais que vencem em `TURN_VALIDADE_S`.
+ * `TURN_CF_API` troca o endereço da Cloudflare (o teste usa um falso).
+ */
+async function turnDaVoz() {
+  const id = process.env.TURN_CF_ID, token = process.env.TURN_CF_TOKEN;
+  if (!id || !token) return null;
+  if (turn && Date.now() < turn.ate) return turn.iceServers;
+  if (Date.now() < turnFalhouAte) return null;   // a Cloudflare recusou há pouco: não insiste a cada pedido
+  pedindoTurn ??= (async () => {
+    try {
+      const api = (process.env.TURN_CF_API || 'https://rtc.live.cloudflare.com').replace(/\/+$/, '');
+      const r = await fetch(`${api}/v1/turn/keys/${encodeURIComponent(id)}/credentials/generate-ice-servers`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ ttl: TURN_VALIDADE_S }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) throw new Error(`a Cloudflare respondeu ${r.status}`);
+      const lista = limparIce((await r.json())?.iceServers);
+      if (!lista.length) throw new Error('a Cloudflare respondeu sem iceServers');
+      turn = { iceServers: lista, ate: Date.now() + TURN_VALIDADE_S * 500 };
+      return lista;
+    } catch (e) {
+      console.warn(`[mundo] TURN: ${e?.message ?? e}`);
+      turnFalhouAte = Date.now() + 60_000;
+      return null;
+    } finally {
+      pedindoTurn = null;
+    }
+  })();
+  return pedindoTurn;
+}
+
+/**
+ * Os `iceServers` como o navegador os quer — sem a porta 53, que o navegador
+ * bloqueia (o candidato fica esperando até vencer, segundo a Cloudflare).
+ */
+export function limparIce(lista) {
+  const saida = [];
+  for (const s of [].concat(lista ?? [])) {
+    if (!s || typeof s !== 'object') continue;
+    const urls = [].concat(s.urls ?? []).filter((u) => typeof u === 'string' && /^(stun|turns?):/.test(u) && !/:53(\?|$)/.test(u));
+    if (!urls.length) continue;
+    const o = { urls };
+    if (typeof s.username === 'string') o.username = s.username;
+    if (typeof s.credential === 'string') o.credential = s.credential;
+    saida.push(o);
+  }
+  return saida;
 }
 
 /** A URL e a chave publicável do Supabase: as MESMAS do cliente, lidas do arquivo dele. */

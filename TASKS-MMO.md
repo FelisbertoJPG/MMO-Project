@@ -192,10 +192,13 @@ As diferenças moram em `js/modo.js` (`REGRAS`), e o código pergunta `game.regr
   online (liga a 40 m, some a 35 m, vem de onde o boneco está), sempre na sala. Opções no
   menu de pausa: microfone desligado / aberto / segurar para falar, a tecla (padrão V) e
   o volume. Conferido com dois Chromes headless e microfone falso (MMO local e sala na LAN).
-- [ ] **F7.6b Voz entre redes fechadas**: sem servidor TURN, alguns pares (4G, rede de
-  empresa) não conectam — o painel diz "não conectou com X". Opções: Cloudflare TURN
-  (grátis até 1 TB/mês, mas pede credencial gerada no servidor) ou metered.ca. Falta também
-  ouvir de jogadores reais como ficou (eco sem fone, volume, a distância de 35 m).
+- [x] **F7.6b Voz entre redes fechadas** (08/10/2026): o celular no 4G "não conectou" com
+  ninguém. O servidor de mundo agora entrega credenciais de TURN da Cloudflare
+  (`POST /__mundo/ice`, `turnDaVoz`; grátis até 1000 GB/mês) e a voz as usa em cada conexão.
+  Testado com Cloudflare falsa (`testes/mundo.test.mjs`) e Chrome headless.
+  - [ ] Criar a chave TURN na Cloudflare e pôr `TURN_CF_ID` e `TURN_CF_TOKEN` no painel do
+    Render (Environment) — só o dono da conta faz. Sem isso a voz continua só com STUN.
+  - [ ] Ouvir de jogadores reais como ficou (eco sem fone, volume, a distância de 35 m).
 
 ---
 

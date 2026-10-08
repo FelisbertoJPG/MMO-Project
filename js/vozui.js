@@ -94,7 +94,10 @@ export class VozUI {
       const quem = [];
       if (r.ligados.length) quem.push(`ligado com ${r.ligados.map(esc).join(', ')}`);
       if (r.ligando.length) quem.push(`ligando com ${r.ligando.map(esc).join(', ')}…`);
-      if (r.falhas.length) quem.push(`<span class="erro">não conectou com ${r.falhas.map(esc).join(', ')}</span> (a rede de um dos dois não deixa)`);
+      if (r.falhas.length) {
+        quem.push(`<span class="erro">não conectou com ${r.falhas.map(esc).join(', ')}</span> `
+          + (r.turn ? '(nem pelo retransmissor: a rede de um dos dois não deixa)' : '(a rede de um dos dois não deixa, e o servidor está sem retransmissor)'));
+      }
       linhas.push(quem.length ? `${quem.join(' · ')}.` : (mmo ? 'Ninguém por perto.' : 'Ninguém na sala ainda.'));
     }
     return linhas.join('<br>');

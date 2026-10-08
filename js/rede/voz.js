@@ -32,9 +32,11 @@
  * por `replaceTrack` — nada de renegociar. Segurar para falar é só ligar e
  * desligar a trilha (`enabled`): desligada, ela manda silêncio.
  *
- * **Sem servidor TURN**: só STUN (descobrir o endereço de fora). Entre duas
- * redes muito fechadas (alguns 4G, redes de empresa) a conexão não fecha — o
- * par fica como "não conectou" no painel e o jogo segue. Um TURN entra em `ICE`.
+ * **O retransmissor (TURN, 08/10/2026)**: só com STUN (descobrir o endereço de
+ * fora), entre redes fechadas (o 4G do celular, rede de empresa) a conexão não
+ * fechava — "não conectou". Agora cada conexão pede ao servidor de mundo as
+ * credenciais de um TURN da Cloudflare (`buscarTurn`) e, com elas, o áudio dá a
+ * volta por lá quando o caminho direto não abre. Servidor sem TURN = só STUN.
  *
  * O contrato com `game.sessao`: `outros` (os `JogadorRemoto`, com `id` e
  * `pos`), `eu` (o meu id, o mesmo que os outros veem como `de`) e
@@ -332,6 +334,7 @@ export class Voz {
 
   /** Liga com quem deve, desliga de quem não deve mais. */
   escolher(s, agora) {
+    if (!this.turn) this.buscarTurn(s);   // já vai pedindo: a primeira conexão não espera
     const eu = s.eu, perto = this.game.modo === 'mmo', meu = this.game.player.pos;
     const candidatos = [];
     for (const r of s.outros) {
@@ -420,6 +423,51 @@ export class Voz {
 
   // ------------------------------------------------------------ as conexões
 
+  /**
+   * O RETRANSMISSOR (TURN, 08/10/2026): só com STUN, celular no 4G "não conectou"
+   * com ninguém. As credenciais (da Cloudflare, que vencem) vêm do servidor de
+   * mundo — `POST /__mundo/ice`, com o bilhete no Mundo ou o token da conta na
+   * sala. Devolve a lista, ou null (servidor sem TURN, sala sem conta, servidor
+   * fora do ar): aí a voz segue só com STUN, como antes.
+   */
+  buscarTurn(s) {
+    const agora = performance.now();
+    if (this.turn && agora < this.turn.ate) return Promise.resolve(this.turn.lista);
+    if (this.pedindoTurn) return this.pedindoTurn;
+    if (agora < (this.turnFalhouAte ?? 0)) return Promise.resolve(null);
+    const g = this.game;
+    this.pedindoTurn = (async () => {
+      const corpo = s.bilhete ? { b: s.bilhete } : { token: await g.tokenDoMundo?.()?.() };
+      if (!corpo.b && !corpo.token) return null;
+      if (!s.bilhete && !g.haMundo?.()) return null;
+      const base = s.bilhete ? (s.base ?? '') : g.enderecoDoMundo();
+      // na sala o servidor pode estar dormindo (o Render acorda em ~1 min): espera
+      const r = await fetch(`${base}/__mundo/ice`, {
+        method: 'POST', body: JSON.stringify(corpo), signal: AbortSignal.timeout(90_000),
+      });
+      const d = await r.json();
+      return Array.isArray(d?.iceServers) && d.iceServers.length ? d.iceServers : null;
+    })().catch(() => null).then((lista) => {
+      this.pedindoTurn = null;
+      // o servidor guarda as credenciais por 12 h; aqui, 6 h. Sem TURN, pergunta de novo em 5 min
+      if (lista) this.turn = { lista, ate: performance.now() + 6 * 3600_000 };
+      else this.turnFalhouAte = performance.now() + 5 * 60_000;
+      return lista;
+    });
+    return this.pedindoTurn;
+  }
+
+  /**
+   * Põe o TURN na conexão antes de ela juntar os candidatos (`setLocalDescription`).
+   * Espera no máximo `ms`: com o servidor acordando, a conexão não fica parada —
+   * vai só com STUN, e a próxima já leva o TURN.
+   */
+  async comTurn(par, ms = 5000) {
+    const lista = await Promise.race([this.buscarTurn(this.sessao), new Promise((ok) => setTimeout(ok, ms, null))]);
+    if (!lista || this.pares.get(par.id) !== par) return;
+    try { par.pc.setConfiguration({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, ...lista] }); } catch (e) { console.warn('[voz] TURN:', e); }
+  }
+
   criarPar(id, ofertante) {
     const pc = new RTCPeerConnection({ iceServers: ICE });
     const par = { id, pc, ofertante, estado: 'ligando', criado: performance.now(), pendentes: [], temRemota: false, nivel: 0 };
@@ -441,6 +489,8 @@ export class Voz {
       par.transceptor = par.pc.addTransceiver('audio', { direction: 'sendrecv' });
       par.remetente = par.transceptor.sender;
       if (this.mic) await par.remetente.replaceTrack(this.mic.trilha);
+      await this.comTurn(par);
+      if (this.pares.get(id) !== par) return;
       const oferta = await par.pc.createOffer();
       await par.pc.setLocalDescription(oferta);
       if (this.pares.get(id) !== par) return;
@@ -462,6 +512,8 @@ export class Voz {
       par.transceptor.direction = 'sendrecv';
       par.remetente = par.transceptor.sender;
       if (this.mic) await par.remetente.replaceTrack(this.mic.trilha);
+      await this.comTurn(par);
+      if (this.pares.get(id) !== par) return;
       const resposta = await par.pc.createAnswer();
       await par.pc.setLocalDescription(resposta);
       if (this.pares.get(id) !== par) return;
@@ -588,6 +640,6 @@ export class Voz {
       if (agora < (p.falandoAte ?? 0)) falando.push(nome);
     }
     const falhas = [...(this.falhas ?? [])].filter(([id]) => nomes.has(id) && !this.pares.has(id)).map(([id]) => nomes.get(id));
-    return { ligados, ligando, falando, falhas, temSessao: !!s?.enviarVoz };
+    return { ligados, ligando, falando, falhas, temSessao: !!s?.enviarVoz, turn: !!this.turn };
   }
 }

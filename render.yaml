@@ -37,3 +37,10 @@ services:
         value: https://felisbertojpg.github.io/MMO-Project/
       - key: MUNDO_MAX
         value: "16"
+      # O retransmissor (TURN) do chat de voz, da Cloudflare: SEGREDO, preenchido no
+      # painel do Render (Environment), nunca aqui. Sem eles a voz usa só STUN, e
+      # celular no 4G não conecta com ninguém. Ver `turnDaVoz` em servidor-mundo.mjs.
+      - key: TURN_CF_ID
+        sync: false
+      - key: TURN_CF_TOKEN
+        sync: false
