@@ -102,16 +102,35 @@ export class ControlesToque {
     this.tocavel(document.getElementById('slot-quick'), 'KeyC');
     this.tocavel(document.getElementById('slot-left'), 'KeyT');
     this.tocavel(document.getElementById('prompt'), 'KeyE');
-    // o primeiro toque em qualquer lugar deita a tela (precisa ser num gesto do dedo)
-    document.addEventListener('pointerdown', () => this.deitarTela(), { capture: true });
+    // qualquer toque deita a tela (precisa ser num gesto do dedo). Também no SOLTAR: com o
+    // dedo, só o `pointerup` conta como gesto para o navegador — o `pointerdown` sozinho não
+    // dá permissão de tela cheia (só valia se outro toque tivesse acabado de acontecer)
+    // (o mouse, com `?toque` no computador, no apertar)
+    const gesto = (e) => { if ((e.type === 'pointerup') === (e.pointerType !== 'mouse')) this.deitarTela(); };
+    for (const ev of ['pointerdown', 'pointerup']) document.addEventListener(ev, gesto, { capture: true });
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) this.semTrava = false; });
   }
 
-  /** Tela cheia + horizontal. Só funciona dentro de um toque; falhar é normal (iPhone). */
+  /**
+   * Tela cheia + horizontal. Só funciona dentro de um toque; falhar é normal (iPhone).
+   * O MICROFONE (08/10/2026): para mostrar o pedido de permissão, o Chrome do Android tira a
+   * página da tela cheia e solta a trava da horizontal — o jogo ficava em pé, no "Gire o
+   * celular", e o toque não deitava mais (só fechando o navegador). Agora: fora da tela
+   * cheia, qualquer toque pede de novo; em tela cheia mas EM PÉ, trava de novo, e se a trava
+   * não pegar, sai e entra outra vez (uma só: se nem assim travar, `semTrava` até sair da
+   * tela cheia — senão cada toque piscaria a tela).
+   */
   deitarTela() {
-    if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
-    document.documentElement.requestFullscreen({ navigationUI: 'hide' })
-      .then(() => screen.orientation?.lock?.('landscape'))
-      .catch(() => {});
+    const el = document.documentElement, o = screen.orientation;
+    if (!el.requestFullscreen || this.deitando) return;
+    const deitar = () => el.requestFullscreen({ navigationUI: 'hide' }).then(() => o?.lock?.('landscape'));
+    if (document.fullscreenElement) {
+      if (!o?.lock || o.type.startsWith('landscape') || this.semTrava) return;
+      this.deitando = o.lock('landscape').catch(() => document.exitFullscreen().then(deitar));
+    } else {
+      this.deitando = deitar();
+    }
+    this.deitando.catch(() => { if (document.fullscreenElement) this.semTrava = true; }).finally(() => { this.deitando = null; });
   }
 
   tocavel(el, tecla) {

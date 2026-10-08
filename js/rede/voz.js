@@ -270,6 +270,9 @@ export class Voz {
         }
         for (const p of this.pares.values()) p.remetente?.replaceTrack(trilha).catch(() => {});
         trilha.addEventListener('ended', () => { this.soltarMicrofone(); this.semMic = 'o microfone foi desligado'; });
+        // no celular, o pedido de permissão tira o jogo da tela cheia (toque.js deita de novo
+        // no próximo toque) e não havia sinal nenhum de que o microfone abriu (08/10/2026)
+        if (this.game.toque) this.game.ui?.toast(`Microfone ligado — o medidor no menu (☰) mostra o seu som.${document.fullscreenElement ? '' : ' Toque na tela para voltar à tela cheia.'}`);
       })
       .catch((e) => {
         this.pedindoMic = null;
