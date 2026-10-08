@@ -343,7 +343,7 @@ class Game {
   /**
    * O estado do servidor, embaixo do painel de entrada: a bolinha (`data-estado`:
    * `ok` verde, `espera` amarela, `erro` vermelha) e quantos estão no mundo — ou
-   * por que não dá para entrar. Libera o "Entrar em Lubellion".
+   * por que não dá para entrar. Libera o "Entrar em Lubelion".
    */
   async prepararMundo() {
     const bt = document.getElementById('mmo-btn'), st = document.getElementById('mmo-status');
@@ -423,7 +423,7 @@ class Game {
     aviso.textContent = '';
     const r = await Mundo.entrar(this, { base: this.enderecoDoMundo(), obterToken: this.tokenDoMundo() });
     this.entrando = false;
-    if (!r.ok) { bt.disabled = false; bt.textContent = 'Entrar em Lubellion'; aviso.textContent = r.error; return; }
+    if (!r.ok) { bt.disabled = false; bt.textContent = 'Entrar em Lubelion'; aviso.textContent = r.error; return; }
     this.modo = 'mmo';
     this.sessao = r.mundo;
     // personagem de outra ficha (ficha.js) recomeça do zero: é o reset de todos
@@ -432,7 +432,7 @@ class Game {
     this.world.destrancarCela();   // no mundo de todos ninguém acorda preso
     this.entrarNoJogo();
     this.online.comecarPartida();
-    if (salvo) { this.snapCamera(); this.ui.centerMessage('Lubellion', 'info', 3000); }
+    if (salvo) { this.snapCamera(); this.ui.centerMessage('Lubelion', 'info', 3000); }
     else this.comecarFora();
     document.getElementById('sair-mundo-btn').textContent = 'Sair do mundo';
     r.mundo.ligar();
@@ -462,9 +462,9 @@ class Game {
   }
 
   /**
-   * A TELA DE ENTRADA do Lubellion Online (07/10/2026), no jeito da tela de login
+   * A TELA DE ENTRADA do Lubelion Online (07/10/2026), no jeito da tela de login
    * de um MMO: o logo e UM painel. Sem conta, o painel tem as abas Entrar / Criar
-   * conta; logado, "Bem-vindo, <nome>" e o botão "Entrar em Lubellion". Embaixo,
+   * conta; logado, "Bem-vindo, <nome>" e o botão "Entrar em Lubelion". Embaixo,
    * o estado do servidor (`prepararMundo`). A Jornada (o modo offline) continua
    * no código, mas fora da tela: só aparece com `?jornada` na URL (testes).
    */

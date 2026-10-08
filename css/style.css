@@ -160,9 +160,9 @@ button:disabled { opacity: .4; cursor: default; }
 #msg-texto { width: 100%; box-sizing: border-box; resize: none; }
 .writer-rodape { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-dim); margin: 6px 0 14px; }
 
-/* ---------- Tela de entrada: LUBELLION ONLINE (main.js, mostrarConta) ----------
+/* ---------- Tela de entrada: LUBELION ONLINE (main.js, mostrarConta) ----------
    O jeito da tela de login de um MMO: o logo em cima e UM painel no meio (abas
-   Entrar / Criar conta; logado, "Entrar em Lubellion"), o estado do servidor
+   Entrar / Criar conta; logado, "Entrar em Lubelion"), o estado do servidor
    embaixo dele. `margin: auto` no filho (e não `align-items: center`): em tela
    baixa o topo sairia da janela sem dar para rolar até ele. */
 #title-screen { position: fixed; inset: 0; display: flex; justify-content: center; overflow-y: auto;
@@ -171,8 +171,8 @@ button:disabled { opacity: .4; cursor: default; }
 #login, #mmo-form { width: min(380px, calc(100vw - 32px)); box-sizing: border-box; margin-left: auto; margin-right: auto; }
 #title-screen .logo { font-family: var(--serif); font-weight: 700; font-size: clamp(40px, 7vw, 72px); letter-spacing: 6px; margin: 0 0 22px;
   color: #f1e3c2; text-shadow: 0 2px 0 #000, 0 0 36px rgba(230,170,70,.45); line-height: 1; white-space: nowrap; }
-#title-screen .logo span { display: block; font-size: clamp(13px, 1.8vw, 17px); letter-spacing: 12px; margin-top: 8px; color: var(--gold);
-  text-shadow: 0 1px 0 #000; font-weight: 400; padding-left: 12px; }
+#title-screen .logo span { display: block; font-size: clamp(13px, 1.8vw, 17px); letter-spacing: 6px; margin-top: 8px; color: var(--gold);
+  text-shadow: 0 1px 0 #000; font-weight: 400; padding-left: 6px; }
 #aviso-versao { color: var(--gold); font-size: 14px; margin: -8px 0 14px; }
 
 #login { padding: 18px 24px 14px; text-align: left; background: rgba(14, 12, 10, .9); }

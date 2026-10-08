@@ -1,4 +1,4 @@
-# Lubellion Online
+# Lubelion Online - MMO Project
 
 (Antes "Masmorra do Carrasco".) MMO de ação no estilo souls-like, feito com Three.js. Você acorda numa cela, como em Dark Souls 1, sem arma e sem escudo. Os equipamentos aparecem conforme você atravessa a masmorra, e no fim o Carrasco espera atrás da névoa.
 
