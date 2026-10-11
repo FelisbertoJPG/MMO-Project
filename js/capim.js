@@ -26,9 +26,22 @@ const RAIO = 6;   // células em volta do jogador (~36 m)
 const TUFOS_MAX = 90;   // por célula (o Alto usa 64)
 // que carta cada tufo usa (pesos): mais capim, um pouco de flor e de moita
 const SORTEIO = [[CARTAS.capim, 0.48], [CARTAS.capimBaixo, 0.4], [CARTAS.moita, 0.05], [CARTAS.flores, 0.07]];
-// nas WINDHILLS (`world.nosCampos`), as cartas `gi`: folhas longas e finas, mais altas. Sem
-// flor nem moita de carta: as flores de lá são as peças `gi-` do decor.json.
+// nas WINDHILLS (`world.nosCampos`), as cartas `gi` no TAPETE (ver o construtor): folhas longas
+// e finas. Sem flor nem moita de carta: as flores de lá são as peças `gi-` do decor.json.
 const SORTEIO_GI = [[CARTAS.giAlto, 0.3], [CARTAS.giCheio, 0.3], [CARTAS.giFino, 0.22], [CARTAS.giBaixo, 0.18]];
+const PASSO_MIN = 0.4;            // a grade mais fina do tapete (m), no Alto
+const NIVEIS = [1, 1.5, 2.2];     // longe do jogador, a grade abre (e as cartas crescem junto)
+
+/** Um plano de 1 × 1 de pé (o pé em y = 0), para o tapete: como um dos três do tufo. */
+function geometriaDoPlano() {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0, 0, 0.5, 0, 0, 0.5, 1, 0, -0.5, 1, 0], 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute([0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1], 3));
+  g.setIndex([0, 1, 2, 0, 2, 3]);
+  return g;
+}
 
 /**
  * A geometria do TUFO: três planos de 1 × 1 cruzados a 60°, o pé em y = 0. `position.y`
@@ -95,13 +108,72 @@ export class Capim {
     this.malha.castShadow = false; this.malha.receiveShadow = false;
     this.malha.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo * 3), 3);
     game.scene.add(this.malha);
+
+    // O TAPETE (11/10/2026) — o capim das WINDHILLS. Em vez de tufos sorteados (que deixam
+    // buraco aqui e amontoam ali), uma GRADE fina cobre a célula inteira: um plano só por ponto
+    // (2 triângulos), com uma carta `gi` de folhas, girado e inclinado ao acaso, cada um mais
+    // largo que o passo da grade (um encosta no outro). O mesmo material e o mesmo vento.
+    if (this.temGi) {
+      const gp = geometriaDoPlano();
+      this.maximoT = (2 * RAIO + 1) ** 2 * Math.ceil(CELL / PASSO_MIN) ** 2;
+      this.cartasT = new THREE.InstancedBufferAttribute(new Float32Array(this.maximoT), 1);
+      gp.setAttribute('aCarta', this.cartasT);
+      this.tapete = new THREE.InstancedMesh(gp, mat, this.maximoT);
+      this.tapete.count = 0;
+      this.tapete.frustumCulled = false;
+      this.tapete.castShadow = false; this.tapete.receiveShadow = false;
+      this.tapete.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.maximoT * 3), 3);
+      game.scene.add(this.tapete);
+      this.prontas = new Map();   // célula + nível → o tapete dela já calculado
+    }
+  }
+
+  /** O passo da grade do tapete (m), da qualidade gráfica: 40 cm no Alto, ~55 cm no Médio. */
+  get passo() { return Math.max(PASSO_MIN, Math.min(0.9, 0.4 * Math.sqrt(64 / Math.max(1, this.densidade)))); }
+
+  /**
+   * O tapete de UMA célula (guardado: andar uma célula só calcula as que entraram). `nivel` é
+   * a distância: longe, a grade é mais aberta e as cartas maiores na mesma proporção — a
+   * cobertura não muda e não aparece buraco, só há menos folhas.
+   */
+  celulaDoTapete(w, r, c, nivel) {
+    const chave = (r * 1024 + c) * 4 + nivel;
+    let pronta = this.prontas.get(chave);
+    if (pronta) return pronta;
+    const passo = this.passo * NIVEIS[nivel], n = Math.max(1, Math.round(CELL / passo)), real = CELL / n;
+    const mats = new Float32Array(n * n * 16), cores = new Float32Array(n * n * 3), cartas = new Float32Array(n * n);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), s = new THREE.Vector3(), pos = new THREE.Vector3(), tom = new THREE.Color();
+    let sem = (((r * 73856093) ^ (c * 19349663)) + nivel * 7919) >>> 0;
+    const rnd = () => ((sem = (sem * 1664525 + 1013904223) >>> 0) / 4294967296);
+    let i = 0;
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+      pos.set((c - 0.5) * CELL + (a + 0.5 + (rnd() - 0.5) * 0.9) * real, 0, (r - 0.5) * CELL + (b + 0.5 + (rnd() - 0.5) * 0.9) * real);
+      let u = rnd(), carta = SORTEIO_GI[0][0];
+      for (const [k, peso] of SORTEIO_GI) { if ((u -= peso) < 0) { carta = k; break; } }
+      const larg = real * (2.1 + rnd() * 0.9), alt = (0.3 + rnd() * 0.22) * (carta === CARTAS.giBaixo ? 0.8 : 1) * (1 + nivel * 0.15);
+      e.set((rnd() - 0.5) * 0.5, rnd() * Math.PI * 2, 0);
+      const v = 0.94 + rnd() * 0.12, sorte = rnd();
+      if (!w.podeCapim(pos.x, pos.z, 0.15)) continue;
+      const caminho = caminhoEm(w, pos.x, pos.z);
+      if (caminho > 0.25 && sorte < caminho * 1.6) continue;
+      pos.y = w.alturaChao(pos) - 0.03;
+      m.compose(pos, q.setFromEuler(e), s.set(larg, alt, 1));
+      m.toArray(mats, i * 16);
+      corDoChao(w, pos.x, pos.z, tom).multiplyScalar(v * 1.25);
+      cores[i * 3] = tom.r; cores[i * 3 + 1] = tom.g; cores[i * 3 + 2] = tom.b;
+      cartas[i++] = carta;
+    }
+    pronta = { n: i, mats: mats.subarray(0, i * 16), cores: cores.subarray(0, i * 3), cartas: cartas.subarray(0, i) };
+    if (this.prontas.size > 900) this.prontas.clear();   // andou muito: recomeça (as de perto voltam já)
+    this.prontas.set(chave, pronta);
+    return pronta;
   }
 
   /** Quantos tufos por célula (a qualidade gráfica; 0 = sem capim). */
   get densidade() { return Math.min(TUFOS_MAX, this.game.graficos?.q.capim ?? 22); }
 
   /** Remonta já (a qualidade mudou). */
-  refazer() { this.celula = null; }
+  refazer() { this.celula = null; this.prontas?.clear(); }
 
   update(dt) {
     this.tempo.value += dt;
@@ -112,27 +184,35 @@ export class Capim {
     this.celula = chave;
     const n = this.densidade, m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), pos = new THREE.Vector3();
     const cor = this.malha.instanceColor, tom = new THREE.Color();
-    let i = 0;
+    let i = 0, j = 0;
     if (n > 0) {
       for (let r = r0 - RAIO; r <= r0 + RAIO; r++) {
         for (let c = c0 - RAIO; c <= c0 + RAIO; c++) {
           if (w.ch(r, c) !== 'f') continue;
           const dist = Math.hypot(r - r0, c - c0);
           if (dist > RAIO + 0.5) continue;
+          // nas WINDHILLS, o TAPETE (a grade, não o sorteio de tufos)
+          if (this.tapete && w.nosCampos(r, c)) {
+            const t = this.celulaDoTapete(w, r, c, dist <= RAIO - 2.5 ? 0 : dist <= RAIO - 1 ? 1 : 2);
+            if (j + t.n > this.maximoT) continue;
+            this.tapete.instanceMatrix.array.set(t.mats, j * 16);
+            this.tapete.instanceColor.array.set(t.cores, j * 3);
+            this.cartasT.array.set(t.cartas, j);
+            j += t.n;
+            continue;
+          }
           // longe, menos e menores (sem borda dura)
           const longe = Math.max(0, Math.min(1, (dist - (RAIO - 2.5)) / 3));
           const quantas = Math.round(n * (1 - longe * 0.7));
-          const campos = this.temGi && w.nosCampos(r, c);
           let sem = ((r * 73856093) ^ (c * 19349663)) >>> 0;   // o sorteio é DA CÉLULA
           const rnd = () => ((sem = (sem * 1664525 + 1013904223) >>> 0) / 4294967296);
           for (let k = 0; k < quantas && i < this.maximo; k++) {
             pos.set(c * CELL + (rnd() - 0.5) * CELL, 0, r * CELL + (rnd() - 0.5) * CELL);
             pos.y = w.alturaChao(pos);
             // a carta, e o tamanho dela (a carta tem o tufo inteiro: ~1 m de largura)
-            const sorteio = campos ? SORTEIO_GI : SORTEIO;
-            let u = rnd(), carta = sorteio[0][0];
-            for (const [k, peso] of sorteio) { if ((u -= peso) < 0) { carta = k; break; } }
-            const grande = carta === CARTAS.moita ? 1.25 : carta === CARTAS.capimBaixo ? 0.75 : carta === CARTAS.giBaixo ? 0.6 : campos ? 0.78 : 1;   // baixo: as flores têm de aparecer por cima
+            let u = rnd(), carta = SORTEIO[0][0];
+            for (const [k, peso] of SORTEIO) { if ((u -= peso) < 0) { carta = k; break; } }
+            const grande = carta === CARTAS.moita ? 1.25 : carta === CARTAS.capimBaixo ? 0.75 : 1;
             const alt = (0.5 + rnd() * 0.3) * grande * (1 - longe * 0.5), larg = (1.1 + rnd() * 0.6) * grande;
             q.setFromEuler(e.set(0, rnd() * Math.PI * 2, 0));
             m.compose(pos, q, s.set(larg, alt, larg));
@@ -157,5 +237,11 @@ export class Capim {
     this.malha.instanceMatrix.needsUpdate = true;
     cor.needsUpdate = true;
     this.cartas.needsUpdate = true;
+    if (this.tapete) {
+      this.tapete.count = j;
+      this.tapete.instanceMatrix.needsUpdate = true;
+      this.tapete.instanceColor.needsUpdate = true;
+      this.cartasT.needsUpdate = true;
+    }
   }
 }
