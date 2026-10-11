@@ -55,6 +55,8 @@ export const PROPS = [
   'lp-Tree_1', 'lp-Tree_2', 'lp-Tree_3', 'lp-Rock_1', 'lp-Rock_2', 'lp-Rock_3', 'lp-Rock_4', 'lp-Rock_5', 'lp-Rock_6',
   'lp-Rock_N1', 'lp-Rock_N2', 'lp-Rock_N3', 'lp-Rock_N4', 'lp-Rock_N5', 'lp-Rock_N6', 'lp-Rock_N7', 'lp-Rock_N8', 'lp-Rock_N9',
   'lp-Rock_N10', 'lp-Rock_Seixos_1', 'lp-Rock_Seixos_2', 'lp-Rock_Seixos_3', 'lp-Rock_Seixos_4',
+  // as MOITAS DE CAPIM (os arbustos do mapa): desenhadas e postas por `ferramentas/lowpoly/arbusto.mjs`
+  'lp-Bush_1', 'lp-Bush_2', 'lp-Bush_3',
 ];
 
 // Os MODELOS DE BLOCOS (assets/modelos/<nome>.json), montados no Editor de
@@ -282,7 +284,8 @@ export const Assets = {
           if (!c.isMesh || vistos.has(c.material)) return;
           vistos.add(c.material);
           // (as pedras `lp-` ficam com a cor do arquivo: escurecidas, saíam quase pretas no campo claro)
-          if (!name.startsWith('lp-Rock_')) c.material.color.multiply(new THREE.Color(0xa8b4a8));
+          // (as moitas `lp-Bush_` também: a cor delas já é a do capim)
+          if (!/^lp-(Rock|Bush)_/.test(name)) c.material.color.multiply(new THREE.Color(0xa8b4a8));
         });
         continue;
       }

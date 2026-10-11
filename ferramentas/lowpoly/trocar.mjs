@@ -15,6 +15,7 @@
 //
 // Uso (da raiz do jogo): node ferramentas/lowpoly/trocar.mjs <pasta com os .glb do converter.py>
 import fs from 'node:fs';
+import { caixaDoGlb } from './glb.mjs';
 
 const GLB = process.argv[2];
 if (!GLB || !fs.existsSync(`${GLB}/medidas.json`)) throw new Error('uso: node ferramentas/lowpoly/trocar.mjs <pasta com os .glb e o medidas.json do converter.py>');
@@ -24,32 +25,6 @@ const mapa = JSON.parse(fs.readFileSync('assets/mapa.json', 'utf8'));
 const linhasDoMapa = mapa.mapas.floresta;
 const ch = (r, c) => linhasDoMapa[r]?.[c] ?? '#';
 
-// ---- a caixa de um .glb do jogo (as pedras antigas: para a nova ficar do mesmo tamanho)
-function caixaDoGlb(arq) {
-  const b = fs.readFileSync(arq), j = JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString('utf8'));
-  const vezes = (a, m) => { const o = new Array(16); for (let i = 0; i < 4; i++) for (let k = 0; k < 4; k++) o[k * 4 + i] = a[i] * m[k * 4] + a[4 + i] * m[k * 4 + 1] + a[8 + i] * m[k * 4 + 2] + a[12 + i] * m[k * 4 + 3]; return o; };
-  const local = (n) => {
-    if (n.matrix) return n.matrix;
-    const [x, y, z, w] = n.rotation ?? [0, 0, 0, 1], [sx, sy, sz] = n.scale ?? [1, 1, 1], [tx, ty, tz] = n.translation ?? [0, 0, 0];
-    return [(1 - 2 * (y * y + z * z)) * sx, 2 * (x * y + z * w) * sx, 2 * (x * z - y * w) * sx, 0,
-      2 * (x * y - z * w) * sy, (1 - 2 * (x * x + z * z)) * sy, 2 * (y * z + x * w) * sy, 0,
-      2 * (x * z + y * w) * sz, 2 * (y * z - x * w) * sz, (1 - 2 * (x * x + y * y)) * sz, 0, tx, ty, tz, 1];
-  };
-  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-  const anda = (i, pai) => {
-    const n = j.nodes[i], m = vezes(pai, local(n));
-    for (const p of n.mesh === undefined ? [] : j.meshes[n.mesh].primitives) {
-      const a = j.accessors[p.attributes.POSITION];
-      for (let q = 0; q < 8; q++) {
-        const v = [q & 1 ? a.max[0] : a.min[0], q & 2 ? a.max[1] : a.min[1], q & 4 ? a.max[2] : a.min[2]];
-        for (let e = 0; e < 3; e++) { const w = m[e] * v[0] + m[4 + e] * v[1] + m[8 + e] * v[2] + m[12 + e]; min[e] = Math.min(min[e], w); max[e] = Math.max(max[e], w); }
-      }
-    }
-    for (const f of n.children ?? []) anda(f, m);
-  };
-  for (const i of j.scenes[j.scene ?? 0].nodes) anda(i, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
-  return [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
-}
 const caixas = new Map();
 const medida = (prop) => medidas[prop] ?? (caixas.has(prop) ? caixas : caixas.set(prop, caixaDoGlb(`assets/dungeon/${prop}.glb`))).get(prop);
 const largura = (prop) => Math.max(medida(prop)[0], medida(prop)[2]);

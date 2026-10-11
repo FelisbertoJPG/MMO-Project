@@ -116,12 +116,12 @@ export const QUEBRAVEIS = {
  * nos LOTES da decoração (são ~100 peças): cortar esconde só aquela cópia.
  */
 // as `gi-` (flores e ervas) também, menos o canteiro de trigo e o arbusto de frutas (grandes demais para um golpe)
-const VEGETACAO = /^(Bush_|Grass_|floor_dirt_small_weeds|gi-(?!Wheat02|Raspberry))/;
+const VEGETACAO = /^(Bush_|lp-Bush_|Grass_|floor_dirt_small_weeds|gi-(?!Wheat02|Raspberry))/;
 export const REBROTA_S = 90;
 export function cfgQuebravel(prop) {
   if (QUEBRAVEIS[prop]) return QUEBRAVEIS[prop];
   if (!VEGETACAO.test(prop)) return null;
-  return { folhas: true, local: true, pedacos: 0, saque: prop.startsWith('Bush_') ? 'arbusto' : null };
+  return { folhas: true, local: true, pedacos: 0, saque: /^(lp-)?Bush_/.test(prop) ? 'arbusto' : null };
 }
 
 /** O que cai de um quebrável: `[item, peso]`, sorteado UM; `null` = nada. */
