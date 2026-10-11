@@ -23,3 +23,5 @@
 /GI Grass Textures*.blend
 /grass/
 /vegetacao-gi/
+# as árvores e pedras lp- em bruto (os FBX): para o jogo vão só os .glb que o trocar.mjs copia
+/lowpoly/

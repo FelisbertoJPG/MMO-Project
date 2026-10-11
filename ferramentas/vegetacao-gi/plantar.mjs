@@ -20,12 +20,14 @@ const ch = (r, c) => linhas[r]?.[c] ?? '#';
 
 // ---- o que já estava (sem as `gi-` de uma rodada anterior, que têm de estar no fim)
 //      (as TROCADAS — `troca: 1`, ver abaixo — ficam onde estão: são peças de antes com outro modelo)
+//      (as pedrinhas SOLTAS — `solta: 1`, de `ferramentas/lowpoly/trocar.mjs` — vêm depois das `gi-` e voltam para o fim)
 const plantada = (d) => d.prop.startsWith('gi-') && !d.troca;
-const primeira = decor.itens.findIndex(plantada);
-if (primeira >= 0 && decor.itens.slice(primeira).some((d) => !plantada(d))) {
+const semSoltas = decor.itens.filter((d) => !d.solta);
+const primeira = semSoltas.findIndex(plantada);
+if (primeira >= 0 && semSoltas.slice(primeira).some((d) => !plantada(d))) {
   throw new Error('há peças depois das gi- no decor.json: tirá-las mudaria os índices — resolva à mão');
 }
-const antes = primeira >= 0 ? decor.itens.slice(0, primeira) : decor.itens;
+const antes = primeira >= 0 ? semSoltas.slice(0, primeira) : semSoltas;
 
 let semente = 20261011;
 const rnd = () => ((semente = (semente * 1664525 + 1013904223) >>> 0) / 4294967296);
@@ -83,6 +85,7 @@ const afasta = (d) => {
   if (/^wall|^stairs|^barrier|^pillar|^column/.test(p)) return 3.4;
   if (/Tree(?!Stump)/.test(p)) return 1.2;
   if (/TreeStump|WoodLog/.test(p)) return 1.2 * e;
+  if (/^lp-Rock_/.test(p)) return d.solta ? 0 : 1.9 * e;        // as `lp-` têm ~3 m na escala 1 (as do KayKit, ~1,5 m)
   if (/(^|-)Rock_|^rubble_/.test(p)) return 1.6 * e;
   if (NATUREZA.test(p) || p.startsWith('gi-')) return 0;               // mato, arbusto e flor que já estavam: pode ao lado
   return 1.8;                                    // objeto (barril, caixote, mesa…)
@@ -200,7 +203,8 @@ const eItem = (l) => /^\s*\{"prop"/.test(l);
 const a = todas.findIndex(eItem), b = todas.findLastIndex(eItem);
 const deAntes = todas.slice(a, b + 1).filter(eItem).map((l) => l.replace(/,\s*$/, ''));
 if (deAntes.length !== decor.itens.length) throw new Error('o decor.json não está com um item por linha — não sei regravar sem bagunçar');
-const itens = [...deAntes.slice(0, antes.length).map((l, i) => trocadas.has(i) ? '    ' + JSON.stringify(antes[i]) : l), ...novas.map((d) => '    ' + JSON.stringify(d))];
+const soltas = deAntes.filter((l, i) => decor.itens[i].solta);
+const itens = [...deAntes.slice(0, antes.length).map((l, i) => trocadas.has(i) ? '    ' + JSON.stringify(antes[i]) : l), ...novas.map((d) => '    ' + JSON.stringify(d)), ...soltas];
 fs.writeFileSync('assets/decor.json', [...todas.slice(0, a), ...itens.map((l, i) => l + (i < itens.length - 1 ? ',' : '')), ...todas.slice(b + 1)].join(fimDeLinha));
 
 const conta = {};

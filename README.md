@@ -1,4 +1,5 @@
-# Lubelion Online - MMO Project
+#- **Árvores e pedras das WindHills (`assets/dungeon/lp-*.glb`):** dois pacotes low poly de terceiros (um de natureza, um de pedras), convertidos aqui de FBX para GLB. **Vieram sem arquivo de licença e não são de autoria deste projeto**; saem a pedido de quem os fez.
+ Lubelion Online - MMO Project
 
 (Antes "Masmorra do Carrasco".) MMO de ação no estilo souls-like, feito com Three.js. Você acorda numa cela, como em Dark Souls 1, sem arma e sem escudo. Os equipamentos aparecem conforme você atravessa a masmorra, e no fim o Carrasco espera atrás da névoa.
 

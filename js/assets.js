@@ -50,6 +50,11 @@ export const PROPS = [
   'gi-Flower_Yellow_01', 'gi-Fuchsia01', 'gi-GlazedGrass', 'gi-GlazedLily_Day', 'gi-Grass_Reed', 'gi-HorseTail',
   'gi-Mint01', 'gi-Mushroom01', 'gi-QingxinBase_02', 'gi-Raspberry02', 'gi-RootlessSeed01', 'gi-Snapdragon01',
   'gi-Wheat01', 'gi-Wheat02', 'gi-Whiteballet01', 'gi-WindmillDaisy02',
+  // as árvores e as pedras `lp-` das WindHills (11/10/2026): dois pacotes low poly da pasta `lowpoly/`,
+  // convertidos por `ferramentas/lowpoly/converter.py` e postos no mapa pelo `trocar.mjs` da mesma pasta
+  'lp-Tree_1', 'lp-Tree_2', 'lp-Tree_3', 'lp-Rock_1', 'lp-Rock_2', 'lp-Rock_3', 'lp-Rock_4', 'lp-Rock_5', 'lp-Rock_6',
+  'lp-Rock_N1', 'lp-Rock_N2', 'lp-Rock_N3', 'lp-Rock_N4', 'lp-Rock_N5', 'lp-Rock_N6', 'lp-Rock_N7', 'lp-Rock_N8', 'lp-Rock_N9',
+  'lp-Rock_N10', 'lp-Rock_Seixos_1', 'lp-Rock_Seixos_2', 'lp-Rock_Seixos_3', 'lp-Rock_Seixos_4',
 ];
 
 // Os MODELOS DE BLOCOS (assets/modelos/<nome>.json), montados no Editor de
@@ -259,7 +264,7 @@ export const Assets = {
       // deixaria cinza; ela é MULTIPLICADA pelo mesmo tom da natureza (escurecer
       // para a noite). Uma vez por material: um material repetido em duas
       // malhas escureceria duas vezes.
-      if (/^(megakit|vila|estilizada|arvores|natureza|plantio|gi)-/.test(name)) {
+      if (/^(megakit|vila|estilizada|arvores|natureza|plantio|gi|lp)-/.test(name)) {
         const vistos = new Set();
         this.props[name].traverse((c) => {
           // As `gi-` são quase só CARTAS de pé (folhas, pétalas, espigas): com o sol a pino a
@@ -276,7 +281,8 @@ export const Assets = {
           }
           if (!c.isMesh || vistos.has(c.material)) return;
           vistos.add(c.material);
-          c.material.color.multiply(new THREE.Color(0xa8b4a8));
+          // (as pedras `lp-` ficam com a cor do arquivo: escurecidas, saíam quase pretas no campo claro)
+          if (!name.startsWith('lp-Rock_')) c.material.color.multiply(new THREE.Color(0xa8b4a8));
         });
         continue;
       }
