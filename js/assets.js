@@ -199,7 +199,6 @@ export const Assets = {
   empunhadura: {},   // arma de duas mãos → os ajustes da pegada (assets/empunhadura.json; character.js)
   armaduras: [],     // as armaduras PINTADAS (assets/armaduras.json; casca.js, guerreiro.js)
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
-  capimGi: null,     // a imagem das cartas de capim `gi` (assets/capim-gi.png; campo.js, capim.js)
 
   async load(onProgress = () => {}) {
     const loader = new GLTFLoader();
@@ -238,12 +237,6 @@ export const Assets = {
     // Depois dos glTF e antes de `new World(...)`, que é síncrono: assim o
     // mundo já encontra o mapa e a decoração prontos, e o boot não muda de forma.
     const [mapa, decor] = await Promise.all([carregarMapa(), carregarDecor()]);
-    // as cartas de capim `gi` (o capim das WindHills, capim.js); faltando, lá cresce o de sempre
-    this.capimGi = await new Promise((ok) => {
-      const im = new Image();
-      im.onload = () => ok(im); im.onerror = () => { console.warn('[capim] sem assets/capim-gi.png'); ok(null); };
-      im.src = 'assets/capim-gi.png';
-    });
     this.empunhadura = await carregarEmpunhadura();
     this.armaduras = await carregarArmaduras();
     for (const clip of await Promise.all(ANIMACOES.map(carregarAnimacao))) if (clip) this.clips[clip.name] = clip;

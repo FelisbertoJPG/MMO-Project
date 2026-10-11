@@ -16,31 +16,78 @@
  *
  * Quantos TUFOS por célula vem da qualidade gráfica (`capim` em graficos.js): no Baixo,
  * nenhum. Sem sombra.
+ *
+ * Nas WINDHILLS (`world.nosCampos`) o capim é outro: o TAPETE de folhas de geometria (ver o
+ * construtor e `celulaDoTapete`) — um segundo `InstancedMesh`, sem textura.
  */
 import * as THREE from 'three';
 import { CELL } from './world.js';
 import { atlasDoCapim, corDoChao, caminhoEm, CARTAS } from './campo.js';
-import { Assets } from './assets.js';
 
 const RAIO = 6;   // células em volta do jogador (~36 m)
 const TUFOS_MAX = 90;   // por célula (o Alto usa 64)
 // que carta cada tufo usa (pesos): mais capim, um pouco de flor e de moita
 const SORTEIO = [[CARTAS.capim, 0.48], [CARTAS.capimBaixo, 0.4], [CARTAS.moita, 0.05], [CARTAS.flores, 0.07]];
-// nas WINDHILLS (`world.nosCampos`), as cartas `gi` no TAPETE (ver o construtor): folhas longas
-// e finas. Sem flor nem moita de carta: as flores de lá são as peças `gi-` do decor.json.
-const SORTEIO_GI = [[CARTAS.giAlto, 0.3], [CARTAS.giCheio, 0.3], [CARTAS.giFino, 0.22], [CARTAS.giBaixo, 0.18]];
-const PASSO_MIN = 0.4;            // a grade mais fina do tapete (m), no Alto
-const NIVEIS = [1, 1.5, 2.2];     // longe do jogador, a grade abre (e as cartas crescem junto)
+// O TAPETE das WindHills (ver o construtor): a grade e as folhas de GEOMETRIA
+const PASSO_MIN = 0.3;            // a grade mais fina do tapete (m), no Alto
+const NIVEIS = [1, 1.5, 2.2];     // longe do jogador, a grade abre (e as touceiras crescem junto)
+const PERTO = [2, 4];             // até quantas células vale cada nível (depois, o último)
+const FOLHAS = 6;                 // folhas por touceira
 
-/** Um plano de 1 × 1 de pé (o pé em y = 0), para o tapete: como um dos três do tufo. */
-function geometriaDoPlano() {
+/**
+ * A TOUCEIRA do tapete: `FOLHAS` folhas de GEOMETRIA (não é imagem recortada) — cada uma é
+ * uma tira que afina até a ponta (5 vértices, 3 triângulos), plantada num disco de raio 0,5,
+ * virada para um lado qualquer e caindo um pouco para fora. Altura 1 (a instância dá a
+ * altura e o tamanho da touceira). A normal é para CIMA em todo vértice — a folha recebe a
+ * luz do chão onde está, sem lado escuro — e a cor por vértice clareia do pé à ponta.
+ */
+function geometriaDaTouceira() {
+  const pos = [], cor = [], idx = [];
+  let s = 977; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  for (let f = 0; f < FOLHAS; f++) {
+    const a = (f / FOLHAS) * Math.PI * 2 + rnd() * 0.9, r = f === 0 ? 0 : 0.18 + rnd() * 0.3;
+    const bx = Math.cos(a) * r, bz = Math.sin(a) * r;
+    const yaw = rnd() * Math.PI, lx = Math.cos(yaw), lz = Math.sin(yaw);        // a direção da LARGURA da folha
+    const h = 0.6 + rnd() * 0.4, meia = 0.055 + rnd() * 0.03;                   // altura e meia largura
+    const cai = (0.12 + rnd() * 0.22) * (f === 0 ? 0.3 : 1), cx = Math.cos(a) * cai, cz = Math.sin(a) * cai;   // cai para fora
+    const b = pos.length / 3;
+    pos.push(bx - lx * meia, 0, bz - lz * meia, bx + lx * meia, 0, bz + lz * meia);
+    pos.push(bx + cx * 0.3 - lx * meia * 0.8, h * 0.5, bz + cz * 0.3 - lz * meia * 0.8, bx + cx * 0.3 + lx * meia * 0.8, h * 0.5, bz + cz * 0.3 + lz * meia * 0.8);
+    pos.push(bx + cx, h, bz + cz);
+    const meio = 0.86 + h * 0.12, ponta = 0.98 + h * 0.2;
+    cor.push(0.74, 0.74, 0.74, 0.74, 0.74, 0.74, meio, meio, meio, meio, meio, meio, ponta, ponta, ponta * 0.97);
+    idx.push(b, b + 1, b + 3, b, b + 3, b + 2, b + 2, b + 3, b + 4);
+  }
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0, 0, 0.5, 0, 0, 0.5, 1, 0, -0.5, 1, 0], 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute([0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1], 3));
-  g.setIndex([0, 1, 2, 0, 2, 3]);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(pos.length / 3).fill([0, 1, 0]).flat(), 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cor, 3));
+  g.setIndex(idx);
   return g;
+}
+
+/** O que os dois materiais do capim têm em comum no shader: o VENTO e as duas faces com a mesma luz. */
+function ventoENormal(sh, tempo) {
+  sh.uniforms.uTempo = tempo;
+  sh.vertexShader = 'uniform float uTempo;\n' + sh.vertexShader.replace('#include <project_vertex>', `
+        vec4 mvPosition = vec4( transformed, 1.0 );
+        #ifdef USE_INSTANCING
+          mvPosition = instanceMatrix * mvPosition;
+        #endif
+        // o VENTO: uma onda que corre pelo mundo (rajadas por cima), a ponta anda, o pé não
+        float h = position.y;
+        float fase = uTempo * 1.7 + mvPosition.x * 0.28 + mvPosition.z * 0.19;
+        float onda = sin(fase) * 0.65 + sin(fase * 2.3 + mvPosition.z * 0.7) * 0.25 + sin(uTempo * 0.4 + mvPosition.x * 0.05) * 0.35;
+        float k = h * h * 0.22;
+        mvPosition.x += onda * k;
+        mvPosition.z += onda * k * 0.55;
+        mvPosition = modelViewMatrix * mvPosition;
+        gl_Position = projectionMatrix * mvPosition;`);
+  // as DUAS faces com a normal para cima: a de trás não vira "luz por baixo" (preta)
+  sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>',
+    `float faceDirection = 1.0;
+        vec3 normal = normalize( vNormal );
+        vec3 nonPerturbedNormal = normal;`);
 }
 
 /**
@@ -76,31 +123,11 @@ export class Capim {
     // a CARTA de cada tufo (0–3): o shader escolhe o quarto do atlas
     this.cartas = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo), 1);
     g.setAttribute('aCarta', this.cartas);
-    this.temGi = !!Assets.capimGi;
-    const mat = new THREE.MeshLambertMaterial({ map: atlasDoCapim(Assets.capimGi), vertexColors: true, side: THREE.DoubleSide, alphaTest: 0.45 });
+    const mat = new THREE.MeshLambertMaterial({ map: atlasDoCapim(), vertexColors: true, side: THREE.DoubleSide, alphaTest: 0.45 });
     mat.onBeforeCompile = (sh) => {
-      sh.uniforms.uTempo = this.tempo;
-      sh.vertexShader = 'uniform float uTempo;\nattribute float aCarta;\n' + sh.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
-        float gi = step(3.5, aCarta), carta = aCarta - gi * 4.0;   // 4 a 7: a metade direita do atlas
-        vMapUv = (vMapUv + vec2(mod(carta, 2.0) + gi * 2.0, floor(carta / 2.0))) * vec2(0.25, 0.5);`).replace('#include <project_vertex>', `
-        vec4 mvPosition = vec4( transformed, 1.0 );
-        #ifdef USE_INSTANCING
-          mvPosition = instanceMatrix * mvPosition;
-        #endif
-        // o VENTO: uma onda que corre pelo mundo (rajadas por cima), a ponta anda, o pé não
-        float h = position.y;
-        float fase = uTempo * 1.7 + mvPosition.x * 0.28 + mvPosition.z * 0.19;
-        float onda = sin(fase) * 0.65 + sin(fase * 2.3 + mvPosition.z * 0.7) * 0.25 + sin(uTempo * 0.4 + mvPosition.x * 0.05) * 0.35;
-        float k = h * h * 0.22;
-        mvPosition.x += onda * k;
-        mvPosition.z += onda * k * 0.55;
-        mvPosition = modelViewMatrix * mvPosition;
-        gl_Position = projectionMatrix * mvPosition;`);
-      // as DUAS faces com a normal para cima: a de trás não vira "luz por baixo" (preta)
-      sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>',
-        `float faceDirection = 1.0;
-        vec3 normal = normalize( vNormal );
-        vec3 nonPerturbedNormal = normal;`);
+      ventoENormal(sh, this.tempo);
+      sh.vertexShader = 'attribute float aCarta;\n' + sh.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
+        vMapUv = vMapUv * 0.5 + vec2(mod(aCarta, 2.0), floor(aCarta / 2.0)) * 0.5;`);
     };
     this.malha = new THREE.InstancedMesh(g, mat, this.maximo);
     this.malha.count = 0;
@@ -109,16 +136,17 @@ export class Capim {
     this.malha.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo * 3), 3);
     game.scene.add(this.malha);
 
-    // O TAPETE (11/10/2026) — o capim das WINDHILLS. Em vez de tufos sorteados (que deixam
-    // buraco aqui e amontoam ali), uma GRADE fina cobre a célula inteira: um plano só por ponto
-    // (2 triângulos), com uma carta `gi` de folhas, girado e inclinado ao acaso, cada um mais
-    // largo que o passo da grade (um encosta no outro). O mesmo material e o mesmo vento.
-    if (this.temGi) {
-      const gp = geometriaDoPlano();
+    // O TAPETE (11/10/2026) — o capim das WINDHILLS, como nos jogos de campo estilizado
+    // (Genshin, Zelda): a unidade é uma touceira de FOLHAS DE GEOMETRIA, não uma imagem de tufo
+    // recortada — sem textura, sem transparência, a normal para cima, a cor do chão embaixo
+    // clareando até a ponta. Em vez de sorteio (que deixa buraco aqui e amontoa ali), uma GRADE
+    // fina cobre a célula inteira, cada touceira mais larga que o passo (uma entra na outra).
+    {
+      const gp = geometriaDaTouceira();
+      const matT = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+      matT.onBeforeCompile = (sh) => ventoENormal(sh, this.tempo);
       this.maximoT = (2 * RAIO + 1) ** 2 * Math.ceil(CELL / PASSO_MIN) ** 2;
-      this.cartasT = new THREE.InstancedBufferAttribute(new Float32Array(this.maximoT), 1);
-      gp.setAttribute('aCarta', this.cartasT);
-      this.tapete = new THREE.InstancedMesh(gp, mat, this.maximoT);
+      this.tapete = new THREE.InstancedMesh(gp, matT, this.maximoT);
       this.tapete.count = 0;
       this.tapete.frustumCulled = false;
       this.tapete.castShadow = false; this.tapete.receiveShadow = false;
@@ -128,8 +156,8 @@ export class Capim {
     }
   }
 
-  /** O passo da grade do tapete (m), da qualidade gráfica: 40 cm no Alto, ~55 cm no Médio. */
-  get passo() { return Math.max(PASSO_MIN, Math.min(0.9, 0.4 * Math.sqrt(64 / Math.max(1, this.densidade)))); }
+  /** O passo da grade do tapete (m), da qualidade gráfica: 30 cm no Alto, ~41 cm no Médio. */
+  get passo() { return Math.max(PASSO_MIN, Math.min(0.9, PASSO_MIN * Math.sqrt(64 / Math.max(1, this.densidade)))); }
 
   /**
    * O tapete de UMA célula (guardado: andar uma célula só calcula as que entraram). `nivel` é
@@ -141,29 +169,30 @@ export class Capim {
     let pronta = this.prontas.get(chave);
     if (pronta) return pronta;
     const passo = this.passo * NIVEIS[nivel], n = Math.max(1, Math.round(CELL / passo)), real = CELL / n;
-    const mats = new Float32Array(n * n * 16), cores = new Float32Array(n * n * 3), cartas = new Float32Array(n * n);
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), s = new THREE.Vector3(), pos = new THREE.Vector3(), tom = new THREE.Color();
+    const mats = new Float32Array(n * n * 16), cores = new Float32Array(n * n * 3);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), pos = new THREE.Vector3(), tom = new THREE.Color();
     let sem = (((r * 73856093) ^ (c * 19349663)) + nivel * 7919) >>> 0;
     const rnd = () => ((sem = (sem * 1664525 + 1013904223) >>> 0) / 4294967296);
     let i = 0;
     for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
       pos.set((c - 0.5) * CELL + (a + 0.5 + (rnd() - 0.5) * 0.9) * real, 0, (r - 0.5) * CELL + (b + 0.5 + (rnd() - 0.5) * 0.9) * real);
-      let u = rnd(), carta = SORTEIO_GI[0][0];
-      for (const [k, peso] of SORTEIO_GI) { if ((u -= peso) < 0) { carta = k; break; } }
-      const larg = real * (2.1 + rnd() * 0.9), alt = (0.3 + rnd() * 0.22) * (carta === CARTAS.giBaixo ? 0.8 : 1) * (1 + nivel * 0.15);
-      e.set((rnd() - 0.5) * 0.5, rnd() * Math.PI * 2, 0);
-      const v = 0.94 + rnd() * 0.12, sorte = rnd();
+      // a touceira é mais larga que o passo (entra nas vizinhas); a altura ondula em manchas
+      const larg = real * (1.9 + rnd() * 0.7);
+      const mancha = 0.8 + 0.4 * (0.5 + 0.5 * Math.sin(pos.x * 0.31 + Math.sin(pos.z * 0.23) * 1.7) * Math.cos(pos.z * 0.27));
+      const alt = (0.3 + rnd() * 0.16) * mancha * (1 + nivel * 0.12);
+      e.set(0, rnd() * Math.PI * 2, 0);
+      const v = 0.95 + rnd() * 0.1, sorte = rnd();
       if (!w.podeCapim(pos.x, pos.z, 0.15)) continue;
       const caminho = caminhoEm(w, pos.x, pos.z);
       if (caminho > 0.25 && sorte < caminho * 1.6) continue;
-      pos.y = w.alturaChao(pos) - 0.03;
-      m.compose(pos, q.setFromEuler(e), s.set(larg, alt, 1));
+      pos.y = w.alturaChao(pos) - 0.02;
+      m.compose(pos, q.setFromEuler(e), s.set(larg, alt, larg));
       m.toArray(mats, i * 16);
-      corDoChao(w, pos.x, pos.z, tom).multiplyScalar(v * 1.25);
+      corDoChao(w, pos.x, pos.z, tom).multiplyScalar(v * 1.12);
       cores[i * 3] = tom.r; cores[i * 3 + 1] = tom.g; cores[i * 3 + 2] = tom.b;
-      cartas[i++] = carta;
+      i++;
     }
-    pronta = { n: i, mats: mats.subarray(0, i * 16), cores: cores.subarray(0, i * 3), cartas: cartas.subarray(0, i) };
+    pronta = { n: i, mats: mats.subarray(0, i * 16), cores: cores.subarray(0, i * 3) };
     if (this.prontas.size > 900) this.prontas.clear();   // andou muito: recomeça (as de perto voltam já)
     this.prontas.set(chave, pronta);
     return pronta;
@@ -193,11 +222,10 @@ export class Capim {
           if (dist > RAIO + 0.5) continue;
           // nas WINDHILLS, o TAPETE (a grade, não o sorteio de tufos)
           if (this.tapete && w.nosCampos(r, c)) {
-            const t = this.celulaDoTapete(w, r, c, dist <= RAIO - 2.5 ? 0 : dist <= RAIO - 1 ? 1 : 2);
+            const t = this.celulaDoTapete(w, r, c, dist <= PERTO[0] ? 0 : dist <= PERTO[1] ? 1 : 2);
             if (j + t.n > this.maximoT) continue;
             this.tapete.instanceMatrix.array.set(t.mats, j * 16);
             this.tapete.instanceColor.array.set(t.cores, j * 3);
-            this.cartasT.array.set(t.cartas, j);
             j += t.n;
             continue;
           }
@@ -241,7 +269,6 @@ export class Capim {
       this.tapete.count = j;
       this.tapete.instanceMatrix.needsUpdate = true;
       this.tapete.instanceColor.needsUpdate = true;
-      this.cartasT.needsUpdate = true;
     }
   }
 }
