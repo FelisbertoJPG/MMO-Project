@@ -104,3 +104,4 @@ js/audio.js      sons sintetizados (WebAudio)
 - **Personagens e animações:** Quaternius, Universal Animation Library 1 e 2 (licença CC0). Veja `assets/LICENSE-Quaternius.txt`.
 - **Cenário da masmorra:** KayKit Dungeon Remastered, de Kay Lousberg (licença CC0). Veja `assets/LICENSE-KayKit.txt`.
 - **Floresta e acampamento:** KayKit Forest Nature Pack e KayKit Medieval Hexagon Pack (barraca, cerca, alvos, carrinho de mão), de Kay Lousberg, e pacotes de natureza da Quaternius (todos CC0). Veja os `assets/LICENSE-*.txt`; o arquivo de licença do pacote de hexágonos não veio junto com a biblioteca do editor.
+- **Flores, ervas e trigo (`assets/dungeon/gi-*.glb`):** modelos e texturas de **Genshin Impact** (© HoYoverse / miHoYo), vindos de um arquivo de fã e simplificados aqui (menos polígonos, cores achatadas). **Não são CC0 nem de autoria deste projeto**: estão num trabalho de portfólio, sem fins comerciais, e saem a pedido do detentor dos direitos.

@@ -115,7 +115,8 @@ export const QUEBRAVEIS = {
  * centenas de matinhos encheria o retrato do Mundo online à toa. E ela continua
  * nos LOTES da decoração (são ~100 peças): cortar esconde só aquela cópia.
  */
-const VEGETACAO = /^(Bush_|Grass_|floor_dirt_small_weeds)/;
+// as `gi-` (flores e ervas) também, menos o canteiro de trigo e o arbusto de frutas (grandes demais para um golpe)
+const VEGETACAO = /^(Bush_|Grass_|floor_dirt_small_weeds|gi-(?!Wheat02|Raspberry))/;
 export const REBROTA_S = 90;
 export function cfgQuebravel(prop) {
   if (QUEBRAVEIS[prop]) return QUEBRAVEIS[prop];

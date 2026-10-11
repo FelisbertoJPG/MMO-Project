@@ -18,7 +18,7 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 
 export const REPETE_CHAO = 4;   // metros por repetição da textura do chão
-export const CARTAS = { capim: 0, capimBaixo: 1, flores: 2, moita: 3 };
+export const CARTAS = { capim: 0, capimBaixo: 1, flores: 2, moita: 3, giAlto: 4, giFino: 5, giBaixo: 6, giCheio: 7 };
 
 // ------------------------------------------------------------ ruído (determinístico)
 const hash = (i, k) => { let h = (i * 374761393 + k * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
@@ -97,10 +97,13 @@ export function texturaDoChao() {
  * canvas vira de cabeça para baixo na textura, `flipY`). O pé de toda carta é a borda de
  * baixo dela, no meio; o alto do desenho chega perto da borda de cima.
  */
-export function atlasDoCapim() {
+export function atlasDoCapim(imagemGi = null) {
   const L = 256, c = document.createElement('canvas');
-  c.width = c.height = L * 2;
+  // a metade da DIREITA são as cartas `gi` (4 a 7), vindas de arquivo (assets/capim-gi.png,
+  // feito por ferramentas/vegetacao-gi/capim.py): o capim das WindHills. Sem a imagem, vazia.
+  c.width = L * 4; c.height = L * 2;
   const g = c.getContext('2d');
+  if (imagemGi) g.drawImage(imagemGi, L * 2, 0, L * 2, L * 2);
   let s = 1234; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
   const origem = (k) => [(k % 2) * L, (1 - Math.floor(k / 2)) * L];
 

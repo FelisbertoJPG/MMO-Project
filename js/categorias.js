@@ -18,7 +18,7 @@
  */
 export const CATEGORIAS = [
   ['construcao', /RockPath|^wall|^floor|^pillar|^column|^barrier|^stairs|^banner|^fence|^tent$|^building_/],
-  ['natureza', /Tree|Bush|(^|-)Grass|Flower|WoodLog|TreeStump|Plant|Mushroom|Fern/],
+  ['natureza', /^gi-|Tree|Bush|(^|-)Grass|Flower|WoodLog|TreeStump|Plant|Mushroom|Fern/],
   ['pedra', /(^|-)Rock_|^rubble_/],
 ];
 

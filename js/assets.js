@@ -41,6 +41,15 @@ export const PROPS = [
   'estilizada-NormalTree_1', 'estilizada-NormalTree_2', 'estilizada-NormalTree_4', 'estilizada-NormalTree_5',
   // levadas pelo editor de cenas (ferramentas/levar-ao-jogo.mjs) — pacotes: estilizada (CC0)
   'estilizada-DeadTree_1', 'estilizada-DeadTree_2', 'estilizada-DeadTree_3',
+  // a vegetação `gi-` (11/10/2026): flores, ervas, cogumelo e trigo tirados de um .blend de fã com
+  // peças do Genshin Impact (NÃO são CC0 — ver os Créditos do README), passados pelo filtro low poly
+  // de `ferramentas/vegetacao-gi/lowpoly.py` e espalhados pelo `plantar.mjs` da mesma pasta
+  'gi-Callas01', 'gi-Cecilia', 'gi-DropingBerry', 'gi-Flower07', 'gi-Flower_Blue_01', 'gi-Flower_Blue_03',
+  'gi-Flower_Blue_02', 'gi-Flower_Common_C_01', 'gi-Flower_Common_D_02',
+  'gi-Flower_Kikka_01', 'gi-Flower_Red_01', 'gi-Flower_Twigs_01', 'gi-Flower_Twigs_02', 'gi-Flower_White_01',
+  'gi-Flower_Yellow_01', 'gi-Fuchsia01', 'gi-GlazedGrass', 'gi-GlazedLily_Day', 'gi-Grass_Reed', 'gi-HorseTail',
+  'gi-Mint01', 'gi-Mushroom01', 'gi-QingxinBase_02', 'gi-Raspberry02', 'gi-RootlessSeed01', 'gi-Snapdragon01',
+  'gi-Wheat01', 'gi-Wheat02', 'gi-Whiteballet01', 'gi-WindmillDaisy02',
 ];
 
 // Os MODELOS DE BLOCOS (assets/modelos/<nome>.json), montados no Editor de
@@ -190,6 +199,7 @@ export const Assets = {
   empunhadura: {},   // arma de duas mãos → os ajustes da pegada (assets/empunhadura.json; character.js)
   armaduras: [],     // as armaduras PINTADAS (assets/armaduras.json; casca.js, guerreiro.js)
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
+  capimGi: null,     // a imagem das cartas de capim `gi` (assets/capim-gi.png; campo.js, capim.js)
 
   async load(onProgress = () => {}) {
     const loader = new GLTFLoader();
@@ -228,6 +238,12 @@ export const Assets = {
     // Depois dos glTF e antes de `new World(...)`, que é síncrono: assim o
     // mundo já encontra o mapa e a decoração prontos, e o boot não muda de forma.
     const [mapa, decor] = await Promise.all([carregarMapa(), carregarDecor()]);
+    // as cartas de capim `gi` (o capim das WindHills, capim.js); faltando, lá cresce o de sempre
+    this.capimGi = await new Promise((ok) => {
+      const im = new Image();
+      im.onload = () => ok(im); im.onerror = () => { console.warn('[capim] sem assets/capim-gi.png'); ok(null); };
+      im.src = 'assets/capim-gi.png';
+    });
     this.empunhadura = await carregarEmpunhadura();
     this.armaduras = await carregarArmaduras();
     for (const clip of await Promise.all(ANIMACOES.map(carregarAnimacao))) if (clip) this.clips[clip.name] = clip;
@@ -250,9 +266,21 @@ export const Assets = {
       // deixaria cinza; ela é MULTIPLICADA pelo mesmo tom da natureza (escurecer
       // para a noite). Uma vez por material: um material repetido em duas
       // malhas escureceria duas vezes.
-      if (/^(megakit|vila|estilizada|arvores|natureza|plantio)-/.test(name)) {
+      if (/^(megakit|vila|estilizada|arvores|natureza|plantio|gi)-/.test(name)) {
         const vistos = new Set();
         this.props[name].traverse((c) => {
+          // As `gi-` são quase só CARTAS de pé (folhas, pétalas, espigas): com o sol a pino a
+          // normal delas fica de lado para a luz e a planta sai preta no meio do capim claro.
+          // As normais são puxadas para CIMA (sobra um pouco da faceta), e a planta recebe a
+          // luz do chão onde está — como o capim.
+          if (c.isMesh && name.startsWith('gi-') && !c.geometry.userData.normaisParaCima) {
+            const n = c.geometry.attributes.normal, v = new THREE.Vector3();
+            for (let i = 0; i < n.count; i++) {
+              v.fromBufferAttribute(n, i).multiplyScalar(0.3); v.y += 1; v.normalize();
+              n.setXYZ(i, v.x, v.y, v.z);
+            }
+            c.geometry.userData.normaisParaCima = true;
+          }
           if (!c.isMesh || vistos.has(c.material)) return;
           vistos.add(c.material);
           c.material.color.multiply(new THREE.Color(0xa8b4a8));
@@ -285,6 +313,16 @@ export const Assets = {
       if (categoriaDaPeca(name) !== 'natureza' || !this.props[name]) continue;
       this.props[name].traverse((c) => {
         if (c.isMesh) c.material = Array.isArray(c.material) ? c.material.map(paraLambert) : paraLambert(c.material);
+        // as `gi-` (normais para cima, ver acima): o material de dois lados VIRA a normal na
+        // face de trás, e ela apontaria para o chão — metade de cada carta sairia preta. Aqui
+        // os dois lados recebem a mesma luz.
+        if (c.isMesh && name.startsWith('gi-')) for (const m of [c.material].flat()) {
+          if (m.customProgramCacheKey() === 'gi-normal') continue;
+          m.onBeforeCompile = (sh) => {
+            sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n\tnormal = normalize( vNormal );');
+          };
+          m.customProgramCacheKey = () => 'gi-normal';
+        }
       });
     }
     this.baseScene.traverse((c) => {

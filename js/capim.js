@@ -20,11 +20,15 @@
 import * as THREE from 'three';
 import { CELL } from './world.js';
 import { atlasDoCapim, corDoChao, caminhoEm, CARTAS } from './campo.js';
+import { Assets } from './assets.js';
 
 const RAIO = 6;   // células em volta do jogador (~36 m)
 const TUFOS_MAX = 90;   // por célula (o Alto usa 64)
 // que carta cada tufo usa (pesos): mais capim, um pouco de flor e de moita
 const SORTEIO = [[CARTAS.capim, 0.48], [CARTAS.capimBaixo, 0.4], [CARTAS.moita, 0.05], [CARTAS.flores, 0.07]];
+// nas WINDHILLS (`world.nosCampos`), as cartas `gi`: folhas longas e finas, mais altas. Sem
+// flor nem moita de carta: as flores de lá são as peças `gi-` do decor.json.
+const SORTEIO_GI = [[CARTAS.giAlto, 0.3], [CARTAS.giCheio, 0.3], [CARTAS.giFino, 0.22], [CARTAS.giBaixo, 0.18]];
 
 /**
  * A geometria do TUFO: três planos de 1 × 1 cruzados a 60°, o pé em y = 0. `position.y`
@@ -59,11 +63,13 @@ export class Capim {
     // a CARTA de cada tufo (0–3): o shader escolhe o quarto do atlas
     this.cartas = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo), 1);
     g.setAttribute('aCarta', this.cartas);
-    const mat = new THREE.MeshLambertMaterial({ map: atlasDoCapim(), vertexColors: true, side: THREE.DoubleSide, alphaTest: 0.45 });
+    this.temGi = !!Assets.capimGi;
+    const mat = new THREE.MeshLambertMaterial({ map: atlasDoCapim(Assets.capimGi), vertexColors: true, side: THREE.DoubleSide, alphaTest: 0.45 });
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTempo = this.tempo;
       sh.vertexShader = 'uniform float uTempo;\nattribute float aCarta;\n' + sh.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
-        vMapUv = vMapUv * 0.5 + vec2(mod(aCarta, 2.0), floor(aCarta / 2.0)) * 0.5;`).replace('#include <project_vertex>', `
+        float gi = step(3.5, aCarta), carta = aCarta - gi * 4.0;   // 4 a 7: a metade direita do atlas
+        vMapUv = (vMapUv + vec2(mod(carta, 2.0) + gi * 2.0, floor(carta / 2.0))) * vec2(0.25, 0.5);`).replace('#include <project_vertex>', `
         vec4 mvPosition = vec4( transformed, 1.0 );
         #ifdef USE_INSTANCING
           mvPosition = instanceMatrix * mvPosition;
@@ -116,15 +122,17 @@ export class Capim {
           // longe, menos e menores (sem borda dura)
           const longe = Math.max(0, Math.min(1, (dist - (RAIO - 2.5)) / 3));
           const quantas = Math.round(n * (1 - longe * 0.7));
+          const campos = this.temGi && w.nosCampos(r, c);
           let sem = ((r * 73856093) ^ (c * 19349663)) >>> 0;   // o sorteio é DA CÉLULA
           const rnd = () => ((sem = (sem * 1664525 + 1013904223) >>> 0) / 4294967296);
           for (let k = 0; k < quantas && i < this.maximo; k++) {
             pos.set(c * CELL + (rnd() - 0.5) * CELL, 0, r * CELL + (rnd() - 0.5) * CELL);
             pos.y = w.alturaChao(pos);
             // a carta, e o tamanho dela (a carta tem o tufo inteiro: ~1 m de largura)
-            let u = rnd(), carta = SORTEIO[0][0];
-            for (const [k, peso] of SORTEIO) { if ((u -= peso) < 0) { carta = k; break; } }
-            const grande = carta === CARTAS.moita ? 1.25 : carta === CARTAS.capimBaixo ? 0.75 : 1;
+            const sorteio = campos ? SORTEIO_GI : SORTEIO;
+            let u = rnd(), carta = sorteio[0][0];
+            for (const [k, peso] of sorteio) { if ((u -= peso) < 0) { carta = k; break; } }
+            const grande = carta === CARTAS.moita ? 1.25 : carta === CARTAS.capimBaixo ? 0.75 : carta === CARTAS.giBaixo ? 0.6 : campos ? 0.78 : 1;   // baixo: as flores têm de aparecer por cima
             const alt = (0.5 + rnd() * 0.3) * grande * (1 - longe * 0.5), larg = (1.1 + rnd() * 0.6) * grande;
             q.setFromEuler(e.set(0, rnd() * Math.PI * 2, 0));
             m.compose(pos, q, s.set(larg, alt, larg));

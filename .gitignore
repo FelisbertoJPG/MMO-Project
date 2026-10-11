@@ -18,3 +18,8 @@
 /masmorra.exe
 /launcher/bin/
 /launcher/obj/
+# a vegetação gi- em bruto: o .blend de origem, as referências e o que o lowpoly.py gera
+# (para o jogo só vão as peças que o plantar.mjs copia para assets/dungeon)
+/GI Grass Textures*.blend
+/grass/
+/vegetacao-gi/
