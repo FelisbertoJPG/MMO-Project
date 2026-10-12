@@ -994,7 +994,17 @@ export class World {
     const p = this.center(d.cel[0], d.cel[1]);
     const off = d.off ?? [0, 0];
     const px = p.x + off[0] * S, pz = p.z + off[1] * S, rel = this.ch(...d.cel) === 'f' ? this.relevoEm(px, pz) : 0;
-    m.position.set(px, (d.y ?? 0) * S + (Math.abs(rel) > 0.05 ? rel - 0.2 : 0), pz);
+    // no relevo a peça é ENTERRADA um pouco (a base reta não fica no ar na ladeira): 20 cm —
+    // mas a planta e a pedra pequenas, só um décimo da própria altura (uma flor de 50 cm
+    // enterrada 20 sumia pela metade; antes o `decor.json` a levantava com `y: 0.1`, que o
+    // decorador do editor de cenas zera ao salvar)
+    const cat = categoriaDaPeca(d.prop);
+    let enterra = 0.2;
+    if (cat === 'natureza' || cat === 'pedra') {
+      const cx = this.caixaDoProp(d.prop);
+      enterra = Math.min(0.2, (cx.max.y - cx.min.y) * (d.escala ?? 1) * 0.1);
+    }
+    m.position.set(px, (d.y ?? 0) * S + (Math.abs(rel) > 0.05 ? rel - enterra : 0), pz);
     m.scale.setScalar(d.escala ?? 1);
     m.rotation.set(0, d.giro ?? 0, 0);
     // `flip` é o TETO: uma placa de piso virada de cabeça para baixo. Um giro em
@@ -1006,7 +1016,6 @@ export class World {
     this.scene.add(m);
     // a CATEGORIA (categorias.js): o capim só cresce sobre a natureza; a planta das outras
     // peças vira chão sem capim (a caixa do modelo girada e escalada, em x/z)
-    const cat = categoriaDaPeca(d.prop);
     m.userData.categoria = cat;
     m.userData.prop = d.prop;   // o LOD (lod.js) agrupa os lotes pela peça
     if (!CRESCE_CAPIM.has(cat)) {

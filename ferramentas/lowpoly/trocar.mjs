@@ -124,13 +124,14 @@ const soltas = [];
 /** Uma peça solta com `tamanho` m de largura. Devolve se coube. */
 const solta = (prop, x, z, tamanho) => {
   const h = relevo(x, z);
-  // o jogo ENTERRA 20 cm a peça que está no relevo (|h| > 5 cm): a pedrinha sumiria — ali ela
-  // sobe 15 cm (fica 5 cm no chão). Na dúvida (perto dos 5 cm), não põe.
+  // o jogo ENTERRA a peça que está no relevo (|h| > 5 cm; a pedra pequena, só um décimo da
+  // altura dela — `placeDecor`). Na dúvida (perto dos 5 cm), não põe.
   if (Math.abs(h) > 0.03 && Math.abs(h) < 0.08) return false;
   if (!livre(x, z, Math.min(1.2, tamanho / 2 + 0.3))) return false;
+  // (a célula sai do lugar já arredondado ao milímetro do arquivo, como no plantar.mjs)
+  x = Math.round(x / S * 1000) * S / 1000; z = Math.round(z / S * 1000) * S / 1000;
   const r = Math.round(z / CELL), c = Math.round(x / CELL);
   const d = { prop, cel: [r, c], off: [+((x - c * CELL) / S).toFixed(3), +((z - r * CELL) / S).toFixed(3)] };
-  if (Math.abs(h) >= 0.08) d.y = 0.1;
   d.giro = +entre(0, Math.PI * 2).toFixed(3);
   d.escala = +(tamanho / largura(prop)).toFixed(3);
   d.colisao = 0; d.solta = 1;
@@ -159,7 +160,7 @@ for (let r = 0; r < linhasDoMapa.length; r++) for (let c = COLUNA; c < linhasDoM
 
 // ---- gravar: os .glb das peças usadas e o decor.json
 const usadas = [...new Set([...itens.map((x) => x.d), ...soltas].map((d) => d.prop).filter((p) => p.startsWith('lp-')))].sort((p, q) => p.localeCompare(q, 'en', { numeric: true }));
-for (const p of usadas) fs.copyFileSync(`${GLB}/${p}.glb`, `assets/dungeon/${p}.glb`);
+for (const p of usadas) if (medidas[p]) fs.copyFileSync(`${GLB}/${p}.glb`, `assets/dungeon/${p}.glb`);   // (as moitas `lp-Bush_` são do arbusto.mjs)
 const linhas = [...itens.map((x) => x.linha), ...soltas.map((d) => '    ' + JSON.stringify(d))];
 const novo = [...todas.slice(0, a), ...linhas.map((l, i) => l + (i < linhas.length - 1 ? ',' : '')), ...todas.slice(b + 1)].join(fimDeLinha);
 JSON.parse(novo);

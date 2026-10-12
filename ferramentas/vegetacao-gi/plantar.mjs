@@ -67,7 +67,6 @@ antes.forEach((d, i) => {
   for (const x of lista) if ((t -= x.peso) < 0) { e = x; break; }
   const x = d.cel[1] * CELL + (d.off?.[0] ?? 0) * S, z = d.cel[0] * CELL + (d.off?.[1] ?? 0) * S;
   const n = { prop: e.prop, cel: d.cel, off: d.off ?? [0, 0] };
-  if (Math.abs(relevoDe(x, z)) >= 0.08) n.y = 0.1;        // o jogo enterra 20 cm no relevo (ver `planta`)
   n.giro = d.giro ?? 0;
   n.escala = +((e.escala[0] + rndT() * (e.escala[1] - e.escala[0])) * NOS_CAMPOS).toFixed(2);
   n.colisao = 0; n.troca = 1;
@@ -148,12 +147,14 @@ const zona = (c) => c >= 55 ? { lista: CAMPOS, chance: 0.5 } : c >= 40 ? { lista
 // ---- plantar
 const novas = [];
 const planta = (prop, x, z, escala) => {
+  // (a célula sai do lugar já arredondado ao milímetro do arquivo: senão um deslocamento de
+  // +2,000 cai na célula vizinha quando o decorador do editor relê — o mesmo lugar, outra conta)
+  x = Math.round(x / S * 1000) * S / 1000; z = Math.round(z / S * 1000) * S / 1000;
   const r = Math.round(z / CELL), c = Math.round(x / CELL), h = relevo(x, z);
-  // o jogo ENTERRA 20 cm a peça que está no relevo (|h| > 5 cm) — bom para árvore, mas
-  // sumiria com meia flor: nesses lugares ela sobe 15 cm. Na dúvida (perto dos 5 cm), não planta.
+  // o jogo ENTERRA a peça que está no relevo (|h| > 5 cm; a planta pequena, só um décimo da
+  // altura dela — `placeDecor`). Na dúvida (perto dos 5 cm), não planta.
   if (Math.abs(h) > 0.03 && Math.abs(h) < 0.08) return false;
   const d = { prop, cel: [r, c], off: [+((x - c * CELL) / S).toFixed(3), +((z - r * CELL) / S).toFixed(3)] };
-  if (Math.abs(h) >= 0.08) d.y = 0.1;
   d.giro = +entre(0, Math.PI * 2).toFixed(3);
   d.escala = +(escala * (c >= 55 ? NOS_CAMPOS : 1)).toFixed(2);
   d.colisao = 0;
