@@ -73,19 +73,23 @@ export class Agua {
     const w = game.world;
     if (!w.agua.length) return;
 
-    // (a luz PRÓPRIA — `emissive`, que o `update` acerta pela hora — deixa a água mais clara que o
-    // chão em volta, como se o céu batesse nela; de noite quase some)
-    const mat = this.mat = new THREE.MeshLambertMaterial({ transparent: true, depthWrite: false, emissive: 0x2fb6b0, emissiveIntensity: 0.4 });
+    // SEM a luz da cena (MeshBasic): com ela (o sol mais o céu passam de 1 ao meio-dia) a cor
+    // estourava para o branco e a água ficava leitosa, fosca — e de noite, quase sem luz, apagava.
+    // A claridade é dela: `uLuz`, que o `update` acerta pela hora (cheia de dia, ~55% de noite: a
+    // lagoa continua brilhando sob a lua). O brilho vem das linhas e das CINTILAÇÕES (os pontos de luz).
+    this.luz = { value: 1 };
+    const mat = this.mat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTempo = this.tempo;
+      sh.uniforms.uLuz = this.luz;
       sh.vertexShader = 'attribute float aFundo;\nvarying float vFundo;\nvarying vec2 vXZ;\n'
         + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvFundo = aFundo;\n\tvXZ = position.xz;');
-      sh.fragmentShader = 'uniform float uTempo;\nvarying float vFundo;\nvarying vec2 vXZ;\n'
+      sh.fragmentShader = 'uniform float uTempo;\nuniform float uLuz;\nvarying float vFundo;\nvarying vec2 vXZ;\n'
         + 'vec2 sorteAgua(vec2 p) { return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }\n'
         + sh.fragmentShader.replace('#include <color_fragment>', `
         if (vFundo < -0.03) discard;
         float fundo = max(vFundo, 0.0), prof = smoothstep(0.0, 0.75, fundo);
-        vec3 corAgua = mix(vec3(0.5, 0.92, 0.86), vec3(0.1, 0.6, 0.74), prof);
+        vec3 corAgua = mix(vec3(0.42, 0.82, 0.76), vec3(0.07, 0.44, 0.58), prof);
         // a REDE de linhas claras: as bordas de células que se mexem devagar (Voronoi)
         vec2 pa = vXZ * 0.78 + vec2(uTempo * 0.05, uTempo * 0.035) + 0.35 * sin(vXZ.yx * 0.31 + uTempo * 0.2), ia = floor(pa), fa = fract(pa);
         float d1 = 9.0, d2 = 9.0;
@@ -98,8 +102,11 @@ export class Agua {
         float rede = smoothstep(0.09, 0.0, d2 - d1) * (0.55 - 0.3 * prof);
         // a ESPUMA: uma faixa que vai e volta na beira
         float beira = smoothstep(0.13, 0.0, vFundo) * (0.62 + 0.38 * sin(uTempo * 1.5 + vXZ.x * 0.8 + vXZ.y * 0.6));
-        float brancoAgua = clamp(rede + beira, 0.0, 1.0);
-        diffuseColor.rgb = mix(corAgua, vec3(1.0), brancoAgua);
+        // as CINTILAÇÕES: um ponto de luz no meio de algumas células, piscando cada um no seu tempo
+        vec2 quem = sorteAgua(ia + 0.5);
+        float cintila = smoothstep(0.1, 0.0, d1) * step(0.45, quem.x) * pow(0.5 + 0.5 * sin(uTempo * (1.6 + quem.y * 2.4) + quem.x * 40.0), 6.0);
+        float brancoAgua = clamp(rede + beira + cintila * 0.9, 0.0, 1.0);
+        diffuseColor.rgb = mix(corAgua, vec3(1.0), brancoAgua) * uLuz;
         diffuseColor.a = max(mix(0.4, 0.84, prof), brancoAgua * 0.92);`);
     };
     const matLeito = new THREE.MeshLambertMaterial({ color: 0x8fb7a8 });
@@ -140,7 +147,6 @@ export class Agua {
       g.setIndex(idx);
       const espelho = new THREE.Mesh(g, mat);
       espelho.name = `água: ${a.nome ?? ''}`;
-      espelho.receiveShadow = true;
       const leito = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), matLeito);
       leito.rotation.x = -Math.PI / 2;
       leito.position.set((x0 + x1) / 2, a.nivel - 1.3, (z0 + z1) / 2);
@@ -213,7 +219,7 @@ export class Agua {
     if (!this.ondas) return;
     // a luz própria da água, pela hora: de dia clara, de noite quase nada
     const h = horaDoMundo(), dia = Math.max(0, Math.min(1, Math.sin(((h - 5.5) / 13) * Math.PI) * 1.6));
-    this.mat.emissiveIntensity = 0.05 + 0.4 * dia;
+    this.luz.value = 0.55 + 0.45 * dia;   // a claridade da água: cheia de dia, um pouco mais da metade de noite
     // quem pode estar na água: o jogador, os outros jogadores, e os inimigos e bichos de perto
     const g = this.game, eu = g.player.pos;
     this.pisar(g.player, eu, dt);
