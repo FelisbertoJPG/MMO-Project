@@ -36,7 +36,8 @@
  * AS PRESAS (`pecasDaRaca`): um par de dentes que sobe do maxilar de baixo, desenhado
  * em código e preso ao osso da cabeça — mais uma peça da malha fundida. `presas` é o
  * tamanho (0 = sem); `presasAfastadas`, o quanto ficam longe uma da outra: andam pela
- * linha do lábio de baixo (`LABIO`), do meio da boca até o canto dela.
+ * linha do lábio de baixo (`LABIO`), do meio da boca até o canto dela; `presasAltura`, de
+ * que altura do rosto nascem.
  *
  * AS ORELHAS (`moldarPeca`, `ORELHA`): NÃO se acrescenta orelha — o modelo já tem uma (uma
  * abinha na peça `Face`; um par a mais por cima dava quatro). `orelhas` ESTICA a que há: o
@@ -83,6 +84,7 @@ export const PROPORCOES = [
   ['pes', 'Pés', 0.8, 1.6],
   ['presas', 'Presas (0 = sem)', 0, 2.5, 0],
   ['presasAfastadas', 'Presas — afastadas', 0.4, 1.9],
+  ['presasAltura', 'Presas — altura', 0.5, 2],
   ['orelhas', 'Orelhas (esticadas)', 1, 3],
 ];
 
@@ -114,7 +116,9 @@ const PRESA = [[3.0, 157.8, 12.4, 1.4], [3.5, 160.4, 15.5, 1.25], [4.1, 163.0, 1
 // para trás e para cima com a linha, e VIRA com ela (`giro`: a fração do quanto a linha
 // virou — inteiro, no canto a ponta apontava para o lado). Para além de `ate` (o lado do
 // maxilar, debaixo da maçã do rosto) a presa sumiria dentro da bochecha: para ali.
-const LABIO = { linha: [[0, 160.2, 15.4], [2, 160.1, 13.5], [3.5, 160.6, 13.1], [4.6, 159.9, 11.5], [6.8, 159.9, 4.9]], ate: 5.8, giro: 0.5 };
+// `passo`: quantos cm a presa SOBE a cada 100% da régua da altura (`presasAltura`: o pé
+// dela nasce dentro do queixo, 2,5 cm abaixo do lábio — a 160% sai da linha da boca).
+const LABIO = { linha: [[0, 160.2, 15.4], [2, 160.1, 13.5], [3.5, 160.6, 13.1], [4.6, 159.9, 11.5], [6.8, 159.9, 4.9]], ate: 5.8, giro: 0.5, passo: 4 };
 function noLabio(x) {
   const l = LABIO.linha;
   x = Math.min(l[l.length - 1][0], Math.max(0, x));
@@ -250,12 +254,13 @@ export function moldarPeca(geo, nome, raca, elmo = false) {
   }
   // O QUEIXO: o rosto de baixo alarga a partir do meio. As PRESAS vão INTEIRAS (alargadas
   // ponto a ponto, engrossariam): primeiro para o lugar delas na linha do lábio
-  // (`presasAfastadas`), virando com a linha; depois, com o canto da boca que o queixo levou
-  const largo = largoDoQueixo(raca), afastadas = elmo ? Math.min(1, proporcoesDe(raca).presasAfastadas) : proporcoesDe(raca).presasAfastadas;
-  if (nome === 'presas' && (largo || Math.abs(afastadas - 1) >= 1e-3)) {
+  // (`presasAfastadas`), virando com a linha, e na altura delas (`presasAltura`); depois,
+  // com o canto da boca que o queixo levou
+  const p = proporcoesDe(raca), largo = largoDoQueixo(raca), afastadas = elmo ? Math.min(1, p.presasAfastadas) : p.presasAfastadas, sobe = (p.presasAltura - 1) * LABIO.passo;
+  if (nome === 'presas' && (largo || Math.abs(afastadas - 1) >= 1e-3 || Math.abs(sobe) >= 1e-3)) {
     const [x0, y0, z0] = PRESA[0], x1 = Math.min(LABIO.ate, x0 * afastadas);
     const de = noLabio(x0), para = noLabio(x1), giro = (viradaDoLabio(x1) - viradaDoLabio(x0)) * LABIO.giro, c = Math.cos(giro), s = Math.sin(giro);
-    const pe = [x1, y0 + para[1] - de[1], z0 + para[2] - de[2]];   // o pé da presa, no lugar novo
+    const pe = [x1, y0 + para[1] - de[1] + sobe, z0 + para[2] - de[2]];   // o pé da presa, no lugar novo
     pe[0] *= largo ? largo(pe[1], pe[2]) : 1;
     for (let i = 0; i < pos.count; i++) {
       // (o lado −x é o espelho: a conta é a do +x)
