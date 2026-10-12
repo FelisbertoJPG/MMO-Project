@@ -7,9 +7,10 @@
  * A raça é o 6º dígito da APARÊNCIA (aparencia.js): 0 (ou nenhum) = humano, n = a
  * n-ésima raça do arquivo — por isso a ORDEM do arquivo não muda (raça nova, no fim).
  *
- * Uma raça: { id, nome, jogavel, pele, olhos, semCabelo, semBarba, proporcoes }.
+ * Uma raça: { id, nome, jogavel, pele, olhos, semCabelo, semBarba, penteados, proporcoes }.
  *  - `pele` / `olhos` ('#rrggbb' ou null): a cor é a da raça, e não a que o jogador escolheu;
  *  - `semCabelo` / `semBarba`: a peça sai;
+ *  - `penteados`: os cabelos que a raça tem (penteado.js; sem a lista, só o do modelo);
  *  - `jogavel`: aparece no editor de personagem do jogo (falso = só no editor de cenas);
  *  - `proporcoes`: os números de `PROPORCOES` (1 = como o modelo é; o que falta vale 1).
  *
@@ -234,17 +235,16 @@ export const VIRILHA = { lado: [6, 16], cima: [-11, -3, 12, 17.5] };
 // pescoço seguem em volta do osso (a panturrilha cresce para trás, como é).
 const MEIO = { Arm: [[1.07, -1.76], [-0.71, 0.79]], Elbow: [[0.54, 1.98], [-0.45, 1.51]] };
 
+const um = (v) => Math.abs(v - 1) < 1e-4;
 /**
- * Engrossa a malha fundida do corpo pelas proporções da raça (muda a geometria NO LUGAR).
- * `ordem` e `inversos` são os ossos do esqueleto único (nomes e inversos de ligação) e
- * `ligacao` a matriz de ligação das peças: a conta é feita no espaço em que os ossos
- * estão na pose T.
+ * As REGRAS da raça, uma por osso do esqueleto único (`ordem`, `inversos`: os nomes e os
+ * inversos de ligação), e os eixos do corpo na pose T — ou null (outro esqueleto: o corpo
+ * fica como é). `p` são as proporções completas.
  */
-export function deformar(geo, raca, ordem, inversos, ligacao) {
-  const p = proporcoesDe(raca);
+function regrasDaRaca(p, ordem, inversos) {
   const lugar = new Map(ordem.map((n, i) => [n, new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().copy(inversos[i]).invert())]));
   const de = (n) => lugar.get(n);
-  if (!de('Hips') || !de('Head') || !de('ArmL') || !de('ArmR') || !de('Footl') || !de('ToeL')) return;   // outro esqueleto: fica como é
+  if (!de('Hips') || !de('Head') || !de('ArmL') || !de('ArmR') || !de('Footl') || !de('ToeL')) return null;
   // os eixos do corpo na pose T: para cima, para o lado e para a frente (a ponta do pé)
   const cima = de('Head').clone().sub(de('Hips')).normalize();
   const lado = de('ArmL').clone().sub(de('ArmR'));
@@ -260,7 +260,6 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
   const por = (nomes, regra) => {
     for (const n of nomes) ordem.forEach((o, i) => { if (typeof n === 'string' ? o === n : n.test(o)) regras[i] = typeof regra === 'function' ? regra(o) : regra; });
   };
-  const um = (v) => Math.abs(v - 1) < 1e-4;
   // o tronco: em volta da linha da coluna (de pé), a largura e o fundo separados
   const tronco = (raiz, largura, fundo, tras = fundo) => (um(largura) && um(fundo) && um(tras) ? null : { a: de(raiz), d: cima, e: corpo, s: [largura, 1, fundo], tras });
   por(['Hips'], tronco('Hips', p.quadril, p.quadrilFundo));
@@ -299,6 +298,64 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
   const ponto = (raiz, s) => (s.every(um) ? null : { a: de(raiz), d: null, e: corpo, s, tras: s[2] });
   por(['Head'], ponto('Head', [p.cabeca, p.cabeca, p.cabeca]));
   for (const l of ['l', 'r']) por([`Foot${l}`, `Toe${l.toUpperCase()}`], ponto(`Foot${l}`, [p.pes, 1, p.pes]));
+  return { regras, de, lado, cima, frente };
+}
+
+// Um ponto `v` (no espaço da ligação) levado pelas regras dos ossos a que está preso — os
+// 4 de `ossos`/`pesos` — para `somaV`, e a normal `n` dele (null = só o ponto) para
+// `somaN`. Devolve a soma dos pesos (as somas ainda não estão divididas por ela).
+const _r = new THREE.Vector3();
+function levar(regras, v, n, ossos, pesos, somaV, somaN) {
+  const r = _r;
+  somaV.set(0, 0, 0); somaN?.set(0, 0, 0);
+  let peso = 0;
+  for (let k = 0; k < 4; k++) {
+    const w = pesos[k];
+    if (!w) continue;
+    peso += w;
+    const g = regras[ossos[k]];
+    if (!g) { somaV.addScaledVector(v, w); if (n) somaN.addScaledVector(n, w); continue; }
+    // o vértice visto do osso, sem a parte que corre AO LONGO do eixo (essa não cresce)
+    r.subVectors(v, g.a);
+    if (g.d) r.addScaledVector(g.d, -r.dot(g.d));
+    const e = g.e, x = r.dot(e[0]), y = r.dot(e[1]), z = r.dot(e[2]), sz = z < 0 ? g.tras : g.s[2];
+    somaV.addScaledVector(v, w).addScaledVector(e[0], w * x * (g.s[0] - 1)).addScaledVector(e[1], w * y * (g.s[1] - 1)).addScaledVector(e[2], w * z * (sz - 1));
+    if (!n) continue;
+    // a normal: cada parte dividida pelo que aquela direção cresceu
+    const nx = n.dot(e[0]), ny = n.dot(e[1]), nz = n.dot(e[2]);
+    somaN.addScaledVector(n, w).addScaledVector(e[0], w * nx * (1 / g.s[0] - 1)).addScaledVector(e[1], w * ny * (1 / g.s[1] - 1)).addScaledVector(e[2], w * nz * (1 / sz - 1));
+  }
+  return peso;
+}
+
+/**
+ * Para o que é feito JÁ com as proporções da raça (o cabelo que cai nas costas,
+ * penteado.js): devolve a função que leva UM ponto (`v`, mudado no lugar; os 4 ossos e os 4
+ * pesos dele, na ordem única) para onde a raça o põe — a mesma conta do `deformar`, menos a
+ * virilha (que é da frente da bacia). Sem raça, ou raça igual ao humano, o ponto fica.
+ */
+export function deformadorDe(raca, ordem, inversos, ligacao) {
+  const R = raca ? regrasDaRaca(proporcoesDe(raca), ordem, inversos) : null;
+  if (!R?.regras.some(Boolean)) return (v) => v;
+  const volta = new THREE.Matrix4().copy(ligacao).invert(), soma = new THREE.Vector3();
+  return (v, ossos, pesos) => {
+    const peso = levar(R.regras, v.applyMatrix4(ligacao), null, ossos, pesos, soma, null);
+    if (peso) v.copy(soma).multiplyScalar(1 / peso);
+    return v.applyMatrix4(volta);
+  };
+}
+
+/**
+ * Engrossa a malha fundida do corpo pelas proporções da raça (muda a geometria NO LUGAR).
+ * `ordem` e `inversos` são os ossos do esqueleto único (nomes e inversos de ligação) e
+ * `ligacao` a matriz de ligação das peças: a conta é feita no espaço em que os ossos
+ * estão na pose T. Só os primeiros `ate` vértices: o que vem depois já foi feito com as
+ * proporções (o penteado).
+ */
+export function deformar(geo, raca, ordem, inversos, ligacao, ate = geo.attributes.position.count) {
+  const p = proporcoesDe(raca), R = regrasDaRaca(p, ordem, inversos);
+  if (!R) return;   // outro esqueleto: fica como é
+  const { regras, de, lado, cima, frente } = R;
   const pos = geo.attributes.position, nor = geo.attributes.normal, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
   const volta = new THREE.Matrix4().copy(ligacao).invert();
   const v = new THREE.Vector3(), n = new THREE.Vector3(), r = new THREE.Vector3(), somaV = new THREE.Vector3(), somaN = new THREE.Vector3();
@@ -307,7 +364,7 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
   if (!um(p.virilha)) {
     const o = VIRILHA, bacia = de('Hips'), suave = THREE.MathUtils.smoothstep, mexeu = new Uint8Array(pos.count);
     const daBacia = ordem.map((n) => /^(Hips|Thigh[lr])$/.test(n));
-    for (let i = 0; i < pos.count; i++) {
+    for (let i = 0; i < ate; i++) {
       v.fromBufferAttribute(pos, i).applyMatrix4(ligacao);
       r.subVectors(v, bacia);
       const z = r.dot(frente), y = r.dot(cima);
@@ -329,26 +386,12 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
   if (!regras.some(Boolean)) return;
 
   const normalIda = new THREE.Matrix3().getNormalMatrix(ligacao), normalVolta = new THREE.Matrix3().getNormalMatrix(volta);
-  for (let i = 0; i < pos.count; i++) {
+  const ossos = [0, 0, 0, 0], pesos = [0, 0, 0, 0];
+  for (let i = 0; i < ate; i++) {
     v.fromBufferAttribute(pos, i).applyMatrix4(ligacao);
     if (nor) n.fromBufferAttribute(nor, i).applyMatrix3(normalIda).normalize();
-    somaV.set(0, 0, 0); somaN.set(0, 0, 0);
-    let peso = 0;
-    for (let k = 0; k < 4; k++) {
-      const w = sw.getComponent(i, k);
-      if (!w) continue;
-      peso += w;
-      const g = regras[si.getComponent(i, k)];
-      if (!g) { somaV.addScaledVector(v, w); somaN.addScaledVector(n, w); continue; }
-      // o vértice visto do osso, sem a parte que corre AO LONGO do eixo (essa não cresce)
-      r.subVectors(v, g.a);
-      if (g.d) r.addScaledVector(g.d, -r.dot(g.d));
-      const e = g.e, x = r.dot(e[0]), y = r.dot(e[1]), z = r.dot(e[2]), sz = z < 0 ? g.tras : g.s[2];
-      somaV.addScaledVector(v, w).addScaledVector(e[0], w * x * (g.s[0] - 1)).addScaledVector(e[1], w * y * (g.s[1] - 1)).addScaledVector(e[2], w * z * (sz - 1));
-      // a normal: cada parte dividida pelo que aquela direção cresceu
-      const nx = n.dot(e[0]), ny = n.dot(e[1]), nz = n.dot(e[2]);
-      somaN.addScaledVector(n, w).addScaledVector(e[0], w * nx * (1 / g.s[0] - 1)).addScaledVector(e[1], w * ny * (1 / g.s[1] - 1)).addScaledVector(e[2], w * nz * (1 / sz - 1));
-    }
+    for (let k = 0; k < 4; k++) { ossos[k] = si.getComponent(i, k); pesos[k] = sw.getComponent(i, k); }
+    const peso = levar(regras, v, nor ? n : null, ossos, pesos, somaV, somaN);
     if (!peso) continue;
     somaV.multiplyScalar(1 / peso).applyMatrix4(volta);
     pos.setXYZ(i, somaV.x, somaV.y, somaV.z);
