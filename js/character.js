@@ -64,6 +64,7 @@ export class CharacterModel {
     // AS DUAS MÃOS (arma de duas mãos): quem anima liga `duasMaos`; o peso entra e sai suave
     this.duasMaos = false;
     this.pesoDuasMaos = 0;
+    this.pesoMaoL = 0;   // a mão esquerda com algo nela (tocha, escudo, comida): os dedos fechados
     // o corpo do guerreiro (guerreiro.js): o manequim segue animando, invisível.
     // `armadura` como em `usarGuerreiro` (false = só o manequim, o padrão dos inimigos)
     this.guerreiro = armadura !== false && Assets.guerreiro ? new CorpoGuerreiro(this, armadura) : null;
@@ -178,12 +179,17 @@ export class CharacterModel {
     this.pesoDuasMaos += (meta - this.pesoDuasMaos) * Math.min(1, dt * 10);
     const comDuas = this.pesoDuasMaos > 0.01 && this.slotR;
     const e = comDuas ? empunhadura(this.slotR.children[0]?.userData.arma) : null;
+    // A MÃO ESQUERDA COM ALGO NELA (tocha, escudo, a comida), no guerreiro: os clipes de uma
+    // mão a deixam ABERTA, e desde que os dedos dele seguem a animação de verdade
+    // (`calibrarDedos`) a tocha ficava solta na palma — os dedos fecham nela
+    const naEsquerda = this.guerreiro && this.slotL?.children.length ? 1 : 0;
+    this.pesoMaoL += (naEsquerda - this.pesoMaoL) * Math.min(1, dt * 10);
     // no manequim, ANTES do retarget (o guerreiro copia o que ele fizer): os dedos da
-    // esquerda fechados no cabo e as CORREÇÕES DE POSE da empunhadura desta animação
-    if (comDuas) {
-      this.fecharDedosEsquerdos(this.pesoDuasMaos);
-      this.corrigirPose(e, this.pesoDuasMaos);
-    }
+    // esquerda fechados (no cabo, ou no que a mão segura) e as CORREÇÕES DE POSE da
+    // empunhadura desta animação
+    const fechar = Math.max(comDuas ? this.pesoDuasMaos : 0, this.pesoMaoL);
+    if (fechar > 0.01) this.fecharDedosEsquerdos(fechar);
+    if (comDuas) this.corrigirPose(e, this.pesoDuasMaos);
     this.guerreiro?.seguir();
     // o grude no cabo (IK), na força que a empunhadura pede (0 = mão solta, só a pose)
     if (comDuas && e.ik > 0.01) this.segurarComAsDuas(this.pesoDuasMaos * e.ik);

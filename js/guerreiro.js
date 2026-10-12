@@ -29,7 +29,7 @@ import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia } from './aparencia.js';
-import { racaDe, proporcoesDe, deformar, pecasDaRaca } from './raca.js';
+import { racaDe, proporcoesDe, deformar, pecasDaRaca, moldarPeca } from './raca.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -106,7 +106,7 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Qua
 const fundidas = new Map();
 /** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
 export function esquecerFundidas() { for (const g of fundidas.values()) g?.dispose(); fundidas.clear(); }
-function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null) {
+function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
   const geos = pecas.map((p) => {
@@ -114,6 +114,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null) {
     for (const nome of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight', 'color'].includes(nome)) g.deleteAttribute(nome);
     if (comCor && !g.attributes.color) g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 3).fill(1), 3));
     g.morphAttributes = {};
+    if (raca) moldarPeca(g, p.name, raca, elmo);   // (o que a raça muda NA PEÇA: as orelhas)
     // o osso i DESTA peça → o índice dele na ordem única
     const troca = p.skeleton.bones.map((b) => ordem.indexOf(b.name));
     const si = g.attributes.skinIndex, novo = new Uint16Array(si.count * 4);
@@ -309,14 +310,16 @@ export class CorpoGuerreiro {
       const lugar = lugarDaPeca(o.name);
       return armadura[LUGARES.indexOf(lugar)] === a[1] && !desenho(lugar, a[1]);
     });
+    // há ELMO? (uma peça de cabeça do pacote, ou um desenho nosso para a cabeça — o dígito
+    // sozinho não diz: o couro não tem elmo.) Com ele, a raça não estica as orelhas
+    const elmo = usadas.some((o) => ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'cabeca') || !!desenho('cabeca', armadura[0]);
     // os nossos desenhos entram como mais peças da malha fundida
     LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas)); });
-    // o que a RAÇA acrescenta (as presas e as orelhas do orc)
-    // (na FRENTE da lista: as de pele são tingidas por último, com a razão de cor do corpo)
-    if (this.raca) usadas.unshift(...pecasDaRaca(this.raca, this.pecas));
+    // o que a RAÇA acrescenta (as presas do orc)
+    if (this.raca) usadas.push(...pecasDaRaca(this.raca, this.pecas));
     // a APARÊNCIA: as peças de pele, cabelo, barba e olhos tingidas (ou fora: sem cabelo/barba)
     if (aparenciaValida(aparencia)) for (let i = usadas.length - 1; i >= 0; i--) {
-      if (!usadas[i].isSkinnedMesh && !usadas[i].pele) continue;
+      if (!usadas[i].isSkinnedMesh) continue;
       const t = tingir(usadas[i], aparencia);
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
@@ -326,7 +329,7 @@ export class CorpoGuerreiro {
     const comCor = usadas.some((o) => o.geometry.attributes.color);
     const material = (comCor && this.materiais.find((m) => m.vertexColors)) || (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
-    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos) : null;
+    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
     if (!this.fundida) {

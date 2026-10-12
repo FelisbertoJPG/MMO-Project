@@ -101,8 +101,7 @@ export function tingir(peca, codigo) {
   let hex = null, escolhe = null;
   const uv = peca.geometry.attributes.uv;
   if (!uv) return peca;
-  const dePele = peca.pele || PECAS_DE_PELE.includes(nome);   // (`pele`: peça que a raça acrescenta — as orelhas)
-  if (dePele && pele) { hex = pele; escolhe = peca.pele ? () => true : (i) => naPele(uv.getX(i), uv.getY(i)); }
+  if (PECAS_DE_PELE.includes(nome) && pele) { hex = pele; escolhe = (i) => naPele(uv.getX(i), uv.getY(i)); }
   else if ((nome === 'Hair' || nome === 'Beard' || nome === 'Eye_Brows') && CABELOS[a.cor][1]) { hex = CABELOS[a.cor][1]; escolhe = () => true; }
   else if (nome === 'Eyes' && olhos) {
     hex = olhos;
@@ -119,7 +118,7 @@ export function tingir(peca, codigo) {
       // a pele: UMA razão para todas as peças de pele (senão cada peça sairia num tom
       // diferente); o resto, a média da própria peça
       let r;
-      if (dePele) {
+      if (PECAS_DE_PELE.includes(nome)) {
         tingidas.razaoPele ??= new Map();
         r = tingidas.razaoPele.get(hex) ?? null;
         if (!r) { r = razao(px, uv, escolhe, hex); tingidas.razaoPele.set(hex, r); }

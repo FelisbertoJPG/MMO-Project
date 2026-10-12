@@ -29,7 +29,13 @@
  *
  * AS PRESAS (`pecasDaRaca`): um par de dentes que sobe do maxilar de baixo, desenhado
  * em código e preso ao osso da cabeça — mais uma peça da malha fundida. `presas` é o
- * tamanho (0 = sem). AS ORELHAS PONTUDAS (`orelhas`) são do mesmo jeito, na cor da PELE.
+ * tamanho (0 = sem).
+ *
+ * AS ORELHAS (`moldarPeca`, `ORELHA`): NÃO se acrescenta orelha — o modelo já tem uma (uma
+ * abinha na peça `Face`; um par a mais por cima dava quatro). `orelhas` ESTICA a que há: o
+ * canto de cima e de fora dela é puxado para cima, para trás e para fora, até virar ponta.
+ * É feito na peça, antes de fundir (na malha fundida não dá para saber o que é orelha e o
+ * que é cabelo ao lado dela), e só SEM elmo.
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
@@ -54,7 +60,7 @@ export const PROPORCOES = [
   ['canelas', 'Canelas (grossura)', 0.7, 1.8],
   ['pes', 'Pés', 0.8, 1.6],
   ['presas', 'Presas (0 = sem)', 0, 2.5, 0],
-  ['orelhas', 'Orelhas pontudas (0 = sem)', 0, 2.5, 0],
+  ['orelhas', 'Orelhas (esticadas)', 1, 3],
 ];
 
 /** A raça de número `n` (o dígito da aparência): null = humano, ou raça que não existe mais. */
@@ -108,10 +114,7 @@ function geometriaDasPresas(tamanho, cabeca) {
       }
     }
   }
-  return presaNaCabeca(tris, cores, cabeca, texelClaro(cabeca.material?.map) ?? [0.5, 0.5]);
-}
-/** Triângulos soltos (cm, pose T) → uma geometria presa ao osso da cabeça, com uma UV só. */
-function presaNaCabeca(tris, cores, cabeca, uvDe) {
+  const uvDe = texelClaro(cabeca.material?.map) ?? [0.5, 0.5];
   const n = tris.length / 3, g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(tris, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(cores, 3));
@@ -125,50 +128,68 @@ function presaNaCabeca(tris, cores, cabeca, uvDe) {
   return g;
 }
 
-// ------------------------------------------------------------ as orelhas pontudas
-// A orelha do lado +x (cm, pose T): a base, três pontos enterrados no lado da cabeça
-// (frente-baixo, alto, trás), e a ponta, para cima, para trás e para fora. O tamanho
-// estica a ponta a partir do meio da base.
-const ORELHA = { base: [[9.6, 168.6, 3.2], [9.8, 175.2, 2.6], [9.4, 171.4, -3.4]], ponta: [16.2, 182.0, -7.0] };
-const orelhas = new Map();
-function geometriaDasOrelhas(tamanho, cabeca) {
-  const tris = [], cores = [];
-  for (const lado of [1, -1]) {
-    const b = ORELHA.base.map(([x, y, z]) => new THREE.Vector3(lado * x, y, z));
-    const meio = b[0].clone().add(b[1]).add(b[2]).multiplyScalar(1 / 3);
-    const ponta = new THREE.Vector3(lado * ORELHA.ponta[0], ORELHA.ponta[1], ORELHA.ponta[2]).sub(meio).multiplyScalar(tamanho).add(meio);
-    const n = new THREE.Vector3(), u = new THREE.Vector3(), w = new THREE.Vector3();
-    for (let i = 0; i < 3; i++) {
-      // cada face lateral, virada para FORA (para longe do terceiro ponto da base)
-      let p = [b[i], b[(i + 1) % 3], ponta];
-      n.crossVectors(u.subVectors(p[1], p[0]), w.subVectors(p[2], p[0]));
-      if (n.dot(w.subVectors(b[(i + 2) % 3], p[0])) > 0) p = [p[1], p[0], p[2]];
-      for (const v of p) { tris.push(v.x, v.y, v.z); cores.push(1, 1, 1); }
-    }
-  }
-  // a UV de um ponto de PELE: o vértice da cabeça mais perto de onde a orelha nasce
-  const pos = cabeca.geometry.attributes.position, uv = cabeca.geometry.attributes.uv;
-  let perto = 0, d = Infinity;
-  for (let i = 0; i < pos.count; i++) { const q = Math.hypot(pos.getX(i) - 10, pos.getY(i) - 172, pos.getZ(i)); if (q < d) { d = q; perto = i; } }
-  return presaNaCabeca(tris, cores, cabeca, [uv.getX(perto), uv.getY(perto)]);
-}
 /**
  * As peças que a raça ACRESCENTA ao corpo (hoje, as presas), no formato da malha fundida
  * (`geometry`, `skeleton`, `material`, `name`). `pecas` são as do corpo do guerreiro.
  */
 export function pecasDaRaca(raca, pecas) {
-  const p = proporcoesDe(raca), cabeca = pecas.find((o) => o.name === 'head'), saida = [];
-  if (!cabeca?.geometry.attributes.uv) return saida;
-  const peca = (nome, tamanho, cache, fazer, pele = false) => {
-    if (!(tamanho > 0.01)) return;
-    const chave = tamanho.toFixed(2);
-    if (!cache.has(chave)) cache.set(chave, fazer(tamanho, cabeca));
-    // (o nome leva o tamanho: é a chave das peças tingidas, aparencia.js)
-    saida.push({ name: `${nome}-${chave}`, geometry: cache.get(chave), skeleton: cabeca.skeleton, material: cabeca.material, bindMatrix: cabeca.bindMatrix, pele });
-  };
-  peca('presas', p.presas, presas, geometriaDasPresas);
-  peca('orelhas', p.orelhas, orelhas, geometriaDasOrelhas, true);   // `pele`: tingidas com a cor da pele
-  return saida;
+  const tamanho = proporcoesDe(raca).presas, cabeca = pecas.find((o) => o.name === 'head');
+  if (!(tamanho > 0.01) || !cabeca?.geometry.attributes.uv) return [];
+  const chave = tamanho.toFixed(2);
+  if (!presas.has(chave)) presas.set(chave, geometriaDasPresas(tamanho, cabeca));
+  return [{ name: 'presas', geometry: presas.get(chave), skeleton: cabeca.skeleton, material: cabeca.material, bindMatrix: cabeca.bindMatrix }];
+}
+
+// ------------------------------------------------------------ as orelhas
+// A orelha do modelo (a do lado +x; cm, pose T) é uma abinha na peça `Face`: nasce no lado
+// da cabeça (`raiz`) e sai para fora e para trás até a `borda`, com a ponta de BAIXO no
+// lóbulo e o alto reto. Esticar é puxar o canto de cima e de fora na direção `ponta`
+// (fora, cima, trás): cada vértice vai junto na medida em que está ALTO na orelha e LONGE
+// da cabeça (`curva`: os expoentes das duas medidas) — o canto vira a ponta, a borda de
+// trás e a de cima viram os dois lados dela, e o lóbulo e a raiz não saem do lugar.
+// `passo`: quantos cm a ponta anda a cada 100% da régua.
+export const ORELHA = {
+  caixa: { x: 10.9, y: [164, 172.2], z: [-4.5, -1] },   // onde estão os vértices dela
+  raiz: [10.6, -1.2], borda: [12.5, -3.8],              // (x, z)
+  lobulo: 164.5, alto: 171.5,
+  ponta: [0.5, 0.75, -0.43], passo: 6, curva: [1.5, 2],
+};
+const naPeca = (nome) => /^Face(_|$)/.test(nome);   // (a tingida chama-se `Face_tingido`)
+/**
+ * As proporções da raça que se fazem NA PEÇA, antes de fundir (hoje, as orelhas): muda a
+ * geometria no lugar — quem chama dá uma cópia (guerreiro.js `geometriaFundida`).
+ * Com ELMO a orelha fica como o modelo a tem: esticada, a ponta furava o elmo.
+ */
+export function moldarPeca(geo, nome, raca, elmo = false) {
+  const quanto = proporcoesDe(raca).orelhas - 1;
+  if (elmo || !naPeca(nome) || Math.abs(quanto) < 1e-3) return;
+  const pos = geo.attributes.position, nor = geo.attributes.normal, o = ORELHA;
+  const ax = o.borda[0] - o.raiz[0], az = o.borda[1] - o.raiz[1], comprimento = Math.hypot(ax, az);
+  const dir = new THREE.Vector3(...o.ponta).normalize(), mexeu = new Uint8Array(pos.count);
+  const entre = (v, a, b) => Math.min(1, Math.max(0, (v - a) / (b - a)));
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), lado = Math.sign(x), fora = Math.abs(x);
+    if (fora < o.caixa.x || y < o.caixa.y[0] || y > o.caixa.y[1] || z < o.caixa.z[0] || z > o.caixa.z[1]) continue;
+    // quão longe da cabeça (ao longo da aba) e quão alto na orelha, de 0 a 1
+    const longe = entre(((fora - o.raiz[0]) * ax + (z - o.raiz[1]) * az) / comprimento, 0, comprimento);
+    const alto = entre(y, o.lobulo, o.alto);
+    const d = longe ** o.curva[0] * alto ** o.curva[1] * quanto * o.passo;
+    if (!d) continue;
+    pos.setXYZ(i, x + lado * dir.x * d, y + dir.y * d, z + dir.z * d);
+    mexeu[i] = 1;
+  }
+  pos.needsUpdate = true;
+  // as normais das faces que mudaram (a peça não tem índice: cada triângulo tem os seus
+  // três vértices, e a normal é a da face — o facetado do modelo)
+  if (!nor || geo.index) return;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let t = 0; t < pos.count; t += 3) {
+    if (!mexeu[t] && !mexeu[t + 1] && !mexeu[t + 2]) continue;
+    a.fromBufferAttribute(pos, t); b.fromBufferAttribute(pos, t + 1).sub(a); c.fromBufferAttribute(pos, t + 2).sub(a);
+    b.cross(c).normalize();
+    for (let k = 0; k < 3; k++) nor.setXYZ(t + k, b.x, b.y, b.z);
+  }
+  nor.needsUpdate = true;
 }
 
 /**
