@@ -342,7 +342,7 @@ export class Monitor {
         ['sombra da tocha só até 12 m (hoje 24)', () => sombraCurta(12), () => { tocha.shadow.updateMatrices = this._sombraOrig; }, 'alcance da sombra da tocha 12 m (a luz continua 24)', 'o que está a mais de 12 m da tocha não faz sombra dela'],
         ['tocha apagada', () => g.player.toggleTorch(), () => g.player.toggleTorch(), 'apagar a tocha quando não precisa (de dia)', 'menos luz em volta'],
       ] : []),
-      ['sem o capim', () => { g.capim?.malha?.layers.set(31); g.capim?.tapete?.layers.set(31); }, () => { g.capim?.malha?.layers.set(0); g.capim?.tapete?.layers.set(0); }, `capim menos denso (\`capim\` da qualidade ${q.nome}: hoje ${q.capim})`, 'chão menos coberto'],
+      ['sem o capim', () => { g.capim?.tapete?.layers.set(31); }, () => { g.capim?.tapete?.layers.set(0); }, `capim menos denso (\`capim\` da qualidade ${q.nome}: hoje ${q.capim})`, 'chão menos coberto'],
       ['sem o céu desenhado', () => g.ceu?.abobada.layers.set(31), () => g.ceu?.abobada.layers.set(0), null, null],
       ['sem o clarão do sol/lua', () => { this._clarao = q.clarao; q.clarao = false; }, () => { q.clarao = this._clarao; }, 'clarão desligado nesta qualidade', 'sem o reflexo de lente'],
       ['sem NADA na tela (o custo fixo)', () => g.camera.layers.disableAll(), () => g.camera.layers.set(0), null, null],
@@ -520,7 +520,7 @@ export class Monitor {
     g.scene.traverse((o) => { if (o.isLight && o.visible) { luzes[o.type] = (luzes[o.type] ?? 0) + 1; if (o.castShadow) sombras++; } });
     L.push(`luzes visíveis: ${Object.entries(luzes).map(([k, v]) => `${v} ${k.replace('Light', '')}`).join(', ')} · projetando sombra: ${sombras} · orçamento ${g.world.luzesNoOrcamento} dentro / ${g.world.luzesForaNoOrcamento} fora`);
     if (g.world.lod) L.push(`LOD: ${JSON.stringify(g.world.lod.resumo())}`);
-    if (g.capim?.malha) L.push(`capim: ${g.capim.malha.count} tufos`);
+    if (g.capim?.tapete) L.push(`capim: ${g.capim.tapete.count} touceiras`);
     // o que mais pesa no campo de visão (pela esfera de cada objeto)
     L.push('mais pesados no campo de visão agora (triângulos × cópias):');
     for (const l of this.maisPesados(12)) L.push(`  ${l}`);
@@ -546,7 +546,7 @@ export class Monitor {
       const tri = (geo.index ? geo.index.count : geo.attributes.position.count) / 3, n = o.isInstancedMesh ? o.count : 1;
       const mat = [].concat(o.material)[0];
       let nome = pecaDoLote.get(o) ?? o.name; for (let p = o.parent; !nome && p; p = p.parent) nome = p.name;
-      if (o === g.capim?.malha) nome = 'capim (capim.js)';
+      if (o === g.capim?.tapete) nome = 'capim (capim.js)';
       nome = `${nome || geo.name || '(sem nome)'} / ${mat?.name || mat?.type || '?'}`;
       const a = grupos.get(nome) ?? { tri: 0, ch: 0, inst: 0, sombra: false, tipo: mat?.type, transp: mat?.transparent, recorte: mat?.alphaTest > 0 };
       a.tri += tri * n; a.ch++; a.inst += n; a.sombra ||= o.castShadow;

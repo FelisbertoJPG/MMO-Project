@@ -1,34 +1,29 @@
 /**
- * O CAPIM (04/10/2026; em CARTAS desde 05/10/2026) — as graminhas que cobrem o chão de ar
- * livre e balançam com o vento (o jeito dos campos estilizados).
+ * O CAPIM (04/10/2026; o TAPETE desde 11/10/2026, no mapa todo desde a versão 2026-10-11.7) —
+ * a grama que cobre o chão de ar livre e balança com o vento, como nos jogos de campo
+ * estilizado (Genshin, Zelda).
  *
- * Um `InstancedMesh` só. Cada instância é um TUFO INTEIRO desenhado numa CARTA do atlas
- * (`campo.js`: capim alto, capim rasteiro, flores, moitinha) em três planos cruzados — 6
- * triângulos por tufo, recortados pela transparência da imagem (`alphaTest`). Antes eram
- * folhas de geometria: 18 triângulos por tufo e mais que o dobro de tufos.
+ * Um `InstancedMesh` só. A unidade é uma TOUCEIRA de FOLHAS DE GEOMETRIA (não é imagem de tufo
+ * recortada): sem textura, sem transparência, a normal para cima, a cor do CHÃO embaixo
+ * (`corDoChao`, a mesma conta do chão) clareando até a ponta — o vão entre as folhas é da
+ * mesma cor e não aparece. Em vez de sorteio (que deixa buraco aqui e amontoa ali), uma GRADE
+ * fina com desvio cobre a célula inteira, cada touceira mais larga que o passo (uma entra na
+ * outra). Só em volta do jogador (`RAIO` células); longe dele a grade abre e as touceiras
+ * crescem na mesma proporção. O vento é do shader (a ponta anda numa onda que corre pelo
+ * mundo; o pé fica parado) e não custa CPU. Sobe o relevo (`alturaChao`); não nasce sobre
+ * peça que não é natureza (`podeCapim`) nem nos caminhos de terra (`caminhoEm`).
  *
- * A COR de cada tufo é a do CHÃO embaixo dele (`corDoChao`, a mesma conta do chão): o pé
- * some no terreno e as manchas amareladas do campo passam pelo capim. As flores não são
- * tingidas. Os tufos ficam em volta do jogador (`RAIO` células), remontados quando ele
- * muda de célula, cada célula sempre com o MESMO sorteio (não pula). O vento é do shader
- * (a ponta anda numa onda que corre pelo mundo; o pé fica parado) e não custa CPU.
- * Sobe o relevo (`alturaChao`); não nasce sobre peça que não é natureza (`podeCapim`).
- *
- * Quantos TUFOS por célula vem da qualidade gráfica (`capim` em graficos.js): no Baixo,
- * nenhum. Sem sombra.
- *
- * Nas WINDHILLS (`world.nosCampos`) o capim é outro: o TAPETE de folhas de geometria (ver o
- * construtor e `celulaDoTapete`) — um segundo `InstancedMesh`, sem textura.
+ * A densidade vem da qualidade gráfica (`capim` em graficos.js → `passo`): no Baixo, nenhum.
+ * Sem sombra. (Até a 2026-10-11.6 o tapete era só das WindHills, e o resto do ar livre tinha
+ * TUFOS em cartas de imagem — três planos cruzados com um desenho do `campo.js`.)
  */
 import * as THREE from 'three';
 import { CELL } from './world.js';
-import { atlasDoCapim, corDoChao, caminhoEm, CARTAS } from './campo.js';
+import { corDoChao, caminhoEm } from './campo.js';
 
 const RAIO = 6;   // células em volta do jogador (~36 m)
-const TUFOS_MAX = 90;   // por célula (o Alto usa 64)
-// que carta cada tufo usa (pesos): mais capim, um pouco de flor e de moita
-const SORTEIO = [[CARTAS.capim, 0.48], [CARTAS.capimBaixo, 0.4], [CARTAS.moita, 0.05], [CARTAS.flores, 0.07]];
-// O TAPETE das WindHills (ver o construtor): a grade e as folhas de GEOMETRIA
+const DENSIDADE_MAX = 90;   // o teto do `capim` da qualidade (o Alto usa 64)
+// a grade e as folhas de GEOMETRIA
 const PASSO_MIN = 0.3;            // a grade mais fina do tapete (m), no Alto
 const NIVEIS = [1, 1.5, 2.2];     // longe do jogador, a grade abre (e as touceiras crescem junto)
 const PERTO = [2, 4];             // até quantas células vale cada nível (depois, o último)
@@ -66,7 +61,7 @@ function geometriaDaTouceira() {
   return g;
 }
 
-/** O que os dois materiais do capim têm em comum no shader: o VENTO e as duas faces com a mesma luz. */
+/** O shader do capim: o VENTO e as duas faces com a mesma luz. */
 function ventoENormal(sh, tempo) {
   sh.uniforms.uTempo = tempo;
   sh.vertexShader = 'uniform float uTempo;\n' + sh.vertexShader.replace('#include <project_vertex>', `
@@ -90,70 +85,23 @@ function ventoENormal(sh, tempo) {
         vec3 nonPerturbedNormal = normal;`);
 }
 
-/**
- * A geometria do TUFO: três planos de 1 × 1 cruzados a 60°, o pé em y = 0. `position.y`
- * (0 a 1) é o que o vento usa; a cor por vértice escurece o pé (sombra de contato).
- */
-function geometriaDoTufo() {
-  const pos = [], uv = [], cor = [], idx = [];
-  for (let p = 0; p < 3; p++) {
-    const a = (p / 3) * Math.PI, dx = Math.cos(a) * 0.5, dz = Math.sin(a) * 0.5, b = pos.length / 3;
-    pos.push(-dx, 0, -dz, dx, 0, dz, dx, 1, dz, -dx, 1, -dz);
-    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
-    cor.push(0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1);
-    idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  // a normal para CIMA: o tufo não escurece de lado (é como o capim estilizado faz)
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(pos.length / 3).fill([0, 1, 0]).flat(), 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(cor, 3));
-  g.setIndex(idx);
-  return g;
-}
-
 export class Capim {
   constructor(game) {
     this.game = game;
     this.celula = null;
     this.tempo = { value: 0 };
-    const g = geometriaDoTufo();
-    this.maximo = (2 * RAIO + 1) ** 2 * TUFOS_MAX;
-    // a CARTA de cada tufo (0–3): o shader escolhe o quarto do atlas
-    this.cartas = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo), 1);
-    g.setAttribute('aCarta', this.cartas);
-    const mat = new THREE.MeshLambertMaterial({ map: atlasDoCapim(), vertexColors: true, side: THREE.DoubleSide, alphaTest: 0.45 });
-    mat.onBeforeCompile = (sh) => {
-      ventoENormal(sh, this.tempo);
-      sh.vertexShader = 'attribute float aCarta;\n' + sh.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>
-        vMapUv = vMapUv * 0.5 + vec2(mod(aCarta, 2.0), floor(aCarta / 2.0)) * 0.5;`);
-    };
-    this.malha = new THREE.InstancedMesh(g, mat, this.maximo);
-    this.malha.count = 0;
-    this.malha.frustumCulled = false;   // as folhas estão em volta do jogador: sempre há o que ver
-    this.malha.castShadow = false; this.malha.receiveShadow = false;
-    this.malha.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo * 3), 3);
-    game.scene.add(this.malha);
-
-    // O TAPETE (11/10/2026) — o capim das WINDHILLS, como nos jogos de campo estilizado
-    // (Genshin, Zelda): a unidade é uma touceira de FOLHAS DE GEOMETRIA, não uma imagem de tufo
-    // recortada — sem textura, sem transparência, a normal para cima, a cor do chão embaixo
-    // clareando até a ponta. Em vez de sorteio (que deixa buraco aqui e amontoa ali), uma GRADE
-    // fina cobre a célula inteira, cada touceira mais larga que o passo (uma entra na outra).
-    {
-      const gp = geometriaDaTouceira();
-      const matT = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
-      matT.onBeforeCompile = (sh) => ventoENormal(sh, this.tempo);
-      this.maximoT = (2 * RAIO + 1) ** 2 * Math.ceil(CELL / PASSO_MIN) ** 2;
-      this.tapete = new THREE.InstancedMesh(gp, matT, this.maximoT);
-      this.tapete.count = 0;
-      this.tapete.frustumCulled = false;
-      this.tapete.castShadow = false; this.tapete.receiveShadow = false;
-      this.tapete.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.maximoT * 3), 3);
-      game.scene.add(this.tapete);
-      this.prontas = new Map();   // célula + nível → o tapete dela já calculado
-    }
+    const gp = geometriaDaTouceira();
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+    mat.onBeforeCompile = (sh) => ventoENormal(sh, this.tempo);
+    this.maximo = (2 * RAIO + 1) ** 2 * Math.ceil(CELL / PASSO_MIN) ** 2;
+    this.tapete = new THREE.InstancedMesh(gp, mat, this.maximo);
+    this.tapete.name = 'capim (capim.js)';
+    this.tapete.count = 0;
+    this.tapete.frustumCulled = false;   // as folhas estão em volta do jogador: sempre há o que ver
+    this.tapete.castShadow = false; this.tapete.receiveShadow = false;
+    this.tapete.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo * 3), 3);
+    game.scene.add(this.tapete);
+    this.prontas = new Map();   // célula + nível → o tapete dela já calculado
   }
 
   /** O passo da grade do tapete (m), da qualidade gráfica: 30 cm no Alto, ~41 cm no Médio. */
@@ -198,11 +146,11 @@ export class Capim {
     return pronta;
   }
 
-  /** Quantos tufos por célula (a qualidade gráfica; 0 = sem capim). */
-  get densidade() { return Math.min(TUFOS_MAX, this.game.graficos?.q.capim ?? 22); }
+  /** O `capim` da qualidade gráfica (0 = sem capim): dele sai o `passo` da grade. */
+  get densidade() { return Math.min(DENSIDADE_MAX, this.game.graficos?.q.capim ?? 22); }
 
   /** Remonta já (a qualidade mudou). */
-  refazer() { this.celula = null; this.prontas?.clear(); }
+  refazer() { this.celula = null; this.prontas.clear(); }
 
   update(dt) {
     this.tempo.value += dt;
@@ -211,64 +159,23 @@ export class Capim {
     const chave = `${r0},${c0},${this.densidade}`;
     if (chave === this.celula) return;
     this.celula = chave;
-    const n = this.densidade, m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), pos = new THREE.Vector3();
-    const cor = this.malha.instanceColor, tom = new THREE.Color();
-    let i = 0, j = 0;
-    if (n > 0) {
+    let j = 0;
+    if (this.densidade > 0) {
       for (let r = r0 - RAIO; r <= r0 + RAIO; r++) {
         for (let c = c0 - RAIO; c <= c0 + RAIO; c++) {
           if (w.ch(r, c) !== 'f') continue;
           const dist = Math.hypot(r - r0, c - c0);
           if (dist > RAIO + 0.5) continue;
-          // nas WINDHILLS, o TAPETE (a grade, não o sorteio de tufos)
-          if (this.tapete && w.nosCampos(r, c)) {
-            const t = this.celulaDoTapete(w, r, c, dist <= PERTO[0] ? 0 : dist <= PERTO[1] ? 1 : 2);
-            if (j + t.n > this.maximoT) continue;
-            this.tapete.instanceMatrix.array.set(t.mats, j * 16);
-            this.tapete.instanceColor.array.set(t.cores, j * 3);
-            j += t.n;
-            continue;
-          }
-          // longe, menos e menores (sem borda dura)
-          const longe = Math.max(0, Math.min(1, (dist - (RAIO - 2.5)) / 3));
-          const quantas = Math.round(n * (1 - longe * 0.7));
-          let sem = ((r * 73856093) ^ (c * 19349663)) >>> 0;   // o sorteio é DA CÉLULA
-          const rnd = () => ((sem = (sem * 1664525 + 1013904223) >>> 0) / 4294967296);
-          for (let k = 0; k < quantas && i < this.maximo; k++) {
-            pos.set(c * CELL + (rnd() - 0.5) * CELL, 0, r * CELL + (rnd() - 0.5) * CELL);
-            pos.y = w.alturaChao(pos);
-            // a carta, e o tamanho dela (a carta tem o tufo inteiro: ~1 m de largura)
-            let u = rnd(), carta = SORTEIO[0][0];
-            for (const [k, peso] of SORTEIO) { if ((u -= peso) < 0) { carta = k; break; } }
-            const grande = carta === CARTAS.moita ? 1.25 : carta === CARTAS.capimBaixo ? 0.75 : 1;
-            const alt = (0.5 + rnd() * 0.3) * grande * (1 - longe * 0.5), larg = (1.1 + rnd() * 0.6) * grande;
-            q.setFromEuler(e.set(0, rnd() * Math.PI * 2, 0));
-            m.compose(pos, q, s.set(larg, alt, larg));
-            const v = 0.92 + rnd() * 0.16;
-            // em cima de peça que não é natureza (fogueira, barril, parede, pedra…), nada de
-            // capim (World.podeCapim). Os sorteios já foram feitos: a célula não muda o resto
-            if (!w.podeCapim(pos.x, pos.z, 0.3 * larg)) continue;
-            // nos CAMINHOS de terra, nada (a borda vai rareando)
-            const caminho = caminhoEm(w, pos.x, pos.z);
-            if (caminho > 0.25 && rnd() < caminho * 1.6) continue;
-            this.malha.setMatrixAt(i, m);
-            this.cartas.setX(i, carta);
-            // a cor: a do CHÃO embaixo (o capim pintado claro vira a cor do terreno); a flor, a dela
-            if (carta === CARTAS.flores) cor.setXYZ(i, v, v, v);
-            else { corDoChao(w, pos.x, pos.z, tom).multiplyScalar(v * 1.25); cor.setXYZ(i, tom.r, tom.g, tom.b); }
-            i++;
-          }
+          const t = this.celulaDoTapete(w, r, c, dist <= PERTO[0] ? 0 : dist <= PERTO[1] ? 1 : 2);
+          if (j + t.n > this.maximo) continue;
+          this.tapete.instanceMatrix.array.set(t.mats, j * 16);
+          this.tapete.instanceColor.array.set(t.cores, j * 3);
+          j += t.n;
         }
       }
     }
-    this.malha.count = i;
-    this.malha.instanceMatrix.needsUpdate = true;
-    cor.needsUpdate = true;
-    this.cartas.needsUpdate = true;
-    if (this.tapete) {
-      this.tapete.count = j;
-      this.tapete.instanceMatrix.needsUpdate = true;
-      this.tapete.instanceColor.needsUpdate = true;
-    }
+    this.tapete.count = j;
+    this.tapete.instanceMatrix.needsUpdate = true;
+    this.tapete.instanceColor.needsUpdate = true;
   }
 }

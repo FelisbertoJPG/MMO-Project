@@ -1,6 +1,6 @@
 // O ARBUSTO PRÓPRIO (11/10/2026) — os arbustos do mapa viram uma MOITA DE CAPIM: o tufo de capim
-// da floresta (um leque de folhas largas no pé e de ponta fina e curvada, `atlasDoCapim` no
-// campo.js), só que maior, com muito mais folhas juntas e em low poly — cada folha é um prisma de
+// que a floresta tinha (um leque de folhas largas no pé e de ponta fina e curvada — as cartas de
+// imagem que o tapete de geometria aposentou), só que maior, com muito mais folhas juntas e em low poly — cada folha é um prisma de
 // três lados que afina até a ponta (9 triângulos, faces planas), sem textura, a cor nos vértices
 // (escura no pé, clara na ponta, como o desenho do tufo).
 //
