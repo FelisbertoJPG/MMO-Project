@@ -25,6 +25,7 @@ import { VozUI } from './vozui.js';
 import { ControlesToque, ehToque } from './toque.js';
 import { Provador } from './provador.js';
 import { Capim } from './capim.js';
+import { Agua } from './agua.js';
 import { Graficos, qualidadeSalva } from './graficos.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
@@ -87,6 +88,7 @@ class Game {
     assarRefeicoes();   // as animações de comer e beber (refeicao.js), antes de qualquer boneco
     this.world = new World(this);
     this.capim = new Capim(this);   // as graminhas que balançam com o vento (capim.js)
+    this.agua = new Agua(this);     // a lagoa e as vitórias-régias (agua.js)
     this.effects = new Effects(this);
     this.projectiles = new Projectiles(this);
     this.ui = new UI(this);
@@ -1117,6 +1119,7 @@ class Game {
       this.world.update(dt, this.camera);
       M?.fase('mundo');
       this.capim.update(dt);
+      this.agua.update(dt);
       M?.fase('capim');
       this.player.updateCamera(dt, this.camera);
       M?.fase('câmera');

@@ -22,7 +22,8 @@ const ch = (r, c) => linhas[r]?.[c] ?? '#';
 //      (as TROCADAS — `troca: 1`, ver abaixo — ficam onde estão: são peças de antes com outro modelo)
 //      (as pedrinhas SOLTAS — `solta: 1`, de `ferramentas/lowpoly/trocar.mjs` — vêm depois das `gi-` e voltam para o fim)
 const plantada = (d) => d.prop.startsWith('gi-') && !d.troca;
-const semSoltas = decor.itens.filter((d) => !d.solta);
+// (e as peças dos CENÁRIOS — `de: "lagoa"`…, de `ferramentas/cenarios/` — depois delas: também voltam para o fim)
+const semSoltas = decor.itens.filter((d) => !d.solta && !d.de);
 const primeira = semSoltas.findIndex(plantada);
 if (primeira >= 0 && semSoltas.slice(primeira).some((d) => !plantada(d))) {
   throw new Error('há peças depois das gi- no decor.json: tirá-las mudaria os índices — resolva à mão');
@@ -90,7 +91,7 @@ const afasta = (d) => {
   return 1.8;                                    // objeto (barril, caixote, mesa…)
 };
 const barreiras = new Map();                     // por célula
-for (const d of antes) {
+for (const d of [...antes, ...decor.itens.filter((x) => x.de)]) {
   if (ch(d.cel[0], d.cel[1]) !== 'f') continue;
   const r = afasta(d);
   if (!r) continue;
@@ -104,11 +105,14 @@ const naEstrada = (x, z) => {
   if (x < ESTRADA.deColuna * CELL - 3 || x > ESTRADA.ateColuna * CELL + 3) return false;
   return Math.abs(z - (ESTRADA.linha * CELL + Math.sin(x / 23) * 2.1 + Math.sin(x / 8.7 + 1.3) * 0.7)) < 3.2;
 };
+// dentro d'água e na areia da praia (`agua` do mapa.json, js/agua.js): nada de flor
+const naAgua = (x, z) => (mapa.agua?.floresta ?? []).some((a) => x > a.caixa[0] && x < a.caixa[2] && z > a.caixa[1] && z < a.caixa[3] && relevo(x, z) < a.nivel + 0.45);
 const livre = (x, z, folga) => {
   const r0 = Math.round(z / CELL), c0 = Math.round(x / CELL);
   for (const [dx, dz] of [[0, 0], [folga, 0], [-folga, 0], [0, folga], [0, -folga]]) {
     if (ch(Math.round((z + dz) / CELL), Math.round((x + dx) / CELL)) !== 'f') return false;
   }
+  if (naAgua(x, z)) return false;
   if (naEstrada(x, z)) return false;
   if (fogueiras.some(([fx, fz]) => Math.hypot(x - fx, z - fz) < 5.5)) return false;
   for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
@@ -204,7 +208,7 @@ const eItem = (l) => /^\s*\{"prop"/.test(l);
 const a = todas.findIndex(eItem), b = todas.findLastIndex(eItem);
 const deAntes = todas.slice(a, b + 1).filter(eItem).map((l) => l.replace(/,\s*$/, ''));
 if (deAntes.length !== decor.itens.length) throw new Error('o decor.json não está com um item por linha — não sei regravar sem bagunçar');
-const soltas = deAntes.filter((l, i) => decor.itens[i].solta);
+const soltas = [...deAntes.filter((l, i) => decor.itens[i].solta), ...deAntes.filter((l, i) => decor.itens[i].de)];
 const itens = [...deAntes.slice(0, antes.length).map((l, i) => trocadas.has(i) ? '    ' + JSON.stringify(antes[i]) : l), ...novas.map((d) => '    ' + JSON.stringify(d)), ...soltas];
 fs.writeFileSync('assets/decor.json', [...todas.slice(0, a), ...itens.map((l, i) => l + (i < itens.length - 1 ? ',' : '')), ...todas.slice(b + 1)].join(fimDeLinha));
 

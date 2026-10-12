@@ -27,6 +27,7 @@ function ruido(x, z) {
 // ------------------------------------------------------------ a cor do terreno
 const _amarelo = new THREE.Color(0xa8c048), _escuro = new THREE.Color(0x2f6030), _base = new THREE.Color();
 const _vivo = new THREE.Color(0x7cb444), _terra = new THREE.Color(0xb39a6c), _terraEscura = new THREE.Color(0x8f7650);
+const _areia = new THREE.Color(0xe6d9a8), _areiaMolhada = new THREE.Color(0xbfd7b4);
 let baseGrama = null;
 /** A cor do chão em (x, z), em `alvo` (um THREE.Color). */
 export function corDoChao(world, x, z, alvo = new THREE.Color()) {
@@ -49,6 +50,14 @@ export function corDoChao(world, x, z, alvo = new THREE.Color()) {
   // os CAMINHOS: terra batida (com manchas mais escuras), a borda virando grama
   const caminho = caminhoEm(world, x, z);
   if (caminho > 0.01) alvo.lerp(_base.copy(_terra).lerp(_terraEscura, ruido(x / 2.3, z / 2.3) * 0.6), Math.min(1, caminho * 1.15));
+  // a ÁGUA (js/agua.js): AREIA na praia (do capim à beira, com a borda irregular) e no fundo, onde
+  // ela vai ficando esverdeada com a profundidade (é o que se vê por dentro d'água)
+  const fundo = world?.fundoDaAgua ? world.fundoDaAgua(x, z) : -Infinity;
+  if (fundo > -0.5) {
+    const t = Math.min(1, Math.max(0, (fundo + 0.42 + (fino - 0.5) * 0.12) / 0.24));
+    alvo.lerp(_base.copy(_areia).multiplyScalar(0.93 + fino * 0.12), t * t * (3 - 2 * t));
+    if (fundo > 0) alvo.lerp(_areiaMolhada, Math.min(0.6, fundo * 0.9));
+  }
   return alvo;
 }
 

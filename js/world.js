@@ -325,6 +325,8 @@ export class World {
 
     this.buildLighting();
     this.montarRelevo(Assets.relevo);   // a altura do chão das colinas, antes do chão e da decoração
+    // os ESPELHOS D'ÁGUA (mapa.json → `agua`; quem os desenha é o js/agua.js): antes do chão, que pinta a areia
+    this.agua = (Assets.agua ?? []).filter((a) => Number.isFinite(a?.nivel) && Array.isArray(a.caixa) && a.caixa.length === 4 && a.caixa.every(Number.isFinite));
     // os CAMINHOS de terra (campo.js): a estrada, as trilhas e o terreiro das fogueiras —
     // antes do chão, que pinta a terra, e do capim, que não nasce nela
     montarCaminhos(this);
@@ -472,6 +474,15 @@ export class World {
     }
     this.relevo = { x0, z0, nx, nz, passo, h };
     this.areaRelevo = area;
+  }
+
+  /**
+   * Quanta ÁGUA há sobre o chão em (x, z), em metros: positivo = dentro d'água (a profundidade),
+   * negativo = seco (quanto o chão está acima do nível). Fora de todo espelho d'água, -Infinity.
+   */
+  fundoDaAgua(x, z) {
+    for (const a of this.agua) if (x >= a.caixa[0] && x <= a.caixa[2] && z >= a.caixa[1] && z <= a.caixa[3]) return a.nivel - this.relevoEm(x, z);
+    return -Infinity;
   }
 
   /** A altura do RELEVO em (x, z): 0 fora da área das colinas. */

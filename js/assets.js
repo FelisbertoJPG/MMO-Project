@@ -174,6 +174,7 @@ async function carregarMapa() {
     // as TAGS de lugar desta variante (world.js, aplicarMarcos); faltando, valem as do código
     // o RELEVO desta variante (world.js, montarRelevo): sem ele, tudo plano
     Assets.relevo = d.relevo?.[ativo] ?? null;
+    Assets.agua = Array.isArray(d.agua?.[ativo]) ? d.agua[ativo] : [];   // os espelhos d'água (js/agua.js)
     const m = d.marcos?.[ativo];
     Assets.marcos = m && typeof m === 'object' && !Array.isArray(m) ? m : {};
     if (!Array.isArray(linhas) || !linhas.length) throw new Error(`a variante "${ativo}" está vazia`);
@@ -200,6 +201,7 @@ export const Assets = {
   mapa: null,
   mapaNome: 'emergencia',
   marcos: {},
+  agua: [],
   relevo: null,  // as colinas da variante ativa (mapa.json → `relevo`): ver world.js    // as tags de lugar da variante ativa (mapa.json → `marcos`): ver world.js
   modelos: {},   // nome → modelo de blocos (MODELOS)
   animais: {},   // nome → { scene, clips } (ANIMAIS_MODELOS)

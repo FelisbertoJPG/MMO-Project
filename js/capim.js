@@ -133,6 +133,8 @@ export class Capim {
       if (!w.podeCapim(pos.x, pos.z, 0.15)) continue;
       const caminho = caminhoEm(w, pos.x, pos.z);
       if (caminho > 0.25 && sorte < caminho * 1.6) continue;
+      // nem na ÁGUA nem na areia da praia (a borda rareia)
+      if (w.fundoDaAgua(pos.x, pos.z) > -0.44 + sorte * 0.14) continue;
       pos.y = w.alturaChao(pos) - 0.02;
       m.compose(pos, q.setFromEuler(e), s.set(larg, alt, larg));
       m.toArray(mats, i * 16);

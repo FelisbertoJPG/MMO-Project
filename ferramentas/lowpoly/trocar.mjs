@@ -51,6 +51,9 @@ const todas = texto.split(/\r?\n/);
 const eItem = (l) => /^\s*\{"prop"/.test(l);
 const a = todas.findIndex(eItem), b = todas.findLastIndex(eItem);
 let itens = todas.slice(a, b + 1).filter(eItem).map((l) => ({ linha: l.replace(/,\s*$/, ''), d: JSON.parse(l.replace(/,\s*$/, '')) }));
+// as peças dos CENÁRIOS (`de`, de `ferramentas/cenarios/`) ficam depois das soltas: saem daqui e voltam no fim
+const cauda = itens.filter((x) => x.d.de);
+itens = itens.filter((x) => !x.d.de);
 const primeiraSolta = itens.findIndex((x) => x.d.solta);
 if (primeiraSolta >= 0 && itens.slice(primeiraSolta).some((x) => !x.d.solta)) throw new Error('há peças depois das soltas no decor.json — resolva à mão');
 if (primeiraSolta >= 0) itens = itens.slice(0, primeiraSolta);
@@ -96,7 +99,7 @@ const afasta = (d) => {
   return 1.8;
 };
 const barreiras = new Map();
-for (const { d } of itens) {
+for (const { d } of [...itens, ...cauda]) {
   const r = afasta(d);
   if (!r || d.cel[1] < COLUNA - 2) continue;
   const [x, z] = lugar(d), k = `${Math.round(z / CELL)},${Math.round(x / CELL)}`;
@@ -161,12 +164,12 @@ for (let r = 0; r < linhasDoMapa.length; r++) for (let c = COLUNA; c < linhasDoM
 // ---- gravar: os .glb das peças usadas e o decor.json
 const usadas = [...new Set([...itens.map((x) => x.d), ...soltas].map((d) => d.prop).filter((p) => p.startsWith('lp-')))].sort((p, q) => p.localeCompare(q, 'en', { numeric: true }));
 for (const p of usadas) if (medidas[p]) fs.copyFileSync(`${GLB}/${p}.glb`, `assets/dungeon/${p}.glb`);   // (as moitas `lp-Bush_` são do arbusto.mjs)
-const linhas = [...itens.map((x) => x.linha), ...soltas.map((d) => '    ' + JSON.stringify(d))];
+const linhas = [...itens.map((x) => x.linha), ...soltas.map((d) => '    ' + JSON.stringify(d)), ...cauda.map((x) => x.linha)];
 const novo = [...todas.slice(0, a), ...linhas.map((l, i) => l + (i < linhas.length - 1 ? ',' : '')), ...todas.slice(b + 1)].join(fimDeLinha);
 JSON.parse(novo);
 fs.writeFileSync('assets/decor.json', novo);
 
 const trocadas = Object.values(conta).reduce((s, n) => s + n, 0);
 console.log(`${trocadas} trocadas agora:`, Object.entries(conta).map(([k, v]) => `${k} ${v}`).join(', ') || 'nenhuma');
-console.log(`${soltas.length} soltas (${soltas.filter((d) => /Seixos/.test(d.prop)).length} manchas de seixos), ${itens.length + soltas.length} itens ao todo`);
+console.log(`${soltas.length} soltas (${soltas.filter((d) => /Seixos/.test(d.prop)).length} manchas de seixos), ${itens.length + soltas.length + cauda.length} itens ao todo`);
 console.log('PROPS:', usadas.map((p) => `'${p}'`).join(', '));
