@@ -16,11 +16,18 @@
  *
  * As VITÓRIAS-RÉGIAS (folhas boiando, algumas com flor) também são daqui, e não do `decor.json`:
  * a altura delas é a da ÁGUA, e o decorador do editor zera a altura de quem está perto do chão.
+ *
+ * OS RESPINGOS (`pisar`, `onda`): quem anda dentro d'água — o jogador, os outros jogadores,
+ * inimigos e bichos — deixa ANÉIS que se abrem na superfície (um a cada 80 cm andados, um
+ * maior ao entrar ou rolar, um devagar de vez em quando parado) e GOTAS que sobem (as partículas
+ * de sempre, `effects.burst`). Os anéis são um `InstancedMesh` de `ONDAS` cópias reaproveitadas.
  */
 import * as THREE from 'three';
-import { CELL } from './world.js';
+import { CELL, horaDoMundo } from './world.js';
 
 const PASSO = 1.5;        // a grade do plano d'água (m): a mesma do chão (CELL / 4)
+const ONDAS = 72;         // quantos anéis de respingo ao mesmo tempo
+const PERTO = 50;         // só há respingo de quem está a menos disto do jogador (m)
 
 /** A folha: um disco de 7 lados com um corte (a fenda da vitória-régia), a cor nos vértices. */
 function geometriaDaFolha() {
@@ -66,7 +73,9 @@ export class Agua {
     const w = game.world;
     if (!w.agua.length) return;
 
-    const mat = new THREE.MeshLambertMaterial({ transparent: true, depthWrite: false });
+    // (a luz PRÓPRIA — `emissive`, que o `update` acerta pela hora — deixa a água mais clara que o
+    // chão em volta, como se o céu batesse nela; de noite quase some)
+    const mat = this.mat = new THREE.MeshLambertMaterial({ transparent: true, depthWrite: false, emissive: 0x2fb6b0, emissiveIntensity: 0.4 });
     mat.onBeforeCompile = (sh) => {
       sh.uniforms.uTempo = this.tempo;
       sh.vertexShader = 'attribute float aFundo;\nvarying float vFundo;\nvarying vec2 vXZ;\n'
@@ -76,7 +85,7 @@ export class Agua {
         + sh.fragmentShader.replace('#include <color_fragment>', `
         if (vFundo < -0.03) discard;
         float fundo = max(vFundo, 0.0), prof = smoothstep(0.0, 0.75, fundo);
-        vec3 corAgua = mix(vec3(0.42, 0.82, 0.76), vec3(0.07, 0.44, 0.58), prof);
+        vec3 corAgua = mix(vec3(0.5, 0.92, 0.86), vec3(0.1, 0.6, 0.74), prof);
         // a REDE de linhas claras: as bordas de células que se mexem devagar (Voronoi)
         vec2 pa = vXZ * 0.78 + vec2(uTempo * 0.05, uTempo * 0.035) + 0.35 * sin(vXZ.yx * 0.31 + uTempo * 0.2), ia = floor(pa), fa = fract(pa);
         float d1 = 9.0, d2 = 9.0;
@@ -94,6 +103,20 @@ export class Agua {
         diffuseColor.a = max(mix(0.4, 0.84, prof), brancoAgua * 0.92);`);
     };
     const matLeito = new THREE.MeshLambertMaterial({ color: 0x8fb7a8 });
+    // os ANÉIS dos respingos: um aro chato que cresce e some (aditivo: a cor escurecendo é o sumir)
+    const aro = new THREE.RingGeometry(0.925, 1, 24);
+    aro.rotateX(-Math.PI / 2);
+    this.ondas = new THREE.InstancedMesh(aro, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), ONDAS);
+    this.ondas.name = 'respingos';
+    this.ondas.frustumCulled = false;
+    this.ondas.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(ONDAS * 3), 3);
+    this.ondas.count = ONDAS;
+    this.vivas = Array.from({ length: ONDAS }, () => ({ t: 1, dur: 1, x: 0, y: 0, z: 0, r0: 0, r1: 0, forca: 0 }));
+    this.proxima = 0;
+    this.pes = new WeakMap();   // quem anda → onde estava e quanto andou desde o último anel
+    this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._v = new THREE.Vector3(); this._s = new THREE.Vector3(); this._gota = new THREE.Vector3();
+    for (let i = 0; i < ONDAS; i++) { this.ondas.setMatrixAt(i, this._m.makeScale(0, 0, 0)); this.ondas.instanceColor.setXYZ(i, 0, 0, 0); }
+    game.scene.add(this.ondas);
     const gFolha = geometriaDaFolha(), gFlor = geometriaDaFlor();
     const matPlanta = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
 
@@ -150,5 +173,66 @@ export class Agua {
     }
   }
 
-  update(dt) { this.tempo.value += dt; }
+  /** Um anel na superfície, em (x, z): abre de `r0` a `r1` metros em `dur` segundos. */
+  onda(x, y, z, r0, r1, dur, forca = 1) {
+    const o = this.vivas[this.proxima];
+    this.proxima = (this.proxima + 1) % ONDAS;
+    o.t = 0; o.dur = dur; o.x = x; o.y = y; o.z = z; o.r0 = r0; o.r1 = r1; o.forca = forca;
+  }
+
+  /** Quem está em `pos` mexeu na água? Anéis e gotas conforme andou, entrou ou está parado. */
+  pisar(quem, pos, dt, raio = 0.4) {
+    const w = this.game.world, fundo = w.fundoDaAgua(pos.x, pos.z);
+    let p = this.pes.get(quem);
+    if (!p) this.pes.set(quem, p = { x: pos.x, z: pos.z, andou: 0, parado: 0, dentro: false });
+    const passo = Math.hypot(pos.x - p.x, pos.z - p.z);
+    p.x = pos.x; p.z = pos.z;
+    // fora d'água, no ar (um salto) ou "teleportado" (mais de 3 m num quadro): nada
+    const dentro = fundo > 0.04 && pos.y - w.alturaChao(pos) < 0.35 && passo < 3;
+    if (!dentro) { p.dentro = false; p.andou = 0; return; }
+    const nivel = pos.y + fundo + 0.012, vel = passo / Math.max(dt, 1e-3);
+    if (!p.dentro) {                       // ENTROU: o respingo maior
+      p.dentro = true;
+      this.onda(pos.x, nivel, pos.z, raio * 0.6, raio * 3.6, 1.1, 1);
+      this.game.effects.burst(this._gota.set(pos.x, nivel + 0.05, pos.z), { count: 10, color: [0.8, 0.95, 1], speed: 2.6, size: 0.07, life: 0.5, gravity: 9, up: 2.2, spread: 1.2 });
+    }
+    p.andou += passo;
+    if (p.andou > 0.8) {                   // ANDANDO: um anel a cada 80 cm, gotas (mais se corre ou rola)
+      p.andou = 0; p.parado = 0;
+      const forte = Math.min(1, vel / 6);
+      this.onda(pos.x, nivel, pos.z, raio * 0.4, raio * (2 + forte * 1.6), 0.75 + forte * 0.3, 0.55 + forte * 0.45);
+      this.game.effects.burst(this._gota.set(pos.x, nivel + 0.04, pos.z), { count: 3 + Math.round(forte * 6), color: [0.8, 0.95, 1], speed: 1.4 + forte * 1.8, size: 0.06, life: 0.38, gravity: 9, up: 1.3 + forte * 1.2, spread: 1 });
+    } else if (vel < 0.3 && (p.parado += dt) > 1.7) {   // PARADO: um anel devagar de vez em quando
+      p.parado = 0;
+      this.onda(pos.x, nivel, pos.z, raio * 0.7, raio * 2.2, 1.6, 0.35);
+    }
+  }
+
+  update(dt) {
+    this.tempo.value += dt;
+    if (!this.ondas) return;
+    // a luz própria da água, pela hora: de dia clara, de noite quase nada
+    const h = horaDoMundo(), dia = Math.max(0, Math.min(1, Math.sin(((h - 5.5) / 13) * Math.PI) * 1.6));
+    this.mat.emissiveIntensity = 0.05 + 0.4 * dia;
+    // quem pode estar na água: o jogador, os outros jogadores, e os inimigos e bichos de perto
+    const g = this.game, eu = g.player.pos;
+    this.pisar(g.player, eu, dt);
+    for (const o of g.sessao?.outros ?? []) if (o?.pos) this.pisar(o, o.pos, dt);
+    for (const e of g.all) {
+      if (!e || !e.active || e.dead || !e.pos || Math.abs(e.pos.x - eu.x) > PERTO || Math.abs(e.pos.z - eu.z) > PERTO) continue;
+      this.pisar(e, e.pos, dt, Math.max(0.35, e.radius ?? 0.4));
+    }
+    // os anéis: crescem freando e somem
+    const cor = this.ondas.instanceColor;
+    for (let i = 0; i < ONDAS; i++) {
+      const o = this.vivas[i];
+      if (o.t >= 1) continue;
+      o.t = Math.min(1, o.t + dt / o.dur);
+      const k = 1 - (1 - o.t) * (1 - o.t), r = o.t >= 1 ? 0 : o.r0 + (o.r1 - o.r0) * k, luz = (1 - o.t) * 0.42 * o.forca * (0.25 + 0.75 * dia);
+      this.ondas.setMatrixAt(i, this._m.compose(this._v.set(o.x, o.y, o.z), this._q, this._s.set(r, 1, r)));
+      cor.setXYZ(i, luz, luz, luz);
+    }
+    this.ondas.instanceMatrix.needsUpdate = true;
+    cor.needsUpdate = true;
+  }
 }
