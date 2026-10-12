@@ -1,3 +1,4 @@
+// (Também o LAGUINHO das colinas — ver `LAGOAS` —, desde a 2026-10-11.14.)
 // OS CENÁRIOS DA PLANÍCIE NORTE DAS WINDHILLS (11/10/2026) — a LAGOA de água rasa (com a ilhota
 // de pedra no meio) e o POSTO dos mercadores na margem sul. No jeito das referências que o dono
 // do projeto trouxe: enseada de água turquesa, areia, juncos, pedras, e um acampamento de tendas.
@@ -17,7 +18,17 @@
 import fs from 'node:fs';
 
 const CELL = 6, S = 1.5;
-const LAGOA = { nome: 'lagoa', cx: 446, cz: 27, rx: 30, rz: 15, nivel: -0.3, fundo: 0.7 };   // metros
+// (metros; `juncos`/`pedras`/`seixos` = quantos grupos de cada; `abrir` = células de ROCHA que viram
+// chão antes de cavar — [[linha de, até], [coluna de, até]])
+const LAGOAS = [
+  { nome: 'lagoa', cx: 446, cz: 27, rx: 30, rz: 15, nivel: -0.3, fundo: 0.7, juncos: 34, pedras: 26, seixos: 16, ilhota: true },
+  // o LAGUINHO: era um VÃO no meio das colinas (um bloco de 3 × 3 células de rocha, sem chão
+  // nenhum — via-se o fundo do céu); as células viraram chão e o buraco, um poço d'água
+  { nome: 'laguinho', cx: 528, cz: 108, rx: 7.6, rz: 7.6, nivel: -0.3, fundo: 0.6, juncos: 13, pedras: 9, seixos: 4, abrir: [[17, 19], [87, 89]], abrirMargem: true },
+];
+let LAGOA = LAGOAS[0];      // a da vez (a forma, o teto e a margem abaixo são dela)
+/** A lagoa mais perto de (x, z), pela distância da forma de cada uma. */
+const aMaisPerto = (x, z) => { let melhor = LAGOAS[0], d = Infinity; for (const L of LAGOAS) { LAGOA = L; const dd = dist(x, z); if (dd < d) { d = dd; melhor = L; } } return (LAGOA = melhor); };
 const POSTO = { cx: 458, cz: 51, raio: 10 };
 
 const arqMapa = 'assets/mapa.json', arqDecor = 'assets/decor.json';
@@ -25,6 +36,12 @@ const mapa = JSON.parse(fs.readFileSync(arqMapa, 'utf8'));
 const linhasDoMapa = mapa.mapas.floresta, rel = mapa.relevo.floresta, pp = rel.passo;
 const ch = (r, c) => linhasDoMapa[r]?.[c] ?? '#';
 const chEm = (x, z) => ch(Math.round(z / CELL), Math.round(x / CELL));
+
+for (const L of LAGOAS) for (let r = L.abrir?.[0][0] ?? 1; r <= (L.abrir?.[0][1] ?? 0); r++) {
+  const l = linhasDoMapa[r].split('');
+  for (let c = L.abrir[1][0]; c <= L.abrir[1][1]; c++) if (l[c] === '#') l[c] = 'f';
+  linhasDoMapa[r] = l.join('');
+}
 
 let semente = 20261013;
 const rnd = () => ((semente = (semente * 1664525 + 1013904223) >>> 0) / 4294967296);
@@ -45,7 +62,7 @@ const paraFora = (x, z, d) => {       // o ponto na mesma direção, na distânc
 const PRAIA = 1.28;      // até onde vai a praia (na distância da forma)
 const teto = (d) => d < 1 ? LAGOA.nivel - LAGOA.fundo * (1 - d * d) ** 0.7 : LAGOA.nivel + ((d - 1) / (PRAIA - 1)) * 0.42;
 let cavados = 0;
-for (let i = Math.floor((LAGOA.cx - LAGOA.rx * 1.6) / pp); i <= Math.ceil((LAGOA.cx + LAGOA.rx * 1.6) / pp); i++) {
+for (LAGOA of LAGOAS) for (let i = Math.floor((LAGOA.cx - LAGOA.rx * 1.6) / pp); i <= Math.ceil((LAGOA.cx + LAGOA.rx * 1.6) / pp); i++) {
   for (let k = Math.floor((LAGOA.cz - LAGOA.rz * 1.6) / pp); k <= Math.ceil((LAGOA.cz + LAGOA.rz * 1.6) / pp); k++) {
     const x = i * pp, z = k * pp, d = dist(x, z);
     if (d >= PRAIA) continue;
@@ -59,8 +76,8 @@ const relevo = (x, z) => {
   return no(i, k) * (1 - tx) * (1 - tz) + no(i + 1, k) * tx * (1 - tz) + no(i, k + 1) * (1 - tx) * tz + no(i + 1, k + 1) * tx * tz;
 };
 mapa.agua = { ...(mapa.agua ?? {}), _leiame: 'Os espelhos d\'agua de cada variante (js/agua.js): o nivel (m) e a caixa [x0, z0, x1, z1] em metros. A agua aparece onde o chao da caixa esta abaixo do nivel. Gravado por ferramentas/cenarios/lagoa.mjs.' };
-mapa.agua.floresta = [{ nome: LAGOA.nome, nivel: LAGOA.nivel,
-  caixa: [LAGOA.cx - LAGOA.rx * 1.25, LAGOA.cz - LAGOA.rz * 1.3, LAGOA.cx + LAGOA.rx * 1.25, LAGOA.cz + LAGOA.rz * 1.3].map((v) => Math.round(v)) }];
+mapa.agua.floresta = LAGOAS.map((L) => ({ nome: L.nome, nivel: L.nivel,
+  caixa: [L.cx - L.rx * 1.25, L.cz - L.rz * 1.3, L.cx + L.rx * 1.25, L.cz + L.rz * 1.3].map((v) => Math.round(v)) }));
 
 // ---- o decor.json, linha a linha
 const texto = fs.readFileSync(arqDecor, 'utf8'), fimDeLinha = texto.includes('\r\n') ? '\r\n' : '\n';
@@ -68,7 +85,7 @@ const todas = texto.split(/\r?\n/);
 const eItem = (l) => /^\s*\{"prop"/.test(l);
 const a = todas.findIndex(eItem), b = todas.findLastIndex(eItem);
 let itens = todas.slice(a, b + 1).filter(eItem).map((l) => ({ linha: l.replace(/,\s*$/, ''), d: JSON.parse(l.replace(/,\s*$/, '')) }));
-itens = itens.filter((x) => x.d.de !== 'lagoa' && x.d.de !== 'posto');       // as de uma rodada anterior
+itens = itens.filter((x) => x.d.de !== 'posto' && !LAGOAS.some((L) => L.nome === x.d.de));       // as de uma rodada anterior
 
 const lugar = (d) => [d.cel[1] * CELL + (d.off?.[0] ?? 0) * S, d.cel[0] * CELL + (d.off?.[1] ?? 0) * S];
 const arr = (v) => { const n = Math.round(v * 1000) / 1000; return Object.is(n, -0) ? 0 : n; };
@@ -86,11 +103,25 @@ const TENDAS = [[449, 53.5, 0.35], [458.5, 55.5, 0], [468, 53, -0.4]];     // x,
 const noPosto = (x, z, folga) => TENDAS.some(([tx, tz]) => Math.hypot(x - tx, z - tz) < folga);
 let movidas = 0, juncos = 0;
 for (const it of itens) {
-  const d = it.d, [x, z] = lugar(d), dd = dist(x, z);
+  const d = it.d, [x, z] = lugar(d);
+  aMaisPerto(x, z);
+  const dd = dist(x, z);
   const arvore = /Tree(?!Stump)/.test(d.prop), moita = /Bush/.test(d.prop), flor = d.prop.startsWith('gi-'), pedra = /(^|-)Rock_/.test(d.prop);
   if (!arvore && !moita && !flor && !pedra) continue;
   let nx = null, nz = null;
-  if (dd < 1.04 && !pedra && !d.solta) {
+  // a MARGEM FECHADA (`abrirMargem`): o laguinho era um bloco de rocha cercado de árvores e
+  // pedras grandes — a cerca que escondia o vão. Metade das árvores do anel (as de índice par)
+  // vai para mais longe e as pedras gigantes encolhem: dá para ver e chegar à água
+  if (LAGOA.abrirMargem && !d.solta && dd >= 1.04 && dd < 1.85) {
+    if (pedra && (d.escala ?? 1) > 1.3) { d.escala = 1.1; it.linha = linhaDe(d); movidas++; continue; }
+    if ((arvore || moita) && itens.indexOf(it) % 2 === 0) {
+      for (let t = 0; t < 20 && nx === null; t++) {
+        const [px, pz] = paraFora(x + entre(-2, 2), z + entre(-2, 2), entre(2.1, 2.8));
+        if (chEm(px, pz) === 'f' && dist(px, pz) >= 1.9) { nx = px; nz = pz; }
+      }
+    }
+  }
+  if (nx !== null) { /* já tem destino */ } else if (dd < 1.04 && !pedra && !d.solta) {
     if (flor && dd > 0.84) {                       // a flor da beirada vira junco (fica na água rasa)
       if (!/Grass_Reed|HorseTail/.test(d.prop)) { d.prop = rnd() < 0.65 ? 'gi-Grass_Reed' : 'gi-HorseTail'; d.escala = +(d.prop.endsWith('Reed') ? entre(0.95, 1.3) : entre(0.6, 0.8)).toFixed(2); it.linha = linhaDe(d); juncos++; }
       continue;
@@ -123,38 +154,42 @@ const por = (de, prop, x, z, { giro = entre(0, Math.PI * 2), escala = 1, colisao
   d.colisao = +colisao.toFixed(2); d.de = de;
   novas.push(d);
 };
-// a LAGOA: juncos em touceiras na água rasa, pedras na beira e dentro, seixos na areia
-for (let n = 0; n < 34; n++) {
-  const g = entre(0, Math.PI * 2), [x, z] = paraFora(LAGOA.cx + Math.cos(g) * 10, LAGOA.cz + Math.sin(g) * 10, entre(0.86, 1.0));
+// cada LAGOA: juncos em touceiras na água rasa, pedras na beira e dentro, seixos na areia
+for (LAGOA of LAGOAS) {
+const raio = Math.min(10, LAGOA.rx * 0.5);
+for (let n = 0; n < LAGOA.juncos; n++) {
+  const g = entre(0, Math.PI * 2), [x, z] = paraFora(LAGOA.cx + Math.cos(g) * raio, LAGOA.cz + Math.sin(g) * raio, entre(0.86, 1.0));
   if (chEm(x, z) !== 'f' || noPosto(x, z, 9)) continue;
   for (let k = Math.floor(entre(2, 5.5)); k > 0; k--) {
     const px = x + entre(-1.3, 1.3), pz = z + entre(-1.3, 1.3);
     if (chEm(px, pz) !== 'f' || dist(px, pz) > 1.03) continue;
-    rnd() < 0.7 ? por('lagoa', 'gi-Grass_Reed', px, pz, { escala: entre(0.95, 1.4) }) : por('lagoa', 'gi-HorseTail', px, pz, { escala: entre(0.6, 0.85) });
+    rnd() < 0.7 ? por(LAGOA.nome, 'gi-Grass_Reed', px, pz, { escala: entre(0.95, 1.4) }) : por(LAGOA.nome, 'gi-HorseTail', px, pz, { escala: entre(0.6, 0.85) });
   }
 }
 const PEDRAS = ['lp-Rock_2', 'lp-Rock_4', 'lp-Rock_5', 'lp-Rock_N1', 'lp-Rock_N2', 'lp-Rock_N5', 'lp-Rock_N6', 'lp-Rock_N8', 'lp-Rock_N9', 'lp-Rock_N10'];
-for (let n = 0; n < 26; n++) {
-  const g = entre(0, Math.PI * 2), [x, z] = paraFora(LAGOA.cx + Math.cos(g) * 10, LAGOA.cz + Math.sin(g) * 10, rnd() < 0.35 ? entre(0.3, 0.8) : entre(0.92, 1.12));
+for (let n = 0; n < LAGOA.pedras; n++) {
+  const g = entre(0, Math.PI * 2), [x, z] = paraFora(LAGOA.cx + Math.cos(g) * raio, LAGOA.cz + Math.sin(g) * raio, rnd() < 0.35 ? entre(0.3, 0.8) : entre(0.92, 1.12));
   if (chEm(x, z) !== 'f' || noPosto(x, z, 8)) continue;
   const grande = rnd() < 0.3;
-  por('lagoa', um(PEDRAS), x, z, { escala: grande ? entre(0.5, 0.85) : entre(0.16, 0.36), colisao: grande ? 1 : 0 });
-  if (grande) for (let k = Math.floor(entre(1, 3.5)); k > 0; k--) por('lagoa', um(PEDRAS), x + entre(-2.2, 2.2), z + entre(-2.2, 2.2), { escala: entre(0.1, 0.22) });
+  por(LAGOA.nome, um(PEDRAS), x, z, { escala: grande ? entre(0.5, 0.85) * Math.min(1, LAGOA.rx / 14) : entre(0.16, 0.36), colisao: grande && LAGOA.rx > 14 ? 1 : 0 });
+  if (grande) for (let k = Math.floor(entre(1, 3.5)); k > 0; k--) por(LAGOA.nome, um(PEDRAS), x + entre(-2.2, 2.2), z + entre(-2.2, 2.2), { escala: entre(0.1, 0.22) });
 }
-for (let n = 0; n < 16; n++) {
-  const g = entre(0, Math.PI * 2), [x, z] = paraFora(LAGOA.cx + Math.cos(g) * 10, LAGOA.cz + Math.sin(g) * 10, entre(1.05, 1.22));
-  if (chEm(x, z) === 'f' && !noPosto(x, z, 6)) por('lagoa', `lp-Rock_Seixos_${1 + Math.floor(rnd() * 4)}`, x, z, { escala: entre(0.6, 0.95) });
+for (let n = 0; n < LAGOA.seixos; n++) {
+  const g = entre(0, Math.PI * 2), [x, z] = paraFora(LAGOA.cx + Math.cos(g) * raio, LAGOA.cz + Math.sin(g) * raio, entre(1.05, 1.22));
+  if (chEm(x, z) === 'f' && !noPosto(x, z, 6)) por(LAGOA.nome, `lp-Rock_Seixos_${1 + Math.floor(rnd() * 4)}`, x, z, { escala: entre(0.6, 0.95) });
 }
 // a ILHOTA: as células de rocha no meio da lagoa viram um rochedo (pedras altas, a base dentro d'água)
 const ALTAS = ['lp-Rock_N3', 'lp-Rock_N4', 'lp-Rock_6', 'lp-Rock_N2'];
-for (let r = 0; r < linhasDoMapa.length; r++) for (let c = 55; c < linhasDoMapa[r].length; c++) {
+if (LAGOA.ilhota) for (let r = 0; r < linhasDoMapa.length; r++) for (let c = 55; c < linhasDoMapa[r].length; c++) {
   if (ch(r, c) === 'f' || dist(c * CELL, r * CELL) > 1.1) continue;
   for (let k = 0; k < 3; k++) {
     const prop = k === 0 ? um(ALTAS.slice(0, 3)) : um(ALTAS);
-    por('lagoa', prop, c * CELL + entre(-2.4, 2.4), r * CELL + entre(-2.4, 2.4), { escala: k === 0 ? entre(1.2, 1.7) : entre(0.7, 1.15), y: -0.5 / S });
+    por(LAGOA.nome, prop, c * CELL + entre(-2.4, 2.4), r * CELL + entre(-2.4, 2.4), { escala: k === 0 ? entre(1.2, 1.7) : entre(0.7, 1.15), y: -0.5 / S });
   }
-  por('lagoa', um(PEDRAS), c * CELL + entre(-3.4, 3.4), r * CELL + entre(-3.4, 3.4), { escala: entre(0.5, 0.9), y: -0.4 / S });
+  por(LAGOA.nome, um(PEDRAS), c * CELL + entre(-3.4, 3.4), r * CELL + entre(-3.4, 3.4), { escala: entre(0.5, 0.9), y: -0.4 / S });
 }
+}
+LAGOA = LAGOAS[0];
 
 // o POSTO dos mercadores: três tendas em arco viradas para a lagoa, a carga no meio, o caminho de pedras até a água
 for (const [x, z, giro] of TENDAS) {
@@ -207,4 +242,4 @@ const conta = {};
 for (const d of novas) conta[d.de] = (conta[d.de] ?? 0) + 1;
 console.log(`bacia: ${cavados} pontos abaixados · ${movidas} peças tiradas da água e do posto · ${juncos} flores viraram junco`);
 console.log(`peças novas: ${Object.entries(conta).map(([k, v]) => `${k} ${v}`).join(', ')} · ${itens.length + novas.length} itens ao todo`);
-console.log(`fundo mais baixo: ${Math.min(...Object.values(rel.pontos)).toFixed(2)} m · água em ${LAGOA.nivel} m`);
+console.log(`fundo mais baixo: ${Math.min(...Object.values(rel.pontos)).toFixed(2)} m · ${LAGOAS.length} espelhos d'água`);

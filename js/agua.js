@@ -157,7 +157,8 @@ export class Agua {
       let s = (Math.round(x0 * 31 + z0 * 17) >>> 0) || 7;
       const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
       const folhas = [], flores = [], m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), t = new THREE.Vector3();
-      for (let n = 0; n < 60 && folhas.length < 70; n++) {
+      const maxFolhas = Math.min(70, Math.round(((x1 - x0) * (z1 - z0)) / 26));   // pelo tamanho do espelho
+      for (let n = 0; n < 60 && folhas.length < maxFolhas; n++) {
         const gx = x0 + rnd() * (x1 - x0), gz = z0 + rnd() * (z1 - z0);
         for (let k = 2 + Math.floor(rnd() * 5); k > 0; k--) {
           const x = gx + (rnd() - 0.5) * 3.4, z = gz + (rnd() - 0.5) * 3.4, f = w.fundoDaAgua(x, z), r = 0.32 + rnd() * 0.3, giro = rnd() * Math.PI * 2, flor = rnd() < 0.3;
