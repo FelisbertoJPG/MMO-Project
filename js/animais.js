@@ -121,7 +121,11 @@ class ModeloAnimal {
   }
 
   flash(on) { this.mats.forEach((m, i) => { if (m.emissive) { if (on) m.emissive.setRGB(0.35, 0.12, 0.1); else m.emissive.copy(this.brilho[i]); } }); }
-  update(dt) { this.mixer.update(dt); }
+  update(dt) {
+    // escondido pelo LOD (`oculto`, lod.js): a animação a cada 4 quadros, com o tempo acumulado
+    if (this.oculto) { this._pendente = (this._pendente ?? 0) + dt; if ((this._salto = ((this._salto ?? 0) + 1) % 4)) return; dt = this._pendente; this._pendente = 0; }
+    this.mixer.update(dt);
+  }
 }
 
 export class Animal {

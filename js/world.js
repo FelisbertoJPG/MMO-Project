@@ -1182,7 +1182,11 @@ export class World {
       // que projeta sombra num raio de 24 m SEIS vezes (as faces do cubo) — eram ~2.200
       // chamadas a mais por quadro no Alto, e a sombra de um tufo de capim mal se vê. Piso e
       // pedra de caminho também não: são chatos, não fazem sombra que se veja
-      im.castShadow = malha.castShadow && grupo.raioPeca >= 1.2 && !/^floor|RockPath|PathRocks/.test(grupo.prop);
+      // E SÓ ÁRVORE E PEÇA GRANDE (11/10/2026): com a sombra do sol, cada lote que projeta sombra é
+      // uma chamada a mais por quadro (e seis com a tocha). Numa GT 730 as sombras eram 575 das
+      // 1.007 chamadas, e o limite era a CPU montando chamadas. Flores, juncos, trigo (`gi-`),
+      // moitas e pedras médias saíram: a sombra delas mal se vê no capim
+      im.castShadow = malha.castShadow && !/^floor|RockPath|PathRocks|^gi-|Bush/.test(grupo.prop) && (/Tree(?!Stump)/.test(grupo.prop) ? grupo.raioPeca >= 1.2 : grupo.raioPeca >= 2.2);
       im.receiveShadow = malha.receiveShadow;
       im.computeBoundingSphere();
       this.scene.add(im);

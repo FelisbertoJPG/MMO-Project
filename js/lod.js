@@ -280,6 +280,7 @@ export class LOD {
       const oculto = d > PERSONAGEM_LONGE + folga || (dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
       if (oculto === e.__lodOculto) continue;
       e.__lodOculto = oculto;
+      if (e.model) e.model.oculto = oculto;   // a animação dele passa a rodar a cada 4 quadros (character.js, animais.js)
       // malhas que entraram no modelo depois (arma trocada, armadura) também
       raiz.traverse((o) => { if (o.isMesh && !e.__lodMalhas.includes(o)) e.__lodMalhas.push(o); });
       for (const o of e.__lodMalhas) o.layers.set(oculto ? 31 : 0);

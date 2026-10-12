@@ -170,6 +170,9 @@ export class CharacterModel {
   setEmissive(r, g, b) { for (const m of this.flashMats) m.emissive.setRGB(r, g, b); }
 
   update(dt) {
+    // ESCONDIDO pelo LOD (longe, ou do outro lado da masmorra: `oculto`, lod.js): ninguém o vê,
+    // então a animação roda a cada 4 quadros com o tempo acumulado (o relógio do clipe não atrasa)
+    if (this.oculto) { this._pendente = (this._pendente ?? 0) + dt; if ((this._salto = ((this._salto ?? 0) + 1) % 4)) return; dt = this._pendente; this._pendente = 0; }
     this.mixer.update(dt);
     const meta = this.duasMaos && this.slotR ? 1 : 0;
     this.pesoDuasMaos += (meta - this.pesoDuasMaos) * Math.min(1, dt * 10);

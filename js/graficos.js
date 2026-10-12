@@ -36,7 +36,10 @@ export const QUALIDADES = {
     // no outro — o personagem "flicava" no Médio. Depois de os personagens longe saírem da
     // sombra (lod.js) ela ficou ~7× mais barata: todo quadro custou 0,8 quadro/s.
     sombra: { mapa: 256, aCada: 1 }, tipoSombra: THREE.PCFShadowMap,
-    sol: { mapa: 1024, raio: 32 },
+    // a sombra do SOL é só do Alto (11/10/2026): ela redesenha tudo o que projeta sombra em volta do
+    // jogador a cada quadro, e nas máquinas do Médio o limite é a CPU montando chamadas de desenho
+    // (GT 730: 14 quadros/s com ela, a 40% da resolução). Aqui fica a da tocha, como sempre foi.
+    sol: null,
     luzes: 5, luzesFora: 3, filtroDeCor: true, particulas: 0.7, capim: 34,
     nuvens: 4, reflexoS: 8, clarao: true,
     impostor: 90, limiarPx: 2.5,
@@ -267,7 +270,15 @@ export class Graficos {
     this.ajustarResolucao();
     // a sombra do sol só é redesenhada ao AR LIVRE (dentro da masmorra a luz dele é 0)
     const amb = this.game.world?.ambience, sol = amb?.lua;
-    if (sol?.castShadow) { sol.shadow.autoUpdate = false; if (amb.k > 0.02 && sol.intensity > 0 && !this.solParado) sol.shadow.needsUpdate = true; }   // `solParado`: o teste do lugar do monitor
+    // E SÓ DE DIA (11/10/2026): de noite a luz da lua é fraca, a sombra dela quase não se vê, e é
+    // justo quando a tocha está acesa (outra sombra, seis vistas). A força da sombra acompanha o
+    // dia (`shadow.intensity`, um número: não recompila); em zero, ela nem é redesenhada.
+    if (sol?.castShadow) {
+      const forca = Math.max(0, Math.min(1, ((amb.ceu?.dia ?? 1) - 0.12) / 0.25));
+      sol.shadow.intensity = forca;
+      sol.shadow.autoUpdate = false;
+      if (forca > 0 && amb.k > 0.02 && sol.intensity > 0 && !this.solParado) sol.shadow.needsUpdate = true;   // `solParado`: o teste do lugar do monitor
+    }
     const luz = this.game.player?.torchLight, s = this.comSombras && this.q.sombra;
     if (!luz || !s) return;
     this.quadro++;

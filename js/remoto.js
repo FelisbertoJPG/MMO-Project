@@ -213,8 +213,10 @@ export class JogadorRemoto {
     for (const m of this.mats) {
       const o = (m.userData.opacidadeBase ?? 1) * this.opacidade;
       m.opacity = o;
-      // sólido só fica transparente enquanto aparece/some
-      if ((m.userData.opacidadeBase ?? 1) >= 1) { m.transparent = o < 0.99; m.depthWrite = o >= 0.99; }
+      // o SÓLIDO não fica transparente nem enquanto aparece/some (11/10/2026): transparente é
+      // OUTRO shader, compilado na hora em que o primeiro jogador chegava — trancos de 1,2 a 1,4 s
+      // numa GT 730 ("compilou 2 shaders: MeshStandardMaterial, Guerreiro"). Ele aparece de uma vez.
+      if ((m.userData.opacidadeBase ?? 1) >= 1) { m.opacity = 1; m.transparent = false; m.depthWrite = true; }
     }
     if (this.etiqueta) this.etiqueta.material.opacity = this.opacidade * 0.85;
     this.model.root.visible = this.opacidade > 0.01;

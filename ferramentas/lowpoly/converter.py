@@ -36,7 +36,7 @@ def opaco(m):
     bsdf.inputs['Metallic'].default_value = 0
 
 
-def gravar(nome, malhas, pe_no_tronco=False, clarear=False):
+def gravar(nome, malhas, pe_no_tronco=False, clarear=False, um_material=False):
     """Junta as malhas, põe o pé na origem e grava `<nome>.glb`."""
     bpy.ops.object.select_all(action='DESELECT')
     for o in malhas:
@@ -67,12 +67,39 @@ def gravar(nome, malhas, pe_no_tronco=False, clarear=False):
         if clarear and cor and not cor.links and max(cor.default_value[:3]) < CINZA_MIN:
             k = CINZA_MIN / max(cor.default_value[:3])
             cor.default_value = [c * k for c in cor.default_value[:3]] + [1]
+    # UM MATERIAL SÓ (as árvores: tronco e copas eram 2 ou 3 materiais = 2 ou 3 chamadas de desenho
+    # por lote de árvores, e outras tantas em cada sombra): a cor de cada material vai para os
+    # VÉRTICES das faces dele, e a malha fica com um material branco que as lê
+    if um_material and len(o.data.materials) > 1:
+        me = o.data
+        cores = []
+        for m in me.materials:
+            bsdf = next((n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+            cores.append(tuple(bsdf.inputs['Base Color'].default_value[:3]) if bsdf else (1, 1, 1))
+        at = me.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER')
+        for p in me.polygons:
+            c = cores[p.material_index]
+            for l in p.loop_indices:
+                at.data[l].color = (c[0], c[1], c[2], 1.0)
+            p.material_index = 0
+        me.color_attributes.active_color = at
+        unico = bpy.data.materials.new('lp_arvore')
+        unico.use_nodes = True
+        b = next(n for n in unico.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+        b.inputs['Roughness'].default_value = 1
+        b.inputs['Metallic'].default_value = 0
+        no = unico.node_tree.nodes.new('ShaderNodeVertexColor')
+        no.layer_name = 'Col'
+        unico.node_tree.links.new(no.outputs['Color'], b.inputs['Base Color'])
+        unico.use_backface_culling = True
+        me.materials.clear()
+        me.materials.append(unico)
     d = o.dimensions
     medidas[nome] = [round(d.x, 3), round(d.z, 3), round(d.y, 3)]     # largura, ALTURA, fundo
     bpy.ops.object.select_all(action='DESELECT')
     o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(SAIDA, nome + '.glb'), export_format='GLB', use_selection=True,
-                              export_yup=True, export_apply=True, export_animations=False, export_image_format='AUTO')
+                              export_yup=True, export_apply=True, export_animations=False, export_image_format='AUTO', export_vertex_color='MATERIAL')
     print('PECA', nome, medidas[nome], 'triângulos', sum(len(p.vertices) - 2 for p in o.data.polygons))
 
 
@@ -80,7 +107,7 @@ def gravar(nome, malhas, pe_no_tronco=False, clarear=False):
 for n in (1, 2, 3):
     limpar()
     bpy.ops.import_scene.fbx(filepath=os.path.join(ENTRADA, f'Tree_{n}.fbx'))
-    gravar(f'lp-Tree_{n}', [o for o in bpy.data.objects if o.type == 'MESH'], pe_no_tronco=True)
+    gravar(f'lp-Tree_{n}', [o for o in bpy.data.objects if o.type == 'MESH'], pe_no_tronco=True, um_material=True)
 for n in range(1, 7):
     limpar()
     bpy.ops.import_scene.fbx(filepath=os.path.join(ENTRADA, f'Rock_{n}.fbx'))
