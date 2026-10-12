@@ -91,7 +91,7 @@ export const lugarDaPeca = (nome) => LUGAR_DA_PECA.find(([, re]) => re.test(nome
 // AS ARMADURAS PINTADAS (casca.js, assets/armaduras.json): o lugar + conjunto que tem
 // desenho NÃO usa as peças do pacote, e sim a casca pintada sobre o corpo
 
-const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
 
 // A MALHA FUNDIDA (03/10/2026). O arquivo traz ~50 peças, cada uma uma SkinnedMesh
 // com o próprio Skeleton de 54 ossos: vestido, um guerreiro eram ~30 chamadas de
@@ -214,6 +214,7 @@ export class CorpoGuerreiro {
       this.indice.set(o, e);
       this.ossos.push(e);
     });
+    this.calibrarDedos();
     this.raizQ = new THREE.Quaternion();   // a orientação da cena do guerreiro no pivot
     this.hips = this.indice.get(cena.getObjectByName('Hips'));
     this.hipRestoU = hipU.clone();
@@ -235,6 +236,42 @@ export class CorpoGuerreiro {
       return { osso, chave, resto: osso.position.clone(), lado };
     });
     this.aplicarRaca();
+  }
+
+  // OS DEDOS (12/10/2026). Na pose do arquivo os dedos do guerreiro NÃO estão retos como
+  // os do manequim: vêm ~40° dobrados (e a palma, virada de outro jeito). Copiar só "o
+  // quanto o osso girou desde a pose T" dobrava por cima do que já estava dobrado — a mão
+  // em garra, os dedos tortos em toda animação. Para os dedos a conta é outra: o dedo do
+  // guerreiro fica, EM RELAÇÃO À PALMA DELE, como o do manequim está em relação à dele.
+  //  - `R`: o giro que leva a palma do manequim à do guerreiro na pose T (a palma = o
+  //    pulso e as bases do indicador, do médio e do mínimo);
+  //  - `c`: o giro que põe o osso do dedo, na pose T, na direção em que o do manequim
+  //    está (visto pela palma) — o "dedo reto" do guerreiro;
+  //  - a cada quadro: dedo = Dmão · R · Dmão⁻¹ · Ddedo · R⁻¹ · c · (dedo na pose T).
+  calibrarDedos() {
+    const porU = new Map(this.ossos.filter((e) => e.u).map((e) => [e.u.name, e]));
+    const P = (m) => new THREE.Vector3().setFromMatrixPosition(m);
+    const palma = (h, i, m, k) => {
+      const x = m.clone().sub(h).normalize(), n = i.clone().sub(h).cross(k.clone().sub(h)).normalize();
+      const y = new THREE.Vector3().crossVectors(n, x).normalize();
+      return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, new THREE.Vector3().crossVectors(x, y)));
+    };
+    for (const l of ['l', 'r']) {
+      const mao = porU.get(`hand_${l}`), bases = ['index', 'middle', 'pinky'].map((d) => porU.get(`${d}_01_${l}`));
+      if (!mao || bases.some((b) => !b)) continue;
+      const R = palma(P(mao.mG), ...bases.map((b) => P(b.mG))).multiply(palma(P(mao.mU), ...bases.map((b) => P(b.mU))).invert());
+      const Rinv = R.clone().invert();
+      mao.D = new THREE.Quaternion();
+      for (const d of ['thumb', 'index', 'middle', 'ring', 'pinky']) for (const f of [1, 2, 3]) {
+        const e = porU.get(`${d}_0${f}_${l}`);
+        // a direção do osso: dele ao seguinte (a ponta usa a do osso anterior até ela)
+        const [de, ate] = f < 3 ? [e, porU.get(`${d}_0${f + 1}_${l}`)] : [porU.get(`${d}_02_${l}`), e];
+        if (!e || !de || !ate) continue;
+        const dG = P(ate.mG).sub(P(de.mG)).normalize(), dU = P(ate.mU).sub(P(de.mU)).normalize().applyQuaternion(R);
+        const c = new THREE.Quaternion().setFromUnitVectors(dG, dU);
+        e.dedo = { mao, R, K: Rinv.clone().multiply(c).multiply(e.tG) };
+      }
+    }
   }
 
   /** a raça do código vestido (null = humano) */
@@ -274,14 +311,15 @@ export class CorpoGuerreiro {
     });
     // os nossos desenhos entram como mais peças da malha fundida
     LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas)); });
+    // o que a RAÇA acrescenta (as presas e as orelhas do orc)
+    // (na FRENTE da lista: as de pele são tingidas por último, com a razão de cor do corpo)
+    if (this.raca) usadas.unshift(...pecasDaRaca(this.raca, this.pecas));
     // a APARÊNCIA: as peças de pele, cabelo, barba e olhos tingidas (ou fora: sem cabelo/barba)
     if (aparenciaValida(aparencia)) for (let i = usadas.length - 1; i >= 0; i--) {
-      if (!usadas[i].isSkinnedMesh) continue;
+      if (!usadas[i].isSkinnedMesh && !usadas[i].pele) continue;
       const t = tingir(usadas[i], aparencia);
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
-    // o que a RAÇA acrescenta (as presas do orc)
-    if (this.raca) usadas.push(...pecasDaRaca(this.raca, this.pecas));
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     // (uma peça TINGIDA tem cor mas guarda o material da original, que pode ser o sem cor
     // de vértice — nu, só com a aparência, a cor não aparecia: vale o material com cor)
@@ -323,7 +361,10 @@ export class CorpoGuerreiro {
       if (e.u) {
         // D = (UAL agora) · (UAL na pose T)⁻¹, e o guerreiro = D · (guerreiro na pose T)
         _m.multiplyMatrices(this.pivoInv, e.u.matrixWorld).decompose(_v, _q, _s);
-        e.agora.copy(_q).multiply(e.tUinv).multiply(e.tG);
+        _q.multiply(e.tUinv);   // D: o giro desde a pose T
+        if (e.D) e.D.copy(_q);  // (a mão guarda o dela: os dedos são medidos pela palma)
+        if (e.dedo) e.agora.copy(e.dedo.mao.D).multiply(e.dedo.R).multiply(_q2.copy(e.dedo.mao.D).invert()).multiply(_q).multiply(e.dedo.K);
+        else e.agora.copy(_q).multiply(e.tG);
         e.osso.quaternion.copy(paiQ).invert().multiply(e.agora);
       } else {
         e.agora.copy(paiQ).multiply(e.restoLocal);

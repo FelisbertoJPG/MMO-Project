@@ -21,11 +21,12 @@
         "quadril": 1.2,
         "bracos": 1.4,
         "antebracos": 1.35,
-        "maos": 1.25,
+        "maos": 1.14,
         "coxas": 1.3,
         "canelas": 1.25,
         "pes": 1.2,
-        "presas": 1
+        "presas": 1,
+        "orelhas": 1
       }
     }
   ]
