@@ -936,9 +936,41 @@ export class World {
     c.root.rotation.y = yaw;
     c.pose('Death01', 2.38);
     this.scene.add(c.root);
+    this.congelar(c);
     // o LOD (lod.js, `personagens`) corta o desenho dele como o dos inimigos
     (this.cadaveres ??= []).push({ model: c, pos: c.root.position });
     return c;
+  }
+
+  /**
+   * O CADÁVER VIRA ESTÁTUA (11/10/2026): ele é um boneco inteiro (65 ossos, 5 malhas com ossos)
+   * parado para sempre na pose de morto — e, como todo boneco, tinha os ossos percorridos e
+   * mandados à placa a cada quadro. Eram 16 cadáveres = 1.040 ossos e 1.870 objetos na cena, e
+   * na sala da fogueira da masmorra (onde há vários à vista) o quadro pesava mais que nos
+   * corredores. Aqui cada malha é "assada" na pose (os vértices já no lugar que os ossos
+   * dariam) e vira uma malha comum; o esqueleto sai da cena.
+   */
+  congelar(c) {
+    c.root.updateMatrixWorld(true);
+    const inv = c.root.matrixWorld.clone().invert(), v = new THREE.Vector3(), novas = [], soltas = [];
+    c.root.traverse((o) => {
+      if (!o.isMesh) return;
+      let visivel = true; for (let p = o; p && p !== c.root.parent; p = p.parent) if (!p.visible) visivel = false;
+      if (!visivel) return;
+      if (!o.isSkinnedMesh) { soltas.push(o); return; }
+      const g = o.geometry.clone(), pos = g.attributes.position, m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      for (let i = 0; i < pos.count; i++) { o.applyBoneTransform(i, v.fromBufferAttribute(pos, i)); v.applyMatrix4(m); pos.setXYZ(i, v.x, v.y, v.z); }
+      g.deleteAttribute('skinIndex'); g.deleteAttribute('skinWeight');
+      g.computeVertexNormals(); g.computeBoundingSphere(); g.computeBoundingBox();
+      const malha = new THREE.Mesh(g, o.material);
+      malha.name = o.name; malha.castShadow = o.castShadow; malha.receiveShadow = o.receiveShadow;
+      novas.push(malha);
+    });
+    for (const o of soltas) c.root.attach(o);          // peça rígida (presa a um osso): fica onde está
+    for (const f of [...c.root.children]) if (!soltas.includes(f)) c.root.remove(f);
+    for (const m of novas) c.root.add(m);
+    c.root.traverse((o) => { o.matrixAutoUpdate = false; o.updateMatrix(); });
+    c.root.updateMatrixWorld(true);
   }
 
   addPickup(itemId, qty, pos, persistent = true) {
@@ -1185,6 +1217,13 @@ export class World {
       }
       raiz.removeFromParent();
     }
+    // OS LOTES NUM GRUPO PARADO (11/10/2026). O perfil de CPU do jogo (GT 730: o "render" não caía
+    // com menos chamadas de desenho) mostrou que ~35% do quadro era o three.js PERCORRENDO a cena:
+    // `updateMatrixWorld` (refaz a matriz de cada objeto, todo quadro) e `projectObject`. Os ~1.300
+    // lotes nunca saem do lugar (a matriz deles é a identidade; cada cópia tem a sua, dentro do
+    // lote): ficam num grupo cujo `updateMatrixWorld` não faz nada.
+    const parados = new THREE.Group();
+    parados.name = 'lotes da decoração';
     for (const { malha, matrizes, donos, grupo } of lotes.values()) {
       const im = new THREE.InstancedMesh(malha.geometry, malha.material, matrizes.length);
       matrizes.forEach((mt, i) => im.setMatrixAt(i, mt));
@@ -1200,10 +1239,15 @@ export class World {
       im.castShadow = malha.castShadow && !/^floor|RockPath|PathRocks|^gi-|Bush/.test(grupo.prop) && (/Tree(?!Stump)/.test(grupo.prop) ? grupo.raioPeca >= 1.2 : grupo.raioPeca >= 2.2);
       im.receiveShadow = malha.receiveShadow;
       im.computeBoundingSphere();
-      this.scene.add(im);
+      im.matrixAutoUpdate = false;
+      parados.add(im);
       grupo.ims.add(im);
       for (const [q, idx] of donos ?? []) (q.instancias ??= []).push({ im, idx, m: matrizes[idx] });
     }
+    this.scene.add(parados);
+    parados.updateMatrixWorld(true);
+    parados.matrixAutoUpdate = false;
+    parados.updateMatrixWorld = () => {};
     this.lotesDeDecoracao = lotes.size;
     // o meio e o raio de cada grupo (as cópias, mais o tamanho da peça)
     for (const g of grupos.values()) {
@@ -1632,9 +1676,35 @@ export class World {
   }
 
   // ---------- Colisão ----------
+  /**
+   * As caixas e os círculos de colisão POR CÉLULA (11/10/2026): `resolve` percorria todas as
+   * paredes e todos os círculos do mapa, duas vezes, para CADA personagem, todo quadro (5% da CPU
+   * no perfil). A grade guarda, por célula, o que pode tocar quem está nela (com 3 m de folga);
+   * é refeita se alguém acrescentar caixa ou círculo. Os objetos são os MESMOS (porta que se
+   * abre — `disabled` —, quebrável que some — `r = 0` — continuam valendo), na mesma ordem.
+   */
+  colisoresPerto(pos) {
+    let G = this._gradeDeColisao;
+    if (!G || G.nb !== this.boxes.length || G.nc !== this.circles.length) {
+      G = this._gradeDeColisao = { nb: this.boxes.length, nc: this.circles.length, celulas: new Map(), vazio: { boxes: [], circles: [] } };
+      const F = 3, em = (x0, z0, x1, z1, lista, o) => {
+        for (let r = Math.round((z0 - F) / CELL); r <= Math.round((z1 + F) / CELL); r++) for (let c = Math.round((x0 - F) / CELL); c <= Math.round((x1 + F) / CELL); c++) {
+          const k = r * 4096 + c; let cel = G.celulas.get(k);
+          if (!cel) G.celulas.set(k, (cel = { boxes: [], circles: [] }));
+          cel[lista].push(o);
+        }
+      };
+      for (const b of this.boxes) em(b.minX, b.minZ, b.maxX, b.maxZ, 'boxes', b);
+      for (const c of this.circles) { const r = Math.max(c.r, 3); em(c.x - r, c.z - r, c.x + r, c.z + r, 'circles', c); }
+    }
+    return G.celulas.get(Math.round(pos.z / CELL) * 4096 + Math.round(pos.x / CELL)) ?? G.vazio;
+  }
+
   resolve(pos, radius) {
+    // (quem é maior que a folga da grade — o dragão — olha o mapa inteiro, como antes)
+    const perto = radius <= 2.5 ? this.colisoresPerto(pos) : this;
     for (let iter = 0; iter < 2; iter++) {
-      for (const b of this.boxes) {
+      for (const b of perto.boxes) {
         if (b.disabled) continue;
         if (pos.x + radius < b.minX || pos.x - radius > b.maxX || pos.z + radius < b.minZ || pos.z - radius > b.maxZ) continue;
         const cx = Math.max(b.minX, Math.min(pos.x, b.maxX));
@@ -1652,7 +1722,8 @@ export class World {
           else pos.z = pen[2] < 0 ? b.minZ - radius : b.maxZ + radius;
         }
       }
-      for (const c of this.circles) {
+      for (const c of perto.circles) {
+        if (!c.r) continue;   // (o quebrável quebrado fica com raio 0)
         const dx = pos.x - c.x, dz = pos.z - c.z;
         const min = c.r + radius, d2 = dx * dx + dz * dz;
         if (d2 < min * min) { const d = Math.sqrt(d2) || 1e-4; pos.x = c.x + (dx / d) * min; pos.z = c.z + (dz / d) * min; }

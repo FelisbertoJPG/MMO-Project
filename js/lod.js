@@ -324,6 +324,13 @@ export class LOD {
       const oculto = d > PERSONAGEM_LONGE + folga || (dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
       if (oculto === e.__lodOculto) continue;
       e.__lodOculto = oculto;
+      // ESCONDIDO, SAI DA CENA (11/10/2026): só com `layers` ele não era desenhado, mas o three.js
+      // continuava percorrendo os ossos dele a cada quadro (`updateMatrixWorld`, `projectObject`: os
+      // bichos e inimigos do mapa inteiro somavam ~2.500 ossos, e isso era ~35% da CPU do quadro numa
+      // GT 730). Fora da cena, nada o percorre; a lógica dele (posição, IA, golpes) não depende disso.
+      // Quem o tira da cena de vez (lacaio morto) também o tira de `game.all`, e ele não volta por aqui.
+      if (oculto) { if (raiz.parent) { e.__lodPai = raiz.parent; raiz.parent.remove(raiz); } }
+      else if (e.__lodPai && !raiz.parent) e.__lodPai.add(raiz);
       if (e.model) e.model.oculto = oculto;   // a animação dele passa a rodar a cada 4 quadros (character.js, animais.js)
       // malhas que entraram no modelo depois (arma trocada, armadura) também
       raiz.traverse((o) => { if (o.isMesh && !e.__lodMalhas.includes(o)) e.__lodMalhas.push(o); });
