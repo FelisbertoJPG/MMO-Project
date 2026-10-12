@@ -20,8 +20,10 @@
  *     tronco, em volta da linha da coluna (a barriga cresce para a frente); a cabeça e
  *     os pés crescem a partir da junta. Em toda parte a LARGURA (o que se vê de frente)
  *     e a GROSSURA ou fundo (o que se vê de lado) são réguas separadas — com uma só, o
- *     braço do orc ficava forte de frente e fino de lado. É feito uma vez por corpo, e
- *     a armadura (do pacote ou pintada) cresce junto: é a mesma malha.
+ *     braço do orc ficava forte de frente e fino de lado. Os BRAÇOS engrossam em volta do
+ *     MEIO da carne, e não do osso, que passa pela beirada (`MEIO`); a VIRILHA não é de
+ *     um osso só e vale por lugar (`VIRILHA`). É feito uma vez por corpo, e a armadura
+ *     (do pacote ou pintada) cresce junto: é a mesma malha.
  *  2. NOS OSSOS (`CorpoGuerreiro.aplicarRaca`): a ALTURA (a cena inteira), os OMBROS (os
  *     braços nascem mais para fora), o QUADRIL (as coxas se afastam com a largura dele)
  *     e as MÃOS — a escala do osso da mão, que os dedos herdam. (Na malha, a mão crescia
@@ -60,6 +62,7 @@ export const PROPORCOES = [
   ['barrigaFrente', 'Barriga — para a frente', 0.8, 3],
   ['quadril', 'Quadril — largura', 0.8, 1.6],
   ['quadrilFundo', 'Quadril — fundo', 0.8, 1.8, 1, 'quadril'],
+  ['virilha', 'Virilha — para a frente', 0.5, 2.5],
   ['bracos', 'Braços — largura', 0.7, 1.8],
   ['bracosGrossura', 'Braços — grossura', 0.7, 2.2, 1, 'bracos'],
   ['antebracos', 'Antebraços — largura', 0.7, 1.8],
@@ -190,8 +193,13 @@ export function moldarPeca(geo, nome, raca, elmo = false) {
     mexeu[i] = 1;
   }
   pos.needsUpdate = true;
-  // as normais das faces que mudaram (a peça não tem índice: cada triângulo tem os seus
-  // três vértices, e a normal é a da face — o facetado do modelo)
+  normaisDasFaces(geo, mexeu);
+}
+
+// As normais das faces que mudaram (a malha não tem índice: cada triângulo tem os seus três
+// vértices, e a normal é a da face — o facetado do modelo). `mexeu`: 1 por vértice mexido.
+function normaisDasFaces(geo, mexeu) {
+  const pos = geo.attributes.position, nor = geo.attributes.normal;
   if (!nor || geo.index) return;
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
   for (let t = 0; t < pos.count; t += 3) {
@@ -202,6 +210,29 @@ export function moldarPeca(geo, nome, raca, elmo = false) {
   }
   nor.needsUpdate = true;
 }
+
+// ------------------------------------------------------------ a virilha
+// A frente da bacia entre as coxas (do cinto ao fundo da tanga). No orc a barriga cresce
+// para a frente e as coxas engrossam em volta do próprio osso, e esse pedaço — parte preso
+// ao quadril, parte às coxas — ficava para trás dos dois: um buraco. Não é de um osso só,
+// então a régua vale por LUGAR (cm a partir do osso do quadril, na pose T): quem está na
+// frente dele avança na proporção do quanto já está à frente — inteiro até `lado[0]` do
+// meio do corpo, sumindo até `lado[1]` (a linha das coxas), e de `cima[1]` a `cima[2]` de
+// altura, sumindo até `cima[0]` embaixo (antes do meio da coxa) e `cima[3]` em cima (antes
+// do anel de baixo da barriga). E só na medida em que o vértice é preso ao quadril e às
+// coxas: o cinto e a fivela das armaduras são do osso da barriga, e ficam onde estão.
+export const VIRILHA = { lado: [6, 16], cima: [-11, -3, 12, 17.5] };
+
+// ------------------------------------------------------------ o meio dos braços
+// O osso do braço NÃO passa pelo meio da carne: no antebraço corre ~2 cm para trás do meio
+// (num antebraço de 10 de grossura), e no braço cruza a carne de viés (atrás do meio perto
+// do ombro, à frente perto do cotovelo). Engrossar em volta do osso fazia um lado crescer
+// o dobro do outro: o antebraço só ganhava volume para a frente, o braço para trás, e os
+// músculos saíam tortos. Os braços engrossam em volta do MEIO: [largura, grossura] em cm,
+// do osso até o meio da seção, a ¼ e a ¾ do comprimento, nos eixos do membro ESQUERDO —
+// medido no corpo nu (o meio entre os extremos dos vértices presos ao osso). As pernas e o
+// pescoço seguem em volta do osso (a panturrilha cresce para trás, como é).
+const MEIO = { Arm: [[1.07, -1.76], [-0.71, 0.79]], Elbow: [[0.54, 1.98], [-0.45, 1.51]] };
 
 /**
  * Engrossa a malha fundida do corpo pelas proporções da raça (muda a geometria NO LUGAR).
@@ -241,15 +272,26 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
   // vê de frente) e a GROSSURA (de lado) separadas. `ref` é a direção do corpo que dá a
   // largura: nas pernas e no pescoço, o lado; nos BRAÇOS, a de cima — na pose T o braço
   // está deitado, e o que ali é "para cima" é o que fica "para o lado" com o braço caído
-  const membro = (filho, largura, grossura, ref) => (o) => {
+  // (os eixos de um membro: a largura, o comprimento e a grossura)
+  const eixosDe = (d, ref) => { const l = ref.clone().addScaledVector(d, -ref.dot(d)).normalize(); return [l, d, new THREE.Vector3().crossVectors(d, l)]; };
+  const membro = (filho, largura, grossura, ref, meio = null) => (o) => {
     const f = de(filho(o));
     if ((um(largura) && um(grossura)) || !f) return null;
-    const d = f.clone().sub(de(o)).normalize(), l = ref.clone().addScaledVector(d, -ref.dot(d)).normalize();
-    return { a: de(o), d, e: [l, d, new THREE.Vector3().crossVectors(d, l)], s: [largura, 1, grossura], tras: grossura };
+    let a = de(o);
+    const d = f.clone().sub(a), comp = d.length();
+    d.normalize();
+    if (meio) {
+      // em volta do MEIO da carne, e não do osso (ver `MEIO`): a reta que passa pelos dois
+      // meios medidos (no braço direito o eixo da grossura é o espelho do esquerdo)
+      const e = eixosDe(d, ref), espelho = d.dot(lado) < 0 ? -1 : 1;
+      const [m1, m2] = meio.map(([x, z], i) => a.clone().addScaledVector(d, comp * (0.25 + 0.5 * i)).addScaledVector(e[0], x).addScaledVector(e[2], z * espelho));
+      a = m1; d.subVectors(m2, m1).normalize();
+    }
+    return { a, d, e: eixosDe(d, ref), s: [largura, 1, grossura], tras: grossura };
   };
   por(['Neck'], membro(() => 'Head', p.pescoco, p.pescocoGrossura, lado));
-  por(['ArmL', 'ArmR'], membro((o) => `Elbow${o.slice(-1)}`, p.bracos, p.bracosGrossura, cima));
-  por(['ElbowL', 'ElbowR'], membro((o) => `Hand${o.slice(-1)}`, p.antebracos, p.antebracosGrossura, cima));
+  por(['ArmL', 'ArmR'], membro((o) => `Elbow${o.slice(-1)}`, p.bracos, p.bracosGrossura, cima, MEIO.Arm));
+  por(['ElbowL', 'ElbowR'], membro((o) => `Hand${o.slice(-1)}`, p.antebracos, p.antebracosGrossura, cima, MEIO.Elbow));
   por(['Thighl', 'Thighr'], membro((o) => `Shin${o.slice(-1)}`, p.coxas, p.coxasGrossura, lado));
   por(['Shinl', 'Shinr'], membro((o) => `Foot${o.slice(-1)}`, p.canelas, p.canelasGrossura, lado));
   // a cabeça cresce inteira a partir da junta; os pés só no chão (não afundam). As MÃOS
@@ -257,11 +299,35 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
   const ponto = (raiz, s) => (s.every(um) ? null : { a: de(raiz), d: null, e: corpo, s, tras: s[2] });
   por(['Head'], ponto('Head', [p.cabeca, p.cabeca, p.cabeca]));
   for (const l of ['l', 'r']) por([`Foot${l}`, `Toe${l.toUpperCase()}`], ponto(`Foot${l}`, [p.pes, 1, p.pes]));
-  if (!regras.some(Boolean)) return;
-
   const pos = geo.attributes.position, nor = geo.attributes.normal, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
   const volta = new THREE.Matrix4().copy(ligacao).invert();
   const v = new THREE.Vector3(), n = new THREE.Vector3(), r = new THREE.Vector3(), somaV = new THREE.Vector3(), somaN = new THREE.Vector3();
+  // A VIRILHA (por lugar, ver `VIRILHA`), ANTES das regras dos ossos: o que avança aqui
+  // cresce depois junto com o quadril e as coxas
+  if (!um(p.virilha)) {
+    const o = VIRILHA, bacia = de('Hips'), suave = THREE.MathUtils.smoothstep, mexeu = new Uint8Array(pos.count);
+    const daBacia = ordem.map((n) => /^(Hips|Thigh[lr])$/.test(n));
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(ligacao);
+      r.subVectors(v, bacia);
+      const z = r.dot(frente), y = r.dot(cima);
+      if (z <= 0) continue;
+      // só o que é preso ao quadril e às coxas: a fivela do cinto das armaduras é da
+      // barriga inteira, e sem isto a metade de baixo dela era puxada em bico
+      let preso = 0;
+      for (let k = 0; k < 4; k++) if (daBacia[si.getComponent(i, k)]) preso += sw.getComponent(i, k);
+      const w = preso * (1 - suave(Math.abs(r.dot(lado)), o.lado[0], o.lado[1])) * suave(y, o.cima[0], o.cima[1]) * (1 - suave(y, o.cima[2], o.cima[3]));
+      if (!w) continue;
+      v.addScaledVector(frente, z * (p.virilha - 1) * w).applyMatrix4(volta);
+      pos.setXYZ(i, v.x, v.y, v.z);
+      mexeu[i] = 1;
+    }
+    normaisDasFaces(geo, mexeu);
+    pos.needsUpdate = true;
+    geo.boundingBox = null; geo.boundingSphere = null;
+  }
+  if (!regras.some(Boolean)) return;
+
   const normalIda = new THREE.Matrix3().getNormalMatrix(ligacao), normalVolta = new THREE.Matrix3().getNormalMatrix(volta);
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i).applyMatrix4(ligacao);
