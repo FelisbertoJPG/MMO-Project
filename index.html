@@ -221,7 +221,9 @@
       <button id="sair-mundo-btn">Sair para a tela inicial</button>
       <div id="graficos-opcoes"><span>Gráficos</span><button data-q="alto">Alto</button><button data-q="medio">Médio</button><button data-q="baixo">Baixo</button></div>
       <!-- a resolução automática (graficos.js): menos pixels quando os quadros não dão conta -->
-      <div id="resolucao-opcao"><button id="res-auto-btn" title="Quando o jogo pesa, desenha com menos pixels (um pouco menos nítido) e volta quando sobra">Resolução automática</button></div>
+      <div id="resolucao-opcao"><span>Resolução</span><button data-res="auto" title="Quando o jogo pesa, desenha com menos pixels (um pouco menos nítido) e volta quando sobra">Automática</button><button data-res="1">100%</button><button data-res="0.85">85%</button><button data-res="0.7">70%</button><button data-res="0.55">55%</button><button data-res="0.4">40%</button></div>
+      <!-- as sombras (a do sol e a da tocha): graficos.js -->
+      <div id="sombras-opcao"><span>Sombras</span><button data-sombras="sim">Ligadas</button><button data-sombras="nao">Desligadas</button></div>
       <!-- o chat de voz (js/rede/voz.js, js/vozui.js): o microfone, a tecla de falar e o volume -->
       <div id="voz-opcoes">
         <div class="voz-linha"><span>Microfone</span><button data-modo="mudo" title="Você não fala, mas ouve os outros">Desligado</button><button data-modo="aberto" title="O microfone fica sempre ligado">Aberto</button><button data-modo="segurar" title="Fala só com a tecla apertada">Segurar para falar</button></div>

@@ -549,8 +549,12 @@ export class World {
     // sol (ou a lua) está desenhado
     this.game.ceu?.update(dt, F, horaDoMundo(), a.k, a.dentro.fundo);
     const dir = this.game.ceu?.luzDir ?? F.dir;
-    a.lua.position.set(p.x + dir.x * 90, p.y + dir.y * 90, p.z + dir.z * 90);
-    a.lua.target.position.copy(p);
+    // (com sombra, o alvo anda de texel em texel do mapa dela: seguindo o jogador contínuo, a
+    // borda de toda sombra tremia a cada passo)
+    const passo = a.lua.castShadow ? (a.lua.shadow.camera.right - a.lua.shadow.camera.left) / a.lua.shadow.mapSize.x * 4 : 0;
+    const ax = passo ? Math.round(p.x / passo) * passo : p.x, az = passo ? Math.round(p.z / passo) * passo : p.z;
+    a.lua.position.set(ax + dir.x * 120, p.y + dir.y * 120, az + dir.z * 120);
+    a.lua.target.position.set(ax, p.y, az);
     // a EXPOSIÇÃO: ao ar livre um pouco menor (o céu claro deixava o cenário lavado); na
     // masmorra a de sempre (1,2). Só um número do renderizador: não recompila nada
     this.game.renderer.toneMappingExposure = 1.2 - 0.17 * a.k;

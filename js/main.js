@@ -280,10 +280,17 @@ class Game {
   /** Destaca, no menu de pausa, a qualidade gráfica em uso. */
   marcarGraficos() {
     for (const b of document.querySelectorAll('#graficos-opcoes button')) b.classList.toggle('ativo', b.dataset.q === this.graficos.nome);
-    const auto = document.getElementById('res-auto-btn');
-    if (auto) {
-      auto.classList.toggle('ativo', this.graficos.auto);
-      auto.textContent = `Resolução automática: ${this.graficos.auto ? `sim (${Math.round(this.graficos.escala * 100)}%)` : 'não'}`;
+    // a resolução: a automática (com a fração em que ela está) ou a escolhida à mão
+    const G = this.graficos;
+    for (const b of document.querySelectorAll('#resolucao-opcao button')) {
+      const auto = b.dataset.res === 'auto';
+      b.classList.toggle('ativo', auto ? G.auto : !G.auto && Math.abs(Number(b.dataset.res) - G.escala) < 0.001);
+      if (auto) b.textContent = G.auto ? `Automática (${Math.round(G.escala * 100)}%)` : 'Automática';
+    }
+    // as sombras: o Baixo não tem (os botões ficam apagados)
+    for (const b of document.querySelectorAll('#sombras-opcao button')) {
+      b.disabled = !G.q.sombra;
+      b.classList.toggle('ativo', (b.dataset.sombras === 'sim') === G.comSombras);
     }
   }
 
@@ -407,7 +414,12 @@ class Game {
     for (const b of document.querySelectorAll('#graficos-opcoes button')) {
       b.addEventListener('click', () => { this.graficos.trocar(b.dataset.q); this.marcarGraficos(); });
     }
-    document.getElementById('res-auto-btn').addEventListener('click', () => { this.graficos.alternarAuto(); this.marcarGraficos(); });
+    for (const b of document.querySelectorAll('#resolucao-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.escolherResolucao(b.dataset.res === 'auto' ? 'auto' : Number(b.dataset.res)); this.marcarGraficos(); });
+    }
+    for (const b of document.querySelectorAll('#sombras-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.alternarSombras(b.dataset.sombras === 'sim'); this.marcarGraficos(); });
+    }
   }
 
   /**
@@ -657,11 +669,26 @@ class Game {
     // vez (trancos de 200–700 ms andando com a tocha acesa entre árvores novas, 07/10)
     const sombra = tocha?.castShadow ? { dist: tocha.distance, pos: tocha.position.clone() } : null;
     if (sombra) { tocha.distance = Math.max(larg, prof) * 1.5; tocha.position.set(larg / 2, 30, prof / 2); }
+    // a SOMBRA DO SOL também, com a caixa dela esticada para o mapa inteiro (o shader de
+    // profundidade de cada tipo de peça é outro que só terminava no primeiro desenho)
+    const sol = w.ambience?.lua, caixaDoSol = sol?.castShadow ? { ...sol.shadow.camera, pos: sol.position.clone(), alvo: sol.target.position.clone() } : null;
+    if (caixaDoSol) {
+      const c = sol.shadow.camera, R = Math.max(larg, prof) / 2 + 20;
+      c.left = -R; c.right = R; c.top = R; c.bottom = -R; c.far = 2000; c.updateProjectionMatrix();
+      sol.target.position.set(larg / 2, 0, prof / 2); sol.position.set(larg / 2 + 100, 600, prof / 2 + 60);
+      sol.target.updateMatrixWorld(); sol.updateMatrixWorld();
+    }
     for (const fora of [true, false]) {
       w.distribuirLuzes(fora);
+      if (caixaDoSol) sol.shadow.needsUpdate = true;
       if (tocha?.castShadow) tocha.shadow.needsUpdate = true;
       r.render(this.scene, cam);
       if (sombra) { tocha.distance = sombra.dist; tocha.position.copy(sombra.pos); }
+    }
+    if (caixaDoSol) {
+      const c = sol.shadow.camera;
+      c.left = caixaDoSol.left; c.right = caixaDoSol.right; c.top = caixaDoSol.top; c.bottom = caixaDoSol.bottom; c.far = caixaDoSol.far; c.updateProjectionMatrix();
+      sol.position.copy(caixaDoSol.pos); sol.target.position.copy(caixaDoSol.alvo);
     }
     for (const im of escondidos) im.visible = false;
     for (const c of cartazes) if (c.malha.count === 1) { c.malha.count = 0; c.sujo = true; }

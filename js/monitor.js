@@ -342,6 +342,7 @@ export class Monitor {
         ['sombra da tocha só até 12 m (hoje 24)', () => sombraCurta(12), () => { tocha.shadow.updateMatrices = this._sombraOrig; }, 'alcance da sombra da tocha 12 m (a luz continua 24)', 'o que está a mais de 12 m da tocha não faz sombra dela'],
         ['tocha apagada', () => g.player.toggleTorch(), () => g.player.toggleTorch(), 'apagar a tocha quando não precisa (de dia)', 'menos luz em volta'],
       ] : []),
+      ...(g.world?.ambience?.lua?.castShadow ? [['sombra do sol parada (sem redesenhar)', () => { g.graficos.solParado = true; }, () => { g.graficos.solParado = false; }, 'sombras desligadas no menu de pausa (ou `sol` da qualidade com o mapa menor)', 'sem a sombra do sol (árvores, pedras, personagens)']] : []),
       ['sem o capim', () => { g.capim?.tapete?.layers.set(31); }, () => { g.capim?.tapete?.layers.set(0); }, `capim menos denso (\`capim\` da qualidade ${q.nome}: hoje ${q.capim})`, 'chão menos coberto'],
       ['sem o céu desenhado', () => g.ceu?.abobada.layers.set(31), () => g.ceu?.abobada.layers.set(0), null, null],
       ['sem o clarão do sol/lua', () => { this._clarao = q.clarao; q.clarao = false; }, () => { q.clarao = this._clarao; }, 'clarão desligado nesta qualidade', 'sem o reflexo de lente'],

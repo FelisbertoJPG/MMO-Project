@@ -98,7 +98,7 @@ export class Capim {
     this.tapete.name = 'capim (capim.js)';
     this.tapete.count = 0;
     this.tapete.frustumCulled = false;   // as folhas estão em volta do jogador: sempre há o que ver
-    this.tapete.castShadow = false; this.tapete.receiveShadow = false;
+    this.tapete.castShadow = false; this.tapete.receiveShadow = true;   // recebe a sombra do sol (senão a das árvores sumia debaixo do capim)
     this.tapete.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo * 3), 3);
     game.scene.add(this.tapete);
     this.prontas = new Map();   // célula + nível → o tapete dela já calculado

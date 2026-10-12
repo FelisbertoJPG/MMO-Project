@@ -22,6 +22,8 @@ export const QUALIDADES = {
     nome: 'Alto', pixelRatio: 2, antialias: true,
     // a luz da tocha na mão: um cubo de sombras (seis vistas do cenário)
     sombra: { mapa: 512, aCada: 1 }, tipoSombra: THREE.PCFSoftShadowMap,
+    // a sombra do SOL (e da lua) ao ar livre: o lado do mapa (px) e o raio em volta do jogador (m)
+    sol: { mapa: 2048, raio: 42 },
     luzes: 8, luzesFora: 4, filtroDeCor: true, particulas: 1, capim: 64,   // luzes de cenário: na masmorra / ao ar livre (world.distribuirLuzes)
     nuvens: 5, reflexoS: 4, clarao: true,   // o céu (ceu.js): oitavas das nuvens, segundos entre um reflexo e outro, o reflexo de lente do sol e da lua
     impostor: 120, limiarPx: 1.5,   // o LOD (lod.js): a partir de quantos metros a árvore vira cartaz; peça com menos pixels de raio que isto some
@@ -34,13 +36,14 @@ export const QUALIDADES = {
     // no outro — o personagem "flicava" no Médio. Depois de os personagens longe saírem da
     // sombra (lod.js) ela ficou ~7× mais barata: todo quadro custou 0,8 quadro/s.
     sombra: { mapa: 256, aCada: 1 }, tipoSombra: THREE.PCFShadowMap,
+    sol: { mapa: 1024, raio: 32 },
     luzes: 5, luzesFora: 3, filtroDeCor: true, particulas: 0.7, capim: 34,
     nuvens: 4, reflexoS: 8, clarao: true,
     impostor: 90, limiarPx: 2.5,
   },
   baixo: {
     nome: 'Baixo', pixelRatio: 1, antialias: false,
-    sombra: null, tipoSombra: THREE.BasicShadowMap,
+    sombra: null, tipoSombra: THREE.BasicShadowMap, sol: null,
     luzes: 3, luzesFora: 2, filtroDeCor: false, particulas: 0.45, capim: 0,
     nuvens: 2, reflexoS: 20, clarao: false,
     impostor: 65, limiarPx: 3.5,
@@ -49,6 +52,10 @@ export const QUALIDADES = {
 
 const CHAVE = 'masmorra:graficos';
 const CHAVE_AUTO = 'masmorra:resolucao-auto';
+const CHAVE_FIXA = 'masmorra:resolucao';      // a resolução escolhida à mão (fração de 0 a 1)
+const CHAVE_SOMBRAS = 'masmorra:sombras';
+/** As resoluções que o menu de pausa oferece (fração da resolução da qualidade). */
+export const RESOLUCOES = [1, 0.85, 0.7, 0.55, 0.4];
 
 /**
  * A RESOLUÇÃO AUTOMÁTICA (06/10/2026): quando os quadros não dão conta, o jogo desenha com
@@ -77,17 +84,45 @@ export class Graficos {
     this.quadro = 0;
     this.escala = 1;   // fração da resolução da qualidade (a resolução automática mexe nela)
     try { this.auto = localStorage.getItem(CHAVE_AUTO) !== 'nao'; } catch { this.auto = true; }
+    // A RESOLUÇÃO À MÃO (11/10/2026): o jogador escolhe uma fração fixa no menu de pausa, e a
+    // automática fica desligada enquanto ela valer (`fixa` = null: quem manda é a automática, ou 100%)
+    this.fixa = null;
+    try { const f = Number(localStorage.getItem(CHAVE_FIXA)); if (RESOLUCOES.includes(f)) { this.fixa = f; this.auto = false; } } catch { }
+    // AS SOMBRAS (a do sol e a da tocha) ligadas ou não, por cima da qualidade (o Baixo não tem)
+    try { this.sombras = localStorage.getItem(CHAVE_SOMBRAS) !== 'nao'; } catch { this.sombras = true; }
     this.res = { ini: 0, quadros: 0, baixos: 0, altos: 0, esperaAte: 0 };
   }
 
   /** A resolução da qualidade, antes da escala automática. */
   get resolucaoBase() { return Math.min(devicePixelRatio, this.q.pixelRatio); }
 
-  /** Liga ou desliga a resolução automática (menu de pausa); desligada, volta a 100%. */
-  alternarAuto(ligar = !this.auto) {
-    this.auto = ligar;
-    try { localStorage.setItem(CHAVE_AUTO, ligar ? 'sim' : 'nao'); } catch { }
-    if (!ligar && this.escala !== 1) this.mudarEscala(1, 'resolução automática desligada');
+  /**
+   * A resolução do menu de pausa: `'auto'` (a automática decide) ou uma fração de `RESOLUCOES`
+   * (fica nela, e a automática desliga). Guardada no `localStorage`.
+   */
+  escolherResolucao(v) {
+    const auto = v === 'auto';
+    this.auto = auto;
+    this.fixa = auto ? null : v;
+    try { localStorage.setItem(CHAVE_AUTO, auto ? 'sim' : 'nao'); auto ? localStorage.removeItem(CHAVE_FIXA) : localStorage.setItem(CHAVE_FIXA, String(v)); } catch { }
+    const nova = auto ? 1 : v;
+    if (nova !== this.escala) this.mudarEscala(nova, auto ? 'resolução automática ligada' : 'escolhida no menu');
+    this.res.teste = null;
+  }
+
+  /** Há sombra nesta qualidade (o Baixo não tem) e o jogador não a desligou? */
+  get comSombras() { return this.sombras && !!this.q.sombra; }
+
+  /** Liga ou desliga as sombras (menu de pausa). Muda os shaders: recompila e desenha uma vez, como a troca de qualidade. */
+  alternarSombras(ligar = !this.sombras) {
+    if (ligar === this.sombras) return;
+    this.sombras = ligar;
+    try { localStorage.setItem(CHAVE_SOMBRAS, ligar ? 'sim' : 'nao'); } catch { }
+    const escala = this.escala;
+    this.aplicar();
+    if (escala !== this.escala) { this.escala = escala; this.game.renderer.setPixelRatio(this.resolucaoBase * escala); }
+    this.game.preaquecer?.();
+    this.game.monitor?.evento(`sombras ${ligar ? 'ligadas' : 'desligadas'}`);
   }
 
   mudarEscala(nova, motivo) {
@@ -163,19 +198,36 @@ export class Graficos {
   aplicar() {
     const g = this.game, q = this.q, r = g.renderer;
     // uma qualidade nova começa de novo em 100%; a automática reajusta se precisar
-    this.escala = 1; this.res.esperaAte = performance.now() + 3000; this.res.teste = null; this.res.bloqueioAte = 0;
-    r.setPixelRatio(this.resolucaoBase);
+    // (a escolhida à mão continua valendo)
+    this.escala = this.fixa ?? 1; this.res.esperaAte = performance.now() + 3000; this.res.teste = null; this.res.bloqueioAte = 0;
+    r.setPixelRatio(this.resolucaoBase * this.escala);
     r.setSize(innerWidth, innerHeight);
-    r.shadowMap.enabled = !!q.sombra;
+    const sombras = this.comSombras;
+    r.shadowMap.enabled = sombras;
     r.shadowMap.type = q.tipoSombra;
     r.shadowMap.needsUpdate = true;
     const luz = g.player?.torchLight;
     if (luz) {
-      luz.castShadow = !!q.sombra;
-      if (q.sombra) {
+      luz.castShadow = sombras;
+      if (sombras) {
         if (luz.shadow.mapSize.x !== q.sombra.mapa) {
           luz.shadow.mapSize.set(q.sombra.mapa, q.sombra.mapa);
           luz.shadow.map?.dispose(); luz.shadow.map = null;   // refeito no tamanho novo
+        }
+      }
+    }
+    // a sombra do SOL: a luz direcional do ar livre (world.js), numa caixa em volta do jogador
+    const sol = g.world?.ambience?.lua;
+    if (sol) {
+      sol.castShadow = sombras && !!q.sol;
+      if (sol.castShadow) {
+        const c = sol.shadow.camera, R = q.sol.raio;
+        c.left = -R; c.right = R; c.top = R; c.bottom = -R; c.near = 1; c.far = 260;
+        c.updateProjectionMatrix();
+        sol.shadow.bias = -0.0004; sol.shadow.normalBias = 1.5 * (2 * R / q.sol.mapa);   // ~1,5 texel
+        if (sol.shadow.mapSize.x !== q.sol.mapa) {
+          sol.shadow.mapSize.set(q.sol.mapa, q.sol.mapa);
+          sol.shadow.map?.dispose(); sol.shadow.map = null;
         }
       }
     }
@@ -213,7 +265,10 @@ export class Graficos {
    */
   update() {
     this.ajustarResolucao();
-    const luz = this.game.player?.torchLight, s = this.q.sombra;
+    // a sombra do sol só é redesenhada ao AR LIVRE (dentro da masmorra a luz dele é 0)
+    const amb = this.game.world?.ambience, sol = amb?.lua;
+    if (sol?.castShadow) { sol.shadow.autoUpdate = false; if (amb.k > 0.02 && sol.intensity > 0 && !this.solParado) sol.shadow.needsUpdate = true; }   // `solParado`: o teste do lugar do monitor
+    const luz = this.game.player?.torchLight, s = this.comSombras && this.q.sombra;
     if (!luz || !s) return;
     this.quadro++;
     luz.shadow.autoUpdate = false;
