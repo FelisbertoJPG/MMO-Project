@@ -284,7 +284,9 @@ export class UI {
       if (e.isBoss) continue;
       const recent = game.time - e.lastHit < 4 || game.player.lockTarget === e;
       if (e.dead || !e.active || !recent) continue;
-      const s = this.project(_v.set(e.pos.x, e.height + 0.35, e.pos.z).clone());
+      // acima da cabeça, A PARTIR DO PÉ (`pos.y` = o chão de onde ele está): com a altura
+      // contada do zero, no alto de um morro a barra ficava metros abaixo do bicho
+      const s = this.project(_v.set(e.pos.x, e.pos.y + e.height + 0.35, e.pos.z).clone());
       if (!s) continue;
       seen.add(e);
       let el = this.ebarMap.get(e);
