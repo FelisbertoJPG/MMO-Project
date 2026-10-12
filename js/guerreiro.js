@@ -29,8 +29,8 @@ import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS } from './aparencia.js';
-import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca } from './raca.js';
-import { PENTEADOS, penteadoDe, geometriaDoPenteado } from './penteado.js';
+import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo } from './raca.js';
+import { PENTEADOS, penteadoDe, BARBAS, barbaDe, geometriaDoPenteado } from './penteado.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -118,7 +118,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     for (const nome of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight', 'color'].includes(nome)) g.deleteAttribute(nome);
     if (comCor && !g.attributes.color) g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 3).fill(1), 3));
     g.morphAttributes = {};
-    if (raca) moldarPeca(g, p.name, raca, elmo);   // (o que a raça muda NA PEÇA: as orelhas)
+    if (raca) moldarPeca(g, p.name, raca, elmo);   // (o que a raça muda NA PEÇA: as orelhas, o queixo)
     // o osso i DESTA peça → o índice dele na ordem única
     const troca = p.skeleton.bones.map((b) => ordem.indexOf(b.name));
     const si = g.attributes.skinIndex, novo = new Uint16Array(si.count * 4);
@@ -128,13 +128,13 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   });
   const todasComIndice = geos.every((g) => g.index), nenhuma = geos.every((g) => !g.index);
   const lista = (todasComIndice && !penteado) || nenhuma ? geos : geos.map((g) => (g.index ? g.toNonIndexed() : g));
-  // O PENTEADO (penteado.js): desenhado aqui, sobre o corpo que se está fundindo (o que cai
-  // pousa nas costas e na armadura). Vem JÁ com as proporções da raça e sem índice: entra
-  // por último, e o `deformar` para antes dele
+  // O PENTEADO e a BARBA (penteado.js): desenhados aqui, sobre o corpo que se está fundindo
+  // (o que cai pousa nas costas, no peito e na armadura). Vêm JÁ com as proporções da raça e
+  // sem índice: entram por último, e o `deformar` para antes deles
   let doCorpo = 0;
   for (const g of lista) doCorpo += g.attributes.position.count;
   const cabelo = penteado && inversos ? geometriaDoPenteado({
-    ...penteado, ordem, deformador: deformadorDe(raca, ordem, inversos, pecas[0].bindMatrix), escala: proporcoesDe(raca).cabeca, modelo: lista[0], mapa: pecas[0].material?.map,
+    ...penteado, ordem, deformador: deformadorDe(raca, ordem, inversos, pecas[0].bindMatrix), escala: proporcoesDe(raca).cabeca, largo: largoDoQueixo(raca), modelo: lista[0], mapa: pecas[0].material?.map,
   }) : null;
   const geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
   for (const g of geos) g.dispose();
@@ -337,10 +337,11 @@ export class CorpoGuerreiro {
       const t = tingir(usadas[i], aparencia);
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
-    // o PENTEADO (penteado.js): o cabelo, desenhado em código ao fundir o corpo
-    const ap = lerAparencia(aparencia), cabelo = penteadoDe(this.raca, ap.cabelo), doPeito = desenho('peito', armadura[LUGARES.indexOf('peito')]);
-    const penteado = PENTEADOS[cabelo]?.formas ? {
-      id: cabelo, cor: CABELOS[ap.cor][1], elmo,
+    // o PENTEADO e a BARBA (penteado.js): desenhados em código ao fundir o corpo (a barba
+    // "do modelo" é a peça `Beard`, que o `tingir` acima deixou ou tirou)
+    const ap = lerAparencia(aparencia), cabelo = penteadoDe(this.raca, ap.cabelo), barba = barbaDe(this.raca, ap.barba), doPeito = desenho('peito', armadura[LUGARES.indexOf('peito')]);
+    const penteado = PENTEADOS[cabelo]?.formas || BARBAS[barba]?.formas ? {
+      id: cabelo, barba, cor: CABELOS[ap.cor][1], elmo, pecaDaBarba: this.pecas.find((o) => o.name === 'Beard'),
       apoio: usadas.filter((o) => APOIO.test(o.name) || (ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'peito') || (doPeito && o.name.startsWith(`casca_${doPeito.id}_`))),
     } : null;
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)

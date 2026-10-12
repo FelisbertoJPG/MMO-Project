@@ -4,11 +4,13 @@
  * também) e a cor dos olhos. Fica no save (`jogador.aparencia`) e VIAJA com o corpo (o `c` do
  * instantâneo, guerreiro.js: `'<armadura>:<aparência>'`), então os outros veem igual.
  *
- * O CÓDIGO são 5 dígitos: [pele, cabelo, cor do cabelo, barba (0/1), olhos]; o índice 0
+ * O CÓDIGO são 5 dígitos: [pele, cabelo, cor do cabelo, barba, olhos]; o índice 0
  * de cada paleta é o ORIGINAL do modelo. `APARENCIA_PADRAO` = como o modelo é.
  * O CABELO é 0 (sem) ou o número do PENTEADO (penteado.js: o rabo de cavalo, a trança, o
  * moicano… desenhados em código) na lista do humano ou da raça. O cabelo solto do modelo
  * saiu do jogo (12/10/2026): o "1" dos saves de antes é hoje o primeiro penteado.
+ * A BARBA é igual: 0 (sem) ou o número dela na lista (`BARBAS` do penteado.js) — a 1 é a
+ * do modelo, a "Cheia" (o "com barba" dos saves de antes); as outras são desenhadas.
  * Um 6º dígito, quando há, é a RAÇA (raca.js; sem ele, humano): ela pode mandar na cor
  * da pele e dos olhos e tirar o cabelo e a barba, e muda as proporções do corpo.
  *
@@ -24,7 +26,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { racaDe } from './raca.js';
-import { penteadosDe, nomeDoPenteado } from './penteado.js';
+import { penteadosDe, nomeDoPenteado, barbasDe, barbaDe, nomeDaBarba } from './penteado.js';
 
 export const PELES = [
   // (tons pensados para a luz do jogo: a paleta original do modelo é #f8bb7f)
@@ -45,7 +47,7 @@ export function lerAparencia(c) {
   const d = [...s].map(Number);
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1], cor: d[2] < CABELOS.length ? d[2] : 0,
-    barba: d[3] ? 1 : 0, olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0,
+    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0,
   };
 }
 export const codigoDaAparencia = (a) => `${a.pele}${a.cabelo}${a.cor}${a.barba}${a.olhos}${a.raca || ''}`;   // (humano: os 5 dígitos de sempre)
@@ -96,11 +98,12 @@ const tingidas = new Map();
 export function esquecerTingidas() { for (const g of tingidas.values()) g?.dispose?.(); tingidas.clear(); delete tingidas.razaoPele; }
 /**
  * A peça do corpo com a aparência aplicada (um objeto no formato da malha fundida), ou a
- * própria peça (nada a tingir nela), ou null (a peça some: sem barba).
+ * própria peça (nada a tingir nela), ou null (a peça some: sem barba, ou com uma das desenhadas).
  */
 export function tingir(peca, codigo) {
   const a = lerAparencia(codigo), nome = peca.name, raca = racaDe(a.raca);
-  if (nome === 'Beard' && (!a.barba || raca?.semBarba)) return null;
+  // (a barba do modelo só fica se é ela a escolhida: as outras são desenhadas, penteado.js)
+  if (nome === 'Beard' && barbaDe(raca, a.barba) !== 'modelo') return null;
   const pele = raca?.pele ?? PELES[a.pele][1], olhos = raca?.olhos ?? OLHOS[a.olhos][1];
   let hex = null, escolhe = null;
   const uv = peca.geometry.attributes.uv;
@@ -147,7 +150,7 @@ const LINHAS = [
   ['pele', 'Pele', () => PELES.map((p) => p[0]), (r) => !!r?.pele],
   ['cabelo', 'Cabelo', (r) => ['Sem cabelo', ...penteadosDe(r).map(nomeDoPenteado)], (r) => !penteadosDe(r).length],
   ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0])],
-  ['barba', 'Barba', () => ['Sem barba', 'Com barba'], (r) => !!r?.semBarba],
+  ['barba', 'Barba', (r) => ['Sem barba', ...barbasDe(r).map(nomeDaBarba)], (r) => !barbasDe(r).length],
   ['olhos', 'Olhos', () => OLHOS.map((p) => p[0]), (r) => !!r?.olhos],
 ];
 /** As raças que o jogador pode escolher: o humano e as `jogavel` do arquivo ({ n, nome }). */
@@ -168,8 +171,8 @@ export class EditorDeAparencia {
     document.getElementById('aparencia-sorte').addEventListener('click', () => {
       const r = (n) => Math.floor(Math.random() * n);
       // (a raça não entra no sorteio: é escolha)
-      const penteados = penteadosDe(racaDe(lerAparencia(game.player.aparencia).raca)).length;
-      this.mudar({ pele: 1 + r(PELES.length - 1), cabelo: penteados && Math.random() < 0.85 ? 1 + r(penteados) : 0, cor: 1 + r(CABELOS.length - 1), barba: Math.random() < 0.6 ? 1 : 0, olhos: r(OLHOS.length) });
+      const raca = racaDe(lerAparencia(game.player.aparencia).raca), penteados = penteadosDe(raca).length, barbas = barbasDe(raca).length;
+      this.mudar({ pele: 1 + r(PELES.length - 1), cabelo: penteados && Math.random() < 0.85 ? 1 + r(penteados) : 0, cor: 1 + r(CABELOS.length - 1), barba: barbas && Math.random() < 0.6 ? 1 + r(barbas) : 0, olhos: r(OLHOS.length) });
     });
     // a volta da vista: 0 = de frente para o rosto, π = as costas
     this.giro = 0;
@@ -190,8 +193,9 @@ export class EditorDeAparencia {
 
   mudar(parcial) {
     const p = this.game.player, a = { ...lerAparencia(p.aparencia), ...parcial };
-    // (trocou de raça: o número do cabelo é o lugar na lista DELA — o que passa do fim vale o último)
+    // (trocou de raça: o número do cabelo e o da barba são o lugar na lista DELA — o que passa do fim vale o último)
     a.cabelo = Math.min(a.cabelo, penteadosDe(racaDe(a.raca)).length);
+    a.barba = Math.min(a.barba, barbasDe(racaDe(a.raca)).length);
     p.aparencia = codigoDaAparencia(a);
     p.refreshEquipment();
     this.desenhar();

@@ -7,10 +7,11 @@
  * A raça é o 6º dígito da APARÊNCIA (aparencia.js): 0 (ou nenhum) = humano, n = a
  * n-ésima raça do arquivo — por isso a ORDEM do arquivo não muda (raça nova, no fim).
  *
- * Uma raça: { id, nome, jogavel, pele, olhos, semCabelo, semBarba, penteados, proporcoes }.
+ * Uma raça: { id, nome, jogavel, pele, olhos, semCabelo, semBarba, penteados, barbas, proporcoes }.
  *  - `pele` / `olhos` ('#rrggbb' ou null): a cor é a da raça, e não a que o jogador escolheu;
  *  - `semCabelo` / `semBarba`: a peça sai;
- *  - `penteados`: os cabelos que a raça tem (penteado.js; sem a lista, só o do modelo);
+ *  - `penteados` / `barbas`: os cabelos e as barbas que a raça tem (penteado.js; sem a
+ *    lista, os do humano);
  *  - `jogavel`: aparece no editor de personagem do jogo (falso = só no editor de cenas);
  *  - `proporcoes`: os números de `PROPORCOES` (1 = como o modelo é; o que falta vale 1).
  *
@@ -41,6 +42,10 @@
  * canto de cima e de fora dela é puxado para cima, para trás e para fora, até virar ponta.
  * É feito na peça, antes de fundir (na malha fundida não dá para saber o que é orelha e o
  * que é cabelo ao lado dela), e só SEM elmo.
+ *
+ * O QUEIXO (`largoDoQueixo`, `QUEIXO`): o maxilar de baixo do modelo é um V fino; `queixo`
+ * o ALARGA — o x de cada ponto do rosto de baixo, a partir do meio. Vale por LUGAR, e não
+ * por peça: a pele do rosto, a barba, o alto do pescoço e as presas passam pela mesma conta.
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
@@ -53,6 +58,7 @@ import { texelClaro } from './casca.js';
 export const PROPORCOES = [
   ['altura', 'Altura', 0.8, 1.3],
   ['cabeca', 'Cabeça', 0.8, 1.4],
+  ['queixo', 'Queixo — largura', 0.8, 2.2],
   ['pescoco', 'Pescoço — largura', 0.7, 1.8],
   ['pescocoGrossura', 'Pescoço — grossura', 0.7, 1.8, 1, 'pescoco'],
   ['ombros', 'Ombros — largura', 0.8, 1.5],
@@ -169,30 +175,72 @@ export const ORELHA = {
   lobulo: 164.5, alto: 171.5,
   ponta: [0.5, 0.75, -0.43], passo: 6, curva: [1.5, 2],
 };
-const naPeca = (nome) => /^Face(_|$)/.test(nome);   // (a tingida chama-se `Face_tingido`)
+// ------------------------------------------------------------ o queixo
+// O maxilar de baixo do modelo é um V: 3 cm de meia largura na ponta do queixo, 7 na altura
+// da boca, e só chega à largura do crânio no ângulo do osso, debaixo da orelha — num orc,
+// de frente, o rosto afinava para baixo. `queixo` multiplica o x de cada ponto do rosto DE
+// BAIXO: inteiro da ponta do queixo à boca (`baixo[1]` a `alto[0]`, alturas em cm na pose
+// T), sumindo até a maçã do rosto (`alto[1]`) em cima e até debaixo do queixo (`baixo[0]`:
+// o alto do pescoço vem junto, é a emenda), e só da orelha para a FRENTE (`fundo`, em z: a
+// orelha e a nuca ficam onde estão).
+export const QUEIXO = { baixo: [152, 155], alto: [160, 169], fundo: [-1, 3] };
 /**
- * As proporções da raça que se fazem NA PEÇA, antes de fundir (hoje, as orelhas): muda a
- * geometria no lugar — quem chama dá uma cópia (guerreiro.js `geometriaFundida`).
+ * O quanto o queixo da raça ALARGA num lugar do rosto: uma função (y, z) → o fator do x
+ * (1 = fica) — ou null, se a raça tem o queixo do modelo. É por LUGAR, e não por peça:
+ * quem tem ponto ali (o rosto, a barba — a do modelo e as desenhadas, penteado.js —, o alto
+ * do pescoço, as presas) usa a mesma conta, e nada abre fresta.
+ */
+export function largoDoQueixo(raca) {
+  const q = proporcoesDe(raca).queixo - 1, o = QUEIXO, suave = THREE.MathUtils.smoothstep;
+  if (Math.abs(q) < 1e-3) return null;
+  return (y, z) => 1 + q * suave(y, o.baixo[0], o.baixo[1]) * (1 - suave(y, o.alto[0], o.alto[1])) * suave(z, o.fundo[0], o.fundo[1]);
+}
+
+const daOrelha = (nome) => /^Face(_|$)/.test(nome);   // (a tingida chama-se `Face_tingido`)
+// quem tem ponto no rosto de baixo: a pele, a barba do modelo e o alto do pescoço — e o
+// ELMO (o do pacote, ou pintado sobre a cabeça e o pescoço), que alarga junto: como o resto
+// da armadura, cresce com o corpo (parado, o queixo do orc furava as laterais dele)
+const doQueixo = (nome) => /^(Face|Beard|neck)(_|$)|Helmet|^casca_.*_(head|neck)$/.test(nome);
+/**
+ * As proporções da raça que se fazem NA PEÇA, antes de fundir (as orelhas e o queixo): muda
+ * a geometria no lugar — quem chama dá uma cópia (guerreiro.js `geometriaFundida`).
  * Com ELMO a orelha fica como o modelo a tem: esticada, a ponta furava o elmo.
  */
 export function moldarPeca(geo, nome, raca, elmo = false) {
+  const pos = geo.attributes.position, mexeu = new Uint8Array(pos.count);
   const quanto = proporcoesDe(raca).orelhas - 1;
-  if (elmo || !naPeca(nome) || Math.abs(quanto) < 1e-3) return;
-  const pos = geo.attributes.position, nor = geo.attributes.normal, o = ORELHA;
-  const ax = o.borda[0] - o.raiz[0], az = o.borda[1] - o.raiz[1], comprimento = Math.hypot(ax, az);
-  const dir = new THREE.Vector3(...o.ponta).normalize(), mexeu = new Uint8Array(pos.count);
-  const entre = (v, a, b) => Math.min(1, Math.max(0, (v - a) / (b - a)));
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), lado = Math.sign(x), fora = Math.abs(x);
-    if (fora < o.caixa.x || y < o.caixa.y[0] || y > o.caixa.y[1] || z < o.caixa.z[0] || z > o.caixa.z[1]) continue;
-    // quão longe da cabeça (ao longo da aba) e quão alto na orelha, de 0 a 1
-    const longe = entre(((fora - o.raiz[0]) * ax + (z - o.raiz[1]) * az) / comprimento, 0, comprimento);
-    const alto = entre(y, o.lobulo, o.alto);
-    const d = longe ** o.curva[0] * alto ** o.curva[1] * quanto * o.passo;
-    if (!d) continue;
-    pos.setXYZ(i, x + lado * dir.x * d, y + dir.y * d, z + dir.z * d);
-    mexeu[i] = 1;
+  if (!elmo && daOrelha(nome) && Math.abs(quanto) >= 1e-3) {
+    const o = ORELHA, ax = o.borda[0] - o.raiz[0], az = o.borda[1] - o.raiz[1], comprimento = Math.hypot(ax, az);
+    const dir = new THREE.Vector3(...o.ponta).normalize();
+    const entre = (v, a, b) => Math.min(1, Math.max(0, (v - a) / (b - a)));
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), lado = Math.sign(x), fora = Math.abs(x);
+      if (fora < o.caixa.x || y < o.caixa.y[0] || y > o.caixa.y[1] || z < o.caixa.z[0] || z > o.caixa.z[1]) continue;
+      // quão longe da cabeça (ao longo da aba) e quão alto na orelha, de 0 a 1
+      const longe = entre(((fora - o.raiz[0]) * ax + (z - o.raiz[1]) * az) / comprimento, 0, comprimento);
+      const alto = entre(y, o.lobulo, o.alto);
+      const d = longe ** o.curva[0] * alto ** o.curva[1] * quanto * o.passo;
+      if (!d) continue;
+      pos.setXYZ(i, x + lado * dir.x * d, y + dir.y * d, z + dir.z * d);
+      mexeu[i] = 1;
+    }
   }
+  // O QUEIXO: o rosto de baixo alarga a partir do meio. As presas vão INTEIRAS com o canto
+  // da boca de onde nascem (alargadas ponto a ponto, engrossariam)
+  const largo = largoDoQueixo(raca);
+  if (largo && nome === 'presas') {
+    const d = PRESA[0][0] * (largo(PRESA[0][1], PRESA[0][2]) - 1);
+    for (let i = 0; i < pos.count; i++) pos.setX(i, pos.getX(i) + Math.sign(pos.getX(i)) * d);
+    pos.needsUpdate = true;
+  } else if (largo && doQueixo(nome)) {
+    for (let i = 0; i < pos.count; i++) {
+      const f = largo(pos.getY(i), pos.getZ(i));
+      if (Math.abs(f - 1) < 1e-4) continue;
+      pos.setX(i, pos.getX(i) * f);
+      mexeu[i] = 1;
+    }
+  }
+  if (!mexeu.includes(1)) return;
   pos.needsUpdate = true;
   normaisDasFaces(geo, mexeu);
 }

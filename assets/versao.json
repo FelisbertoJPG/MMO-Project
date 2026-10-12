@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-10-12.8",
-  "nota": "cabelo novo para todos: rabo de cavalo, tranças, coque, crista, moicano e espinhos (Pausa → Aparência)"
+  "versao": "2026-10-12.9",
+  "nota": "barbas novas (Pausa → Aparência): cavanhaque, moldura, costeletas, bigode, barbicha, trançada e longa"
 }
