@@ -318,6 +318,7 @@ export class CorpoGuerreiro {
     for (const o of this.rigidas) o.visible = false;
     const desenho = (lugar, conj) => desenhoDe(Assets.armaduras, lugar, conj);
     const usadas = this.pecas.filter((o) => {
+      if (o.name === 'Hair') return false;   // (o cabelo solto do modelo saiu do jogo: o cabelo é o PENTEADO, abaixo)
       const a = o.name.match(ARMADURA);
       if (!a) return true;
       const lugar = lugarDaPeca(o.name);
@@ -330,14 +331,13 @@ export class CorpoGuerreiro {
     LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas)); });
     // o que a RAÇA acrescenta (as presas do orc)
     if (this.raca) usadas.push(...pecasDaRaca(this.raca, this.pecas));
-    // a APARÊNCIA: as peças de pele, cabelo, barba e olhos tingidas (ou fora: sem cabelo/barba)
+    // a APARÊNCIA: as peças de pele, barba, sobrancelhas e olhos tingidas (ou fora: sem barba)
     if (aparenciaValida(aparencia)) for (let i = usadas.length - 1; i >= 0; i--) {
       if (!usadas[i].isSkinnedMesh) continue;
       const t = tingir(usadas[i], aparencia);
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
-    // o PENTEADO da raça (penteado.js), quando é dos desenhados em código (o do modelo é a
-    // peça `Hair`, que o `tingir` acima deixou ou tirou)
+    // o PENTEADO (penteado.js): o cabelo, desenhado em código ao fundir o corpo
     const ap = lerAparencia(aparencia), cabelo = penteadoDe(this.raca, ap.cabelo), doPeito = desenho('peito', armadura[LUGARES.indexOf('peito')]);
     const penteado = PENTEADOS[cabelo]?.formas ? {
       id: cabelo, cor: CABELOS[ap.cor][1], elmo,

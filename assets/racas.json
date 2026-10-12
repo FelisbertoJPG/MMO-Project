@@ -1,5 +1,5 @@
 {
-  "_leiame": "As RAÇAS (js/raca.js): o corpo do guerreiro com outra cor e outras proporções. A ORDEM é o número que vai no save (o 6º dígito da aparência): não reordene nem apague do meio — raça nova entra no FIM. pele/olhos: '#rrggbb' (a raça manda) ou null (o jogador escolhe). jogavel: aparece no editor de personagem do jogo. penteados: os cabelos que a raça tem (ids de js/penteado.js) — a ORDEM é o número do cabelo no save: penteado novo entra no FIM; sem a lista, só o cabelo do modelo. proporcoes: 1 = como o modelo é. Editadas na tela Raças do editor de cenas.",
+  "_leiame": "As RAÇAS (js/raca.js): o corpo do guerreiro com outra cor e outras proporções. A ORDEM é o número que vai no save (o 6º dígito da aparência): não reordene nem apague do meio — raça nova entra no FIM. pele/olhos: '#rrggbb' (a raça manda) ou null (o jogador escolhe). jogavel: aparece no editor de personagem do jogo. penteados: os cabelos que a raça tem (ids de js/penteado.js) — a ORDEM é o número do cabelo no save: penteado novo entra no FIM; sem a lista, os do humano. proporcoes: 1 = como o modelo é. Editadas na tela Raças do editor de cenas.",
   "racas": [
     {
       "id": "orc",
@@ -9,17 +9,6 @@
       "olhos": "#d6a21e",
       "semCabelo": false,
       "semBarba": true,
-      "penteados": [
-        "moicano",
-        "espinhos",
-        "crista",
-        "coque",
-        "rabo",
-        "tranca",
-        "trancas",
-        "cristaTranca",
-        "modelo"
-      ],
       "proporcoes": {
         "altura": 1.06,
         "cabeca": 0.85,

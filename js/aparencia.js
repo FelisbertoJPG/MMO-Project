@@ -1,13 +1,14 @@
 /**
  * A APARÊNCIA DO PERSONAGEM (04/10/2026) — o editor de personagem: cor da pele, cabelo
- * (com ou sem, e a cor), barba (com ou sem; a cor é a do cabelo, e as sobrancelhas também)
- * e a cor dos olhos. Fica no save (`jogador.aparencia`) e VIAJA com o corpo (o `c` do
+ * (o penteado, ou sem, e a cor), barba (com ou sem; a cor é a do cabelo, e as sobrancelhas
+ * também) e a cor dos olhos. Fica no save (`jogador.aparencia`) e VIAJA com o corpo (o `c` do
  * instantâneo, guerreiro.js: `'<armadura>:<aparência>'`), então os outros veem igual.
  *
  * O CÓDIGO são 5 dígitos: [pele, cabelo, cor do cabelo, barba (0/1), olhos]; o índice 0
  * de cada paleta é o ORIGINAL do modelo. `APARENCIA_PADRAO` = como o modelo é.
- * O CABELO é 0 (sem) ou o número do PENTEADO na lista da raça (penteado.js): o humano só
- * tem o 1, o cabelo do modelo; o Orc tem o moicano, a crista, a trança…
+ * O CABELO é 0 (sem) ou o número do PENTEADO (penteado.js: o rabo de cavalo, a trança, o
+ * moicano… desenhados em código) na lista do humano ou da raça. O cabelo solto do modelo
+ * saiu do jogo (12/10/2026): o "1" dos saves de antes é hoje o primeiro penteado.
  * Um 6º dígito, quando há, é a RAÇA (raca.js; sem ele, humano): ela pode mandar na cor
  * da pele e dos olhos e tirar o cabelo e a barba, e muda as proporções do corpo.
  *
@@ -15,14 +16,15 @@
  * vértice dele é branca. Cada vértice de pele/cabelo/barba/olho ganha uma cor de vértice
  * = cor pedida ÷ cor média daquela região na textura: multiplicada pela textura no
  * shader, dá a cor pedida e GUARDA a luz e a sombra que a textura tinha. A pele é achada
- * pela UV (a faixa de pele da paleta, `FAIXA_PELE`), o cabelo/barba/olhos pela peça.
+ * pela UV (a faixa de pele da paleta, `FAIXA_PELE`), a barba, as sobrancelhas e os olhos
+ * pela peça. (O cabelo não é tingido: o penteado já é desenhado na cor.)
  * Tudo vira geometrias tingidas (uma vez por peça e cor, divididas por todos), que
  * entram na malha fundida no lugar das peças originais (`tingir`, chamado no `vestir`).
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { racaDe } from './raca.js';
-import { penteadosDe, penteadoDe, nomeDoPenteado } from './penteado.js';
+import { penteadosDe, nomeDoPenteado } from './penteado.js';
 
 export const PELES = [
   // (tons pensados para a luz do jogo: a paleta original do modelo é #f8bb7f)
@@ -94,19 +96,17 @@ const tingidas = new Map();
 export function esquecerTingidas() { for (const g of tingidas.values()) g?.dispose?.(); tingidas.clear(); delete tingidas.razaoPele; }
 /**
  * A peça do corpo com a aparência aplicada (um objeto no formato da malha fundida), ou a
- * própria peça (nada a tingir nela), ou null (a peça some: sem cabelo / sem barba).
+ * própria peça (nada a tingir nela), ou null (a peça some: sem barba).
  */
 export function tingir(peca, codigo) {
   const a = lerAparencia(codigo), nome = peca.name, raca = racaDe(a.raca);
-  // (o cabelo do modelo só fica se é ele o penteado escolhido: os outros são desenhados em código)
-  if (nome === 'Hair' && penteadoDe(raca, a.cabelo) !== 'modelo') return null;
   if (nome === 'Beard' && (!a.barba || raca?.semBarba)) return null;
   const pele = raca?.pele ?? PELES[a.pele][1], olhos = raca?.olhos ?? OLHOS[a.olhos][1];
   let hex = null, escolhe = null;
   const uv = peca.geometry.attributes.uv;
   if (!uv) return peca;
   if (PECAS_DE_PELE.includes(nome) && pele) { hex = pele; escolhe = (i) => naPele(uv.getX(i), uv.getY(i)); }
-  else if ((nome === 'Hair' || nome === 'Beard' || nome === 'Eye_Brows') && CABELOS[a.cor][1]) { hex = CABELOS[a.cor][1]; escolhe = () => true; }
+  else if ((nome === 'Beard' || nome === 'Eye_Brows') && CABELOS[a.cor][1]) { hex = CABELOS[a.cor][1]; escolhe = () => true; }
   else if (nome === 'Eyes' && olhos) {
     hex = olhos;
     const px0 = lerTextura(peca.material?.map);
@@ -145,8 +145,7 @@ export function tingir(peca, codigo) {
 const LINHAS = [
   ['raca', 'Raça', () => racasDoPainel().map((r) => r.nome), () => racasDoPainel().length < 2],
   ['pele', 'Pele', () => PELES.map((p) => p[0]), (r) => !!r?.pele],
-  // (o humano só tem o cabelo do modelo: "com" ou "sem"; a raça com penteados escolhe entre eles)
-  ['cabelo', 'Cabelo', (r) => { const l = penteadosDe(r); return ['Sem cabelo', ...(l.length > 1 ? l.map(nomeDoPenteado) : ['Com cabelo'])]; }, (r) => !penteadosDe(r).length],
+  ['cabelo', 'Cabelo', (r) => ['Sem cabelo', ...penteadosDe(r).map(nomeDoPenteado)], (r) => !penteadosDe(r).length],
   ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0])],
   ['barba', 'Barba', () => ['Sem barba', 'Com barba'], (r) => !!r?.semBarba],
   ['olhos', 'Olhos', () => OLHOS.map((p) => p[0]), (r) => !!r?.olhos],
@@ -157,6 +156,8 @@ const racasDoPainel = () => [{ n: 0, nome: 'Humano' }, ...Assets.racas.map((r, i
 /**
  * O EDITOR DE PERSONAGEM no jogo (`game.menu = 'aparencia'`): um painel com ◀ ▶ por
  * opção, a câmera no rosto do jogador, e o corpo mudando na hora. "Pronto" grava.
+ * ARRASTAR fora do painel (mouse ou dedo) gira a vista em volta do personagem: o rabo de
+ * cavalo e as tranças ficam nas costas, e de frente não se viam.
  */
 export class EditorDeAparencia {
   constructor(game) {
@@ -170,12 +171,19 @@ export class EditorDeAparencia {
       const penteados = penteadosDe(racaDe(lerAparencia(game.player.aparencia).raca)).length;
       this.mudar({ pele: 1 + r(PELES.length - 1), cabelo: penteados && Math.random() < 0.85 ? 1 + r(penteados) : 0, cor: 1 + r(CABELOS.length - 1), barba: Math.random() < 0.6 ? 1 : 0, olhos: r(OLHOS.length) });
     });
+    // a volta da vista: 0 = de frente para o rosto, π = as costas
+    this.giro = 0;
+    let de = null;
+    addEventListener('pointerdown', (e) => { if (this.aberto && !e.target.closest?.('#aparencia')) de = e.clientX; });
+    addEventListener('pointermove', (e) => { if (de === null || !this.aberto) return; this.giro += (e.clientX - de) * 0.012; de = e.clientX; });
+    for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, () => { de = null; });
   }
 
   get aberto() { return !this.el.classList.contains('hidden'); }
 
   abrir() {
     this.el.classList.remove('hidden');
+    this.giro = 0;
     this.desenhar();
   }
   fechar() { this.el.classList.add('hidden'); }
@@ -207,11 +215,14 @@ export class EditorDeAparencia {
     }
   }
 
-  /** a câmera de frente para o rosto (chamada no laço, depois da câmera de sempre) */
+  /**
+   * a câmera de frente para o rosto (chamada no laço, depois da câmera de sempre), girada
+   * pelo arrasto; indo para as costas ela se afasta e desce um pouco, para caber a trança
+   */
   camera(cam) {
-    const p = this.game.player, f = p.facing;
-    const y = p.pos.y + 1.55;
-    cam.position.set(p.pos.x + Math.sin(f) * 1.25 - Math.cos(f) * 0.35, y + 0.08, p.pos.z + Math.cos(f) * 1.25 + Math.sin(f) * 0.35);
+    const p = this.game.player, f = p.facing + this.giro, atras = (1 - Math.cos(this.giro)) / 2;
+    const y = p.pos.y + 1.55 - 0.2 * atras, d = 1.25 + 0.7 * atras;
+    cam.position.set(p.pos.x + Math.sin(f) * d - Math.cos(f) * 0.35, y + 0.08, p.pos.z + Math.cos(f) * d + Math.sin(f) * 0.35);
     cam.lookAt(p.pos.x - Math.cos(f) * 0.25, y - 0.05, p.pos.z + Math.sin(f) * 0.25);
   }
 }

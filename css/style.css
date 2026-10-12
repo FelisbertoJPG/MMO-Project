@@ -484,6 +484,7 @@ body.toque .hint { display: none; }
 #aparencia .rotulo { color: var(--text-dim); font-size: 13px; }
 #aparencia .valor { text-align: center; color: var(--text); font-size: 14px; }
 #aparencia .seta { padding: 4px 0; }
+#aparencia .aparencia-dica { color: var(--text-dim); font-size: 12px; text-align: center; margin-top: 10px; }
 #aparencia .aparencia-botoes { display: flex; gap: 8px; margin-top: 14px; }
 #aparencia .aparencia-botoes button { flex: 1; }
 

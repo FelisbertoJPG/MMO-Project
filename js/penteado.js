@@ -1,13 +1,12 @@
 /**
- * OS PENTEADOS (12/10/2026) — o cabelo das raças DESENHADO EM CÓDIGO: o moicano, os
- * espinhos, a crista, o coque, o rabo de cavalo e a trança do Orc. O humano segue com o
- * cabelo do modelo (a peça `Hair`), que aqui se chama 'modelo' e pode entrar na lista de
- * uma raça como outro qualquer.
+ * OS PENTEADOS (12/10/2026) — o cabelo DESENHADO EM CÓDIGO, de todos (o humano e as
+ * raças): o moicano, os espinhos, a crista, o coque, o rabo de cavalo e as tranças. O
+ * cabelo solto do modelo (a peça `Hair`) SAIU do jogo: quem tem cabelo tem um destes.
  *
- * QUAIS cada raça tem está em `assets/racas.json` (`penteados`: uma lista de ids daqui). O
- * dígito do cabelo na aparência (aparencia.js) é o LUGAR nessa lista — 0 = sem cabelo, 1 =
- * o primeiro… —, por isso penteado novo de uma raça entra no FIM da lista dela. Raça sem a
- * lista = só o do modelo, como o humano.
+ * QUAIS cada um tem: o humano, os de `PENTEADOS_PADRAO`; a raça, os da lista `penteados`
+ * dela em `assets/racas.json` (ids daqui; sem a lista, os do humano). O dígito do cabelo
+ * na aparência (aparencia.js) é o LUGAR nessa lista — 0 = sem cabelo, 1 = o primeiro… —,
+ * por isso penteado novo entra no FIM dela.
  *
  * COMO SE DESENHA. Tudo é TUBO facetado (`tubo`): seções seguidas ao longo de um caminho,
  * em cm no espaço da pose T do modelo (como as presas, raca.js), a cor nos vértices e a
@@ -28,7 +27,9 @@
 import * as THREE from 'three';
 import { texelClaro } from './casca.js';
 
-const COR_PADRAO = '#2a201a';                // quem não escolheu a cor ("Original"): o preto do orc
+// quem não escolheu a cor ("Original"): o castanho do cabelo do modelo, medido na textura
+// dele — é a cor em que a barba e as sobrancelhas ficam
+const COR_PADRAO = '#62423c';
 const FAIXA = '#5b3a22', OSSO = '#e6dcc0';   // a tira de couro que amarra, e a argola de osso
 // A LINHA DO MEIO do couro cabeludo (x = 0), da testa à nuca: [z, y], medidos na peça `head`
 const COURO = [[13.5, 180.5], [10.4, 184.3], [4.8, 187.2], [-2.8, 188.0], [-12.8, 182.7], [-15.2, 179.0], [-15.6, 175.6], [-15.2, 172.3], [-14.4, 168.8], [-11.3, 162.9]];
@@ -37,32 +38,38 @@ const AFUNDA = 1.3;    // quanto a raiz de cada forma entra na cabeça (não fic
 const FOLGA = 0.5;     // entre a mecha e o corpo em que ela pousa
 
 /**
- * Os penteados que há. `formas`: [nome da forma em `FORMAS`, as medidas dela] — sem
- * `formas`, é a peça do modelo. As medidas são em cm; `de`/`ate`/`em`/`raiz` são lugares
- * na linha do couro (cm a partir da testa: ~19 é o alto da cabeça, ~30 o cocuruto de trás).
+ * Os penteados que há. `formas`: [nome da forma em `FORMAS`, as medidas dela]. As medidas
+ * são em cm; `de`/`ate`/`em`/`raiz` são lugares na linha do couro (cm a partir da testa:
+ * ~19 é o alto da cabeça, ~30 o cocuruto de trás).
  */
 const CRISTA = (ate) => ['crina', { de: 2.5, ate, altura: 2.7, largura: 3.5, topo: 0.6, dente: 0.6 }];
 const TRANCA = (x = 0, o = {}) => ['mecha', { raiz: 33.5, x, solta: [[179.4, -18.6], [175, -20.6], [169.5, -20.2], [165, -18.6]], ate: 120, raio: 2.7, elo: 4.6, argola: true, ...o }];
 export const PENTEADOS = {
-  modelo: { nome: 'Solto' },
-  moicano: { nome: 'Moicano', formas: [['crina', { de: 1.5, ate: 42, altura: 9, largura: 3.1, topo: 0.3, dente: 2.4, inclina: 0.2 }]] },
-  espinhos: { nome: 'Espinhos', formas: [['espinhos', { de: 3.5, ate: 39, n: 8, altura: 11.5, largura: 2.6, base: 3.6 }]] },
-  crista: { nome: 'Crista', formas: [CRISTA(41)] },
-  coque: { nome: 'Coque', formas: [['coque', { em: 24, raio: 4.3 }]] },
   rabo: { nome: 'Rabo de cavalo', formas: [['mecha', { raiz: 29.5, solta: [[187, -16.8], [186.2, -21.4], [181, -24.6], [174, -25], [167.5, -22.6]], ate: 134, raio: 3.7 }]] },
   tranca: { nome: 'Trança', formas: [TRANCA()] },
   trancas: { nome: 'Duas tranças', formas: [TRANCA(4.4, { abre: 3, raio: 2.1, elo: 3.9, ate: 126 }), TRANCA(-4.4, { abre: -3, raio: 2.1, elo: 3.9, ate: 126 })] },
+  coque: { nome: 'Coque', formas: [['coque', { em: 24, raio: 4.3 }]] },
+  crista: { nome: 'Crista', formas: [CRISTA(41)] },
+  moicano: { nome: 'Moicano', formas: [['crina', { de: 1.5, ate: 42, altura: 9, largura: 3.1, topo: 0.3, dente: 2.4, inclina: 0.2 }]] },
+  espinhos: { nome: 'Espinhos', formas: [['espinhos', { de: 3.5, ate: 39, n: 8, altura: 11.5, largura: 2.6, base: 3.6 }]] },
   cristaTranca: { nome: 'Crista e trança', formas: [CRISTA(31), TRANCA()] },
 };
 
-/** Os penteados de uma raça (null = humano), na ordem do arquivo: o número no save é o lugar aqui, mais 1. */
+/**
+ * Os do HUMANO (e da raça sem lista própria). A ORDEM é o número do cabelo no save do
+ * personagem: não reordene nem tire do meio — penteado novo entra no FIM. (O primeiro é o
+ * de quem tinha o cabelo solto do modelo: o save dele diz "1".)
+ */
+export const PENTEADOS_PADRAO = ['rabo', 'tranca', 'trancas', 'coque', 'crista', 'moicano', 'espinhos', 'cristaTranca'];
+
+/** Os penteados de uma raça (null = humano), na ordem em que valem: o número no save é o lugar aqui, mais 1. */
 export function penteadosDe(raca) {
   if (raca?.semCabelo) return [];
-  return Array.isArray(raca?.penteados) ? raca.penteados : ['modelo'];
+  return Array.isArray(raca?.penteados) ? raca.penteados : PENTEADOS_PADRAO;
 }
 /**
  * O penteado de número `n` (o dígito do cabelo na aparência; 0 = sem) de uma raça: o id, ou
- * null. Número além da lista vale o último (no humano, qualquer um é o cabelo do modelo).
+ * null. Número além da lista vale o último.
  */
 export function penteadoDe(raca, n) {
   const lista = penteadosDe(raca);
@@ -299,9 +306,9 @@ function pousoEm(tris, deformador, x, y) {
 
 /**
  * A geometria de um penteado, pronta para a malha fundida (já com as proporções da raça e
- * os ossos na ordem única) — ou null: não há o que desenhar (o do modelo, id desconhecido,
- * tudo debaixo do elmo).
- *  - `cor`: '#rrggbb' ou null (a cor padrão); `elmo`: há elmo;
+ * os ossos na ordem única) — ou null: não há o que desenhar (id desconhecido, ou tudo
+ * debaixo do elmo).
+ *  - `cor`: '#rrggbb' ou null (a do modelo, `COR_PADRAO`); `elmo`: há elmo;
  *  - `apoio`: as peças em que a mecha pode pousar (o tronco, o pescoço, a armadura do peito);
  *  - `ordem`, `deformador`, `escala`: os ossos do esqueleto único, a conta da raça para um
  *    ponto (raca.js `deformadorDe`) e o tamanho da cabeça dela;
