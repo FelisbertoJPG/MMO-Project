@@ -32,6 +32,7 @@ import { Assets } from './assets.js';
 export const VISTAS = 8;
 const RES = 256;   // pixels de cada foto (a textura é VISTAS × RES de largura)
 const VER_DENTRO_DE_FORA = 40, VER_FORA_DE_DENTRO = 60;
+const SOLTA_LONGE = 130;        // peça solta do cenário (fogueira, tocha, baú, porta) mais longe que isto não é desenhada
 const PERSONAGEM_LONGE = 110;   // personagem (inimigo, animal) mais longe que isto não é desenhado
 
 /** As peças que viram impostor ao longe: as árvores (o toco não). */
@@ -224,6 +225,49 @@ export class LOD {
     }
     this.tPersonagens = (this.tPersonagens ?? 0) + 1;
     if (this.tPersonagens % 8 === 0) this.personagens(camera, fora);
+    if (this.tPersonagens % 8 === 4) this.soltas(camera, fora);
+  }
+
+  /**
+   * AS PEÇAS SOLTAS DO CENÁRIO (11/10/2026): o que o mundo põe na cena fora dos lotes da
+   * decoração — as fogueiras (~25 malhas cada: pedras, lenha, espada), as tochas de parede, os
+   * baús, as portas, os braseiros da arena, as mensagens do chão — não tinha regra de distância
+   * nenhuma: do acampamento, olhando para a masmorra, desenhavam-se ~95 peças a 220–280 m,
+   * ATRÁS da rocha (num relatório de uma GT 730 no Baixo, 604 chamadas de desenho com a CPU no
+   * limite). Aqui elas ganham as duas regras da decoração: do outro lado da masmorra além de
+   * `VER_DENTRO_DE_FORA` / `VER_FORA_DE_DENTRO`, ou além de `SOLTA_LONGE` m, o desenho some
+   * (por `layers`, como os personagens: o jogo mexe no `visible` de porta, névoa e tampa de baú).
+   * A lista é feita UMA vez, no primeiro quadro: os filhos diretos da cena que não são luz,
+   * lote, partícula, personagem, céu, chão, capim nem água (o que entra depois — item caído,
+   * projétil — fica de fora, sempre desenhado). A luz de dentro delas não muda (`distribuirLuzes`).
+   */
+  soltas(camera, fora) {
+    const w = this.world, g = w.game, p = camera.position;
+    if (g.state === 'title') return;
+    if (!this.listaDeSoltas) {
+      const fora_ = new Set();
+      for (const e of [g.player, ...(g.all ?? []), ...(w.cadaveres ?? []), ...(g.sessao?.outros ?? [])]) { const r = e?.model?.root ?? e?.model?.scene ?? e?.root; if (r) fora_.add(r); }
+      const lotes = new Set(); for (const gr of this.grupos) for (const im of gr.ims) lotes.add(im);
+      const caixa = new THREE.Box3(), esfera = new THREE.Sphere();
+      this.listaDeSoltas = [];
+      for (const o of w.scene.children) {
+        if (o.isLight || o.isInstancedMesh || o.isPoints || o.isSprite || o.isCamera || fora_.has(o) || lotes.has(o)) continue;
+        if (o.frustumCulled === false || /^(ceu|água|capim|respingos|vitórias)/.test(o.name ?? '')) continue;
+        const malhas = []; let ossos = false;
+        o.traverse((m) => { if (m.isSkinnedMesh) ossos = true; else if (m.isMesh && !m.isInstancedMesh) malhas.push(m); });
+        if (ossos || !malhas.length) continue;
+        caixa.setFromObject(o).getBoundingSphere(esfera);
+        if (!(esfera.radius > 0) || esfera.radius > 20) continue;      // o chão, o leito da lagoa: grandes demais para sumir pela distância
+        this.listaDeSoltas.push({ malhas, centro: esfera.center.clone(), raio: esfera.radius, dentro: w.ehDeDentro(...w.cellOf(esfera.center)), oculto: false });
+      }
+    }
+    for (const s of this.listaDeSoltas) {
+      const d = Math.max(0, s.centro.distanceTo(p) - s.raio), folga = s.oculto ? -5 : 0;
+      const oculto = d > SOLTA_LONGE + folga || (s.dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
+      if (oculto === s.oculto) continue;
+      s.oculto = oculto;
+      for (const m of s.malhas) m.layers.set(oculto ? 31 : 0);
+    }
   }
 
   /**

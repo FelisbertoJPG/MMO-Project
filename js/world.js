@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { categoriaDaPeca, CRESCE_CAPIM } from './categorias.js';
+import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { corDoChao, texturaDoChao, REPETE_CHAO, montarCaminhos, terreiro } from './campo.js';
 import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
@@ -1143,7 +1144,13 @@ export class World {
    * decor), essa peça tem de ficar fora dos lotes.
    */
   agruparDecoracao(pecas) {
-    const LOTE = 4 * CELL;
+    // O LADO da região: 24 m para as ÁRVORES (o cartaz de longe troca por grupo: com grupos
+    // grandes, a árvore de perto viraria cartaz junto com a de longe) e 48 m para o resto
+    // (11/10/2026). Com 24 m para tudo, cada lote tinha ~2 cópias: numa GT 730 no Baixo, sem
+    // sombra nenhuma, eram 604 chamadas de desenho e 36 ms de CPU só para montá-las (19
+    // quadros/s com a placa folgada). Região maior = menos chamadas e um pouco mais de
+    // triângulos fora da câmera, que a placa aguenta.
+    const LOTE_ARVORE = 4 * CELL, LOTE_RESTO = 8 * CELL;
     const lotes = new Map();
     // os GRUPOS do LOD (lod.js): por peça e região, os lotes dela e onde está cada cópia
     const grupos = new Map();
@@ -1155,17 +1162,21 @@ export class World {
       const malhas = [];
       raiz.traverseVisible((o) => { if (o.isMesh) malhas.push(o); });
       if (!malhas.length) continue;
+      const prop = raiz.userData.prop ?? '?', LOTE = /Tree(?!Stump)/.test(prop) ? LOTE_ARVORE : LOTE_RESTO;
       const rx = Math.floor(raiz.position.x / LOTE), rz = Math.floor(raiz.position.z / LOTE);
-      const prop = raiz.userData.prop ?? '?', chaveG = `${prop}|${rx},${rz}`;
+      // (o lado de DENTRO e o de fora da masmorra em grupos separados: o LOD esconde um ou outro
+      // pelo grupo inteiro, e com a região maior a mistura na porta da masmorra crescia)
+      const deDentro = this.ehDeDentro(...this.cellOf(raiz.position)), regiao = `${rx},${rz},${deDentro ? 'd' : 'f'}`;
+      const chaveG = `${prop}|${regiao}`;
       let g = grupos.get(chaveG);
       if (!g) grupos.set(chaveG, (g = { prop, ims: new Set(), matrizes: [], posicoes: [], raioPeca: 0, nDentro: 0 }));
       g.matrizes.push(raiz.matrixWorld.clone());
-      if (this.ehDeDentro(...this.cellOf(raiz.position))) g.nDentro++;   // peça da masmorra (lod.js: o outro lado)
+      if (deDentro) g.nDentro++;   // peça da masmorra (lod.js: o outro lado)
       g.posicoes.push(raiz.position.clone());
       if (Assets.props[prop]) g.raioPeca = Math.max(g.raioPeca, this.caixaDoProp(prop).getSize(new THREE.Vector3()).length() / 2 * raiz.scale.x);
       for (const m of malhas) {
         const mats = Array.isArray(m.material) ? m.material : [m.material];
-        const chave = `${m.geometry.uuid}|${mats.map((x) => x.uuid).join(',')}|${m.castShadow}|${m.receiveShadow}|${rx},${rz}`;
+        const chave = `${m.geometry.uuid}|${mats.map((x) => x.uuid).join(',')}|${m.castShadow}|${m.receiveShadow}|${regiao}`;
         let l = lotes.get(chave);
         if (!l) lotes.set(chave, (l = { malha: m, matrizes: [], grupo: g }));
         // um quebrável dentro do lote: ele precisa saber qual cópia é a dele
@@ -1275,23 +1286,36 @@ export class World {
   buildBonfire(def) {
     const g = new THREE.Group();
     const r = rand(5);
+    // as 10 pedras numa malha só, e as 6 lenhas em outra (11/10/2026): eram 16 chamadas de desenho
+    // por fogueira, justo onde os jogadores ficam parados — as peças são as mesmas, no mesmo lugar
+    const fundir = (malhas, material) => {
+      const geo = mergeGeometries(malhas.map((m) => { m.updateMatrix(); return m.geometry.clone().applyMatrix4(m.matrix); }));
+      for (const m of malhas) m.geometry.dispose();
+      return new THREE.Mesh(geo, material);
+    };
     const stone = new THREE.MeshStandardMaterial({ color: 0x3a3632, roughness: 1 });
+    const pedras = [];
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2;
       const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2 + r() * 0.1), stone);
-      s.position.set(Math.cos(a) * 0.75, 0.1, Math.sin(a) * 0.75); s.castShadow = true;
-      g.add(s);
+      s.position.set(Math.cos(a) * 0.75, 0.1, Math.sin(a) * 0.75);
+      pedras.push(s);
     }
+    const anel = fundir(pedras, stone);
+    anel.castShadow = true;
+    g.add(anel);
     const ash = new THREE.Mesh(new THREE.CircleGeometry(0.72, 16), new THREE.MeshStandardMaterial({ color: 0x141110, roughness: 1 }));
     ash.rotation.x = -Math.PI / 2; ash.position.y = 0.03; g.add(ash);
     const wood = new THREE.MeshStandardMaterial({ color: 0x24160c, roughness: 1 });
+    const lenhas = [];
     for (let i = 0; i < 6; i++) {
       const log = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 1.0, 6), wood);
       const a = (i / 6) * Math.PI * 2;
       log.position.set(Math.cos(a) * 0.18, 0.28, Math.sin(a) * 0.18);
       log.rotation.set(Math.sin(a) * 0.65, 0, -Math.cos(a) * 0.65);
-      g.add(log);
+      lenhas.push(log);
     }
+    g.add(fundir(lenhas, wood));
     // Espada fincada nas cinzas
     const sword = makeWeapon('longsword');
     sword.rotation.set(Math.PI / 2 + 0.1, 0, 0.08);
