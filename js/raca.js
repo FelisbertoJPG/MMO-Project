@@ -17,9 +17,11 @@
  *  1. NA MALHA (`deformar`, chamado ao fundir o corpo — guerreiro.js `geometriaFundida`):
  *     cada vértice é engrossado em volta do osso a que está preso (a mistura dos pesos
  *     dele emenda uma parte na outra). Membros engrossam em volta do próprio eixo; o
- *     tronco, em volta da linha da coluna, com a LARGURA e o FUNDO separados (a barriga
- *     cresce para a frente); a cabeça e os pés crescem a partir da junta. É feito uma
- *     vez por corpo, e a armadura (do pacote ou pintada) cresce junto: é a mesma malha.
+ *     tronco, em volta da linha da coluna (a barriga cresce para a frente); a cabeça e
+ *     os pés crescem a partir da junta. Em toda parte a LARGURA (o que se vê de frente)
+ *     e a GROSSURA ou fundo (o que se vê de lado) são réguas separadas — com uma só, o
+ *     braço do orc ficava forte de frente e fino de lado. É feito uma vez por corpo, e
+ *     a armadura (do pacote ou pintada) cresce junto: é a mesma malha.
  *  2. NOS OSSOS (`CorpoGuerreiro.aplicarRaca`): a ALTURA (a cena inteira), os OMBROS (os
  *     braços nascem mais para fora), o QUADRIL (as coxas se afastam com a largura dele)
  *     e as MÃOS — a escala do osso da mão, que os dedos herdam. (Na malha, a mão crescia
@@ -41,23 +43,32 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { texelClaro } from './casca.js';
 
-// [chave, rótulo, mínimo, máximo, padrão (1 se não diz)] — a tela Raças do editor monta os
-// controles por aqui
+// [chave, rótulo, mínimo, máximo, padrão (1 se não diz), segue] — a tela Raças do editor
+// monta os controles por aqui. A LARGURA é o que se vê de FRENTE; a GROSSURA (o fundo), o
+// que se vê de LADO. `segue`: de que chave vem o valor quando o arquivo não tem esta — as
+// grossuras nasceram depois, e até então a régua da largura valia para as duas direções.
 export const PROPORCOES = [
   ['altura', 'Altura', 0.8, 1.3],
   ['cabeca', 'Cabeça', 0.8, 1.4],
-  ['pescoco', 'Pescoço (grossura)', 0.7, 1.8],
-  ['ombros', 'Ombros (largura)', 0.8, 1.5],
+  ['pescoco', 'Pescoço — largura', 0.7, 1.8],
+  ['pescocoGrossura', 'Pescoço — grossura', 0.7, 1.8, 1, 'pescoco'],
+  ['ombros', 'Ombros — largura', 0.8, 1.5],
+  ['ombrosGrossura', 'Ombros — grossura', 0.8, 1.8],
   ['peitoLargura', 'Peito — largura', 0.8, 1.6],
   ['peitoFundo', 'Peito — fundo', 0.8, 1.8],
   ['barrigaLargura', 'Barriga — largura', 0.8, 1.8],
   ['barrigaFrente', 'Barriga — para a frente', 0.8, 3],
-  ['quadril', 'Quadril', 0.8, 1.6],
-  ['bracos', 'Braços (grossura)', 0.7, 1.8],
-  ['antebracos', 'Antebraços (grossura)', 0.7, 1.8],
+  ['quadril', 'Quadril — largura', 0.8, 1.6],
+  ['quadrilFundo', 'Quadril — fundo', 0.8, 1.8, 1, 'quadril'],
+  ['bracos', 'Braços — largura', 0.7, 1.8],
+  ['bracosGrossura', 'Braços — grossura', 0.7, 2.2, 1, 'bracos'],
+  ['antebracos', 'Antebraços — largura', 0.7, 1.8],
+  ['antebracosGrossura', 'Antebraços — grossura', 0.7, 2.2, 1, 'antebracos'],
   ['maos', 'Mãos', 0.8, 1.6],
-  ['coxas', 'Coxas (grossura)', 0.7, 1.8],
-  ['canelas', 'Canelas (grossura)', 0.7, 1.8],
+  ['coxas', 'Coxas — largura', 0.7, 1.8],
+  ['coxasGrossura', 'Coxas — grossura', 0.7, 1.8, 1, 'coxas'],
+  ['canelas', 'Canelas — largura', 0.7, 1.8],
+  ['canelasGrossura', 'Canelas — grossura', 0.7, 1.8, 1, 'canelas'],
   ['pes', 'Pés', 0.8, 1.6],
   ['presas', 'Presas (0 = sem)', 0, 2.5, 0],
   ['orelhas', 'Orelhas (esticadas)', 1, 3],
@@ -67,9 +78,9 @@ export const PROPORCOES = [
 export const racaDe = (n) => (n > 0 ? Assets.racas?.[n - 1] ?? null : null);
 /** As proporções completas de uma raça (o que falta, ou está torto, vale o padrão: o humano). */
 export function proporcoesDe(raca) {
-  const p = {};
-  for (const [k, , min, max, padrao = 1] of PROPORCOES) {
-    const v = raca?.proporcoes?.[k];
+  const p = {}, tem = raca?.proporcoes;
+  for (const [k, , min, max, padrao = 1, segue] of PROPORCOES) {
+    const v = Number.isFinite(tem?.[k]) || !segue ? tem?.[k] : tem?.[segue];
     p[k] = Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : padrao;
   }
   return p;
@@ -210,31 +221,40 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
   const frente = new THREE.Vector3().crossVectors(lado, cima).normalize();
   if (frente.dot(de('ToeL').clone().sub(de('Footl'))) < 0) frente.negate();
 
-  // a regra de cada osso: { a: de onde cresce, d: o eixo (null = a partir do ponto),
-  // s: [lado, cima, frente], tras: o fator do fundo para quem está ATRÁS do eixo }
+  // a regra de cada osso: { a: de onde cresce, d: o eixo ao longo do qual NÃO cresce (null
+  // = a partir do ponto), e: os três eixos da conta, s: quanto cresce em cada um, tras: o
+  // fator do terceiro eixo para quem está ATRÁS (do lado negativo dele) }
+  const corpo = [lado, cima, frente];
   const regras = new Array(ordem.length).fill(null);
   const por = (nomes, regra) => {
     for (const n of nomes) ordem.forEach((o, i) => { if (typeof n === 'string' ? o === n : n.test(o)) regras[i] = typeof regra === 'function' ? regra(o) : regra; });
   };
   const um = (v) => Math.abs(v - 1) < 1e-4;
   // o tronco: em volta da linha da coluna (de pé), a largura e o fundo separados
-  const tronco = (raiz, largura, fundo, tras = fundo) => (um(largura) && um(fundo) && um(tras) ? null : { a: de(raiz), d: cima, s: [largura, 1, fundo], tras });
-  por(['Hips'], tronco('Hips', p.quadril, p.quadril));
+  const tronco = (raiz, largura, fundo, tras = fundo) => (um(largura) && um(fundo) && um(tras) ? null : { a: de(raiz), d: cima, e: corpo, s: [largura, 1, fundo], tras });
+  por(['Hips'], tronco('Hips', p.quadril, p.quadrilFundo));
   por(['Spine003', 'Spine002'], tronco('Spine003', p.barrigaLargura, p.barrigaFrente, 1 + (p.barrigaFrente - 1) * 0.25));
-  por(['Spine001', 'Spine', 'CollarL', 'CollarR'], tronco('Spine001', p.peitoLargura, p.peitoFundo));
-  // os membros: cada osso em volta do próprio eixo (dele até o filho)
-  const membro = (filho, g) => (o) => {
+  por(['Spine001', 'Spine'], tronco('Spine001', p.peitoLargura, p.peitoFundo));
+  // os ombros (as clavículas) são do peito, com o fundo dele vezes a grossura deles
+  por(['CollarL', 'CollarR'], tronco('Spine001', p.peitoLargura, p.peitoFundo * p.ombrosGrossura));
+  // os membros: cada osso em volta do próprio eixo (dele até o filho), a LARGURA (o que se
+  // vê de frente) e a GROSSURA (de lado) separadas. `ref` é a direção do corpo que dá a
+  // largura: nas pernas e no pescoço, o lado; nos BRAÇOS, a de cima — na pose T o braço
+  // está deitado, e o que ali é "para cima" é o que fica "para o lado" com o braço caído
+  const membro = (filho, largura, grossura, ref) => (o) => {
     const f = de(filho(o));
-    return um(g) || !f ? null : { a: de(o), d: f.clone().sub(de(o)).normalize(), s: [g, g, g], tras: g };
+    if ((um(largura) && um(grossura)) || !f) return null;
+    const d = f.clone().sub(de(o)).normalize(), l = ref.clone().addScaledVector(d, -ref.dot(d)).normalize();
+    return { a: de(o), d, e: [l, d, new THREE.Vector3().crossVectors(d, l)], s: [largura, 1, grossura], tras: grossura };
   };
-  por(['Neck'], membro(() => 'Head', p.pescoco));
-  por(['ArmL', 'ArmR'], membro((o) => `Elbow${o.slice(-1)}`, p.bracos));
-  por(['ElbowL', 'ElbowR'], membro((o) => `Hand${o.slice(-1)}`, p.antebracos));
-  por(['Thighl', 'Thighr'], membro((o) => `Shin${o.slice(-1)}`, p.coxas));
-  por(['Shinl', 'Shinr'], membro((o) => `Foot${o.slice(-1)}`, p.canelas));
+  por(['Neck'], membro(() => 'Head', p.pescoco, p.pescocoGrossura, lado));
+  por(['ArmL', 'ArmR'], membro((o) => `Elbow${o.slice(-1)}`, p.bracos, p.bracosGrossura, cima));
+  por(['ElbowL', 'ElbowR'], membro((o) => `Hand${o.slice(-1)}`, p.antebracos, p.antebracosGrossura, cima));
+  por(['Thighl', 'Thighr'], membro((o) => `Shin${o.slice(-1)}`, p.coxas, p.coxasGrossura, lado));
+  por(['Shinl', 'Shinr'], membro((o) => `Foot${o.slice(-1)}`, p.canelas, p.canelasGrossura, lado));
   // a cabeça cresce inteira a partir da junta; os pés só no chão (não afundam). As MÃOS
   // não são aqui: é a escala do osso (`aplicarRaca`), senão os dedos esticam ao fechar
-  const ponto = (raiz, s) => (s.every(um) ? null : { a: de(raiz), d: null, s, tras: s[2] });
+  const ponto = (raiz, s) => (s.every(um) ? null : { a: de(raiz), d: null, e: corpo, s, tras: s[2] });
   por(['Head'], ponto('Head', [p.cabeca, p.cabeca, p.cabeca]));
   for (const l of ['l', 'r']) por([`Foot${l}`, `Toe${l.toUpperCase()}`], ponto(`Foot${l}`, [p.pes, 1, p.pes]));
   if (!regras.some(Boolean)) return;
@@ -257,11 +277,11 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
       // o vértice visto do osso, sem a parte que corre AO LONGO do eixo (essa não cresce)
       r.subVectors(v, g.a);
       if (g.d) r.addScaledVector(g.d, -r.dot(g.d));
-      const x = r.dot(lado), y = r.dot(cima), z = r.dot(frente), sz = z < 0 ? g.tras : g.s[2];
-      somaV.addScaledVector(v, w).addScaledVector(lado, w * x * (g.s[0] - 1)).addScaledVector(cima, w * y * (g.s[1] - 1)).addScaledVector(frente, w * z * (sz - 1));
+      const e = g.e, x = r.dot(e[0]), y = r.dot(e[1]), z = r.dot(e[2]), sz = z < 0 ? g.tras : g.s[2];
+      somaV.addScaledVector(v, w).addScaledVector(e[0], w * x * (g.s[0] - 1)).addScaledVector(e[1], w * y * (g.s[1] - 1)).addScaledVector(e[2], w * z * (sz - 1));
       // a normal: cada parte dividida pelo que aquela direção cresceu
-      const nx = n.dot(lado), ny = n.dot(cima), nz = n.dot(frente);
-      somaN.addScaledVector(n, w).addScaledVector(lado, w * nx * (1 / g.s[0] - 1)).addScaledVector(cima, w * ny * (1 / g.s[1] - 1)).addScaledVector(frente, w * nz * (1 / sz - 1));
+      const nx = n.dot(e[0]), ny = n.dot(e[1]), nz = n.dot(e[2]);
+      somaN.addScaledVector(n, w).addScaledVector(e[0], w * nx * (1 / g.s[0] - 1)).addScaledVector(e[1], w * ny * (1 / g.s[1] - 1)).addScaledVector(e[2], w * nz * (1 / sz - 1));
     }
     if (!peso) continue;
     somaV.multiplyScalar(1 / peso).applyMatrix4(volta);
