@@ -18,16 +18,25 @@
  *     cada vértice é engrossado em volta do osso a que está preso (a mistura dos pesos
  *     dele emenda uma parte na outra). Membros engrossam em volta do próprio eixo; o
  *     tronco, em volta da linha da coluna, com a LARGURA e o FUNDO separados (a barriga
- *     cresce para a frente); cabeça, mãos e pés crescem a partir da junta. É feito uma
+ *     cresce para a frente); a cabeça e os pés crescem a partir da junta. É feito uma
  *     vez por corpo, e a armadura (do pacote ou pintada) cresce junto: é a mesma malha.
  *  2. NOS OSSOS (`CorpoGuerreiro.aplicarRaca`): a ALTURA (a cena inteira), os OMBROS (os
- *     braços nascem mais para fora) e o QUADRIL (as coxas se afastam com a largura dele).
+ *     braços nascem mais para fora), o QUADRIL (as coxas se afastam com a largura dele)
+ *     e as MÃOS — a escala do osso da mão, que os dedos herdam. (Na malha, a mão crescia
+ *     e as juntas dos dedos ficavam onde estavam: ao fechar a mão os dedos esticavam
+ *     como espaguete.)
  * As animações não mudam: o retarget só copia giros.
+ *
+ * AS PRESAS (`pecasDaRaca`): um par de dentes que sobe do maxilar de baixo, desenhado
+ * em código e preso ao osso da cabeça — mais uma peça da malha fundida. `presas` é o
+ * tamanho (0 = sem).
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
+import { texelClaro } from './casca.js';
 
-// [chave, rótulo, mínimo, máximo] — a tela Raças do editor monta os controles por aqui
+// [chave, rótulo, mínimo, máximo, padrão (1 se não diz)] — a tela Raças do editor monta os
+// controles por aqui
 export const PROPORCOES = [
   ['altura', 'Altura', 0.8, 1.3],
   ['cabeca', 'Cabeça', 0.8, 1.4],
@@ -44,27 +53,83 @@ export const PROPORCOES = [
   ['coxas', 'Coxas (grossura)', 0.7, 1.8],
   ['canelas', 'Canelas (grossura)', 0.7, 1.8],
   ['pes', 'Pés', 0.8, 1.6],
+  ['presas', 'Presas (0 = sem)', 0, 2.5, 0],
 ];
 
 /** A raça de número `n` (o dígito da aparência): null = humano, ou raça que não existe mais. */
 export const racaDe = (n) => (n > 0 ? Assets.racas?.[n - 1] ?? null : null);
-/** As proporções completas de uma raça (o que falta, ou está torto, vale 1). */
+/** As proporções completas de uma raça (o que falta, ou está torto, vale o padrão: o humano). */
 export function proporcoesDe(raca) {
   const p = {};
-  for (const [k, , min, max] of PROPORCOES) {
+  for (const [k, , min, max, padrao = 1] of PROPORCOES) {
     const v = raca?.proporcoes?.[k];
-    p[k] = Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : 1;
+    p[k] = Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : padrao;
   }
   return p;
 }
 /** Uma raça nova, igual ao humano (o ponto de partida do editor). */
 export const racaNova = (id, nome) => ({
   id, nome, jogavel: false, pele: null, olhos: null, semCabelo: false, semBarba: false,
-  proporcoes: Object.fromEntries(PROPORCOES.map(([k]) => [k, 1])),
+  proporcoes: proporcoesDe(null),
 });
 
-const DEDOS = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
-const maoE = (lado) => [`Hand${lado}`, ...DEDOS.flatMap((d) => ['', '001', '002'].map((f) => new RegExp(`^${d}${lado}${f}$`, 'i')))];
+// ------------------------------------------------------------ as presas
+// O caminho de uma presa (a do lado +x), em cm no espaço da pose T do modelo: nasce
+// dentro do lábio de baixo, no canto da boca, e sobe curvando para fora e para a frente.
+// [x, y, z, raio] — o tamanho estica o caminho a partir da base e engrossa junto.
+const PRESA = [[3.0, 157.8, 12.4, 1.4], [3.5, 160.4, 15.5, 1.25], [4.1, 163.0, 16.5, 0.9], [4.5, 166.0, 16.7, 0]];
+const LADOS_DA_PRESA = 5, MARFIM = ['#b9ad8c', '#e6dcc0', '#f4eedc', '#fbf8ee'];
+const presas = new Map();
+function geometriaDasPresas(tamanho, cabeca) {
+  const tris = [], cores = [], cor = new THREE.Color();
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), eixo = new THREE.Vector3(), u = new THREE.Vector3(), w = new THREE.Vector3();
+  for (const lado of [1, -1]) {
+    // os anéis: em volta do caminho, de pé no eixo dele
+    const aneis = PRESA.map(([x, y, z, r], i) => {
+      const [x0, y0, z0] = PRESA[0], k = i ? tamanho : 1;
+      a.set(lado * (x0 + (x - x0) * k), y0 + (y - y0) * k, z0 + (z - z0) * k);
+      const [xa, ya, za] = PRESA[Math.max(0, i - 1)], [xb, yb, zb] = PRESA[Math.min(PRESA.length - 1, i + 1)];
+      eixo.set(lado * (xb - xa), yb - ya, zb - za).normalize();
+      u.set(1, 0, 0).addScaledVector(eixo, -eixo.x).normalize(); w.crossVectors(eixo, u);
+      const raio = r * (0.75 + 0.25 * tamanho);
+      return Array.from({ length: LADOS_DA_PRESA }, (_, j) => {
+        const t = (j / LADOS_DA_PRESA) * Math.PI * 2;
+        return a.clone().addScaledVector(u, Math.cos(t) * raio).addScaledVector(w, Math.sin(t) * raio);
+      });
+    });
+    for (let i = 0; i < aneis.length - 1; i++) for (let j = 0; j < LADOS_DA_PRESA; j++) {
+      const j2 = (j + 1) % LADOS_DA_PRESA, p = [aneis[i][j], aneis[i][j2], aneis[i + 1][j2], aneis[i + 1][j]];
+      const c = [i, i, i + 1, i + 1];
+      // (a ordem dos triângulos vira com o lado, para a face ficar para fora nas duas)
+      for (const t of lado > 0 ? [[0, 1, 2], [0, 2, 3]] : [[0, 2, 1], [0, 3, 2]]) {
+        if (i === aneis.length - 2 && t.includes(3) && t.includes(2)) continue;   // a ponta é um ponto só
+        for (const v of t) { tris.push(p[v].x, p[v].y, p[v].z); cor.set(MARFIM[c[v]]); cores.push(cor.r, cor.g, cor.b); }
+      }
+    }
+  }
+  const n = tris.length / 3, g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(tris, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cores, 3));
+  // os outros atributos no MESMO tipo dos da cabeça (o `mergeGeometries` recusa tipos diferentes)
+  const igual = (nome) => { const m = cabeca.geometry.attributes[nome]; return new THREE.BufferAttribute(new m.array.constructor(n * m.itemSize), m.itemSize, m.normalized); };
+  const osso = Math.max(0, cabeca.skeleton.bones.findIndex((o) => o.name === 'Head'));
+  const uv = igual('uv'), si = igual('skinIndex'), sw = igual('skinWeight'), claro = texelClaro(cabeca.material?.map) ?? [0.5, 0.5];
+  for (let i = 0; i < n; i++) { uv.setXY(i, claro[0], claro[1]); si.setXYZW(i, osso, 0, 0, 0); sw.setXYZW(i, 1, 0, 0, 0); }
+  g.setAttribute('uv', uv); g.setAttribute('skinIndex', si); g.setAttribute('skinWeight', sw);
+  g.computeVertexNormals();   // sem índice: normal por face
+  return g;
+}
+/**
+ * As peças que a raça ACRESCENTA ao corpo (hoje, as presas), no formato da malha fundida
+ * (`geometry`, `skeleton`, `material`, `name`). `pecas` são as do corpo do guerreiro.
+ */
+export function pecasDaRaca(raca, pecas) {
+  const tamanho = proporcoesDe(raca).presas, cabeca = pecas.find((o) => o.name === 'head');
+  if (!(tamanho > 0.01) || !cabeca?.geometry.attributes.uv) return [];
+  const chave = tamanho.toFixed(2);
+  if (!presas.has(chave)) presas.set(chave, geometriaDasPresas(tamanho, cabeca));
+  return [{ name: 'presas', geometry: presas.get(chave), skeleton: cabeca.skeleton, material: cabeca.material, bindMatrix: cabeca.bindMatrix }];
+}
 
 /**
  * Engrossa a malha fundida do corpo pelas proporções da raça (muda a geometria NO LUGAR).
@@ -106,10 +171,10 @@ export function deformar(geo, raca, ordem, inversos, ligacao) {
   por(['ElbowL', 'ElbowR'], membro((o) => `Hand${o.slice(-1)}`, p.antebracos));
   por(['Thighl', 'Thighr'], membro((o) => `Shin${o.slice(-1)}`, p.coxas));
   por(['Shinl', 'Shinr'], membro((o) => `Foot${o.slice(-1)}`, p.canelas));
-  // cabeça e mãos: crescem inteiras a partir da junta; os pés só no chão (não afundam)
+  // a cabeça cresce inteira a partir da junta; os pés só no chão (não afundam). As MÃOS
+  // não são aqui: é a escala do osso (`aplicarRaca`), senão os dedos esticam ao fechar
   const ponto = (raiz, s) => (s.every(um) ? null : { a: de(raiz), d: null, s, tras: s[2] });
   por(['Head'], ponto('Head', [p.cabeca, p.cabeca, p.cabeca]));
-  for (const l of ['L', 'R']) por(maoE(l), ponto(`Hand${l}`, [p.maos, p.maos, p.maos]));
   for (const l of ['l', 'r']) por([`Foot${l}`, `Toe${l.toUpperCase()}`], ponto(`Foot${l}`, [p.pes, 1, p.pes]));
   if (!regras.some(Boolean)) return;
 

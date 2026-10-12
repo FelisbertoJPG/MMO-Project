@@ -29,7 +29,7 @@ import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia } from './aparencia.js';
-import { racaDe, proporcoesDe, deformar } from './raca.js';
+import { racaDe, proporcoesDe, deformar, pecasDaRaca } from './raca.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -226,6 +226,8 @@ export class CorpoGuerreiro {
     // na pose T e a direção "para o lado" vista do pai dele
     this.escalaBase = cena.scale.x;
     this.altura = 1;
+    this.maos = 1;   // a escala do osso de cada mão (os dedos herdam)
+    this.ossosDasMaos = ['HandL', 'HandR'].map((n) => cena.getObjectByName(n));
     const ladoCena = cena.getObjectByName('ArmL').getWorldPosition(new THREE.Vector3()).sub(cena.getObjectByName('ArmR').getWorldPosition(new THREE.Vector3())).normalize();
     this.afastados = [['ArmL', 'ombros'], ['ArmR', 'ombros'], ['Thighl', 'quadril'], ['Thighr', 'quadril']].map(([nome, chave]) => {
       const osso = cena.getObjectByName(nome);
@@ -238,16 +240,19 @@ export class CorpoGuerreiro {
   /** a raça do código vestido (null = humano) */
   get raca() { return racaDe(lerAparencia(this.armadura?.split(':')[1]).raca); }
 
-  // A raça nos ossos: a altura (a cena inteira, os pés no chão) e os ossos afastados.
-  // Devolve se a ALTURA mudou — a pegada das armas depende dela (`usarGuerreiro` as repõe).
+  // A raça nos ossos: a altura (a cena inteira, os pés no chão), os ossos afastados e o
+  // tamanho das mãos. Devolve se a ALTURA ou as MÃOS mudaram — a pegada das armas depende
+  // delas (`usarGuerreiro` as repõe).
   aplicarRaca() {
     if (!this.afastados) return false;   // (no construtor, antes das medidas)
-    const p = proporcoesDe(this.raca), antes = this.altura;
+    const p = proporcoesDe(this.raca), antes = this.altura * 1000 + this.maos;
     this.altura = p.altura;
+    this.maos = p.maos;
+    for (const o of this.ossosDasMaos) o?.scale.setScalar(p.maos);
     this.cena.scale.setScalar(this.escalaBase * p.altura);
     this.proporcao = 1 / this.cena.scale.x;
     for (const a of this.afastados) a.osso.position.copy(a.resto).addScaledVector(a.lado, a.resto.dot(a.lado) * (p[a.chave] - 1));
-    return antes !== this.altura;
+    return antes !== this.altura * 1000 + this.maos;
   }
 
   // a armadura dele: o CÓDIGO (um dígito por lugar, ver `NU`, e a aparência depois de ':');
@@ -275,6 +280,8 @@ export class CorpoGuerreiro {
       const t = tingir(usadas[i], aparencia);
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
+    // o que a RAÇA acrescenta (as presas do orc)
+    if (this.raca) usadas.push(...pecasDaRaca(this.raca, this.pecas));
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     // (uma peça TINGIDA tem cor mas guarda o material da original, que pode ser o sem cor
     // de vértice — nu, só com a aparência, a cor não aparecia: vale o material com cor)
@@ -342,8 +349,10 @@ export class CorpoGuerreiro {
     const pU = new THREE.Vector3(), qU = new THREE.Quaternion(), sU = new THREE.Vector3();
     e.mU.decompose(pU, qU, sU);
     const uNaMaoG = new THREE.Matrix4().compose(new THREE.Vector3().setFromMatrixPosition(e.mG), qU, sU);
-    // (as medidas da pose T são de antes da ALTURA da raça: a arma fica do tamanho dela)
-    const semAltura = new THREE.Matrix4().makeScale(1 / this.altura, 1 / this.altura, 1 / this.altura);
+    // (as medidas da pose T são de antes da ALTURA e das MÃOS da raça: a arma fica do
+    // tamanho dela)
+    const k = 1 / (this.altura * (this.ossosDasMaos.includes(e.osso) ? this.maos : 1));
+    const semAltura = new THREE.Matrix4().makeScale(k, k, k);
     return { osso: e.osso, matriz: semAltura.multiply(e.mG.clone().invert()).multiply(uNaMaoG).multiply(matrizNoUal) };
   }
 }
