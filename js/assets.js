@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
+import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { categoriaDaPeca } from './categorias.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
@@ -192,6 +193,65 @@ async function carregarMapa() {
   }
 }
 
+/**
+ * O ANIMAL NUMA MALHA SÓ (11/10/2026). Os modelos vêm com uma malha animada POR MATERIAL (corpo,
+ * cascos, olhos, chifres…: 5 a 8 por bicho), cada uma com o seu esqueleto — e cada esqueleto
+ * manda todos os ossos para a placa a cada quadro. Com 7 bichos à vista eram 48 malhas com
+ * ossos e 48 envios: numa GT 730 o "render" ficava em ~32 ms de CPU mesmo depois de as chamadas
+ * de desenho caírem pela metade. Aqui, no carregamento (uma vez por espécie: todos os clones
+ * herdam), as malhas viram UMA, com a cor de cada material nos VÉRTICES (são low poly, sem
+ * textura) e um esqueleto só. Se as peças não casarem (textura, esqueletos diferentes), fica como veio.
+ */
+/**
+ * O clone (`SkeletonUtils.clone`) dá um `Skeleton` novo a CADA malha, mesmo quando todas usam
+ * os mesmos ossos — e cada um manda os ossos para a placa por conta própria, todo quadro. As
+ * malhas de `cena` com os mesmos ossos (e as mesmas inversas) passam a dividir UM esqueleto.
+ */
+function umEsqueleto(cena) {
+  const vistos = [];
+  cena.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    const igual = vistos.find((s) => s.bones.length === o.skeleton.bones.length && s.bones.every((b, i) => b === o.skeleton.bones[i]) && s.boneInverses.every((m, i) => m.equals(o.skeleton.boneInverses[i])));
+    if (igual) o.skeleton = igual; else vistos.push(o.skeleton);
+  });
+}
+
+function fundirAnimal(cena, nome) {
+  const malhas = [];
+  cena.traverse((o) => { if (o.isSkinnedMesh) malhas.push(o); });
+  if (malhas.length < 2) return;
+  const base = malhas[0];
+  const mesmoEsqueleto = (m) => m.skeleton.bones.length === base.skeleton.bones.length && m.skeleton.bones.every((b, i) => b === base.skeleton.bones[i])
+    && m.skeleton.boneInverses.every((mt, i) => mt.equals(base.skeleton.boneInverses[i])) && m.bindMatrix.equals(base.bindMatrix) && m.parent === base.parent
+    && m.position.equals(base.position) && m.quaternion.equals(base.quaternion) && m.scale.equals(base.scale);
+  if (!malhas.every((m) => !Array.isArray(m.material) && !m.material.map && !m.material.transparent && mesmoEsqueleto(m))) {
+    console.warn(`[animais] ${nome}: as malhas não casam — fica com ${malhas.length} peças`);
+    return;
+  }
+  const geos = malhas.map((m) => {
+    const g = new THREE.BufferGeometry(), n = m.geometry.attributes.position.count, c = m.material.color, cor = new Float32Array(n * 3);
+    for (const k of ['position', 'normal', 'skinIndex', 'skinWeight']) g.setAttribute(k, m.geometry.attributes[k].clone());
+    const propria = m.material.vertexColors ? m.geometry.attributes.color : null;
+    for (let i = 0; i < n; i++) { cor[i * 3] = c.r * (propria?.getX(i) ?? 1); cor[i * 3 + 1] = c.g * (propria?.getY(i) ?? 1); cor[i * 3 + 2] = c.b * (propria?.getZ(i) ?? 1); }
+    g.setAttribute('color', new THREE.BufferAttribute(cor, 3));
+    g.setIndex(m.geometry.index ? m.geometry.index.clone() : [...Array(n).keys()]);
+    return g;
+  });
+  const geo = mergeGeometries(geos);
+  if (!geo) { console.warn(`[animais] ${nome}: não deu para fundir — fica com ${malhas.length} peças`); return; }
+  const mat = base.material.clone();
+  mat.color.setRGB(1, 1, 1);
+  mat.vertexColors = true;
+  mat.name = 'animal';
+  const unica = new THREE.SkinnedMesh(geo, mat);
+  unica.name = `${nome}-fundido`;
+  unica.position.copy(base.position); unica.quaternion.copy(base.quaternion); unica.scale.copy(base.scale);
+  unica.castShadow = true; unica.receiveShadow = true;
+  base.parent.add(unica);
+  unica.bind(base.skeleton, base.bindMatrix);
+  for (const m of malhas) m.removeFromParent();
+}
+
 export const Assets = {
   props: {},
   clips: {},
@@ -234,6 +294,7 @@ export const Assets = {
         // como a natureza, uma vez por material
         const vistos = new Set();
         gltf.scene.traverse((c) => { if (c.isMesh && !vistos.has(c.material)) { vistos.add(c.material); c.material.color.multiply(new THREE.Color(0xb0b8b0)); } });
+        fundirAnimal(gltf.scene, name);
         this.animais[name] = { scene: gltf.scene, clips: gltf.animations };
       } else if (kind === 'guerreiro') {
         this.guerreiro = gltf.scene;
@@ -339,6 +400,7 @@ export const Assets = {
 
   character() {
     const scene = cloneSkinned(this.baseScene);
+    umEsqueleto(scene);
     const materials = [];
     scene.traverse((c) => {
       if (c.isMesh) { c.material = c.material.clone(); materials.push(c.material); c.frustumCulled = false; }
