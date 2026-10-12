@@ -35,7 +35,8 @@
  *
  * AS PRESAS (`pecasDaRaca`): um par de dentes que sobe do maxilar de baixo, desenhado
  * em código e preso ao osso da cabeça — mais uma peça da malha fundida. `presas` é o
- * tamanho (0 = sem).
+ * tamanho (0 = sem); `presasAfastadas`, o quanto ficam longe uma da outra: andam pela
+ * linha do lábio de baixo (`LABIO`), do meio da boca até o canto dela.
  *
  * AS ORELHAS (`moldarPeca`, `ORELHA`): NÃO se acrescenta orelha — o modelo já tem uma (uma
  * abinha na peça `Face`; um par a mais por cima dava quatro). `orelhas` ESTICA a que há: o
@@ -81,6 +82,7 @@ export const PROPORCOES = [
   ['canelasGrossura', 'Canelas — grossura', 0.7, 1.8, 1, 'canelas'],
   ['pes', 'Pés', 0.8, 1.6],
   ['presas', 'Presas (0 = sem)', 0, 2.5, 0],
+  ['presasAfastadas', 'Presas — afastadas', 0.4, 1.9],
   ['orelhas', 'Orelhas (esticadas)', 1, 3],
 ];
 
@@ -106,6 +108,26 @@ export const racaNova = (id, nome) => ({
 // dentro do lábio de baixo, no canto da boca, e sobe curvando para fora e para a frente.
 // [x, y, z, raio] — o tamanho estica o caminho a partir da base e engrossa junto.
 const PRESA = [[3.0, 157.8, 12.4, 1.4], [3.5, 160.4, 15.5, 1.25], [4.1, 163.0, 16.5, 0.9], [4.5, 166.0, 16.7, 0]];
+// A linha do LÁBIO DE BAIXO do modelo (a metade +x; [x, y, z]): do meio da boca ao canto
+// dela e daí pelo lado do maxilar. É por onde a presa anda quando se afasta (`presasAfastadas`
+// multiplica o x do pé dela): só para o lado ela ficaria no ar — o rosto recua —, então vai
+// para trás e para cima com a linha, e VIRA com ela (`giro`: a fração do quanto a linha
+// virou — inteiro, no canto a ponta apontava para o lado). Para além de `ate` (o lado do
+// maxilar, debaixo da maçã do rosto) a presa sumiria dentro da bochecha: para ali.
+const LABIO = { linha: [[0, 160.2, 15.4], [2, 160.1, 13.5], [3.5, 160.6, 13.1], [4.6, 159.9, 11.5], [6.8, 159.9, 4.9]], ate: 5.8, giro: 0.5 };
+function noLabio(x) {
+  const l = LABIO.linha;
+  x = Math.min(l[l.length - 1][0], Math.max(0, x));
+  let i = 1;
+  while (i < l.length - 1 && l[i][0] < x) i++;
+  const f = (x - l[i - 1][0]) / (l[i][0] - l[i - 1][0]);
+  return l[i].map((v, k) => l[i - 1][k] + (v - l[i - 1][k]) * f);
+}
+/** para onde a linha do lábio está virada em `x` (rad: 0 = para a frente, π/2 = para o lado) */
+function viradaDoLabio(x) {
+  const a = noLabio(x - 0.8), b = noLabio(x + 0.8);
+  return Math.atan2(a[2] - b[2], b[0] - a[0]);
+}
 const LADOS_DA_PRESA = 5, MARFIM = ['#b9ad8c', '#e6dcc0', '#f4eedc', '#fbf8ee'];
 const presas = new Map();
 function geometriaDasPresas(tamanho, cabeca) {
@@ -204,7 +226,8 @@ const doQueixo = (nome) => /^(Face|Beard|neck)(_|$)|Helmet|^casca_.*_(head|neck)
 /**
  * As proporções da raça que se fazem NA PEÇA, antes de fundir (as orelhas e o queixo): muda
  * a geometria no lugar — quem chama dá uma cópia (guerreiro.js `geometriaFundida`).
- * Com ELMO a orelha fica como o modelo a tem: esticada, a ponta furava o elmo.
+ * Com ELMO a orelha fica como o modelo a tem (esticada, a ponta furava o elmo) e as presas
+ * não se afastam além do lugar de sempre (no canto do maxilar, furavam as placas do rosto).
  */
 export function moldarPeca(geo, nome, raca, elmo = false) {
   const pos = geo.attributes.position, mexeu = new Uint8Array(pos.count);
@@ -225,13 +248,21 @@ export function moldarPeca(geo, nome, raca, elmo = false) {
       mexeu[i] = 1;
     }
   }
-  // O QUEIXO: o rosto de baixo alarga a partir do meio. As presas vão INTEIRAS com o canto
-  // da boca de onde nascem (alargadas ponto a ponto, engrossariam)
-  const largo = largoDoQueixo(raca);
-  if (largo && nome === 'presas') {
-    const d = PRESA[0][0] * (largo(PRESA[0][1], PRESA[0][2]) - 1);
-    for (let i = 0; i < pos.count; i++) pos.setX(i, pos.getX(i) + Math.sign(pos.getX(i)) * d);
-    pos.needsUpdate = true;
+  // O QUEIXO: o rosto de baixo alarga a partir do meio. As PRESAS vão INTEIRAS (alargadas
+  // ponto a ponto, engrossariam): primeiro para o lugar delas na linha do lábio
+  // (`presasAfastadas`), virando com a linha; depois, com o canto da boca que o queixo levou
+  const largo = largoDoQueixo(raca), afastadas = elmo ? Math.min(1, proporcoesDe(raca).presasAfastadas) : proporcoesDe(raca).presasAfastadas;
+  if (nome === 'presas' && (largo || Math.abs(afastadas - 1) >= 1e-3)) {
+    const [x0, y0, z0] = PRESA[0], x1 = Math.min(LABIO.ate, x0 * afastadas);
+    const de = noLabio(x0), para = noLabio(x1), giro = (viradaDoLabio(x1) - viradaDoLabio(x0)) * LABIO.giro, c = Math.cos(giro), s = Math.sin(giro);
+    const pe = [x1, y0 + para[1] - de[1], z0 + para[2] - de[2]];   // o pé da presa, no lugar novo
+    pe[0] *= largo ? largo(pe[1], pe[2]) : 1;
+    for (let i = 0; i < pos.count; i++) {
+      // (o lado −x é o espelho: a conta é a do +x)
+      const lado = Math.sign(pos.getX(i)) || 1, rx = Math.abs(pos.getX(i)) - x0, rz = pos.getZ(i) - z0;
+      pos.setXYZ(i, lado * (pe[0] + rx * c + rz * s), pe[1] + pos.getY(i) - y0, pe[2] - rx * s + rz * c);
+      mexeu[i] = 1;   // (girou: as normais das faces também)
+    }
   } else if (largo && doQueixo(nome)) {
     for (let i = 0; i < pos.count; i++) {
       const f = largo(pos.getY(i), pos.getZ(i));
