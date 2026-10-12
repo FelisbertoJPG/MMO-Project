@@ -28,7 +28,8 @@ import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
-import { tingir, APARENCIA_PADRAO, aparenciaValida } from './aparencia.js';
+import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia } from './aparencia.js';
+import { racaDe, proporcoesDe, deformar } from './raca.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -36,9 +37,9 @@ import { tingir, APARENCIA_PADRAO, aparenciaValida } from './aparencia.js';
 // '0213' = sem elmo, peito da malha, braços de couro, pernas de placas (04/10/2026: a
 // armadura vem do EQUIPAMENTO; antes vinha do provador, inteira).
 // Depois de ':' vem a APARÊNCIA (aparencia.js: pele, cabelo, barba, olhos — 5 dígitos):
-// '0100:21310'. Sem ela, a do modelo.
+// '0100:21310'. Sem ela, a do modelo. Um 6º dígito na aparência é a RAÇA (raca.js).
 export const NU = '0000';
-const CODIGO = /^[0-9]{4}(:[0-9]{5})?$/;
+const CODIGO = /^[0-9]{4}(:[0-9]{5,6})?$/;
 /** O corpo que veio da rede é válido? (os nomes de antes — 'nu', 'A1'… — ainda valem) */
 export const corpoValido = (c) => c === 'antigo' || CODIGO.test(c) || ['nu', 'A1', 'A2', 'A3'].includes(c);
 /** corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo; senão o código) */
@@ -105,7 +106,7 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vect
 const fundidas = new Map();
 /** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
 export function esquecerFundidas() { for (const g of fundidas.values()) g?.dispose(); fundidas.clear(); }
-function geometriaFundida(chave, pecas, ordem) {
+function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
   const geos = pecas.map((p) => {
@@ -124,6 +125,8 @@ function geometriaFundida(chave, pecas, ordem) {
   const lista = todasComIndice || nenhuma ? geos : geos.map((g) => (g.index ? g.toNonIndexed() : g));
   const geo = mergeGeometries(lista) ?? null;
   for (const g of geos) g.dispose();
+  // a RAÇA: as proporções dela na malha (raca.js), uma vez por corpo
+  if (geo && raca) deformar(geo, raca, ordem, inversos, pecas[0].bindMatrix);
   fundidas.set(chave, geo);
   return geo;
 }
@@ -162,6 +165,8 @@ export class CorpoGuerreiro {
       return new THREE.Matrix4();
     });
     this.esqueleto = new THREE.Skeleton(ossos, inversos);
+    this.inversos = inversos;
+    // (a raça nos ossos ainda não: ela entra depois das medidas da pose T)
     this.vestir(armadura);
 
     // o manequim UAL some (corpo e traje), mas continua animando
@@ -216,6 +221,33 @@ export class CorpoGuerreiro {
     this.hipRestoG = cena.worldToLocal(cena.getObjectByName('Hips').getWorldPosition(new THREE.Vector3()));
     this.proporcao = 1 / cena.scale.x;   // o deslocamento do UAL (em metros do pivot) na escala da cena
     this.pivoInv = new THREE.Matrix4();
+    // A RAÇA NOS OSSOS (raca.js): a escala da cena sem raça, e os ossos que se afastam
+    // para o lado (os braços com os ombros, as coxas com o quadril) — o lugar de cada um
+    // na pose T e a direção "para o lado" vista do pai dele
+    this.escalaBase = cena.scale.x;
+    this.altura = 1;
+    const ladoCena = cena.getObjectByName('ArmL').getWorldPosition(new THREE.Vector3()).sub(cena.getObjectByName('ArmR').getWorldPosition(new THREE.Vector3())).normalize();
+    this.afastados = [['ArmL', 'ombros'], ['ArmR', 'ombros'], ['Thighl', 'quadril'], ['Thighr', 'quadril']].map(([nome, chave]) => {
+      const osso = cena.getObjectByName(nome);
+      const lado = ladoCena.clone().applyQuaternion(osso.parent.getWorldQuaternion(new THREE.Quaternion()).invert());
+      return { osso, chave, resto: osso.position.clone(), lado };
+    });
+    this.aplicarRaca();
+  }
+
+  /** a raça do código vestido (null = humano) */
+  get raca() { return racaDe(lerAparencia(this.armadura?.split(':')[1]).raca); }
+
+  // A raça nos ossos: a altura (a cena inteira, os pés no chão) e os ossos afastados.
+  // Devolve se a ALTURA mudou — a pegada das armas depende dela (`usarGuerreiro` as repõe).
+  aplicarRaca() {
+    if (!this.afastados) return false;   // (no construtor, antes das medidas)
+    const p = proporcoesDe(this.raca), antes = this.altura;
+    this.altura = p.altura;
+    this.cena.scale.setScalar(this.escalaBase * p.altura);
+    this.proporcao = 1 / this.cena.scale.x;
+    for (const a of this.afastados) a.osso.position.copy(a.resto).addScaledVector(a.lado, a.resto.dot(a.lado) * (p[a.chave] - 1));
+    return antes !== this.altura;
   }
 
   // a armadura dele: o CÓDIGO (um dígito por lugar, ver `NU`, e a aparência depois de ':');
@@ -225,6 +257,7 @@ export class CorpoGuerreiro {
   vestir(armadura) {
     armadura = armaduraDe(armadura ?? NU) || NU;
     this.armadura = armadura;
+    this.alturaMudou = this.aplicarRaca();
     const aparencia = armadura.split(':')[1] ?? APARENCIA_PADRAO;
     for (const o of this.rigidas) o.visible = false;
     const desenho = (lugar, conj) => desenhoDe(Assets.armaduras, lugar, conj);
@@ -243,10 +276,13 @@ export class CorpoGuerreiro {
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
-    const material = (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
+    // (uma peça TINGIDA tem cor mas guarda o material da original, que pode ser o sem cor
+    // de vértice — nu, só com a aparência, a cor não aparecia: vale o material com cor)
+    const comCor = usadas.some((o) => o.geometry.attributes.color);
+    const material = (comCor && this.materiais.find((m) => m.vertexColors)) || (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
-    const geo = material ? geometriaFundida(armadura, usadas, this.ordem) : null;
-    for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos e a aparência não aparecem)   // (sem a fundida, os desenhos não aparecem)
+    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos) : null;
+    for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
     if (!this.fundida) {
       this.fundida = new THREE.SkinnedMesh(geo, material);
@@ -254,7 +290,7 @@ export class CorpoGuerreiro {
       this.fundida.frustumCulled = false; this.fundida.castShadow = true; this.fundida.receiveShadow = true;
       this.cena.add(this.fundida);
       this.fundida.bind(this.esqueleto, usadas[0].bindMatrix.clone());
-    } else this.fundida.geometry = geo;
+    } else { this.fundida.geometry = geo; this.fundida.material = material; }
     this.fundida.visible = true;
   }
 
@@ -306,6 +342,8 @@ export class CorpoGuerreiro {
     const pU = new THREE.Vector3(), qU = new THREE.Quaternion(), sU = new THREE.Vector3();
     e.mU.decompose(pU, qU, sU);
     const uNaMaoG = new THREE.Matrix4().compose(new THREE.Vector3().setFromMatrixPosition(e.mG), qU, sU);
-    return { osso: e.osso, matriz: e.mG.clone().invert().multiply(uNaMaoG).multiply(matrizNoUal) };
+    // (as medidas da pose T são de antes da ALTURA da raça: a arma fica do tamanho dela)
+    const semAltura = new THREE.Matrix4().makeScale(1 / this.altura, 1 / this.altura, 1 / this.altura);
+    return { osso: e.osso, matriz: semAltura.multiply(e.mG.clone().invert()).multiply(uNaMaoG).multiply(matrizNoUal) };
   }
 }

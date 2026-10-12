@@ -80,7 +80,7 @@ export class CharacterModel {
       this.guerreiro = null;
     } else if (this.guerreiro) {
       this.guerreiro.vestir(armadura);
-      return;
+      if (!this.guerreiro.alturaMudou) return;   // (raça de outra altura: as armas voltam à mão no tamanho certo)
     } else {
       if (!Assets.guerreiro) return;
       this.guerreiro = new CorpoGuerreiro(this, armadura);

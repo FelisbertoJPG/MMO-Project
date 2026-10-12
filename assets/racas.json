@@ -1,0 +1,31 @@
+{
+  "_leiame": "As RAÇAS (js/raca.js): o corpo do guerreiro com outra cor e outras proporções. A ORDEM é o número que vai no save (o 6º dígito da aparência): não reordene nem apague do meio — raça nova entra no FIM. pele/olhos: '#rrggbb' (a raça manda) ou null (o jogador escolhe). jogavel: aparece no editor de personagem do jogo. proporcoes: 1 = como o modelo é. Editadas na tela Raças do editor de cenas.",
+  "racas": [
+    {
+      "id": "orc",
+      "nome": "Orc",
+      "jogavel": false,
+      "pele": "#6a9440",
+      "olhos": "#d6a21e",
+      "semCabelo": true,
+      "semBarba": true,
+      "proporcoes": {
+        "altura": 1.06,
+        "cabeca": 1.05,
+        "pescoco": 1.35,
+        "ombros": 1.18,
+        "peitoLargura": 1.22,
+        "peitoFundo": 1.25,
+        "barrigaLargura": 1.4,
+        "barrigaFrente": 2.3,
+        "quadril": 1.2,
+        "bracos": 1.4,
+        "antebracos": 1.35,
+        "maos": 1.25,
+        "coxas": 1.3,
+        "canelas": 1.25,
+        "pes": 1.2
+      }
+    }
+  ]
+}

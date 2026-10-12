@@ -6,6 +6,8 @@
  *
  * O CÓDIGO são 5 dígitos: [pele, cabelo (0/1), cor do cabelo, barba (0/1), olhos]; o
  * índice 0 de cada paleta é o ORIGINAL do modelo. `APARENCIA_PADRAO` = como o modelo é.
+ * Um 6º dígito, quando há, é a RAÇA (raca.js; sem ele, humano): ela pode mandar na cor
+ * da pele e dos olhos e tirar o cabelo e a barba, e muda as proporções do corpo.
  *
  * COMO SE PINTA: o modelo do guerreiro tem as cores numa TEXTURA (a paleta), e a cor de
  * vértice dele é branca. Cada vértice de pele/cabelo/barba/olho ganha uma cor de vértice
@@ -16,6 +18,8 @@
  * entram na malha fundida no lugar das peças originais (`tingir`, chamado no `vestir`).
  */
 import * as THREE from 'three';
+import { Assets } from './assets.js';
+import { racaDe } from './raca.js';
 
 export const PELES = [
   // (tons pensados para a luz do jogo: a paleta original do modelo é #f8bb7f)
@@ -28,18 +32,18 @@ export const OLHOS = [
   ['Original', null], ['Azuis', '#3f6fb8'], ['Verdes', '#4a8c4c'], ['Castanhos', '#6a4528'], ['Cinzentos', '#8a8f9c'],
 ];
 export const APARENCIA_PADRAO = '01010';
-const CODIGO = /^[0-9]{5}$/;
+const CODIGO = /^[0-9]{5,6}$/;
 
-/** Lê um código (ou o padrão, se torto): { pele, cabelo, cor, barba, olhos }. */
+/** Lê um código (ou o padrão, se torto): { pele, cabelo, cor, barba, olhos, raca }. */
 export function lerAparencia(c) {
   const s = CODIGO.test(c ?? '') ? c : APARENCIA_PADRAO;
   const d = [...s].map(Number);
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1] ? 1 : 0, cor: d[2] < CABELOS.length ? d[2] : 0,
-    barba: d[3] ? 1 : 0, olhos: d[4] < OLHOS.length ? d[4] : 0,
+    barba: d[3] ? 1 : 0, olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0,
   };
 }
-export const codigoDaAparencia = (a) => `${a.pele}${a.cabelo}${a.cor}${a.barba}${a.olhos}`;
+export const codigoDaAparencia = (a) => `${a.pele}${a.cabelo}${a.cor}${a.barba}${a.olhos}${a.raca || ''}`;   // (humano: os 5 dígitos de sempre)
 export const aparenciaValida = (c) => CODIGO.test(c ?? '');
 
 // ------------------------------------------------------------ a textura
@@ -83,21 +87,24 @@ function razao(px, uv, escolhe, hex) {
 }
 
 const tingidas = new Map();
+/** Esquece as peças tingidas (o editor de raças, depois de mudar uma cor). */
+export function esquecerTingidas() { for (const g of tingidas.values()) g?.dispose?.(); tingidas.clear(); delete tingidas.razaoPele; }
 /**
  * A peça do corpo com a aparência aplicada (um objeto no formato da malha fundida), ou a
  * própria peça (nada a tingir nela), ou null (a peça some: sem cabelo / sem barba).
  */
 export function tingir(peca, codigo) {
-  const a = lerAparencia(codigo), nome = peca.name;
-  if (nome === 'Hair' && !a.cabelo) return null;
-  if (nome === 'Beard' && !a.barba) return null;
+  const a = lerAparencia(codigo), nome = peca.name, raca = racaDe(a.raca);
+  if (nome === 'Hair' && (!a.cabelo || raca?.semCabelo)) return null;
+  if (nome === 'Beard' && (!a.barba || raca?.semBarba)) return null;
+  const pele = raca?.pele ?? PELES[a.pele][1], olhos = raca?.olhos ?? OLHOS[a.olhos][1];
   let hex = null, escolhe = null;
   const uv = peca.geometry.attributes.uv;
   if (!uv) return peca;
-  if (PECAS_DE_PELE.includes(nome) && PELES[a.pele][1]) { hex = PELES[a.pele][1]; escolhe = (i) => naPele(uv.getX(i), uv.getY(i)); }
+  if (PECAS_DE_PELE.includes(nome) && pele) { hex = pele; escolhe = (i) => naPele(uv.getX(i), uv.getY(i)); }
   else if ((nome === 'Hair' || nome === 'Beard' || nome === 'Eye_Brows') && CABELOS[a.cor][1]) { hex = CABELOS[a.cor][1]; escolhe = () => true; }
-  else if (nome === 'Eyes' && OLHOS[a.olhos][1]) {
-    hex = OLHOS[a.olhos][1];
+  else if (nome === 'Eyes' && olhos) {
+    hex = olhos;
     const px0 = lerTextura(peca.material?.map);
     // a íris: o que não é o branco do olho
     escolhe = (i) => { if (!px0) return false; const t = texel(px0, uv.getX(i), uv.getY(i)); return t[0] + t[1] + t[2] < 1.6; };
@@ -130,13 +137,17 @@ export function tingir(peca, codigo) {
 }
 
 // ------------------------------------------------------------ o painel (o editor no jogo)
+// [chave, rótulo, as opções, some quando a raça manda nisso]
 const LINHAS = [
-  ['pele', 'Pele', () => PELES.map((p) => p[0])],
-  ['cabelo', 'Cabelo', () => ['Sem cabelo', 'Com cabelo']],
+  ['raca', 'Raça', () => racasDoPainel().map((r) => r.nome), () => racasDoPainel().length < 2],
+  ['pele', 'Pele', () => PELES.map((p) => p[0]), (r) => !!r?.pele],
+  ['cabelo', 'Cabelo', () => ['Sem cabelo', 'Com cabelo'], (r) => !!r?.semCabelo],
   ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0])],
-  ['barba', 'Barba', () => ['Sem barba', 'Com barba']],
-  ['olhos', 'Olhos', () => OLHOS.map((p) => p[0])],
+  ['barba', 'Barba', () => ['Sem barba', 'Com barba'], (r) => !!r?.semBarba],
+  ['olhos', 'Olhos', () => OLHOS.map((p) => p[0]), (r) => !!r?.olhos],
 ];
+/** As raças que o jogador pode escolher: o humano e as `jogavel` do arquivo ({ n, nome }). */
+const racasDoPainel = () => [{ n: 0, nome: 'Humano' }, ...Assets.racas.map((r, i) => ({ n: i + 1, nome: r.nome, jogavel: r.jogavel })).filter((r) => r.jogavel)];
 
 /**
  * O EDITOR DE PERSONAGEM no jogo (`game.menu = 'aparencia'`): um painel com ◀ ▶ por
@@ -150,6 +161,7 @@ export class EditorDeAparencia {
     document.getElementById('aparencia-pronto').addEventListener('click', () => game.closeMenu());
     document.getElementById('aparencia-sorte').addEventListener('click', () => {
       const r = (n) => Math.floor(Math.random() * n);
+      // (a raça não entra no sorteio: é escolha)
       this.mudar({ pele: 1 + r(PELES.length - 1), cabelo: Math.random() < 0.85 ? 1 : 0, cor: 1 + r(CABELOS.length - 1), barba: Math.random() < 0.6 ? 1 : 0, olhos: r(OLHOS.length) });
     });
   }
@@ -170,14 +182,18 @@ export class EditorDeAparencia {
   }
 
   desenhar() {
-    const a = lerAparencia(this.game.player.aparencia);
+    const a = lerAparencia(this.game.player.aparencia), raca = racaDe(a.raca), racas = racasDoPainel();
     this.lista.innerHTML = '';
-    for (const [k, rotulo, opcoes] of LINHAS) {
+    for (const [k, rotulo, opcoes, some] of LINHAS) {
+      if (some?.(raca)) continue;
       const ops = opcoes(), linha = document.createElement('div');
+      // a raça anda pela lista das jogáveis (o número dela é o lugar no arquivo, não na lista)
+      const agora = k === 'raca' ? Math.max(0, racas.findIndex((r) => r.n === a.raca)) : a[k];
+      const valor = (i) => (k === 'raca' ? racas[i].n : i);
       linha.className = 'aparencia-linha';
-      linha.innerHTML = `<span class="rotulo">${rotulo}</span><button class="seta" data-d="-1">◀</button><span class="valor">${ops[a[k]]}</span><button class="seta" data-d="1">▶</button>`;
+      linha.innerHTML = `<span class="rotulo">${rotulo}</span><button class="seta" data-d="-1">◀</button><span class="valor">${ops[agora]}</span><button class="seta" data-d="1">▶</button>`;
       for (const b of linha.querySelectorAll('.seta')) {
-        b.addEventListener('click', () => this.mudar({ [k]: (a[k] + Number(b.dataset.d) + ops.length) % ops.length }));
+        b.addEventListener('click', () => this.mudar({ [k]: valor((agora + Number(b.dataset.d) + ops.length) % ops.length) }));
       }
       this.lista.appendChild(linha);
     }
