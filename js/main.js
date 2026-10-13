@@ -32,7 +32,8 @@ import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
 import { tokenValido } from './rede/supabase.js';
 import { MUNDO_PADRAO, detectarHospedagem, temSaveEmArquivo, serveOMundo } from './hospedagem.js';
-import { vigiarVersao, notaDaAtualizacao } from './versao.js';
+import { vigiarVersao, notaDaAtualizacao } from './versao.js';
+import { aquecerPintura } from './pintura.js';
 
 /** Onde fica guardado o endereço do servidor de mundo escolhido na tela inicial ('' = o deste jogo). */
 const CHAVE_ENDERECO = 'masmorra:mundo';
@@ -655,6 +656,8 @@ class Game {
    */
   preaquecer() {
     const w = this.world, r = this.renderer, larg = w.cols * CELL, prof = w.rows * CELL;
+    // (a PINTURA, pintura.js: o shader dela — transparente, com ossos — compila aqui, e não quando chega alguém pintado)
+    const tirarPintura = aquecerPintura(this.player?.model?.guerreiro);
     const cam = new THREE.OrthographicCamera(-larg / 2 - 10, larg / 2 + 10, prof / 2 + 10, -prof / 2 - 10, 1, 1200);
     cam.position.set(larg / 2, 600, prof / 2);
     cam.up.set(0, 0, -1);
@@ -695,6 +698,7 @@ class Game {
     for (const im of escondidos) im.visible = false;
     for (const c of cartazes) if (c.malha.count === 1) { c.malha.count = 0; c.sujo = true; }
     w.distribuirLuzes();
+    tirarPintura();
   }
 
   // ---------- Menus ----------

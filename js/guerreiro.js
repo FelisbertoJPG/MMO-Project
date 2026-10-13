@@ -28,10 +28,11 @@ import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
-import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS } from './aparencia.js';
+import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES, OLHOS } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, modelagemAberta } from './modelagem.js';
+import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, CORES_DO_MODELO } from './pintura.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -112,7 +113,7 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Qua
 // e todas vão no material com cor de vértice.
 const fundidas = new Map();
 /** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
-export function esquecerFundidas() { for (const g of fundidas.values()) g?.dispose(); fundidas.clear(); }
+export function esquecerFundidas() { for (const g of fundidas.values()) { g?.dispose(); for (const f of g?.userData.pinturas ?? []) f.geometry.dispose(); } fundidas.clear(); }
 function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
@@ -170,6 +171,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   if (comModelo) {
     if (modelagemAberta()) { comModelo.base = geo.attributes.position.array.slice(); geo.userData.modelagem = comModelo; }
     aplicarModelagem(geo, edicoes, comModelo);
+    // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
+    if (edicoes?.pinturas?.length) geo.userData.pinturas = edicoes.pinturas.map((folha) => ({ folha, geometry: geometriaDaFolha(folha, geo, comModelo) })).filter((f) => f.geometry);
   }
   fundidas.set(chave, geo);
   return geo;
@@ -367,6 +370,12 @@ export class CorpoGuerreiro {
       const t = tingir(usadas[i], aparencia);
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
+    // o OLHO DO MODELO apagado debaixo de uma folha pintada (pintura.js: o desenho velho aparecia nas bordas)
+    const lida = lerAparencia(aparencia), edicoes = edicoesDoCorpo(lida.raca, lida.sexo);
+    if (edicoes?.pinturas?.some((f) => f.apagaOlhos)) {
+      const i = usadas.findIndex((x) => /^Eyes(_tingido)?$/.test(x.name));
+      if (i >= 0) usadas[i] = olhosApagados(usadas[i]);
+    }
     // o que a RAÇA acrescenta (as presas do orc; o busto e o top do corpo feminino — só no
     // peito nu). O que é PELE (o busto) é tingido como ela — DEPOIS das peças do corpo: a
     // razão da cor da pele é uma só, e quem a mede são elas
@@ -389,7 +398,7 @@ export class CorpoGuerreiro {
     const comCor = usadas.some((o) => o.geometry.attributes.color);
     const material = (comCor && this.materiais.find((m) => m.vertexColors)) || (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
-    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoesDoCorpo(ap.raca, ap.sexo)) : null;
+    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
     if (!this.fundida) {
@@ -400,6 +409,29 @@ export class CorpoGuerreiro {
       this.fundida.bind(this.esqueleto, usadas[0].bindMatrix.clone());
     } else { this.fundida.geometry = geo; this.fundida.material = material; }
     this.fundida.visible = true;
+    this.vestirPinturas(geo, material, ap);
+  }
+
+  // A PINTURA (pintura.js): uma malha por folha do corpo, por cima da pele, presa ao mesmo
+  // esqueleto; a imagem nas cores DESTE personagem (as tintas "pele", "olhos" e "cabelo")
+  vestirPinturas(geo, material, ap) {
+    this.pinturas ??= [];
+    const folhas = geo.userData.pinturas ?? [], raca = this.raca;
+    const cores = { pele: raca?.pele ?? PELES[ap.pele][1] ?? CORES_DO_MODELO.pele, olhos: raca?.olhos ?? OLHOS[ap.olhos][1] ?? CORES_DO_MODELO.olhos, cabelo: CABELOS[ap.cor][1] ?? CORES_DO_MODELO.cabelo };
+    folhas.forEach(({ folha, geometry }, i) => {
+      const map = texturaDaFolha(folha, cores, Assets.pinturas);
+      let m = this.pinturas[i];
+      if (!map) { if (m) m.visible = false; return; }
+      if (!m) {
+        m = new THREE.SkinnedMesh(geometry, materialDaPintura(material, map));
+        m.name = 'pintura'; m.frustumCulled = false; m.receiveShadow = true;
+        this.cena.add(m);
+        m.bind(this.esqueleto, this.fundida.bindMatrix);
+        this.pinturas.push(m);
+      } else { m.geometry = geometry; m.material.map = map; }
+      m.visible = true;
+    });
+    for (let i = folhas.length; i < this.pinturas.length; i++) this.pinturas[i].visible = false;
   }
 
   // devolve o boneco antigo, como estava

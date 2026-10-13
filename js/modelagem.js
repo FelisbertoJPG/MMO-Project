@@ -8,7 +8,8 @@
  * (`Assets.modelagem.corpos[chave]`):
  *   { partes: { <parte>: { tamanho, largura, altura, fundo, mover: [x, y, z] } },
  *     puxoes: [{ parte, de, em: [x, y, z], raio, mover: [x, y, z] (ou inflar), espelho }] }
- * Corpo sem edição: a malha é a de sempre, bit a bit.
+ * Corpo sem edição: a malha é a de sempre, bit a bit. (E `pinturas`: as folhas pintadas no corpo —
+ * pintura.js.)
  *
  * AS PARTES (`PARTES`) são de três tipos:
  *  - por OSSO (a cabeça, o peito, os braços…): o peso de cada vértice nos ossos dela — o
@@ -86,7 +87,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
