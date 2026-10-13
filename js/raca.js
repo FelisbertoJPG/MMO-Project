@@ -7,11 +7,11 @@
  * A raça é o 6º dígito da APARÊNCIA (aparencia.js): 0 (ou nenhum) = humano, n = a
  * n-ésima raça do arquivo — por isso a ORDEM do arquivo não muda (raça nova, no fim).
  *
- * Uma raça: { id, nome, jogavel, pele, olhos, semCabelo, semBarba, penteados, barbas, proporcoes }.
+ * Uma raça: { id, nome, jogavel, pele, olhos, semCabelo, semBarba, penteados, barbas, sobrancelhas, proporcoes }.
  *  - `pele` / `olhos` ('#rrggbb' ou null): a cor é a da raça, e não a que o jogador escolheu;
  *  - `semCabelo` / `semBarba`: a peça sai;
- *  - `penteados` / `barbas`: os cabelos e as barbas que a raça tem (penteado.js; sem a
- *    lista, os do humano);
+ *  - `penteados` / `barbas` / `sobrancelhas`: os cabelos, as barbas e as sobrancelhas que a
+ *    raça tem (penteado.js; sem a lista, os do humano);
  *  - `jogavel`: aparece no editor de personagem do jogo (falso = só no editor de cenas);
  *  - `proporcoes`: os números de `PROPORCOES` (1 = como o modelo é; o que falta vale 1).
  *
@@ -45,6 +45,9 @@
  * É feito na peça, antes de fundir (na malha fundida não dá para saber o que é orelha e o
  * que é cabelo ao lado dela), e só SEM elmo.
  *
+ * A ARCADA (`ARCADA`): a saliência da testa sobre os olhos — `arcada` traz para a frente
+ * a faixa das sobrancelhas (os olhos ficam no fundo, à sombra dela).
+ *
  * O QUEIXO (`largoDoQueixo`, `QUEIXO`): o maxilar de baixo do modelo é um V fino; `queixo`
  * o ALARGA — o x de cada ponto do rosto de baixo, a partir do meio. Vale por LUGAR, e não
  * por peça: a pele do rosto, o alto do pescoço e o elmo passam pela mesma conta.
@@ -61,6 +64,7 @@ import { triangulosDe, raio, grudar, lugar, normalLisa } from './ima.js';
 export const PROPORCOES = [
   ['altura', 'Altura', 0.8, 1.3],
   ['cabeca', 'Cabeça', 0.8, 1.4],
+  ['arcada', 'Arcada (testa sobre os olhos)', 0.8, 2.5],
   ['queixo', 'Queixo — largura', 0.8, 2.2],
   ['pescoco', 'Pescoço — largura', 0.7, 1.8],
   ['pescocoGrossura', 'Pescoço — grossura', 0.7, 1.8, 1, 'pescoco'],
@@ -122,13 +126,13 @@ const PE_DA_PRESA = { x: 3.0, y: 157.8, ate: 5.8, giro: 0.5, passo: 4, funda: 0.
 const LADOS_DA_PRESA = 5, MARFIM = ['#b9ad8c', '#e6dcc0', '#f4eedc', '#fbf8ee'];
 const presas = new Map();
 function geometriaDasPresas(raca, rosto, cabeca, elmo) {
-  const p = proporcoesDe(raca), tamanho = p.presas, o = PE_DA_PRESA, largo = largoDoQueixo(raca);
+  const p = proporcoesDe(raca), tamanho = p.presas, o = PE_DA_PRESA, moldar = rostoDaRaca(raca);
   // ---- o pé: na pele do rosto (o ÍMÃ), no lugar que as réguas pedem
   // (com ELMO as presas não se afastam além do lugar de sempre: no canto do maxilar, furavam as placas do rosto)
   const x1 = Math.min(o.ate, o.x * (elmo ? Math.min(1, p.presasAfastadas) : p.presasAfastadas)), y1 = o.y + (p.presasAltura - 1) * o.passo;
   const pele = rosto ? triangulosDe([rosto]) : [];
   const no = (x, y) => raio(pele, x, y, true) ?? grudar(pele, new THREE.Vector3(x, y, 13));
-  const alargado = (k) => { const v = k.p.clone(); if (largo) v.x *= largo(v.y, v.z); return v; };
+  const alargado = (k) => (moldar ? moldar(k.p.clone()) : k.p.clone());
   const virada = (g) => { const n = normalLisa(g); return Math.atan2(n.x, n.z); };
   const aqui = no(x1, y1), sempre = no(o.x, o.y), pe = new THREE.Vector3(x1, y1, 12.4);
   let giro = 0;
@@ -196,7 +200,7 @@ function geometriaDasPresas(raca, rosto, cabeca, elmo) {
 export function pecasDaRaca(raca, pecas, elmo = false) {
   const p = proporcoesDe(raca), cabeca = pecas.find((o) => o.name === 'head');
   if (!(p.presas > 0.01) || !cabeca?.geometry.attributes.uv) return [];
-  const chave = [p.presas, p.presasAfastadas, p.presasAltura, p.queixo, elmo ? 1 : 0].join('|');
+  const chave = [p.presas, p.presasAfastadas, p.presasAltura, p.queixo, p.arcada, elmo ? 1 : 0].join('|');
   if (!presas.has(chave)) {
     // (no editor de raças cada toque numa régua faz uma: não guarda para sempre)
     if (presas.size > 60) { for (const g of presas.values()) g.dispose(); presas.clear(); }
@@ -240,13 +244,44 @@ export function largoDoQueixo(raca) {
   return (y, z) => 1 + q * suave(y, o.baixo[0], o.baixo[1]) * (1 - suave(y, o.alto[0], o.alto[1])) * suave(z, o.fundo[0], o.fundo[1]);
 }
 
-const daOrelha = (nome) => /^Face(_|$)/.test(nome);   // (a tingida chama-se `Face_tingido`)
-// quem tem ponto no rosto de baixo: a pele e o alto do pescoço — e o ELMO (o do pacote, ou
-// pintado sobre a cabeça e o pescoço), que alarga junto: como o resto da armadura, cresce
-// com o corpo (parado, o queixo do orc furava as laterais dele)
-const doQueixo = (nome) => /^(Face|neck)(_|$)|Helmet|^casca_.*_(head|neck)$/.test(nome);
+// ------------------------------------------------------------ a arcada
+// A saliência da testa sobre os olhos (a "sobrancelha avantajada" do orc). `arcada` traz
+// para a FRENTE a faixa das sobrancelhas — `passo` cm a cada 100% da régua —, inteira logo
+// acima dos olhos (`baixo`: de onde começa até onde já é inteira; os olhos não saem do
+// lugar: ficam no fundo, à sombra dela) e sumindo testa acima até a linha do cabelo (`alto`),
+// e só no rosto de frente (`fundo`, em z: as têmporas ficam). `cai`: o quanto ela DESCE a
+// cada cm que avança (pesa sobre os olhos).
+export const ARCADA = { baixo: [172.6, 173.5], alto: [174.5, 180.5], fundo: [4, 9], passo: 2, cai: 0.2 };
+
 /**
- * As proporções da raça que se fazem NA PEÇA, antes de fundir (as orelhas e o queixo): muda
+ * O ROSTO como a raça o deixa, ANTES dos ossos: uma função que leva um ponto do rosto do
+ * modelo (um Vector3 em cm, pose T — mudado no lugar e devolvido) para onde a arcada e o
+ * queixo o põem — ou null, se a raça tem o rosto do modelo. É por LUGAR, e não por peça:
+ * a pele, a testa, o alto do pescoço e o elmo passam pela mesma conta (`moldarPeca`) e
+ * nada abre fresta; as presas, a barba e as sobrancelhas são presas à pele já assim (o
+ * ÍMÃ, ima.js).
+ */
+export function rostoDaRaca(raca) {
+  const largo = largoDoQueixo(raca), a = (proporcoesDe(raca).arcada - 1) * ARCADA.passo, o = ARCADA, suave = THREE.MathUtils.smoothstep;
+  if (!largo && Math.abs(a) < 1e-3) return null;
+  return (v) => {
+    if (a) {
+      const d = a * suave(v.y, o.baixo[0], o.baixo[1]) * (1 - suave(v.y, o.alto[0], o.alto[1])) * suave(v.z, o.fundo[0], o.fundo[1]);
+      v.z += d; v.y -= d * o.cai;
+    }
+    if (largo) v.x *= largo(v.y, v.z);
+    return v;
+  };
+}
+
+const daOrelha = (nome) => /^Face(_|$)/.test(nome);   // (a tingida chama-se `Face_tingido`)
+// quem tem ponto no rosto: a pele, a testa (a peça `head`: divide com a `Face` a linha de
+// cima da arcada) e o alto do pescoço — e o ELMO (o do pacote, ou pintado sobre a cabeça e
+// o pescoço), que vai junto: como o resto da armadura, cresce com o corpo (parado, o queixo
+// do orc furava as laterais dele, e a arcada, a viseira)
+const doRosto = (nome) => /^(Face|head|neck)(_|$)|Helmet|^casca_.*_(head|neck)$/.test(nome);
+/**
+ * As proporções da raça que se fazem NA PEÇA, antes de fundir (as orelhas, a arcada e o queixo): muda
  * a geometria no lugar — quem chama dá uma cópia (guerreiro.js `geometriaFundida`).
  * Com ELMO a orelha fica como o modelo a tem (esticada, a ponta furava o elmo).
  */
@@ -269,14 +304,16 @@ export function moldarPeca(geo, nome, raca, elmo = false) {
       mexeu[i] = 1;
     }
   }
-  // O QUEIXO: o rosto de baixo alarga a partir do meio (as presas e a barba não passam por
-  // aqui: nascem presas à pele já alargada — o ÍMÃ)
-  const largo = largoDoQueixo(raca);
-  if (largo && doQueixo(nome)) {
+  // O ROSTO: a arcada e o queixo, por lugar (as presas, a barba e as sobrancelhas não passam
+  // por aqui: nascem presas à pele já assim — o ÍMÃ)
+  const rosto = doRosto(nome) ? rostoDaRaca(raca) : null;
+  if (rosto) {
+    const v = new THREE.Vector3();
     for (let i = 0; i < pos.count; i++) {
-      const f = largo(pos.getY(i), pos.getZ(i));
-      if (Math.abs(f - 1) < 1e-4) continue;
-      pos.setX(i, pos.getX(i) * f);
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      rosto(v.set(x, y, z));
+      if (Math.abs(v.x - x) + Math.abs(v.y - y) + Math.abs(v.z - z) < 1e-5) continue;
+      pos.setXYZ(i, v.x, v.y, v.z);
       mexeu[i] = 1;
     }
   }

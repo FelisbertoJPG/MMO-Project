@@ -37,9 +37,13 @@
  *  - o PENDENTE: o que cai do queixo (a barbicha, a barba longa, a trança de barba). É preso
  *    à cabeça, mas onde o corpo passa à frente dele (o peito do orc, a armadura) POUSA nele,
  *    pela frente, como a mecha nas costas.
- * As duas alargam junto com o QUEIXO da raça (`largo`, raca.js `largoDoQueixo`). O dígito
- * da barba na aparência é o lugar na lista (`BARBAS_PADRAO`, ou `barbas` da raça), como o
- * do cabelo.
+ * O dígito da barba na aparência é o lugar na lista (`BARBAS_PADRAO`, ou `barbas` da raça),
+ * como o do cabelo.
+ *
+ * AS SOBRANCELHAS (`SOBRANCELHAS`) são a do modelo (a peça `Eye_Brows`) inteira ou MEXIDA —
+ * mais alta, mais curta, inclinada, unida no meio — e presa à pele do rosto pelo mesmo ÍMÃ:
+ * na raça de arcada saliente, assentam em cima dela. O lugar na lista é o 7º dígito da
+ * aparência.
  */
 import * as THREE from 'three';
 import { texelClaro } from './casca.js';
@@ -128,6 +132,42 @@ export function barbaDe(raca, n) {
   return n > 0 && lista.length ? lista[Math.min(n, lista.length) - 1] : null;
 }
 export const nomeDaBarba = (id) => BARBAS[id]?.nome ?? id;
+
+/**
+ * As sobrancelhas que há: a do modelo como é ('modelo'), ou mexida — `alta`: quantas vezes
+ * mais alta (a partir da beira de baixo: não desce sobre o olho); `longa`: o comprimento
+ * (menos de 1 encolhe em volta do meio; mais de 1 cresce para dentro); `inclina`: graus —
+ * positivo, a ponta de fora sobe e a de dentro desce (brava); `folga`: quanto sai a mais da
+ * pele (mais grossa); `ponte`: uma faixa de pelo por cima do nariz, de uma à outra (unidas).
+ */
+export const SOBRANCELHAS = {
+  modelo: { nome: 'Normais', formas: [['sobrancelha', {}]] },
+  grossas: { nome: 'Grossas', formas: [['sobrancelha', { alta: 1.75, folga: 0.3 }]] },
+  finas: { nome: 'Finas', formas: [['sobrancelha', { alta: 0.5 }]] },
+  bravas: { nome: 'Bravas', formas: [['sobrancelha', { inclina: 16, alta: 1.25 }]] },
+  caidas: { nome: 'Caídas', formas: [['sobrancelha', { inclina: -13 }]] },
+  curtas: { nome: 'Curtas', formas: [['sobrancelha', { longa: 0.6 }]] },
+  unidas: { nome: 'Unidas', formas: [['sobrancelha', { alta: 1.15, ponte: true }]] },
+};
+/**
+ * As do HUMANO (e da raça sem lista própria). A ORDEM é o número da sobrancelha no save
+ * do personagem (o 7º dígito da aparência): não reordene nem tire do meio — a nova entra no
+ * FIM. (A primeira é a do modelo: código sem o 7º dígito vale ela.)
+ */
+export const SOBRANCELHAS_PADRAO = ['modelo', 'grossas', 'finas', 'bravas', 'caidas', 'curtas', 'unidas'];
+/** As sobrancelhas de uma raça (null = humano), na ordem em que valem ([] = a raça não tem). */
+export const sobrancelhasDe = (raca) => (Array.isArray(raca?.sobrancelhas) ? raca.sobrancelhas : SOBRANCELHAS_PADRAO);
+/** A sobrancelha de número `n` (0 = sem) de uma raça: o id, ou null. Além da lista, a última. */
+export function sobrancelhaDe(raca, n) {
+  const lista = sobrancelhasDe(raca);
+  return n > 0 && lista.length ? lista[Math.min(n, lista.length) - 1] : null;
+}
+export const nomeDaSobrancelha = (id) => SOBRANCELHAS[id]?.nome ?? id;
+// a sobrancelha do modelo (a do lado +x; cm, pose T): de onde a onde vai (`dentro`, `fora`:
+// o x das pontas), a beira de baixo e o meio dela. `acima`: a distância mínima da pele a
+// que a camada de FORA de uma sobrancelha mexida fica — o rosto é facetado, e rente a ele a
+// pele aparecia por entre os triângulos dela
+const SOBRANCELHA = { dentro: 2.0, fora: 7.4, baixo: 173.15, meio: 4.7, acima: 0.15 };
 // A que PARTE da barba do modelo pertence um triângulo, pelo meio dele (|x|, y, z em cm): a
 // costeleta sobe pela bochecha até a têmpora; o bigode é o que fica da boca para cima; o
 // queixo, a frente abaixo da boca; o maxilar, o resto — a linha do osso, do queixo à orelha.
@@ -291,6 +331,45 @@ const FORMAS = {
     }
   },
 
+  // A SOBRANCELHA: a do modelo, mexida (ver `SOBRANCELHAS`) e presa à pele do rosto (o ÍMÃ).
+  // Como o modelo é (sem mexer), cada ponto fica do lugar da pele mais perto DELE; mexida,
+  // do lugar mais perto de onde o ponto foi parar — à mesma distância da pele que tinha.
+  sobrancelha(m, c, { alta = 1, longa = 1, inclina = 0, folga = 0, ponte = false, tom = 1 }) {
+    const o = SOBRANCELHA, cor = c.tom(tom), mexida = alta !== 1 || longa !== 1 || inclina !== 0, sobe = Math.tan((inclina * Math.PI) / 180);
+    const lugares = new Map();   // um por lugar do modelo (os cantos repetidos dividem o mesmo)
+    const noRosto = (k) => {
+      if (lugares.has(k.ima)) return lugares.get(k.ima);
+      let ima = k.ima, d = ima.d;
+      if (mexida) {
+        const x0 = Math.abs(k.p.x), x = longa < 1 ? o.meio + (x0 - o.meio) * longa : o.fora - (o.fora - x0) * longa;
+        const g = grudar(c.pele(), new THREE.Vector3(Math.sign(k.p.x) * x, o.baixo + (k.p.y - o.baixo) * alta + (x - o.meio) * sobe, k.p.z));
+        // a camada de FORA (a normal do canto aponta para longe da pele) fica acima dela; a de dentro, na pele
+        const fora = k.n.dot(normalLisa(ima.g)) > 0;
+        if (g) ima = { g, d, dir: normalLisa(g), w: pesos(g) };
+        d = fora ? Math.max(d, o.acima) + folga : Math.min(d, 0.03);
+      }
+      const l = { p: c.aDistancia(ima, d), w: ima.w };
+      lugares.set(k.ima, l);
+      return l;
+    };
+    const tris = c.sobrancelhas();
+    for (const t of tris) for (const k of t) { const l = noRosto(k); m.v.push({ p: l.p, cor, w: l.w }); }
+    if (!ponte || !tris.length) return;
+    // A PONTE: uma faixa entre as pontas de dentro das duas, por cima do nariz — uma grade de
+    // pontos presos à pele, as fileiras do meio acima dela e as de cima e de baixo NELA (a
+    // faixa fecha na pele, não fica uma lâmina no ar)
+    const xs = [-o.dentro - 0.5, -o.dentro / 2, 0, o.dentro / 2, o.dentro + 0.5];
+    const ys = [[o.baixo - 0.3, 0], [o.baixo - 0.1, 1], [o.baixo + 0.7 * alta, 1], [o.baixo + 0.9 * alta, 0]];
+    const grade = xs.map((x) => ys.map(([y, fora]) => {
+      const g = grudar(c.pele(), new THREE.Vector3(x, y, 16)), ima = { g, d: 0, dir: normalLisa(g), w: pesos(g) };
+      return { p: c.aDistancia(ima, fora ? o.acima + folga : 0.02), cor, w: ima.w, dentro: c.aDistancia(ima, -1) };
+    }));
+    for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < ys.length - 1; j++) {
+      const a = grade[i][j], b = grade[i + 1][j], d = grade[i + 1][j + 1], e = grade[i][j + 1];
+      m.tri(a.dentro, a, b, d); m.tri(a.dentro, a, d, e);
+    }
+  },
+
   // O PENDENTE: o que cai do queixo, pelos pontos `solta` ([y, z], na linha do meio, presos
   // à cabeça). Abaixo do pescoço, se o corpo (o peito do orc, a armadura) passa à frente do
   // ponto, o ponto pousa nele. `cunha`: larga no pé e afinando até a ponta (a barba longa);
@@ -363,28 +442,44 @@ function fio(m, c, linha, { raio, elo = 0, argola = false, achata = 0.72, larg =
 const FRENTE = new THREE.Vector3(0, 0, 1), TRAS = new THREE.Vector3(0, 0, -1);
 
 /**
- * A geometria do penteado e da barba de um corpo, pronta para a malha fundida (já com as
- * proporções da raça e os ossos na ordem única) — ou null: não há o que desenhar (ids
- * desconhecidos, tudo debaixo do elmo).
- *  - `id`, `barba`: o penteado e a barba (ids de `PENTEADOS` e de `BARBAS`, ou null);
+ * A geometria do penteado, da barba e das sobrancelhas de um corpo, pronta para a malha
+ * fundida (já com as proporções da raça e os ossos na ordem única) — ou null: não há o que
+ * desenhar (ids desconhecidos, tudo debaixo do elmo).
+ *  - `id`, `barba`, `sobrancelha`: os ids (de `PENTEADOS`, `BARBAS` e `SOBRANCELHAS`), ou null;
  *  - `cor`: '#rrggbb' ou null (a do modelo, `COR_PADRAO`); `elmo`: há elmo;
  *  - `apoio`: as peças em que a mecha e o pendente podem pousar (o tronco, o pescoço, a
  *    armadura do peito); `pecaDaBarba`: a peça `Beard` do modelo (a matéria do recorte);
- *    `pecaDoRosto`: a peça `Face` — a pele a que a barba é presa;
- *  - `ordem`, `deformador`, `escala`, `largo`: os ossos do esqueleto único, a conta da raça
- *    para um ponto (raca.js `deformadorDe`), o tamanho da cabeça dela e o quanto o queixo
- *    alarga num lugar (`largoDoQueixo`, ou null);
+ *    `pecaDaSobrancelha`: a `Eye_Brows`; `pecaDoRosto`: a `Face` — a pele a que a barba e
+ *    as sobrancelhas são presas;
+ *  - `ordem`, `deformador`, `escala`: os ossos do esqueleto único, a conta da raça para um
+ *    ponto (raca.js `deformadorDe`) e o tamanho da cabeça dela; `rosto`: o que a raça faz ao
+ *    rosto antes dos ossos — a arcada, o queixo (`rostoDaRaca`, ou null); `largo`: o quanto
+ *    o queixo alarga num lugar (`largoDoQueixo`, ou null: a largura do pé do pendente);
  *  - `modelo`: uma geometria já pronta da malha fundida (os atributos saem do mesmo tipo:
  *    o `mergeGeometries` recusa tipos diferentes); `mapa`: a textura do corpo.
  */
-export function geometriaDoPenteado({ id, barba, cor, elmo, apoio, pecaDaBarba, pecaDoRosto, ordem, deformador, escala, largo, modelo, mapa }) {
-  const formas = [...(PENTEADOS[id]?.formas ?? []), ...(BARBAS[barba]?.formas ?? [])];
+export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, pecaDaBarba, pecaDaSobrancelha, pecaDoRosto, ordem, deformador, escala, rosto, largo, modelo, mapa }) {
+  const formas = [...(PENTEADOS[id]?.formas ?? []), ...(BARBAS[barba]?.formas ?? []), ...(SOBRANCELHAS[sobrancelha]?.formas ?? [])];
   if (!formas.length) return null;
   const base = new THREE.Color(cor ?? COR_PADRAO), cabeca = Math.max(0, ordem.indexOf('Head'));
-  let tris = null, daBarba = null, rosto = null;
-  // um canto da malha como a raça o deixa (as proporções), e o do ROSTO (antes, o queixo)
+  let tris = null, daBarba = null, daSobrancelha = null, pele = null;
+  // um canto da malha como a raça o deixa (as proporções), e o do ROSTO (antes, a arcada e o queixo)
   const movido = (k) => deformador(k.p.clone(), k.o, k.w);
-  const doRosto = (k) => { const v = k.p.clone(); if (largo) v.x *= largo(v.y, v.z); return deformador(v, k.o, k.w); };
+  const doRosto = (k) => deformador(rosto ? rosto(k.p.clone()) : k.p.clone(), k.o, k.w);
+  // o ÍMÃ de um ponto do modelo: o lugar da pele do rosto mais perto (`g`), a que distância
+  // (`d`) e para que lado (`dir`) o modelo o pôs, e os ossos dali (`w`). Um por LUGAR: os
+  // cantos repetidos dividem o mesmo
+  const imas = new Map();
+  const imaDe = (p) => {
+    const chave = `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}`;
+    if (!imas.has(chave)) {
+      const g = grudar(c.pele(), p);
+      imas.set(chave, g ? { g, d: g.d, dir: g.d > 1e-3 ? p.clone().sub(g.q).multiplyScalar(1 / g.d) : normalLisa(g), w: pesos(g) } : null);
+    }
+    return imas.get(chave);
+  };
+  // os triângulos de uma peça do rosto (a barba, as sobrancelhas), cada canto com o ímã dele
+  const presos = (peca) => (peca ? triangulosDe([peca], ordem) : []).filter((t) => t.every((k) => (k.ima = imaDe(k.p))));
   // O POUSO: onde um raio pelo eixo z (de trás, ou da frente), na posição (x, y) do modelo,
   // encontra o corpo — JÁ com as proporções da raça: { p: o ponto, n: a normal (para fora), w: os pesos dali }
   const pouso = (x, y, frente) => {
@@ -403,33 +498,18 @@ export function geometriaDoPenteado({ id, barba, cor, elmo, apoio, pecaDaBarba, 
       if (!e || !d) return e ?? d;
       return { p: e.p.add(d.p).multiplyScalar(0.5).setX(0), n: e.n.add(d.n).normalize(), w: misturar([[e.w, 0.5], [d.w, 0.5]]) };
     },
-    // a barba do modelo em triângulos: a parte de cada um e, em cada canto, o ÍMÃ dele — o
-    // lugar da pele do rosto mais perto (`g`), a que distância (`d`) e para que lado (`dir`)
-    // o modelo o pôs, e os ossos dali (`w`). Um por LUGAR: os cantos repetidos dividem o mesmo
-    barba() {
-      if (daBarba) return daBarba;
-      rosto ??= pecaDoRosto ? triangulosDe([pecaDoRosto], ordem) : [];
-      const imas = new Map();
-      const imaDe = (p) => {
-        const chave = `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}`;
-        if (!imas.has(chave)) {
-          const g = grudar(rosto, p);
-          imas.set(chave, g ? { g, d: g.d, dir: g.d > 1e-3 ? p.clone().sub(g.q).multiplyScalar(1 / g.d) : normalLisa(g), w: pesos(g) } : null);
-        }
-        return imas.get(chave);
-      };
-      return daBarba = (pecaDaBarba ? triangulosDe([pecaDaBarba], ordem) : []).map((t) => {
-        for (const k of t) k.ima = imaDe(k.p);
-        return { cantos: t, parte: parteDaBarba(Math.abs(t[0].p.x + t[1].p.x + t[2].p.x) / 3, (t[0].p.y + t[1].p.y + t[2].p.y) / 3, (t[0].p.z + t[1].p.z + t[2].p.z) / 3) };
-      }).filter((t) => t.cantos.every((k) => k.ima));
-    },
+    // a pele do ROSTO (a peça `Face`: é presa à cabeça — pelo pescoço, a barba esticaria ao virar o rosto)
+    pele: () => pele ??= pecaDoRosto ? triangulosDe([pecaDoRosto], ordem) : [],
+    // a barba do modelo em triângulos presos à pele, e a parte de cada um
+    barba: () => daBarba ??= presos(pecaDaBarba).map((t) => ({ cantos: t, parte: parteDaBarba(Math.abs(t[0].p.x + t[1].p.x + t[2].p.x) / 3, (t[0].p.y + t[1].p.y + t[2].p.y) / 3, (t[0].p.z + t[1].p.z + t[2].p.z) / 3) })),
+    // as sobrancelhas do modelo, idem
+    sobrancelhas: () => daSobrancelha ??= presos(pecaDaSobrancelha),
     // onde um ponto preso à pele foi parar: o lugar dela como a raça o deixou, mais a distância
     // do modelo (do tamanho da cabeça) — na beirada do recorte (`folga` null), quase nada: a
     // barba fecha na pele; a folga só levanta a camada de FORA (a de dentro já está na pele)
-    naPele(ima, folga) {
-      const d = folga === null ? Math.min(ima.d, 0.06) : ima.d + folga * entre((ima.d - 0.2) / 0.3);
-      return lugar(ima.g, doRosto).p.addScaledVector(ima.dir, d * escala);
-    },
+    naPele(ima, folga) { return c.aDistancia(ima, folga === null ? Math.min(ima.d, 0.06) : ima.d + folga * entre((ima.d - 0.2) / 0.3)); },
+    // … e a `d` cm dela (do tamanho da cabeça), para o lado em que o ímã o pôs
+    aDistancia: (ima, d) => lugar(ima.g, doRosto).p.addScaledVector(ima.dir, d * escala),
   };
   const m = new Malha();
   for (const [forma, medidas] of formas) FORMAS[forma]?.(m, c, medidas);
