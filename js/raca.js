@@ -46,7 +46,8 @@
  * que é cabelo ao lado dela), e só SEM elmo.
  *
  * A ARCADA (`ARCADA`): a saliência da testa sobre os olhos — `arcada` traz para a frente
- * a faixa das sobrancelhas (os olhos ficam no fundo, à sombra dela).
+ * a faixa das sobrancelhas (os olhos ficam no fundo, à sombra dela) e `arcadaLargura` a
+ * alarga para os lados (os cantos dela passam das têmporas).
  *
  * O QUEIXO (`largoDoQueixo`, `QUEIXO`): o maxilar de baixo do modelo é um V fino; `queixo`
  * o ALARGA — o x de cada ponto do rosto de baixo, a partir do meio. Vale por LUGAR, e não
@@ -64,7 +65,8 @@ import { triangulosDe, raio, grudar, lugar, normalLisa } from './ima.js';
 export const PROPORCOES = [
   ['altura', 'Altura', 0.8, 1.3],
   ['cabeca', 'Cabeça', 0.8, 1.4],
-  ['arcada', 'Arcada (testa sobre os olhos)', 0.8, 2.5],
+  ['arcada', 'Arcada — para a frente', 0.8, 2.5],
+  ['arcadaLargura', 'Arcada — largura', 0.8, 1.8],
   ['queixo', 'Queixo — largura', 0.8, 2.2],
   ['pescoco', 'Pescoço — largura', 0.7, 1.8],
   ['pescocoGrossura', 'Pescoço — grossura', 0.7, 1.8, 1, 'pescoco'],
@@ -200,7 +202,7 @@ function geometriaDasPresas(raca, rosto, cabeca, elmo) {
 export function pecasDaRaca(raca, pecas, elmo = false) {
   const p = proporcoesDe(raca), cabeca = pecas.find((o) => o.name === 'head');
   if (!(p.presas > 0.01) || !cabeca?.geometry.attributes.uv) return [];
-  const chave = [p.presas, p.presasAfastadas, p.presasAltura, p.queixo, p.arcada, elmo ? 1 : 0].join('|');
+  const chave = [p.presas, p.presasAfastadas, p.presasAltura, p.queixo, p.arcada, p.arcadaLargura, elmo ? 1 : 0].join('|');
   if (!presas.has(chave)) {
     // (no editor de raças cada toque numa régua faz uma: não guarda para sempre)
     if (presas.size > 60) { for (const g of presas.values()) g.dispose(); presas.clear(); }
@@ -250,7 +252,8 @@ export function largoDoQueixo(raca) {
 // acima dos olhos (`baixo`: de onde começa até onde já é inteira; os olhos não saem do
 // lugar: ficam no fundo, à sombra dela) e sumindo testa acima até a linha do cabelo (`alto`),
 // e só no rosto de frente (`fundo`, em z: as têmporas ficam). `cai`: o quanto ela DESCE a
-// cada cm que avança (pesa sobre os olhos).
+// cada cm que avança (pesa sobre os olhos). `arcadaLargura` ALARGA a mesma faixa (o x de
+// cada ponto, a partir do meio): os cantos de fora da arcada passam dos olhos e das têmporas.
 export const ARCADA = { baixo: [172.6, 173.5], alto: [174.5, 180.5], fundo: [4, 9], passo: 2, cai: 0.2 };
 
 /**
@@ -262,12 +265,13 @@ export const ARCADA = { baixo: [172.6, 173.5], alto: [174.5, 180.5], fundo: [4, 
  * ÍMÃ, ima.js).
  */
 export function rostoDaRaca(raca) {
-  const largo = largoDoQueixo(raca), a = (proporcoesDe(raca).arcada - 1) * ARCADA.passo, o = ARCADA, suave = THREE.MathUtils.smoothstep;
-  if (!largo && Math.abs(a) < 1e-3) return null;
+  const p = proporcoesDe(raca), largo = largoDoQueixo(raca), a = (p.arcada - 1) * ARCADA.passo, l = p.arcadaLargura - 1, o = ARCADA, suave = THREE.MathUtils.smoothstep;
+  if (!largo && Math.abs(a) < 1e-3 && Math.abs(l) < 1e-3) return null;
   return (v) => {
-    if (a) {
-      const d = a * suave(v.y, o.baixo[0], o.baixo[1]) * (1 - suave(v.y, o.alto[0], o.alto[1])) * suave(v.z, o.fundo[0], o.fundo[1]);
-      v.z += d; v.y -= d * o.cai;
+    if (a || l) {
+      // o quanto o ponto é da arcada (pela altura e pelo fundo em que o MODELO o tem)
+      const w = suave(v.y, o.baixo[0], o.baixo[1]) * (1 - suave(v.y, o.alto[0], o.alto[1])) * suave(v.z, o.fundo[0], o.fundo[1]);
+      v.x *= 1 + l * w; v.z += a * w; v.y -= a * w * o.cai;
     }
     if (largo) v.x *= largo(v.y, v.z);
     return v;
