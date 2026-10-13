@@ -106,6 +106,47 @@
           "orelhas": 2.4
         }
       }
+    },
+    {
+      "id": "elfo",
+      "nome": "Elfo",
+      "jogavel": true,
+      "pele": "#d1c4a8",
+      "olhos": null,
+      "semCabelo": false,
+      "semBarba": false,
+      "proporcoes": {
+        "altura": 1,
+        "cabeca": 0.89,
+        "arcada": 0.8,
+        "arcadaLargura": 0.91,
+        "queixo": 0.9,
+        "pescoco": 0.7,
+        "pescocoGrossura": 0.7,
+        "ombros": 0.8,
+        "ombrosGrossura": 0.8,
+        "peitoLargura": 0.8,
+        "peitoFundo": 0.8,
+        "barrigaLargura": 0.8,
+        "barrigaFrente": 0.8,
+        "quadril": 0.8,
+        "quadrilFundo": 0.8,
+        "virilha": 0.5,
+        "bracos": 0.7,
+        "bracosGrossura": 0.7,
+        "antebracos": 0.7,
+        "antebracosGrossura": 0.7,
+        "maos": 0.91,
+        "coxas": 0.7,
+        "coxasGrossura": 0.7,
+        "canelas": 0.7,
+        "canelasGrossura": 0.7,
+        "pes": 1.03,
+        "presas": 0,
+        "presasAfastadas": 1,
+        "presasAltura": 1,
+        "orelhas": 3
+      }
     }
   ]
 }
