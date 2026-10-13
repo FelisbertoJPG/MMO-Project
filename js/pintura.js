@@ -281,7 +281,7 @@ function uvEscura(peca) {
 // A casca é tudo menos a tampa da frente. Acha-se pelos GÊMEOS: cada ponto de uma tampa tem o seu na outra,
 // colado nele; o triângulo do aro tem um par de gêmeos, o de tampa não; das duas tampas, a da frente é a
 // de maior z.
-function cascaDoOlho(g) {
+export function cascaDoOlho(g) {
   const P = g.attributes.position, nt = P.count / 3, casca = new Uint8Array(nt);
   const chave = (i) => `${P.getX(i).toFixed(4)},${P.getY(i).toFixed(4)},${P.getZ(i).toFixed(4)}`;
   for (const lado of [1, -1]) {

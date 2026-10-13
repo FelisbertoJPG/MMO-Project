@@ -28,11 +28,12 @@ import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
-import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES, OLHOS } from './aparencia.js';
+import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES, OLHOS, naPele } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, modelagemAberta } from './modelagem.js';
-import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, CORES_DO_MODELO } from './pintura.js';
+import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, cascaDoOlho, CORES_DO_MODELO } from './pintura.js';
+import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -113,7 +114,7 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Qua
 // e todas vão no material com cor de vértice.
 const fundidas = new Map();
 /** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
-export function esquecerFundidas() { for (const g of fundidas.values()) { g?.dispose(); for (const f of g?.userData.pinturas ?? []) f.geometry.dispose(); } fundidas.clear(); }
+export function esquecerFundidas() { for (const g of fundidas.values()) { g?.dispose(); for (const f of g?.userData.pinturas ?? []) f.geometry.dispose(); for (const p of g?.userData.palpebras ?? []) p.dispose(); } fundidas.clear(); }
 function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
@@ -175,6 +176,18 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     aplicarModelagem(geo, edicoes, comModelo);
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
     if (edicoes?.pinturas?.length) geo.userData.pinturas = edicoes.pinturas.map((folha) => ({ folha, geometry: geometriaDaFolha(folha, geo, comModelo) })).filter((f) => f.geometry);
+  }
+  // AS PÁLPEBRAS (piscada.js), sobre o olho como ele ficou (a raça, a modelagem): a tampa da frente
+  // da peça dos olhos, na cor de um ponto de pele da cabeça
+  if (geo && !geo.index) {
+    const io = pecas.findIndex((p) => /^Eyes(_tingido)?$/.test(p.name)), ic = pecas.findIndex((p) => /^head(_tingido)?$/.test(p.name));
+    if (io >= 0 && ic >= 0 && !pecas[io].geometry.index) {
+      const faixa = (i) => { let de = 0; for (let k = 0; k < i; k++) de += lista[k].attributes.position.count; return { de, n: lista[i].attributes.position.count }; };
+      const cabeca = faixa(ic), uv = geo.attributes.uv;
+      let pele = -1;
+      for (let i = cabeca.de; i < cabeca.de + cabeca.n && pele < 0; i++) if (naPele(uv.getX(i), uv.getY(i))) pele = i;
+      geo.userData.palpebras = geometriasDasPalpebras(geo, faixa(io), cascaDoOlho(pecas[io].geometry), pele);
+    }
   }
   fundidas.set(chave, geo);
   return geo;
@@ -402,7 +415,7 @@ export class CorpoGuerreiro {
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
     const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
-    if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
+    if (!geo) { if (this.fundida) this.fundida.visible = false; if (this.palpebras) this.palpebras.visible = false; return; }
     if (!this.fundida) {
       this.fundida = new THREE.SkinnedMesh(geo, material);
       this.fundida.name = 'guerreiro-fundido';
@@ -412,6 +425,42 @@ export class CorpoGuerreiro {
     } else { this.fundida.geometry = geo; this.fundida.material = material; }
     this.fundida.visible = true;
     this.vestirPinturas(geo, material, ap);
+    this.vestirPalpebras(geo, material);
+  }
+
+  // AS PÁLPEBRAS (piscada.js): uma malha a mais, presa ao mesmo esqueleto e com o material do
+  // corpo (o mesmo shader), que só é desenhada enquanto o olho pisca (`piscar`)
+  vestirPalpebras(geo, material) {
+    const etapas = geo.userData.palpebras ?? null;
+    this.etapasDaPiscada = etapas;
+    if (this.palpebras) this.palpebras.visible = false;
+    if (!etapas || this.palpebras) return;
+    const m = new THREE.SkinnedMesh(etapas[etapas.length - 1], material);
+    m.name = 'palpebras'; m.frustumCulled = false; m.receiveShadow = true; m.visible = false;
+    this.cena.add(m);
+    m.bind(this.esqueleto, this.fundida.bindMatrix);
+    this.palpebras = m;
+    this.piscaEm = 0.5 + Math.random() * 4;   // (cada um no seu tempo)
+  }
+
+  // A PISCADA: de tempos em tempos a pálpebra desce, fica e sobe (os tempos: `PISCADA`), um
+  // degrau por geometria. `fechados`: os olhos fecham e ficam (morto). A cada quadro, depois
+  // do `seguir` (character.js)
+  piscar(dt, fechados = false) {
+    const m = this.palpebras, etapas = this.etapasDaPiscada, mat = this.fundida?.material;
+    if (!m) return;
+    // (o fantasma, translúcido, não pisca: a pálpebra sairia translúcida por cima do olho)
+    if (!etapas || !this.fundida.visible || mat.transparent) { m.visible = false; return; }
+    const T = PISCADA;
+    if (fechados) this.tPisca = Math.min((this.tPisca ?? 0) + dt, T.fecha);
+    else if (this.tPisca != null) { this.tPisca += dt; if (this.tPisca >= T.fecha + T.parada + T.abre) { this.tPisca = null; this.piscaEm = proximaPiscada(); } }
+    else if ((this.piscaEm -= dt) <= 0) this.tPisca = 0;
+    const t = this.tPisca;
+    const f = t == null ? 0 : t < T.fecha ? t / T.fecha : t < T.fecha + T.parada ? 1 : 1 - (t - T.fecha - T.parada) / T.abre;
+    const k = Math.min(etapas.length, Math.ceil(f * etapas.length - 1e-6));
+    if (k <= 0) { m.visible = false; return; }
+    // (o material de AGORA do corpo: o jogador remoto troca o dele por uma cópia — remoto.js)
+    m.geometry = etapas[k - 1]; m.material = mat; m.visible = true;
   }
 
   // A PINTURA (pintura.js): uma malha por folha do corpo, por cima da pele, presa ao mesmo

@@ -191,6 +191,7 @@ export class CharacterModel {
     if (fechar > 0.01) this.fecharDedosEsquerdos(fechar);
     if (comDuas) this.corrigirPose(e, this.pesoDuasMaos);
     this.guerreiro?.seguir();
+    this.guerreiro?.piscar(dt, this.currentName === 'Death01');
     // o grude no cabo (IK), na força que a empunhadura pede (0 = mão solta, só a pose)
     if (comDuas && e.ik > 0.01) this.segurarComAsDuas(this.pesoDuasMaos * e.ik);
     else if (comDuas) this.girarArma(1, e);

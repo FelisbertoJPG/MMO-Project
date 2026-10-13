@@ -89,7 +89,7 @@ function texel(px, u, v) {
   const i = (y * px.w + x) * 4;
   return [linear(px.d[i]), linear(px.d[i + 1]), linear(px.d[i + 2])];
 }
-const naPele = (u, v) => u >= FAIXA_PELE.u[0] && u <= FAIXA_PELE.u[1] && v >= FAIXA_PELE.v[0] && v <= FAIXA_PELE.v[1];
+export const naPele = (u, v) => u >= FAIXA_PELE.u[0] && u <= FAIXA_PELE.u[1] && v >= FAIXA_PELE.v[0] && v <= FAIXA_PELE.v[1];
 
 /** O tom pedido ÷ a média dos texels escolhidos (as cores de vértice que dão o tom pedido). */
 function razao(px, uv, escolhe, hex) {
