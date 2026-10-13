@@ -32,7 +32,7 @@ import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
 import { tokenValido } from './rede/supabase.js';
 import { MUNDO_PADRAO, detectarHospedagem, temSaveEmArquivo, serveOMundo } from './hospedagem.js';
-import { vigiarVersao, notaDaAtualizacao } from './versao.js';
+import { vigiarVersao, notaDaAtualizacao } from './versao.js';
 import { aquecerPintura } from './pintura.js';
 
 /** Onde fica guardado o endereço do servidor de mundo escolhido na tela inicial ('' = o deste jogo). */

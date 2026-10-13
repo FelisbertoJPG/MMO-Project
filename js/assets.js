@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
-import { categoriaDaPeca } from './categorias.js';
+import { categoriaDaPeca } from './categorias.js';
 import { carregarPinturas } from './pintura.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
