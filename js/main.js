@@ -40,6 +40,7 @@ const CHAVE_ENDERECO = 'masmorra:mundo';
 
 class Game {
   constructor() {
+    globalThis.__jogoVivo = true;   // o vigia do index.html: o código do jogo chegou a rodar
     const container = document.getElementById('game');
     // A qualidade gráfica (js/graficos.js) vem antes do renderizador: o
     // antisserrilhado só se escolhe ao criar o contexto WebGL.
@@ -52,6 +53,12 @@ class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     container.appendChild(this.renderer.domElement);
+    // a placa ficou sem memória (acontece no celular): a tela para de desenhar — diz o que houve
+    this.renderer.domElement.addEventListener('webglcontextlost', () => {
+      const m = 'A placa de vídeo ficou sem memória e o jogo parou de desenhar. Recarregue a página (fechar outros apps e abas ajuda).';
+      globalThis.__erroDeCarga?.(m);
+      this.ui?.toast(m);
+    });
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 300);
@@ -71,17 +78,27 @@ class Game {
     this.sfx = new Sfx();
     this.input = new Input(this.renderer.domElement);
     addEventListener('resize', () => this.onResize());
-    this.load();
+    // o que der errado ao abrir aparece na tela de carregamento (o vigia do index.html)
+    this.load().catch((e) => { globalThis.__erroDeCarga?.(`Erro ao abrir o jogo: ${e?.message ?? e}.`); throw e; });
   }
 
   async load() {
     const fill = document.querySelector('.load-fill'), text = document.querySelector('.load-text');
+    // A TELA DE CARREGAMENTO DIZ ONDE ESTÁ (13/10/2026): num celular a barra enchia e a tela
+    // ficava muda por dezenas de segundos (montar o mundo e compilar os shaders), ou parava
+    // num pedido emperrado — "nunca terminou". (A pausa deixa o navegador pintar o texto antes
+    // do trabalho pesado, que não solta a página; um erro aparece pelo vigia do index.html.)
+    const dizer = (t) => { text.textContent = t; return new Promise((ok) => setTimeout(ok, 50)); };
     try {
-      await Assets.load((k) => { fill.style.width = `${Math.round(k * 100)}%`; });
+      await Assets.load((k, i) => {
+        fill.style.width = `${Math.round(k * 100)}%`;
+        if (i) text.textContent = `Baixando o jogo… ${i.feitos} de ${i.total} arquivos (${Math.round(i.bytes / 1048576)} MB)`;
+      });
     } catch (e) {
-      text.textContent = 'Erro ao carregar modelos: ' + e.message;
+      e.message = 'não consegui baixar o jogo (' + e.message + ')';
       throw e;
     }
+    await dizer('Montando o mundo…');
     // o CÉU antes de tudo: o reflexo dele é o mapa de ambiente das armas e do mundo, e tem
     // de existir antes da primeira compilação dos shaders (senão recompila no meio do jogo)
     this.ceu = new Ceu(this);
@@ -126,10 +143,12 @@ class Game {
     this.onResize();
     // Aplica a qualidade gráfica e COMPILA todos os shaders agora, na tela de
     // carregamento — compilar na hora em que algo aparece era um engasgo.
+    await dizer('Preparando os gráficos… (na primeira vez demora mais)');
     this.graficos.aplicar();
     this.marcarGraficos();
     this.monitor = new Monitor(this);   // o monitor de desempenho (F3; monitor.js)
     this.preaquecer();
+    text.textContent = 'Entrando…';
     // A conta guardada reabre sozinha; sem rede em 6 s, segue offline.
     await Promise.race([this.online.iniciar(), new Promise((ok) => setTimeout(ok, 6000))]);
     // Há um servidor nosso por trás da página, ou só arquivos (GitHub Pages)? Decide onde o save mora.

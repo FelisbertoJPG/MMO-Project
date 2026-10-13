@@ -241,6 +241,33 @@
     </div>
   </div>
 
+  <!-- O VIGIA DO CARREGAMENTO (13/10/2026): script comum, antes do módulo, para rodar até onde o
+       jogo NÃO roda. Enquanto a tela de carregamento está à mostra, qualquer erro aparece nela
+       (antes a barra ficava parada, muda, para sempre) e tocar nela recarrega. Também avisa o
+       navegador que não tem "import map" (Safari antes do 16.4: o jogo nem começa a baixar). -->
+  <script>
+    (function () {
+      var mostrar = function (m) {
+        var l = document.getElementById('loading'), t = document.querySelector('.load-text');
+        if (!l || !t || l.classList.contains('hidden')) return;
+        t.textContent = m + ' Toque aqui para tentar de novo.';
+        t.style.color = '#e0a890'; t.style.fontStyle = 'normal';
+        l.style.cursor = 'pointer';
+        l.onclick = function () { location.reload(); };
+      };
+      window.__erroDeCarga = mostrar;
+      addEventListener('error', function (e) {
+        var alvo = e.target && e.target !== window ? (e.target.src || e.target.href) : null;
+        if (alvo && !/\.js(\?|$)/.test(alvo)) return;   // imagem ou fonte que faltou não impede o jogo
+        mostrar(alvo ? 'Não consegui baixar o jogo (' + alvo.split('/').pop() + '): confira a internet.' : 'Erro ao abrir o jogo: ' + (e.message || 'desconhecido') + '.');
+      }, true);
+      var antigo = 'Este navegador é antigo demais para o jogo (precisa do iOS/Safari 16.4, do Chrome 89, ou mais novos). Atualize o sistema ou abra em outro aparelho.';
+      var sabe = window.HTMLScriptElement && HTMLScriptElement.supports;
+      if (sabe && !HTMLScriptElement.supports('importmap')) mostrar(antigo);
+      // (navegador que nem sabe responder: espera — se o jogo não der sinal de vida, é o caso)
+      else if (!sabe) setTimeout(function () { if (!window.__jogoVivo) mostrar(antigo); }, 15000);
+    })();
+  </script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

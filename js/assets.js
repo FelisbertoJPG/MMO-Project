@@ -77,6 +77,101 @@ export const ANIMAIS_MODELOS = ['cervo', 'cervoReal', 'raposa', 'lobo', 'touro',
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
 
+/**
+ * AS IMAGENS DIVIDIDAS (13/10/2026). Cada `.glb` de peça traz EMBUTIDA a textura do pacote dele
+ * (o atlas do KayKit em 38 arquivos, o da floresta em 12…), e o carregador fazia uma imagem —
+ * decodificada e depois na placa — POR ARQUIVO: ~444 MB de texturas, ~380 MB deles cópias. Num
+ * iPhone o jogo nem abria ("Ocorreu um problema repetidamente": o Safari mata a aba que passa da
+ * memória). Agora a imagem é reconhecida pelos BYTES, antes de ser decodificada: a primeira é
+ * carregada e as iguais viram um `clone()` dela — outra `Texture` com a MESMA `source`, que o
+ * three.js sobe à placa uma vez só (por conjunto de filtros). Cada material continua com a
+ * SUA textura: mexer nos filtros de uma não mexe nas outras.
+ */
+const IMAGENS = new Map();   // a digital dos bytes → a promessa da primeira textura com aquela imagem
+
+async function digitalDosBytes(bytes) {
+  const u8 = new Uint8Array(bytes);
+  if (globalThis.crypto?.subtle) {
+    let s = '';
+    for (const b of new Uint8Array(await crypto.subtle.digest('SHA-1', u8))) s += b.toString(16).padStart(2, '0');
+    return s;
+  }
+  // sem https (o jogo aberto por http://<ip> na rede local): duas somas de 32 bits sobre todos os bytes
+  let a = 0x811c9dc5, b = 0;
+  for (let i = 0; i < u8.length; i++) { a = Math.imul(a ^ u8[i], 0x01000193); b = (Math.imul(b, 31) + u8[i]) | 0; }
+  return `${u8.length}:${a >>> 0}:${b >>> 0}`;
+}
+
+/** Liga a divisão das imagens num `GLTFLoader` (vale para todo arquivo que ele abrir). */
+function dividirImagens(loader) {
+  loader.register((parser) => {
+    const original = parser.loadImageSource.bind(parser);
+    parser.loadImageSource = (indice, ldr) => {
+      const def = parser.json.images?.[indice];
+      // imagem por endereço, ou já pedida neste arquivo: o caminho de sempre
+      if (def?.bufferView === undefined || parser.sourceCache[indice] !== undefined) return original(indice, ldr);
+      const promessa = parser.getDependency('bufferView', def.bufferView).then(async (bytes) => {
+        const chave = `${def.mimeType ?? ''}|${await digitalDosBytes(bytes)}`;
+        const primeira = IMAGENS.get(chave);
+        if (primeira) return (await primeira).clone();
+        delete parser.sourceCache[indice];   // (o `original` devolveria a NOSSA promessa: esperaria por si mesmo)
+        const p = original(indice, ldr);
+        IMAGENS.set(chave, p);
+        return p;
+      });
+      parser.sourceCache[indice] = promessa;
+      return promessa;
+    };
+    return { name: 'imagens-divididas' };
+  });
+}
+
+/** Quanto já chegou pela rede (a tela de carregamento mostra: é o sinal de que a rede anda). */
+let bytesBaixados = 0;
+/** Sem chegar NADA por este tempo, o pedido é dado por perdido e refeito. */
+const REDE_PARADA_MS = 30000;
+
+/**
+ * Baixa um arquivo com até 3 tentativas (13/10/2026). No celular, um pedido que caía derrubava
+ * o carregamento inteiro, e um que EMPERRAVA prendia a barra para sempre, sem dizer nada. O
+ * corte é por rede PARADA (30 s sem chegar um byte), não pelo tempo total: os dois arquivos de
+ * animações têm 7 MB cada, e numa rede lenta demoram mais que qualquer prazo razoável.
+ */
+async function baixar(url) {
+  let erro;
+  for (let vez = 0; vez < 3; vez++) {
+    if (vez) await new Promise((ok) => setTimeout(ok, 700 * vez));
+    const corte = new AbortController();
+    let relogio = 0, recebidos = 0;
+    const vivo = () => { clearTimeout(relogio); relogio = setTimeout(() => corte.abort(), REDE_PARADA_MS); };
+    try {
+      vivo();
+      const r = await fetch(url, { signal: corte.signal });
+      if (!r.ok) { const e = new Error(`HTTP ${r.status} em ${url}`); e.semVolta = r.status === 404; throw e; }
+      const leitor = r.body?.getReader?.();
+      if (!leitor) { const b = await r.arrayBuffer(); bytesBaixados += b.byteLength; return b; }
+      const partes = [];
+      for (;;) {
+        const { done, value } = await leitor.read();
+        if (done) break;
+        partes.push(value); recebidos += value.length; bytesBaixados += value.length; vivo();
+      }
+      const tudo = new Uint8Array(recebidos);
+      let o = 0;
+      for (const p of partes) { tudo.set(p, o); o += p.length; }
+      return tudo.buffer;
+    } catch (e) {
+      bytesBaixados -= recebidos;
+      erro = e.name === 'AbortError' ? new Error(`a rede parou em ${url}`) : e;
+      if (e.semVolta) break;   // o arquivo não existe: tentar de novo não muda nada
+    } finally { clearTimeout(relogio); }
+  }
+  throw erro;
+}
+
+/** Baixa e monta um `.glb`. */
+const carregarGltf = async (loader, url) => loader.parseAsync(await baixar(url), url.slice(0, url.lastIndexOf('/') + 1));
+
 /** Um modelo de blocos, ou `null` com o motivo no console (o jogo abre sem ele). */
 export async function carregarAnimacao(nome) {
   try {
@@ -310,11 +405,15 @@ export const Assets = {
       ...ANIMAIS_MODELOS.map((n) => ['animal', n, `assets/animais/${n}.glb`]),
       ['guerreiro', 'guerreiro', 'assets/guerreiro/guerreiro.glb'],   // o corpo do jogador (guerreiro.js)
     ];
+    dividirImagens(loader);   // a mesma imagem embutida em vários .glb: uma vez só na memória
     let done = 0;
+    // (de 400 em 400 ms também: os MB andam enquanto um arquivo grande não termina)
+    const avisar = () => onProgress(done / jobs.length, { feitos: done, total: jobs.length, bytes: bytesBaixados });
+    const relogio = setInterval(avisar, 400);
     await Promise.all(jobs.map(async ([kind, name, url]) => {
       // um animal faltando não derruba o jogo: ele só não nasce (animais.js)
-      const gltf = kind === 'animal' || kind === 'guerreiro' ? await loader.loadAsync(url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await loader.loadAsync(url);
-      if (!gltf) { onProgress(++done / jobs.length); return; }
+      const gltf = kind === 'animal' || kind === 'guerreiro' ? await carregarGltf(loader, url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await carregarGltf(loader, url);
+      if (!gltf) { done++; avisar(); return; }
       gltf.scene.traverse((c) => {
         if (c.isMesh) {
           c.castShadow = true; c.receiveShadow = true;
@@ -334,8 +433,8 @@ export const Assets = {
         for (const clip of gltf.animations) this.clips[clip.name] ??= clip;
         if (name === 'UAL1') this.baseScene = gltf.scene;
       } else this.props[name] = gltf.scene;
-      onProgress(++done / jobs.length);
-    }));
+      done++; avisar();
+    })).finally(() => clearInterval(relogio));
     // Depois dos glTF e antes de `new World(...)`, que é síncrono: assim o
     // mundo já encontra o mapa e a decoração prontos, e o boot não muda de forma.
     const [mapa, decor] = await Promise.all([carregarMapa(), carregarDecor()]);

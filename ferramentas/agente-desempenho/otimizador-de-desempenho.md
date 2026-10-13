@@ -151,6 +151,9 @@ Armadilhas de medida (todas aconteceram):
 - **Texturas**: sem mapas que não se veem (normal em peça low poly), ≤ 512 px em peça pequena (árvores de ~22 MB viraram ~0,3 MB cada). O relatório soma as CÓPIAS: o mesmo atlas embutido em vários `.glb` é uma cópia por arquivo na placa (no jogo de origem o monitor achou ~380 MB assim) — carregue a imagem uma vez e divida a textura. Placa de 1–2 GB com centenas de MB de textura passa a trocar memória e despenca.
 - **Animações**: só os clipes usados. **Malhas**: menos triângulos em quem se repete muito (árvore de ~8 mil para ~900) — mas confira o resultado: um redutor automático rachou as lajes de um caminho e foi desfeito.
 - Toda peça nova de pacote passa pelo enxugador antes de entrar.
+- **Como dividir a imagem repetida sem reexportar nada** (three.js): um plugin no `GLTFLoader` (`loader.register`) troca o `parser.loadImageSource` — a imagem embutida é reconhecida pelos BYTES do `bufferView` (SHA-1) antes de ser decodificada; a primeira carrega, as iguais viram `clone()` dela (outra `Texture`, a mesma `source`: uma só na placa por conjunto de filtros). 143 texturas → 47 imagens, ~490 → ~99 MB, e some o pico de decodificar tudo junto.
+- **No iPhone, memória demais não dá erro: o Safari mata a aba** ("Ocorreu um problema repetidamente em …"), e nada do lado da página registra. É o primeiro suspeito quando o jogo "não abre" no iOS — some as texturas (com as cópias) e o que é decodificado ao mesmo tempo no carregamento.
+- **A tela de carregamento não pode ficar muda**: um vigia em script comum (fora do módulo) que escreve o erro na tela, o texto de cada etapa (baixando N de M, montando, compilando), pedido de rede com nova tentativa e corte por rede PARADA (não por tempo total), e o aviso de navegador sem "import map" (Safari antes do 16.4 nem começa a baixar o jogo).
 
 ## Qualidades gráficas
 
