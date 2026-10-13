@@ -169,7 +169,9 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   if (geo && raca) deformar(geo, raca, ordem, inversos, pecas[0].bindMatrix, doCorpo);
   // … e as EDIÇÕES do corpo, por cima (a aba guarda também a malha de antes delas: `base`)
   if (comModelo) {
-    if (modelagemAberta()) { comModelo.base = geo.attributes.position.array.slice(); geo.userData.modelagem = comModelo; }
+    // (a malha antes das edições: a aba Modelo refaz a vista dela, e a pintura projeta nela — pintura.js)
+    comModelo.base = geo.attributes.position.array.slice();
+    if (modelagemAberta()) geo.userData.modelagem = comModelo;
     aplicarModelagem(geo, edicoes, comModelo);
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
     if (edicoes?.pinturas?.length) geo.userData.pinturas = edicoes.pinturas.map((folha) => ({ folha, geometry: geometriaDaFolha(folha, geo, comModelo) })).filter((f) => f.geometry);
@@ -374,7 +376,7 @@ export class CorpoGuerreiro {
     const lida = lerAparencia(aparencia), edicoes = edicoesDoCorpo(lida.raca, lida.sexo);
     if (edicoes?.pinturas?.some((f) => f.apagaOlhos)) {
       const i = usadas.findIndex((x) => /^Eyes(_tingido)?$/.test(x.name));
-      if (i >= 0) usadas[i] = olhosApagados(usadas[i]);
+      if (i >= 0) usadas.splice(i, 1, ...olhosApagados(usadas[i], usadas.find((x) => /^head(_tingido)?$/.test(x.name))));
     }
     // o que a RAÇA acrescenta (as presas do orc; o busto e o top do corpo feminino — só no
     // peito nu). O que é PELE (o busto) é tingido como ela — DEPOIS das peças do corpo: a

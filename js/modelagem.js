@@ -8,6 +8,9 @@
  * (`Assets.modelagem.corpos[chave]`):
  *   { partes: { <parte>: { tamanho, largura, altura, fundo, mover: [x, y, z] } },
  *     puxoes: [{ parte, de, em: [x, y, z], raio, mover: [x, y, z] (ou inflar), espelho }] }
+ * `olhos`: { afasta, sobe, fundo (cm), tamanho, giro (graus) } — os olhos REPOSICIONADOS no rosto
+ * (`moverOlhos`): cada olho vai com a pele em volta dele (o buraco do olho não fica para trás) e acompanha
+ * o relevo do rosto onde chega (a altura da pele em volta, lá e cá), como o pé das presas.
  * Corpo sem edição: a malha é a de sempre, bit a bit. (E `pinturas`: as folhas pintadas no corpo —
  * pintura.js.)
  *
@@ -48,7 +51,8 @@ import { pertoNoTriangulo } from './ima.js';
 // o que cada pedaço da malha fundida é (o código de cada vértice em `ctx.origem`)
 export const ORIGENS = ['corpo', 'armadura', 'cabelo', 'barba', 'sobrancelhas', 'presas', 'busto', 'olhos'];
 /** A origem de uma peça da malha fundida, pelo nome dela (o penteado é marcado à parte). */
-export const origemDaPeca = (nome) => (nome === 'presas' ? 'presas' : /^(busto|top)_/.test(nome) ? 'busto' : /^Eyes/.test(nome) ? 'olhos' : /^A[123]_|^casca_/.test(nome) ? 'armadura' : 'corpo');
+// (a casca de trás do olho apagado, `Eyes_casca` — pintura.js —, é pele)
+export const origemDaPeca = (nome) => (nome === 'presas' ? 'presas' : /^(busto|top)_/.test(nome) ? 'busto' : /^Eyes(?!_casca)/.test(nome) ? 'olhos' : /^A[123]_|^casca_/.test(nome) ? 'armadura' : 'corpo');
 
 /**
  * As partes que se editam: { id, nome, e UMA regra — `tudo`, `ossos` (os nomes, no esqueleto
@@ -87,7 +91,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -213,6 +217,72 @@ function seguirAPele(P, idx, nt, ctx, mexeu) {
   }
 }
 
+// A altura (z) da PELE do rosto num ponto (x, y): o triângulo de pele (de frente, perto de `zRef`) mais
+// para fora que cobre o ponto — ou null
+function zDaPele(P, idx, nt, origem, x, y, zRef) {
+  let z = null;
+  for (let t = 0; t < nt; t++) {
+    const i = verticeDe(idx, t, 0), j = verticeDe(idx, t, 1), k = verticeDe(idx, t, 2);
+    if (origem[i] !== 0) continue;
+    const ax = P[i * 3], ay = P[i * 3 + 1], bx = P[j * 3], by = P[j * 3 + 1], cx = P[k * 3], cy = P[k * 3 + 1];
+    const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    if (d <= 1e-9) continue;   // (de costas, ou de lado)
+    const a = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / d, b = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / d, c = 1 - a - b;
+    if (a < 0 || b < 0 || c < 0) continue;
+    const zt = a * P[i * 3 + 2] + b * P[j * 3 + 2] + c * P[k * 3 + 2];
+    if (Math.abs(zt - zRef) < 6 && (z === null || zt > z)) z = zt;
+  }
+  return z;
+}
+// a altura média da pele num anel em volta de (x, y)
+function zEmVolta(P, idx, nt, origem, x, y, raio, zRef) {
+  let s = 0, n = 0;
+  for (let k = 0; k < 10; k++) {
+    const g = (k / 10) * Math.PI * 2, z = zDaPele(P, idx, nt, origem, x + Math.cos(g) * raio, y + Math.sin(g) * raio, zRef);
+    if (z !== null) { s += z; n++; }
+  }
+  return n ? s / n : null;
+}
+/**
+ * OS OLHOS REPOSICIONADOS (`edicoes.olhos`): cada olho (os vértices de origem `olhos` do lado dele) anda
+ * `afasta` cm para fora (nos dois), `sobe` para cima e `fundo` para a frente, cresce `tamanho` e gira
+ * `giro` graus (espelhado no outro), em volta do meio dele — e a PELE em volta vai junto, inteira até a
+ * beira do olho e sumindo 2 cm depois (a casca, as pálpebras: o buraco do olho não fica para trás). E ele
+ * se COLA no rosto: sobe ou afunda o quanto a pele em volta do lugar novo está mais alta ou mais funda que
+ * a do lugar de antes (como o pé das presas, que nasce na malha onde as réguas o põem).
+ */
+function moverOlhos(P, idx, nt, ctx, o, mexeu) {
+  const OLH = ORIGENS.indexOf('olhos'), pele = [0, ORIGENS.indexOf('sobrancelhas')], s = o.tamanho ?? 1, g = ((o.giro ?? 0) * Math.PI) / 180;
+  const n = P.length / 3, suave = THREE.MathUtils.smoothstep;
+  for (const lado of [1, -1]) {
+    let cx = 0, cy = 0, cz = 0, k = 0, x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < n; i++) {
+      if (ctx.origem[i] !== OLH || P[i * 3] * lado <= 0) continue;
+      cx += P[i * 3]; cy += P[i * 3 + 1]; cz += P[i * 3 + 2]; k++;
+      x0 = Math.min(x0, P[i * 3]); x1 = Math.max(x1, P[i * 3]); y0 = Math.min(y0, P[i * 3 + 1]); y1 = Math.max(y1, P[i * 3 + 1]);
+    }
+    if (!k) continue;
+    cx /= k; cy /= k; cz /= k;
+    const r1 = Math.max(x1 - x0, y1 - y0) * 0.62, r2 = r1 + 2;
+    const dx = (o.afasta ?? 0) * lado, dy = o.sobe ?? 0;
+    // a cola: a pele em volta do lugar novo menos a do lugar de antes
+    const antes = zEmVolta(P, idx, nt, ctx.origem, cx, cy, r1 * 1.25, cz), depois = antes === null || (!dx && !dy) ? antes : zEmVolta(P, idx, nt, ctx.origem, cx + dx, cy + dy, r1 * 1.25, cz);
+    const dz = (antes !== null && depois !== null ? depois - antes : 0) + (o.fundo ?? 0);
+    const cs = Math.cos(g * lado), sn = Math.sin(g * lado);
+    for (let i = 0; i < n; i++) {
+      const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
+      let w = 0;
+      if (ctx.origem[i] === OLH) w = x * lado > 0 ? 1 : 0;
+      else if (pele.includes(ctx.origem[i]) && x * lado > -0.5 && z > cz - 4) w = 1 - suave(Math.hypot(x - cx, y - cy), r1, r2);
+      if (!(w > 0)) continue;
+      const ax = (x - cx) * s, ay = (y - cy) * s;
+      const nx = cx + ax * cs - ay * sn + dx, ny = cy + ax * sn + ay * cs + dy, nz = cz + (z - cz) * s + dz;
+      P[i * 3] = x + (nx - x) * w; P[i * 3 + 1] = y + (ny - y) * w; P[i * 3 + 2] = z + (nz - z) * w;
+      mexeu[i] = 1;
+    }
+  }
+}
+
 // o lugar do puxão é a pele do peito debaixo de um seio? (dentro do pé dele, no modelo)
 function debaixoDoBusto(x, ctx) {
   if (x.de !== 'corpo' || !ctx.sobOBusto?.length) return false;
@@ -265,6 +335,8 @@ export function aplicarModelagem(geo, edicoes, ctx) {
       mexeu[i] = 1;
     }
   }
+  // ---- 1b. os OLHOS reposicionados (colados ao rosto)
+  if (edicoes.olhos) moverOlhos(P, idx, nt, ctx, edicoes.olhos, mexeu);
   // ---- 2. os PUXÕES, na ordem
   for (const x of edicoes.puxoes ?? []) {
     if (!x?.em || !(x.raio > 0) || debaixoDoBusto(x, ctx)) continue;

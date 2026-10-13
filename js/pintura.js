@@ -157,7 +157,7 @@ export function naFolha(folha, eixos, p) {
   return [(dx * eixos.u.x + dy * eixos.u.y + dz * eixos.u.z) / folha.largura + 0.5, (dx * eixos.v.x + dy * eixos.v.y + dz * eixos.v.z) / folha.altura + 0.5, dx * eixos.n.x + dy * eixos.n.y + dz * eixos.n.z];
 }
 /** O centro da folha na malha como ela está (o lugar do corpo que o `em` dela marca), ou null. */
-export function centroDaFolha(folha, geo, ctx, P = geo.attributes.position.array) {
+export function centroDaFolha(folha, geo, ctx, P = ctx.base ?? geo.attributes.position.array) {
   return centroDoPuxao({ de: folha.de, em: folha.em }, geo, ctx, false, P, folha.parte && folha.parte !== 'corpo' ? pesosDaParte(folha.parte, geo, ctx) : null);
 }
 
@@ -181,21 +181,24 @@ function recortar(poli, eixo, limite, dentro) {
  * `ctx`: o que a malha fundida guardou para a modelagem (`origem`, `antes`…).
  */
 export function geometriaDaFolha(folha, geo, ctx) {
-  const P = geo.attributes.position.array, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index;
+  // a projeção é feita na malha de ANTES das edições da modelagem (`ctx.base`) e cada ponto vai para onde
+  // o lugar dele foi parar: a tinta GRUDA na malha (o olho reposicionado leva o desenho junto)
+  const P = geo.attributes.position.array, Q = ctx.base?.length === P.length ? ctx.base : P, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index;
   const nt = (idx ? idx.count : P.length / 3) / 3, vi = (t, k) => (idx ? idx.getX(t * 3 + k) : t * 3 + k);
-  const centro = centroDaFolha(folha, geo, ctx, P);
+  const centro = centroDaFolha(folha, geo, ctx, Q);
   if (!centro || !si || !sw) return null;
   const w = folha.parte && folha.parte !== 'corpo' ? pesosDaParte(folha.parte, geo, ctx) : null;
   const L = folha.largura / 2, H = folha.altura / 2, D = folha.prof;
   const pesoDe = (i) => ({ o: [0, 1, 2, 3].map((k) => si.getComponent(i, k)), p: [0, 1, 2, 3].map((k) => sw.getComponent(i, k)) });
   const pos = [], nor = [], uv = [], ossos = [], pesos = [];
   const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), fn = new THREE.Vector3(), e1 = new THREE.Vector3();
+  const A1 = new THREE.Vector3(), B1 = new THREE.Vector3(), C1 = new THREE.Vector3(), fn1 = new THREE.Vector3();
   for (const espelho of folha.espelho ? [false, true] : [false]) {
     const E = eixosDaFolha(folha, centro, espelho);
     for (let t = 0; t < nt; t++) {
       const i = vi(t, 0), j = vi(t, 1), k = vi(t, 2);
       if (FORA.has(ctx.origem[i]) || (w && w[i] + w[j] + w[k] < 1.5)) continue;
-      A.fromArray(P, i * 3); B.fromArray(P, j * 3); C.fromArray(P, k * 3);
+      A.fromArray(Q, i * 3); B.fromArray(Q, j * 3); C.fromArray(Q, k * 3);
       fn.subVectors(B, A).cross(e1.subVectors(C, A));
       if (fn.lengthSq() < 1e-12) continue;
       fn.normalize();
@@ -210,12 +213,14 @@ export function geometriaDaFolha(folha, geo, ctx) {
       if (poli.length < 3) continue;
       // (no OLHO a luz é a de uma superfície lisa de frente para a folha: as facetas dele — a de cima,
       // virada para o céu — clareavam a tinta em riscos; na pele, a luz é a da faceta, como a da pele)
-      const luz = ctx.origem[i] === OLHOS ? E.n : fn;
+      A1.fromArray(P, i * 3); B1.fromArray(P, j * 3); C1.fromArray(P, k * 3);
+      fn1.subVectors(B1, A1).cross(e1.subVectors(C1, A1)).normalize();
+      const luz = ctx.origem[i] === OLHOS ? E.n : fn1;
       const wi = pesoDe(i), wj = pesoDe(j), wk = pesoDe(k);
       const canto = (c) => {
         const [a, b, d] = c.b;
         // (levantada na direção da FOLHA, a mesma para todos: pela normal de cada face, as emendas abriam frestas)
-        pos.push(A.x * a + B.x * b + C.x * d + E.n.x * LEVANTA, A.y * a + B.y * b + C.y * d + E.n.y * LEVANTA, A.z * a + B.z * b + C.z * d + E.n.z * LEVANTA);
+        pos.push(A1.x * a + B1.x * b + C1.x * d + E.n.x * LEVANTA, A1.y * a + B1.y * b + C1.y * d + E.n.y * LEVANTA, A1.z * a + B1.z * b + C1.z * d + E.n.z * LEVANTA);
         nor.push(luz.x, luz.y, luz.z);
         uv.push(c.q[0] / folha.largura + 0.5, c.q[1] / folha.altura + 0.5);
         const m = misturar([[wi, a], [wj, b], [wk, d]]);
@@ -271,16 +276,84 @@ function uvEscura(peca) {
   escuros.set(img, achado);
   return achado;
 }
-/** A peça dos olhos toda do texel mais escuro dela (a folha manda no desenho), no formato da malha fundida. */
-export function olhosApagados(peca) {
-  const id = peca.geometry.uuid;
-  if (!apagados.has(id)) {
-    const uv = uvEscura(peca), g = peca.geometry.clone(), cor = g.attributes.color;
-    if (uv) for (let i = 0; i < g.attributes.uv.count; i++) g.attributes.uv.setXY(i, uv[0], uv[1]);
-    if (cor) cor.array.fill(1);   // (sem o tom da íris da aparência: ele multiplicava o preto)
-    apagados.set(id, g);
+// Os triângulos da CASCA de cada olho. O olho do modelo é, de cada lado, UMA plaquinha fechada: a tampa da
+// FRENTE (9 pontos, 8 triângulos), a de trás (os mesmos 9 pontos ~1,7 mm para dentro) e o ARO que as liga.
+// A casca é tudo menos a tampa da frente. Acha-se pelos GÊMEOS: cada ponto de uma tampa tem o seu na outra,
+// colado nele; o triângulo do aro tem um par de gêmeos, o de tampa não; das duas tampas, a da frente é a
+// de maior z.
+function cascaDoOlho(g) {
+  const P = g.attributes.position, nt = P.count / 3, casca = new Uint8Array(nt);
+  const chave = (i) => `${P.getX(i).toFixed(4)},${P.getY(i).toFixed(4)},${P.getZ(i).toFixed(4)}`;
+  for (const lado of [1, -1]) {
+    const pts = new Map(), tris = [];
+    for (let t = 0; t < nt; t++) {
+      if (P.getX(t * 3) * lado <= 0) continue;
+      tris.push(t);
+      for (let e = 0; e < 3; e++) pts.set(chave(t * 3 + e), [P.getX(t * 3 + e), P.getY(t * 3 + e), P.getZ(t * 3 + e)]);
+    }
+    if (pts.size < 6) continue;
+    const ks = [...pts.keys()], vs = [...pts.values()];
+    const diag = Math.hypot(...[0, 1, 2].map((e) => Math.max(...vs.map((v) => v[e])) - Math.min(...vs.map((v) => v[e]))));
+    const gemeo = new Map();
+    for (const k of ks) {
+      let m = Infinity, q = null;
+      for (const o of ks) { if (o === k) continue; const d = Math.hypot(pts.get(k)[0] - pts.get(o)[0], pts.get(k)[1] - pts.get(o)[1], pts.get(k)[2] - pts.get(o)[2]); if (d < m) { m = d; q = o; } }
+      if (m < diag * 0.08) gemeo.set(k, q);
+    }
+    const cantos = (t) => [0, 1, 2].map((e) => chave(t * 3 + e));
+    const tampa = tris.filter((t) => { const c = cantos(t); return !c.some((x) => c.includes(gemeo.get(x))); });
+    // as duas tampas: os grupos de triângulos de tampa ligados por um ponto
+    const pai = new Map(), raiz = (k) => { while (pai.get(k) !== k) k = pai.get(k); return k; };
+    for (const t of tampa) { const c = cantos(t); for (const k of c) if (!pai.has(k)) pai.set(k, k); pai.set(raiz(c[1]), raiz(c[0])); pai.set(raiz(c[2]), raiz(c[0])); }
+    const grupos = new Map();
+    for (const t of tampa) { const r = raiz(chave(t * 3)), gr = grupos.get(r) ?? grupos.set(r, { z: 0, n: 0, tris: new Set() }).get(r); for (const k of cantos(t)) { gr.z += pts.get(k)[2]; gr.n++; } gr.tris.add(t); }
+    if (grupos.size < 2) continue;   // (não é a plaquinha que se esperava: fica tudo como olho)
+    const frente = [...grupos.values()].reduce((m, gr) => (gr.z / gr.n > m.z / m.n ? gr : m));
+    for (const t of tris) if (!frente.tris.has(t)) casca[t] = 1;
   }
-  return { name: peca.name, geometry: apagados.get(id), skeleton: peca.skeleton, material: peca.material, bindMatrix: peca.bindMatrix };
+  return casca;
+}
+// uma peça só com uns triângulos de outra (sem índice), e `mudar(g)` nela
+function parteDa(g0, quais, mudar) {
+  const tris = [];
+  for (let t = 0; t < quais.length; t++) if (quais[t]) tris.push(t);
+  const g = new THREE.BufferGeometry();
+  for (const [nome, a] of Object.entries(g0.attributes)) {
+    const s = a.itemSize, arr = new a.array.constructor(tris.length * 3 * s);
+    tris.forEach((t, j) => arr.set(a.array.subarray(t * 3 * s, (t + 1) * 3 * s), j * 3 * s));
+    g.setAttribute(nome, new THREE.BufferAttribute(arr, s, a.normalized));
+  }
+  mudar(g);
+  return g;
+}
+/**
+ * Os olhos debaixo de uma folha pintada (`apagaOlhos`), no formato da malha fundida: [o olho — todo
+ * do texel PRETO, sem o tom da íris (o pintado manda; o que fica sem tinta vira a linha dos cílios) —,
+ * a CASCA de trás — na cor da PELE (`pele`: a peça da cabeça, tingida ou não), como a pálpebra: preta,
+ * ela fazia um contorno grosso em volta do olho]. A casca se chama `Eyes_casca` (é pele para a
+ * modelagem e a pintura); sem a peça da cabeça, ou sem casca, fica tudo preto como antes.
+ */
+export function olhosApagados(peca, pele) {
+  const id = `${peca.geometry.uuid}|${pele?.geometry.uuid}`;
+  if (!apagados.has(id)) {
+    const g0 = peca.geometry, casca = g0.index ? new Uint8Array(0) : cascaDoOlho(g0), uv = uvEscura(peca);
+    const preto = (g) => { if (uv) for (let i = 0; i < g.attributes.uv.count; i++) g.attributes.uv.setXY(i, uv[0], uv[1]); g.attributes.color?.array.fill(1); };
+    if (!casca.includes(1) || !pele?.geometry.attributes.uv) { const g = g0.clone(); preto(g); apagados.set(id, [g]); }
+    else {
+      // a cor da pele: a UV e a cor de vértice de um ponto da cabeça na faixa de pele da paleta
+      const pu = pele.geometry.attributes.uv, pc = pele.geometry.attributes.color;
+      let k = 0;
+      for (let i = 0; i < pu.count; i++) { const u = pu.getX(i), v = pu.getY(i); if (u >= 0.33 && u <= 0.46 && v >= 0.28 && v <= 0.34) { k = i; break; } }
+      const naPele = (g) => {
+        for (let i = 0; i < g.attributes.uv.count; i++) g.attributes.uv.setXY(i, pu.getX(k), pu.getY(k));
+        const c = g.attributes.color;
+        if (c) for (let i = 0; i < c.count; i++) c.setXYZ(i, pc ? pc.getX(k) : 1, pc ? pc.getY(k) : 1, pc ? pc.getZ(k) : 1);
+      };
+      apagados.set(id, [parteDa(g0, casca.map((x) => 1 - x), preto), parteDa(g0, casca, naPele)]);
+    }
+  }
+  const [olho, casca] = apagados.get(id), base = { skeleton: peca.skeleton, material: peca.material, bindMatrix: peca.bindMatrix };
+  return casca ? [{ name: peca.name, geometry: olho, ...base }, { name: 'Eyes_casca', geometry: casca, ...base }] : [{ name: peca.name, geometry: olho, ...base }];
 }
 
 /**
