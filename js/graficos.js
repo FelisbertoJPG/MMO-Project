@@ -81,8 +81,9 @@ export function qualidadeSalva(toque = false) {
 }
 
 export class Graficos {
-  constructor(game, nome) {
+  constructor(game, nome, toque = false) {
     this.game = game;
+    this.toque = toque;
     this.nome = QUALIDADES[nome] ? nome : 'alto';
     this.quadro = 0;
     this.escala = 1;   // fração da resolução da qualidade (a resolução automática mexe nela)
@@ -92,7 +93,12 @@ export class Graficos {
     this.fixa = null;
     try { const f = Number(localStorage.getItem(CHAVE_FIXA)); if (RESOLUCOES.includes(f)) { this.fixa = f; this.auto = false; } } catch { }
     // AS SOMBRAS (a do sol e a da tocha) ligadas ou não, por cima da qualidade (o Baixo não tem)
-    try { this.sombras = localStorage.getItem(CHAVE_SOMBRAS) !== 'nao'; } catch { this.sombras = true; }
+    // NO CELULAR ELAS COMEÇAM DESLIGADAS (13/10/2026; quem quiser liga no menu de pausa, e a escolha
+    // fica). Relatório de um Mali-G76 no Alto: 32 quadros/s com a CPU no "render" (17,5 ms), 179 das
+    // 543 chamadas eram da sombra da tocha, e baixar a resolução não ajudou — o limite era a CPU.
+    // Com a CPU freada 4× no mesmo lugar: 29,6 → 41 quadros/s sem as sombras (de dia, com a do sol,
+    // 27 → 41); Alto, Médio e Baixo quase não mudam a CPU — o que muda é a sombra.
+    try { const s = localStorage.getItem(CHAVE_SOMBRAS); this.sombras = s ? s !== 'nao' : !toque; } catch { this.sombras = !toque; }
     this.res = { ini: 0, quadros: 0, baixos: 0, altos: 0, esperaAte: 0 };
   }
 
@@ -175,8 +181,11 @@ export class Graficos {
     if (t < R.esperaAte) return;
     // menos pixels só ajudam quando a PLACA é o limite: com o tempo da GPU do monitor
     // (monitor.js), quadro lento por CPU (lógica, chamadas de desenho) não baixa a resolução
-    const j = this.game.monitor?.ext ? this.game.monitor.janela(t - 1000) : null;
-    const placa = !j || !Number.isFinite(j.gpu) || j.gpu > 0.6 * j.mediana;
+    // SEM O CRONÔMETRO DA GPU (o celular: os Mali não o têm) a placa é o limite só se a CPU do
+    // jogo NÃO é (13/10/2026): num Mali-G76 com 21 ms de CPU num quadro de 27, ela desceu a 90% e
+    // a 80% às cegas, não ganhou nada, voltou — três mudanças em 8 s, cada uma com os seus trancos
+    const j = this.game.monitor ? this.game.monitor.janela(t - 1000) : null;
+    const placa = !j || (Number.isFinite(j.gpu) ? j.gpu > 0.6 * j.mediana : !(j.cpu > 0.7 * j.mediana));
     R.baixos = fps < FPS_MIN && placa ? R.baixos + 1 : 0;
     R.altos = fps > FPS_MIN + 8 ? R.altos + 1 : 0;
     const min = ESCALA_MIN[this.nome] ?? 0.7;

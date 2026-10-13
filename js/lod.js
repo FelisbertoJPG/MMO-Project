@@ -180,7 +180,8 @@ export class LOD {
       if (!c) {
         const fotos = assarImpostor(r, g.prop);
         const total = grupos.filter((x) => x.prop === g.prop).reduce((s, x) => s + x.matrizes.length, 0);
-        const malha = new THREE.InstancedMesh(plano, materialDoCartaz(fotos), total);
+        // (um plano por tipo: dividindo a geometria, o three.js religava os atributos a cada cartaz — world.js, `cascaDaGeometria`)
+        const malha = new THREE.InstancedMesh(plano.clone(), materialDoCartaz(fotos), total);
         malha.count = 0;
         malha.frustumCulled = false;   // os cartazes estão espalhados pelo mapa inteiro
         malha.name = `cartaz:${g.prop}`;

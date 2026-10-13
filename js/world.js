@@ -296,6 +296,27 @@ function messageTexture(seed) {
   return t;
 }
 
+/**
+ * Uma geometria NOVA com os MESMOS atributos — a "casca" de cada lote da decoração
+ * (`agruparDecoracao`). Os buffers na placa são dos ATRIBUTOS, que continuam os mesmos: nada
+ * é copiado nem enviado de novo; só a ligação deles (o VAO) passa a ser de cada lote.
+ */
+function cascaDaGeometria(g) {
+  if (!g.boundingSphere) g.computeBoundingSphere();
+  if (!g.boundingBox) g.computeBoundingBox();
+  const c = new THREE.BufferGeometry();
+  c.name = g.name;
+  c.index = g.index;
+  Object.assign(c.attributes, g.attributes);
+  Object.assign(c.morphAttributes, g.morphAttributes);
+  c.morphTargetsRelative = g.morphTargetsRelative;
+  c.groups = g.groups;
+  c.boundingBox = g.boundingBox; c.boundingSphere = g.boundingSphere;
+  c.setDrawRange(g.drawRange.start, g.drawRange.count);
+  c.userData = g.userData;
+  return c;
+}
+
 export class World {
   constructor(game) {
     aplicarMarcos(Assets.marcos);   // as tags de lugar do mapa, antes de montar qualquer coisa
@@ -1225,7 +1246,12 @@ export class World {
     const parados = new THREE.Group();
     parados.name = 'lotes da decoração';
     for (const { malha, matrizes, donos, grupo } of lotes.values()) {
-      const im = new THREE.InstancedMesh(malha.geometry, malha.material, matrizes.length);
+      // UMA "CASCA" DE GEOMETRIA POR LOTE (13/10/2026): os lotes da mesma peça dividiam a geometria,
+      // e o three.js guarda a ligação dos atributos (o VAO) por geometria + programa — como cada
+      // lote tem o SEU `instanceMatrix`, a cada desenho ele via "mudou" e religava todos os atributos
+      // (o perfil de CPU com o freio de 4×, a conta de um celular: ~13% do quadro em `setup`,
+      // `bindBuffer` e `vertexAttribPointer`, no quadro e de novo em cada vista da sombra)
+      const im = new THREE.InstancedMesh(cascaDaGeometria(malha.geometry), malha.material, matrizes.length);
       matrizes.forEach((mt, i) => im.setMatrixAt(i, mt));
       // peça PEQUENA (capim de decoração, flores, pedrinhas: menos de 1,2 m de raio) não
       // projeta a sombra da tocha (07/10/2026): com a tocha acesa, a sombra redesenha tudo

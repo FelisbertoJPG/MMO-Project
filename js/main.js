@@ -43,7 +43,7 @@ class Game {
     const container = document.getElementById('game');
     // A qualidade gráfica (js/graficos.js) vem antes do renderizador: o
     // antisserrilhado só se escolhe ao criar o contexto WebGL.
-    this.graficos = new Graficos(this, qualidadeSalva(ehToque()));
+    this.graficos = new Graficos(this, qualidadeSalva(ehToque()), ehToque());
     this.renderer = new THREE.WebGLRenderer({ antialias: Graficos.antialias(this.graficos.nome), powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setSize(innerWidth, innerHeight);
