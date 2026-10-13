@@ -35,9 +35,9 @@
  *
  * AS PRESAS (`pecasDaRaca`): um par de dentes que sobe do maxilar de baixo, desenhado
  * em código e preso ao osso da cabeça — mais uma peça da malha fundida. `presas` é o
- * tamanho (0 = sem); `presasAfastadas`, o quanto ficam longe uma da outra: andam pela
- * linha do lábio de baixo (`LABIO`), do meio da boca até o canto dela; `presasAltura`, de
- * que altura do rosto nascem.
+ * tamanho (0 = sem); `presasAfastadas`, o quanto ficam longe uma da outra (do meio da boca
+ * ao canto do maxilar); `presasAltura`, de que altura do rosto nascem. O PÉ de cada uma é
+ * preso à PELE do rosto pelo ÍMÃ (ima.js): onde quer que as réguas a ponham, nasce da malha.
  *
  * AS ORELHAS (`moldarPeca`, `ORELHA`): NÃO se acrescenta orelha — o modelo já tem uma (uma
  * abinha na peça `Face`; um par a mais por cima dava quatro). `orelhas` ESTICA a que há: o
@@ -47,11 +47,12 @@
  *
  * O QUEIXO (`largoDoQueixo`, `QUEIXO`): o maxilar de baixo do modelo é um V fino; `queixo`
  * o ALARGA — o x de cada ponto do rosto de baixo, a partir do meio. Vale por LUGAR, e não
- * por peça: a pele do rosto, a barba, o alto do pescoço e as presas passam pela mesma conta.
+ * por peça: a pele do rosto, o alto do pescoço e o elmo passam pela mesma conta.
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { texelClaro } from './casca.js';
+import { triangulosDe, raio, grudar, lugar, normalLisa } from './ima.js';
 
 // [chave, rótulo, mínimo, máximo, padrão (1 se não diz), segue] — a tela Raças do editor
 // monta os controles por aqui. A LARGURA é o que se vê de FRENTE; a GROSSURA (o fundo), o
@@ -106,59 +107,71 @@ export const racaNova = (id, nome) => ({
 });
 
 // ------------------------------------------------------------ as presas
-// O caminho de uma presa (a do lado +x), em cm no espaço da pose T do modelo: nasce
-// dentro do lábio de baixo, no canto da boca, e sobe curvando para fora e para a frente.
-// [x, y, z, raio] — o tamanho estica o caminho a partir da base e engrossa junto.
-const PRESA = [[3.0, 157.8, 12.4, 1.4], [3.5, 160.4, 15.5, 1.25], [4.1, 163.0, 16.5, 0.9], [4.5, 166.0, 16.7, 0]];
-// A linha do LÁBIO DE BAIXO do modelo (a metade +x; [x, y, z]): do meio da boca ao canto
-// dela e daí pelo lado do maxilar. É por onde a presa anda quando se afasta (`presasAfastadas`
-// multiplica o x do pé dela): só para o lado ela ficaria no ar — o rosto recua —, então vai
-// para trás e para cima com a linha, e VIRA com ela (`giro`: a fração do quanto a linha
-// virou — inteiro, no canto a ponta apontava para o lado). Para além de `ate` (o lado do
-// maxilar, debaixo da maçã do rosto) a presa sumiria dentro da bochecha: para ali.
-// `passo`: quantos cm a presa SOBE a cada 100% da régua da altura (`presasAltura`: o pé
-// dela nasce dentro do queixo, 2,5 cm abaixo do lábio — a 160% sai da linha da boca).
-const LABIO = { linha: [[0, 160.2, 15.4], [2, 160.1, 13.5], [3.5, 160.6, 13.1], [4.6, 159.9, 11.5], [6.8, 159.9, 4.9]], ate: 5.8, giro: 0.5, passo: 4 };
-function noLabio(x) {
-  const l = LABIO.linha;
-  x = Math.min(l[l.length - 1][0], Math.max(0, x));
-  let i = 1;
-  while (i < l.length - 1 && l[i][0] < x) i++;
-  const f = (x - l[i - 1][0]) / (l[i][0] - l[i - 1][0]);
-  return l[i].map((v, k) => l[i - 1][k] + (v - l[i - 1][k]) * f);
-}
-/** para onde a linha do lábio está virada em `x` (rad: 0 = para a frente, π/2 = para o lado) */
-function viradaDoLabio(x) {
-  const a = noLabio(x - 0.8), b = noLabio(x + 0.8);
-  return Math.atan2(a[2] - b[2], b[0] - a[0]);
-}
+// A forma de uma presa (a do lado +x), em cm A PARTIR DO PÉ dela: sobe curvando para fora
+// e para a frente. [x, y, z, raio] — o tamanho estica o caminho e engrossa junto.
+const PRESA = [[0, 0, 0, 1.4], [0.5, 2.6, 3.1, 1.25], [1.1, 5.2, 4.1, 0.9], [1.5, 8.2, 4.3, 0]];
+// ONDE o pé nasce, no rosto como o MODELO é (cm, pose T): `x`, `y` — o lugar de sempre, no
+// canto da boca, dentro do queixo; as réguas mexem nele (`presasAfastadas` multiplica o x,
+// até `ate`: além do lado do maxilar a presa sumiria dentro da bochecha; `presasAltura`
+// soma `passo` cm a cada 100%). O ÍMÃ acha a PELE nesse (x, y) — um raio pela frente; onde
+// não há rosto (abaixo do queixo), o ponto mais perto dela — e o pé nasce ali, `funda` cm
+// para dentro, na malha já com o queixo da raça: a base nunca fica no ar, e o queixo largo
+// leva a presa junto. Ela VIRA com o rosto (`giro`: a fração do quanto a pele virou do
+// lugar de sempre até ali — inteiro, no canto do maxilar a ponta apontava para o lado).
+const PE_DA_PRESA = { x: 3.0, y: 157.8, ate: 5.8, giro: 0.5, passo: 4, funda: 0.5 };
 const LADOS_DA_PRESA = 5, MARFIM = ['#b9ad8c', '#e6dcc0', '#f4eedc', '#fbf8ee'];
 const presas = new Map();
-function geometriaDasPresas(tamanho, cabeca) {
-  const tris = [], cores = [], cor = new THREE.Color();
-  const a = new THREE.Vector3(), b = new THREE.Vector3(), eixo = new THREE.Vector3(), u = new THREE.Vector3(), w = new THREE.Vector3();
-  for (const lado of [1, -1]) {
-    // os anéis: em volta do caminho, de pé no eixo dele
-    const aneis = PRESA.map(([x, y, z, r], i) => {
-      const [x0, y0, z0] = PRESA[0], k = i ? tamanho : 1;
-      a.set(lado * (x0 + (x - x0) * k), y0 + (y - y0) * k, z0 + (z - z0) * k);
-      const [xa, ya, za] = PRESA[Math.max(0, i - 1)], [xb, yb, zb] = PRESA[Math.min(PRESA.length - 1, i + 1)];
-      eixo.set(lado * (xb - xa), yb - ya, zb - za).normalize();
-      u.set(1, 0, 0).addScaledVector(eixo, -eixo.x).normalize(); w.crossVectors(eixo, u);
-      const raio = r * (0.75 + 0.25 * tamanho);
-      return Array.from({ length: LADOS_DA_PRESA }, (_, j) => {
-        const t = (j / LADOS_DA_PRESA) * Math.PI * 2;
-        return a.clone().addScaledVector(u, Math.cos(t) * raio).addScaledVector(w, Math.sin(t) * raio);
-      });
-    });
-    for (let i = 0; i < aneis.length - 1; i++) for (let j = 0; j < LADOS_DA_PRESA; j++) {
-      const j2 = (j + 1) % LADOS_DA_PRESA, p = [aneis[i][j], aneis[i][j2], aneis[i + 1][j2], aneis[i + 1][j]];
-      const c = [i, i, i + 1, i + 1];
-      // (a ordem dos triângulos vira com o lado, para a face ficar para fora nas duas)
-      for (const t of lado > 0 ? [[0, 1, 2], [0, 2, 3]] : [[0, 2, 1], [0, 3, 2]]) {
-        if (i === aneis.length - 2 && t.includes(3) && t.includes(2)) continue;   // a ponta é um ponto só
-        for (const v of t) { tris.push(p[v].x, p[v].y, p[v].z); cor.set(MARFIM[c[v]]); cores.push(cor.r, cor.g, cor.b); }
-      }
+function geometriaDasPresas(raca, rosto, cabeca, elmo) {
+  const p = proporcoesDe(raca), tamanho = p.presas, o = PE_DA_PRESA, largo = largoDoQueixo(raca);
+  // ---- o pé: na pele do rosto (o ÍMÃ), no lugar que as réguas pedem
+  // (com ELMO as presas não se afastam além do lugar de sempre: no canto do maxilar, furavam as placas do rosto)
+  const x1 = Math.min(o.ate, o.x * (elmo ? Math.min(1, p.presasAfastadas) : p.presasAfastadas)), y1 = o.y + (p.presasAltura - 1) * o.passo;
+  const pele = rosto ? triangulosDe([rosto]) : [];
+  const no = (x, y) => raio(pele, x, y, true) ?? grudar(pele, new THREE.Vector3(x, y, 13));
+  const alargado = (k) => { const v = k.p.clone(); if (largo) v.x *= largo(v.y, v.z); return v; };
+  const virada = (g) => { const n = normalLisa(g); return Math.atan2(n.x, n.z); };
+  const aqui = no(x1, y1), sempre = no(o.x, o.y), pe = new THREE.Vector3(x1, y1, 12.4);
+  let giro = 0;
+  if (aqui && sempre) {
+    const la = lugar(aqui, alargado, normalLisa(aqui));
+    pe.copy(la.p).addScaledVector(la.n, -o.funda);
+    giro = (virada(aqui) - virada(sempre)) * o.giro;
+  }
+  const c = Math.cos(giro), s = Math.sin(giro);
+  // ---- a presa do lado +x: os anéis em volta do caminho, de pé no eixo dele
+  const eixo = new THREE.Vector3(), u = new THREE.Vector3(), w = new THREE.Vector3();
+  const aneis = PRESA.map(([x, y, z, r], i) => {
+    const a = new THREE.Vector3(x, y, z).multiplyScalar(tamanho);
+    const [xa, ya, za] = PRESA[Math.max(0, i - 1)], [xb, yb, zb] = PRESA[Math.min(PRESA.length - 1, i + 1)];
+    eixo.set(xb - xa, yb - ya, zb - za).normalize();
+    u.set(1, 0, 0).addScaledVector(eixo, -eixo.x).normalize(); w.crossVectors(eixo, u);
+    const grossura = r * (0.75 + 0.25 * tamanho);
+    return { centro: a, pontos: Array.from({ length: LADOS_DA_PRESA }, (_, j) => {
+      const t = (j / LADOS_DA_PRESA) * Math.PI * 2;
+      return a.clone().addScaledVector(u, Math.cos(t) * grossura).addScaledVector(w, Math.sin(t) * grossura);
+    }) };
+  });
+  // (do pé para o rosto: girada em volta do eixo de pé e posta no lugar)
+  const noRosto = (v) => new THREE.Vector3(pe.x + v.x * c + v.z * s, pe.y + v.y, pe.z - v.x * s + v.z * c);
+  const tris = [], cores = [], cor = new THREE.Color(), n1 = new THREE.Vector3(), n2 = new THREE.Vector3();
+  const face = (a, b, d, ca, cb, cd, dentro) => {
+    // virada para FORA do eixo da presa (a ordem dos cantos é que diz o lado da face)
+    n1.subVectors(b, a).cross(n2.subVectors(d, a));
+    if (n1.lengthSq() < 1e-10) return;   // (a ponta é um ponto só)
+    n2.copy(a).add(b).add(d).multiplyScalar(1 / 3).sub(dentro);
+    const cantos = n1.dot(n2) < 0 ? [[a, ca], [d, cd], [b, cb]] : [[a, ca], [b, cb], [d, cd]];
+    // … e a do outro lado é o ESPELHO exato desta (os cantos na ordem contrária)
+    for (const lado of [1, -1]) for (const [v, i] of lado > 0 ? cantos : [...cantos].reverse()) {
+      const q = noRosto(v);
+      tris.push(lado * q.x, q.y, q.z); cor.set(MARFIM[i]); cores.push(cor.r, cor.g, cor.b);
+    }
+  };
+  for (let i = 0; i < aneis.length - 1; i++) {
+    const dentro = aneis[i].centro.clone().add(aneis[i + 1].centro).multiplyScalar(0.5);
+    for (let j = 0; j < LADOS_DA_PRESA; j++) {
+      const k = (j + 1) % LADOS_DA_PRESA, A = aneis[i].pontos, B = aneis[i + 1].pontos;
+      face(A[j], A[k], B[k], i, i, i + 1, dentro);
+      face(A[j], B[k], B[j], i, i + 1, i + 1, dentro);
     }
   }
   const uvDe = texelClaro(cabeca.material?.map) ?? [0.5, 0.5];
@@ -167,7 +180,7 @@ function geometriaDasPresas(tamanho, cabeca) {
   g.setAttribute('color', new THREE.Float32BufferAttribute(cores, 3));
   // os outros atributos no MESMO tipo dos da cabeça (o `mergeGeometries` recusa tipos diferentes)
   const igual = (nome) => { const m = cabeca.geometry.attributes[nome]; return new THREE.BufferAttribute(new m.array.constructor(n * m.itemSize), m.itemSize, m.normalized); };
-  const osso = Math.max(0, cabeca.skeleton.bones.findIndex((o) => o.name === 'Head'));
+  const osso = Math.max(0, cabeca.skeleton.bones.findIndex((b) => b.name === 'Head'));
   const uv = igual('uv'), si = igual('skinIndex'), sw = igual('skinWeight');
   for (let i = 0; i < n; i++) { uv.setXY(i, uvDe[0], uvDe[1]); si.setXYZW(i, osso, 0, 0, 0); sw.setXYZW(i, 1, 0, 0, 0); }
   g.setAttribute('uv', uv); g.setAttribute('skinIndex', si); g.setAttribute('skinWeight', sw);
@@ -177,13 +190,18 @@ function geometriaDasPresas(tamanho, cabeca) {
 
 /**
  * As peças que a raça ACRESCENTA ao corpo (hoje, as presas), no formato da malha fundida
- * (`geometry`, `skeleton`, `material`, `name`). `pecas` são as do corpo do guerreiro.
+ * (`geometry`, `skeleton`, `material`, `name`). `pecas` são as do corpo do guerreiro;
+ * `elmo`: há elmo (as presas não se afastam).
  */
-export function pecasDaRaca(raca, pecas) {
-  const tamanho = proporcoesDe(raca).presas, cabeca = pecas.find((o) => o.name === 'head');
-  if (!(tamanho > 0.01) || !cabeca?.geometry.attributes.uv) return [];
-  const chave = tamanho.toFixed(2);
-  if (!presas.has(chave)) presas.set(chave, geometriaDasPresas(tamanho, cabeca));
+export function pecasDaRaca(raca, pecas, elmo = false) {
+  const p = proporcoesDe(raca), cabeca = pecas.find((o) => o.name === 'head');
+  if (!(p.presas > 0.01) || !cabeca?.geometry.attributes.uv) return [];
+  const chave = [p.presas, p.presasAfastadas, p.presasAltura, p.queixo, elmo ? 1 : 0].join('|');
+  if (!presas.has(chave)) {
+    // (no editor de raças cada toque numa régua faz uma: não guarda para sempre)
+    if (presas.size > 60) { for (const g of presas.values()) g.dispose(); presas.clear(); }
+    presas.set(chave, geometriaDasPresas(raca, pecas.find((o) => o.name === 'Face'), cabeca, elmo));
+  }
   return [{ name: 'presas', geometry: presas.get(chave), skeleton: cabeca.skeleton, material: cabeca.material, bindMatrix: cabeca.bindMatrix }];
 }
 
@@ -213,8 +231,8 @@ export const QUEIXO = { baixo: [152, 155], alto: [160, 169], fundo: [-1, 3] };
 /**
  * O quanto o queixo da raça ALARGA num lugar do rosto: uma função (y, z) → o fator do x
  * (1 = fica) — ou null, se a raça tem o queixo do modelo. É por LUGAR, e não por peça:
- * quem tem ponto ali (o rosto, a barba — a do modelo e as desenhadas, penteado.js —, o alto
- * do pescoço, as presas) usa a mesma conta, e nada abre fresta.
+ * quem tem ponto ali (o rosto, o alto do pescoço, o elmo) usa a mesma conta, e nada abre
+ * fresta. As presas e a barba são presas à PELE já alargada (o ÍMÃ, ima.js).
  */
 export function largoDoQueixo(raca) {
   const q = proporcoesDe(raca).queixo - 1, o = QUEIXO, suave = THREE.MathUtils.smoothstep;
@@ -223,15 +241,14 @@ export function largoDoQueixo(raca) {
 }
 
 const daOrelha = (nome) => /^Face(_|$)/.test(nome);   // (a tingida chama-se `Face_tingido`)
-// quem tem ponto no rosto de baixo: a pele, a barba do modelo e o alto do pescoço — e o
-// ELMO (o do pacote, ou pintado sobre a cabeça e o pescoço), que alarga junto: como o resto
-// da armadura, cresce com o corpo (parado, o queixo do orc furava as laterais dele)
-const doQueixo = (nome) => /^(Face|Beard|neck)(_|$)|Helmet|^casca_.*_(head|neck)$/.test(nome);
+// quem tem ponto no rosto de baixo: a pele e o alto do pescoço — e o ELMO (o do pacote, ou
+// pintado sobre a cabeça e o pescoço), que alarga junto: como o resto da armadura, cresce
+// com o corpo (parado, o queixo do orc furava as laterais dele)
+const doQueixo = (nome) => /^(Face|neck)(_|$)|Helmet|^casca_.*_(head|neck)$/.test(nome);
 /**
  * As proporções da raça que se fazem NA PEÇA, antes de fundir (as orelhas e o queixo): muda
  * a geometria no lugar — quem chama dá uma cópia (guerreiro.js `geometriaFundida`).
- * Com ELMO a orelha fica como o modelo a tem (esticada, a ponta furava o elmo) e as presas
- * não se afastam além do lugar de sempre (no canto do maxilar, furavam as placas do rosto).
+ * Com ELMO a orelha fica como o modelo a tem (esticada, a ponta furava o elmo).
  */
 export function moldarPeca(geo, nome, raca, elmo = false) {
   const pos = geo.attributes.position, mexeu = new Uint8Array(pos.count);
@@ -252,23 +269,10 @@ export function moldarPeca(geo, nome, raca, elmo = false) {
       mexeu[i] = 1;
     }
   }
-  // O QUEIXO: o rosto de baixo alarga a partir do meio. As PRESAS vão INTEIRAS (alargadas
-  // ponto a ponto, engrossariam): primeiro para o lugar delas na linha do lábio
-  // (`presasAfastadas`), virando com a linha, e na altura delas (`presasAltura`); depois,
-  // com o canto da boca que o queixo levou
-  const p = proporcoesDe(raca), largo = largoDoQueixo(raca), afastadas = elmo ? Math.min(1, p.presasAfastadas) : p.presasAfastadas, sobe = (p.presasAltura - 1) * LABIO.passo;
-  if (nome === 'presas' && (largo || Math.abs(afastadas - 1) >= 1e-3 || Math.abs(sobe) >= 1e-3)) {
-    const [x0, y0, z0] = PRESA[0], x1 = Math.min(LABIO.ate, x0 * afastadas);
-    const de = noLabio(x0), para = noLabio(x1), giro = (viradaDoLabio(x1) - viradaDoLabio(x0)) * LABIO.giro, c = Math.cos(giro), s = Math.sin(giro);
-    const pe = [x1, y0 + para[1] - de[1] + sobe, z0 + para[2] - de[2]];   // o pé da presa, no lugar novo
-    pe[0] *= largo ? largo(pe[1], pe[2]) : 1;
-    for (let i = 0; i < pos.count; i++) {
-      // (o lado −x é o espelho: a conta é a do +x)
-      const lado = Math.sign(pos.getX(i)) || 1, rx = Math.abs(pos.getX(i)) - x0, rz = pos.getZ(i) - z0;
-      pos.setXYZ(i, lado * (pe[0] + rx * c + rz * s), pe[1] + pos.getY(i) - y0, pe[2] - rx * s + rz * c);
-      mexeu[i] = 1;   // (girou: as normais das faces também)
-    }
-  } else if (largo && doQueixo(nome)) {
+  // O QUEIXO: o rosto de baixo alarga a partir do meio (as presas e a barba não passam por
+  // aqui: nascem presas à pele já alargada — o ÍMÃ)
+  const largo = largoDoQueixo(raca);
+  if (largo && doQueixo(nome)) {
     for (let i = 0; i < pos.count; i++) {
       const f = largo(pos.getY(i), pos.getZ(i));
       if (Math.abs(f - 1) < 1e-4) continue;

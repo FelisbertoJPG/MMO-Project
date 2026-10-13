@@ -10,7 +10,7 @@
  * moicano… desenhados em código) na lista do humano ou da raça. O cabelo solto do modelo
  * saiu do jogo (12/10/2026): o "1" dos saves de antes é hoje o primeiro penteado.
  * A BARBA é igual: 0 (sem) ou o número dela na lista (`BARBAS` do penteado.js) — a 1 é a
- * do modelo, a "Cheia" (o "com barba" dos saves de antes); as outras são desenhadas.
+ * do modelo inteira, a "Cheia" (o "com barba" dos saves de antes).
  * Um 6º dígito, quando há, é a RAÇA (raca.js; sem ele, humano): ela pode mandar na cor
  * da pele e dos olhos e tirar o cabelo e a barba, e muda as proporções do corpo.
  *
@@ -18,15 +18,15 @@
  * vértice dele é branca. Cada vértice de pele/cabelo/barba/olho ganha uma cor de vértice
  * = cor pedida ÷ cor média daquela região na textura: multiplicada pela textura no
  * shader, dá a cor pedida e GUARDA a luz e a sombra que a textura tinha. A pele é achada
- * pela UV (a faixa de pele da paleta, `FAIXA_PELE`), a barba, as sobrancelhas e os olhos
- * pela peça. (O cabelo não é tingido: o penteado já é desenhado na cor.)
+ * pela UV (a faixa de pele da paleta, `FAIXA_PELE`), as sobrancelhas e os olhos pela peça.
+ * (O cabelo e a barba não são tingidos: o penteado.js já os desenha na cor.)
  * Tudo vira geometrias tingidas (uma vez por peça e cor, divididas por todos), que
  * entram na malha fundida no lugar das peças originais (`tingir`, chamado no `vestir`).
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { racaDe } from './raca.js';
-import { penteadosDe, nomeDoPenteado, barbasDe, barbaDe, nomeDaBarba } from './penteado.js';
+import { penteadosDe, nomeDoPenteado, barbasDe, nomeDaBarba } from './penteado.js';
 
 export const PELES = [
   // (tons pensados para a luz do jogo: a paleta original do modelo é #f8bb7f)
@@ -98,18 +98,16 @@ const tingidas = new Map();
 export function esquecerTingidas() { for (const g of tingidas.values()) g?.dispose?.(); tingidas.clear(); delete tingidas.razaoPele; }
 /**
  * A peça do corpo com a aparência aplicada (um objeto no formato da malha fundida), ou a
- * própria peça (nada a tingir nela), ou null (a peça some: sem barba, ou com uma das desenhadas).
+ * própria peça (nada a tingir nela).
  */
 export function tingir(peca, codigo) {
   const a = lerAparencia(codigo), nome = peca.name, raca = racaDe(a.raca);
-  // (a barba do modelo só fica se é ela a escolhida: as outras são desenhadas, penteado.js)
-  if (nome === 'Beard' && barbaDe(raca, a.barba) !== 'modelo') return null;
   const pele = raca?.pele ?? PELES[a.pele][1], olhos = raca?.olhos ?? OLHOS[a.olhos][1];
   let hex = null, escolhe = null;
   const uv = peca.geometry.attributes.uv;
   if (!uv) return peca;
   if (PECAS_DE_PELE.includes(nome) && pele) { hex = pele; escolhe = (i) => naPele(uv.getX(i), uv.getY(i)); }
-  else if ((nome === 'Beard' || nome === 'Eye_Brows') && CABELOS[a.cor][1]) { hex = CABELOS[a.cor][1]; escolhe = () => true; }
+  else if (nome === 'Eye_Brows' && CABELOS[a.cor][1]) { hex = CABELOS[a.cor][1]; escolhe = () => true; }
   else if (nome === 'Eyes' && olhos) {
     hex = olhos;
     const px0 = lerTextura(peca.material?.map);

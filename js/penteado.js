@@ -24,12 +24,16 @@
  * fundida por último e fora do `deformar` (guerreiro.js `geometriaFundida`), e é refeito a
  * cada corpo: depende da raça e do que está vestido.
  *
- * AS BARBAS (`BARBAS`, 12/10/2026) são feitas do mesmo jeito e vão na mesma geometria. A
- * 'modelo' é a peça `Beard` do modelo, inteira (a barba de sempre do humano; quem a tinge
- * é o aparencia.js). As outras são desenhadas aqui, com duas formas:
- *  - o RECORTE: PARTES da própria barba do modelo — o bigode, o queixo, o maxilar, a
- *    costeleta (`parteDaBarba`: pelo lugar de cada triângulo) —, que já assenta no rosto;
- *    com `folga`, mais cheia. O cavanhaque é bigode + queixo; a moldura, tudo menos o bigode;
+ * AS BARBAS (`BARBAS`, 12/10/2026) são feitas do mesmo jeito e vão na mesma geometria,
+ * com duas formas:
+ *  - o RECORTE: PARTES da barba do modelo (a peça `Beard`) — o bigode, o queixo, o maxilar,
+ *    a costeleta (`parteDaBarba`: pelo lugar de cada triângulo). A 'modelo' ("Cheia") são
+ *    todas; o cavanhaque, bigode + queixo; a moldura, tudo menos o bigode. Cada ponto é
+ *    preso à PELE do rosto pelo ÍMÃ (ima.js): fica do lugar da pele mais perto dele à
+ *    distância a que o modelo o pôs — e vai com ela para onde a raça a levar (alargada "como
+ *    o queixo", por uma conta à parte, a barba flutuava a dois dedos da bochecha). Na
+ *    BEIRADA do recorte a barba desce até a pele (não fica uma casca aberta no ar), e a
+ *    `folga` (a barba mais cheia) só levanta a camada de fora;
  *  - o PENDENTE: o que cai do queixo (a barbicha, a barba longa, a trança de barba). É preso
  *    à cabeça, mas onde o corpo passa à frente dele (o peito do orc, a armadura) POUSA nele,
  *    pela frente, como a mecha nas costas.
@@ -39,6 +43,7 @@
  */
 import * as THREE from 'three';
 import { texelClaro } from './casca.js';
+import { triangulosDe, raio, grudar, lugar, normalLisa, pesos, misturar } from './ima.js';
 
 // quem não escolheu a cor ("Original"): o castanho do cabelo do modelo, medido na textura
 // dele — é a cor em que a barba e as sobrancelhas ficam
@@ -91,13 +96,13 @@ export function penteadoDe(raca, n) {
 export const nomeDoPenteado = (id) => PENTEADOS[id]?.nome ?? id;
 
 /**
- * As barbas que há. Sem `formas`, é a peça do modelo. `partes`: as partes da barba do
- * modelo que o recorte leva (`parteDaBarba`); `solta`: os pontos [y, z] por onde o pendente
- * desce, na linha do meio.
+ * As barbas que há ('modelo' é a do modelo inteira, a de sempre). `partes`: as partes da
+ * barba do modelo que o recorte leva (`parteDaBarba`); `solta`: os pontos [y, z] por onde
+ * o pendente desce, na linha do meio.
  */
 const MOLDURA = ['costeleta', 'maxilar', 'queixo'];
 export const BARBAS = {
-  modelo: { nome: 'Cheia' },
+  modelo: { nome: 'Cheia', formas: [['recorte', { partes: ['bigode', ...MOLDURA] }]] },
   cavanhaque: { nome: 'Cavanhaque', formas: [['recorte', { partes: ['bigode', 'queixo'] }]] },
   moldura: { nome: 'Moldura', formas: [['recorte', { partes: MOLDURA, folga: 0.9 }]] },
   costeletas: { nome: 'Costeletas', formas: [['recorte', { partes: ['costeleta', 'maxilar'], folga: 0.9 }]] },
@@ -109,7 +114,7 @@ export const BARBAS = {
 /**
  * As do HUMANO (e da raça sem lista própria). A ORDEM é o número da barba no save do
  * personagem: não reordene nem tire do meio — barba nova entra no FIM. (A primeira é a do
- * modelo: o save de antes dizia "1" para "com barba".)
+ * modelo inteira: o save de antes dizia "1" para "com barba".)
  */
 export const BARBAS_PADRAO = ['modelo', 'cavanhaque', 'moldura', 'costeletas', 'bigode', 'barbicha', 'tranca', 'longa'];
 /** As barbas de uma raça (null = humano), na ordem em que valem. */
@@ -271,18 +276,18 @@ const FORMAS = {
   },
 
   // O RECORTE: as `partes` da barba do MODELO (o bigode, o queixo, o maxilar, a costeleta),
-  // que já assenta no rosto. `folga`: quanto sai a mais, pela normal (a barba mais cheia) —
-  // com ELMO fica rente, como a do modelo, que cabe dentro dele (cheia, saía pelas frestas);
-  // `tom`: o da barba do modelo é um pouco mais escuro que o do cabelo.
+  // cada ponto preso à pele do rosto (o ÍMÃ: `c.naPele`). `folga`: quanto a camada de fora
+  // sai a mais (a barba mais cheia) — com ELMO fica rente, como a do modelo, que cabe dentro
+  // dele (cheia, saía pelas frestas); `tom`: o da barba do modelo é um pouco mais escuro que
+  // o do cabelo.
   recorte(m, c, { partes, folga = 0, tom = 0.86 }) {
     if (c.elmo) folga = 0;
-    for (const t of c.barba()) {
+    const tris = c.barba(), cor = c.tom(tom), beirada = new Set();
+    // a BEIRADA do recorte: os lugares que também são de um triângulo que ficou de fora
+    for (const t of tris) if (!partes.includes(t.parte)) for (const k of t.cantos) beirada.add(k.ima);
+    for (const t of tris) {
       if (!partes.includes(t.parte)) continue;
-      for (const k of t.cantos) {
-        const p = k.p.clone().addScaledVector(k.n, folga);
-        p.x *= c.largo(p.y, p.z);
-        m.v.push({ p: c.deformador(p, k.o, k.w), cor: c.tom(tom), w: { o: k.o, p: k.w } });
-      }
+      for (const k of t.cantos) m.v.push({ p: c.naPele(k.ima, beirada.has(k.ima) ? null : folga), cor, w: k.ima.w });
     }
   },
 
@@ -355,74 +360,39 @@ function fio(m, c, linha, { raio, elo = 0, argola = false, achata = 0.72, larg =
   }
 }
 
-// ------------------------------------------------------------ os pesos e o pouso
-// os pesos de um ponto: { o: os 4 ossos (na ordem única), p: os 4 pesos }
-function misturar(partes) {
-  const soma = new Map();
-  for (const [w, f] of partes) for (let k = 0; k < 4; k++) if (w.p[k] && f) soma.set(w.o[k], (soma.get(w.o[k]) ?? 0) + w.p[k] * f);
-  const maiores = [...soma].sort((a, b) => b[1] - a[1]).slice(0, 4), total = maiores.reduce((s, x) => s + x[1], 0) || 1;
-  return { o: [0, 1, 2, 3].map((k) => maiores[k]?.[0] ?? 0), p: [0, 1, 2, 3].map((k) => (maiores[k]?.[1] ?? 0) / total) };
-}
-// os triângulos das peças de apoio, como o modelo é: os 3 cantos, cada um com os pesos dele
-function triangulosDe(pecas, ordem) {
-  const tris = [];
-  for (const peca of pecas) {
-    const g = peca.geometry, pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
-    if (!si || !sw) continue;
-    const troca = peca.skeleton.bones.map((o) => Math.max(0, ordem.indexOf(o.name)));
-    const canto = (i) => ({ p: new THREE.Vector3().fromBufferAttribute(pos, i), o: [0, 1, 2, 3].map((k) => troca[si.getComponent(i, k)] ?? 0), w: [0, 1, 2, 3].map((k) => sw.getComponent(i, k)) });
-    const n = g.index ? g.index.count : pos.count;
-    for (let t = 0; t + 2 < n; t += 3) tris.push([0, 1, 2].map((k) => canto(g.index ? g.index.getX(t + k) : t + k)));
-  }
-  return tris;
-}
-/**
- * O POUSO: onde um raio que vem de trás (pelo eixo z; ou da FRENTE), na posição (x, y) do
- * modelo, encontra o corpo — devolvido JÁ com as proporções da raça: { p: o ponto, n: a
- * normal (para fora), w: os pesos dali }. null = não há corpo ali.
- */
-function pousoEm(tris, deformador, x, y, frente = false) {
-  let z = frente ? -Infinity : Infinity, achado = null, bar = null;
-  for (const tri of tris) {
-    const [A, B, C] = tri, d = (B.p.y - C.p.y) * (A.p.x - C.p.x) + (C.p.x - B.p.x) * (A.p.y - C.p.y);
-    if (Math.abs(d) < 1e-9) continue;
-    const a = ((B.p.y - C.p.y) * (x - C.p.x) + (C.p.x - B.p.x) * (y - C.p.y)) / d, b = ((C.p.y - A.p.y) * (x - C.p.x) + (A.p.x - C.p.x) * (y - C.p.y)) / d, g = 1 - a - b;
-    if (a < -1e-4 || b < -1e-4 || g < -1e-4) continue;
-    const zt = a * A.p.z + b * B.p.z + g * C.p.z;
-    if (frente ? zt > z : zt < z) { z = zt; achado = tri; bar = [a, b, g]; }
-  }
-  if (!achado) return null;
-  const V = achado.map((k) => deformador(k.p.clone(), k.o, k.w));
-  const n = new THREE.Vector3().subVectors(V[1], V[0]).cross(new THREE.Vector3().subVectors(V[2], V[0])).normalize();
-  if (frente ? n.z < 0 : n.z > 0) n.negate();
-  return {
-    p: new THREE.Vector3().addScaledVector(V[0], bar[0]).addScaledVector(V[1], bar[1]).addScaledVector(V[2], bar[2]), n,
-    w: misturar(achado.map((k, i) => [{ o: k.o, p: k.w }, bar[i]])),
-  };
-}
+const FRENTE = new THREE.Vector3(0, 0, 1), TRAS = new THREE.Vector3(0, 0, -1);
 
 /**
  * A geometria do penteado e da barba de um corpo, pronta para a malha fundida (já com as
  * proporções da raça e os ossos na ordem única) — ou null: não há o que desenhar (ids
- * desconhecidos, a barba do modelo, tudo debaixo do elmo).
+ * desconhecidos, tudo debaixo do elmo).
  *  - `id`, `barba`: o penteado e a barba (ids de `PENTEADOS` e de `BARBAS`, ou null);
  *  - `cor`: '#rrggbb' ou null (a do modelo, `COR_PADRAO`); `elmo`: há elmo;
  *  - `apoio`: as peças em que a mecha e o pendente podem pousar (o tronco, o pescoço, a
  *    armadura do peito); `pecaDaBarba`: a peça `Beard` do modelo (a matéria do recorte);
+ *    `pecaDoRosto`: a peça `Face` — a pele a que a barba é presa;
  *  - `ordem`, `deformador`, `escala`, `largo`: os ossos do esqueleto único, a conta da raça
  *    para um ponto (raca.js `deformadorDe`), o tamanho da cabeça dela e o quanto o queixo
  *    alarga num lugar (`largoDoQueixo`, ou null);
  *  - `modelo`: uma geometria já pronta da malha fundida (os atributos saem do mesmo tipo:
  *    o `mergeGeometries` recusa tipos diferentes); `mapa`: a textura do corpo.
  */
-export function geometriaDoPenteado({ id, barba, cor, elmo, apoio, pecaDaBarba, ordem, deformador, escala, largo, modelo, mapa }) {
+export function geometriaDoPenteado({ id, barba, cor, elmo, apoio, pecaDaBarba, pecaDoRosto, ordem, deformador, escala, largo, modelo, mapa }) {
   const formas = [...(PENTEADOS[id]?.formas ?? []), ...(BARBAS[barba]?.formas ?? [])];
   if (!formas.length) return null;
   const base = new THREE.Color(cor ?? COR_PADRAO), cabeca = Math.max(0, ordem.indexOf('Head'));
-  let tris = null, daBarba = null;
-  const pouso = (x, y, frente) => pousoEm(tris ??= triangulosDe(apoio, ordem), deformador, x, y, frente);
+  let tris = null, daBarba = null, rosto = null;
+  // um canto da malha como a raça o deixa (as proporções), e o do ROSTO (antes, o queixo)
+  const movido = (k) => deformador(k.p.clone(), k.o, k.w);
+  const doRosto = (k) => { const v = k.p.clone(); if (largo) v.x *= largo(v.y, v.z); return deformador(v, k.o, k.w); };
+  // O POUSO: onde um raio pelo eixo z (de trás, ou da frente), na posição (x, y) do modelo,
+  // encontra o corpo — JÁ com as proporções da raça: { p: o ponto, n: a normal (para fora), w: os pesos dali }
+  const pouso = (x, y, frente) => {
+    const g = raio(tris ??= triangulosDe(apoio, ordem), x, y, frente);
+    return g ? { ...lugar(g, movido, frente ? FRENTE : TRAS), w: pesos(g) } : null;
+  };
   const c = {
-    elmo, k: escala, deformador, largo: largo ?? (() => 1), CABECA: { o: [cabeca, 0, 0, 0], p: [1, 0, 0, 0] },
+    elmo, k: escala, largo: largo ?? (() => 1), CABECA: { o: [cabeca, 0, 0, 0], p: [1, 0, 0, 0] },
     // o tom do cabelo: mais escuro na raiz, mais claro na ponta (o claro soma um pouco: no preto, só multiplicar não aparecia)
     tom: (f) => base.clone().multiplyScalar(f).addScalar(Math.max(0, f - 1) * 0.1),
     firme: (p) => deformador(p, c.CABECA.o, c.CABECA.p),
@@ -433,21 +403,32 @@ export function geometriaDoPenteado({ id, barba, cor, elmo, apoio, pecaDaBarba, 
       if (!e || !d) return e ?? d;
       return { p: e.p.add(d.p).multiplyScalar(0.5).setX(0), n: e.n.add(d.n).normalize(), w: misturar([[e.w, 0.5], [d.w, 0.5]]) };
     },
-    // a barba do modelo em triângulos: a parte de cada um e, em cada canto, a normal MÉDIA
-    // do lugar (os cantos repetidos nas quinas saem juntos quando a folga os empurra)
+    // a barba do modelo em triângulos: a parte de cada um e, em cada canto, o ÍMÃ dele — o
+    // lugar da pele do rosto mais perto (`g`), a que distância (`d`) e para que lado (`dir`)
+    // o modelo o pôs, e os ossos dali (`w`). Um por LUGAR: os cantos repetidos dividem o mesmo
     barba() {
       if (daBarba) return daBarba;
-      const lista = pecaDaBarba ? triangulosDe([pecaDaBarba], ordem) : [], media = new Map();
-      const chave = (p) => `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}`;
-      for (const t of lista) {
-        const n = new THREE.Vector3().subVectors(t[1].p, t[0].p).cross(new THREE.Vector3().subVectors(t[2].p, t[0].p));
-        for (const k of t) { const s = media.get(chave(k.p)) ?? new THREE.Vector3(); media.set(chave(k.p), s.add(n)); }
-      }
-      for (const n of media.values()) n.normalize();
-      return daBarba = lista.map((t) => {
-        for (const k of t) k.n = media.get(chave(k.p));
+      rosto ??= pecaDoRosto ? triangulosDe([pecaDoRosto], ordem) : [];
+      const imas = new Map();
+      const imaDe = (p) => {
+        const chave = `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}`;
+        if (!imas.has(chave)) {
+          const g = grudar(rosto, p);
+          imas.set(chave, g ? { g, d: g.d, dir: g.d > 1e-3 ? p.clone().sub(g.q).multiplyScalar(1 / g.d) : normalLisa(g), w: pesos(g) } : null);
+        }
+        return imas.get(chave);
+      };
+      return daBarba = (pecaDaBarba ? triangulosDe([pecaDaBarba], ordem) : []).map((t) => {
+        for (const k of t) k.ima = imaDe(k.p);
         return { cantos: t, parte: parteDaBarba(Math.abs(t[0].p.x + t[1].p.x + t[2].p.x) / 3, (t[0].p.y + t[1].p.y + t[2].p.y) / 3, (t[0].p.z + t[1].p.z + t[2].p.z) / 3) };
-      });
+      }).filter((t) => t.cantos.every((k) => k.ima));
+    },
+    // onde um ponto preso à pele foi parar: o lugar dela como a raça o deixou, mais a distância
+    // do modelo (do tamanho da cabeça) — na beirada do recorte (`folga` null), quase nada: a
+    // barba fecha na pele; a folga só levanta a camada de FORA (a de dentro já está na pele)
+    naPele(ima, folga) {
+      const d = folga === null ? Math.min(ima.d, 0.06) : ima.d + folga * entre((ima.d - 0.2) / 0.3);
+      return lugar(ima.g, doRosto).p.addScaledVector(ima.dir, d * escala);
     },
   };
   const m = new Malha();

@@ -318,7 +318,9 @@ export class CorpoGuerreiro {
     for (const o of this.rigidas) o.visible = false;
     const desenho = (lugar, conj) => desenhoDe(Assets.armaduras, lugar, conj);
     const usadas = this.pecas.filter((o) => {
-      if (o.name === 'Hair') return false;   // (o cabelo solto do modelo saiu do jogo: o cabelo é o PENTEADO, abaixo)
+      // (o cabelo solto do modelo saiu do jogo, e a barba dele é só a matéria das barbas: o
+      // cabelo e a barba são o PENTEADO e a BARBA desenhados, abaixo)
+      if (o.name === 'Hair' || o.name === 'Beard') return false;
       const a = o.name.match(ARMADURA);
       if (!a) return true;
       const lugar = lugarDaPeca(o.name);
@@ -330,18 +332,17 @@ export class CorpoGuerreiro {
     // os nossos desenhos entram como mais peças da malha fundida
     LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas)); });
     // o que a RAÇA acrescenta (as presas do orc)
-    if (this.raca) usadas.push(...pecasDaRaca(this.raca, this.pecas));
-    // a APARÊNCIA: as peças de pele, barba, sobrancelhas e olhos tingidas (ou fora: sem barba)
+    if (this.raca) usadas.push(...pecasDaRaca(this.raca, this.pecas, elmo));
+    // a APARÊNCIA: as peças de pele, sobrancelhas e olhos tingidas
     if (aparenciaValida(aparencia)) for (let i = usadas.length - 1; i >= 0; i--) {
       if (!usadas[i].isSkinnedMesh) continue;
       const t = tingir(usadas[i], aparencia);
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
-    // o PENTEADO e a BARBA (penteado.js): desenhados em código ao fundir o corpo (a barba
-    // "do modelo" é a peça `Beard`, que o `tingir` acima deixou ou tirou)
+    // o PENTEADO e a BARBA (penteado.js): desenhados em código ao fundir o corpo
     const ap = lerAparencia(aparencia), cabelo = penteadoDe(this.raca, ap.cabelo), barba = barbaDe(this.raca, ap.barba), doPeito = desenho('peito', armadura[LUGARES.indexOf('peito')]);
     const penteado = PENTEADOS[cabelo]?.formas || BARBAS[barba]?.formas ? {
-      id: cabelo, barba, cor: CABELOS[ap.cor][1], elmo, pecaDaBarba: this.pecas.find((o) => o.name === 'Beard'),
+      id: cabelo, barba, cor: CABELOS[ap.cor][1], elmo, pecaDaBarba: this.pecas.find((o) => o.name === 'Beard'), pecaDoRosto: this.pecas.find((o) => o.name === 'Face'),
       apoio: usadas.filter((o) => APOIO.test(o.name) || (ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'peito') || (doPeito && o.name.startsWith(`casca_${doPeito.id}_`))),
     } : null;
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
