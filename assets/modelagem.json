@@ -1,0 +1,4 @@
+{
+  "_leiame": "A MODELAGEM (js/modelagem.js): as edições da MALHA de cada corpo, feitas na aba Modelo do Editor de Personagem (o editor de cenas). A chave é o corpo: humano, a id da raça (orc), e :feminino para o corpo feminino dela. partes: { <parte>: { tamanho, largura, altura, fundo (1 = como é), mover: [x, y, z] cm } }. puxoes: o pincel, na ordem — { parte, de (a origem do lugar), em: o centro, no MODELO (cm), raio (cm), mover: [x, y, z] cm, ou inflar: cm (+ engorda, - murcha), espelho }. Sem o corpo aqui, a malha é a de sempre.",
+  "corpos": {}
+}

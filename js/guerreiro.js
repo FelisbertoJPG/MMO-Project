@@ -31,6 +31,7 @@ import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
+import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, modelagemAberta } from './modelagem.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -112,7 +113,7 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Qua
 const fundidas = new Map();
 /** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
 export function esquecerFundidas() { for (const g of fundidas.values()) g?.dispose(); fundidas.clear(); }
-function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null) {
+function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
   const geos = pecas.map((p) => {
@@ -139,10 +140,28 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     ...penteado, ordem, deformador: deformadorDe(raca, ordem, inversos, pecas[0].bindMatrix), escala: proporcoesDe(raca).cabeca, rosto: rostoDaRaca(raca), largo: largoDoQueixo(raca), modelo: lista[0], mapa: pecas[0].material?.map,
   }) : null;
   const geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
+  // A MODELAGEM (modelagem.js), só quando o corpo tem edição (ou a aba Modelo do editor está
+  // aberta): de onde veio cada vértice (`origem`) e onde ele estava no MODELO, antes da raça
+  // (`antes`: é onde o pincel guarda o centro), e as juntas no espaço da malha (os pivôs)
+  const comModelo = geo && (edicoes || modelagemAberta()) ? { ordem } : null;
+  if (comModelo) {
+    const n = geo.attributes.position.count, origem = new Uint8Array(n), antes = new Float32Array(n * 3);
+    let k = 0;
+    const pedaco = (P, o, de = 0, ate = P.length / 3) => { antes.set(P.subarray(de * 3, ate * 3), k * 3); origem.fill(o, k, k + ate - de); k += ate - de; };
+    pecas.forEach((p, i) => pedaco((lista[i] === geos[i] ? p.geometry : p.geometry.toNonIndexed()).attributes.position.array, ORIGENS.indexOf(origemDaPeca(p.name))));
+    if (cabelo) for (const nome of ['cabelo', 'barba', 'sobrancelhas']) pedaco(cabelo.attributes.position.array, ORIGENS.indexOf(nome), ...cabelo.userData.partes[nome]);
+    const volta = pecas[0].bindMatrix.clone().invert(), m = new THREE.Matrix4();
+    Object.assign(comModelo, { origem, antes, juntas: new Map(inversos ? ordem.map((nome, i) => [nome, new THREE.Vector3().setFromMatrixPosition(m.copy(inversos[i]).invert()).applyMatrix4(volta)]) : []) });
+  }
   for (const g of geos) g.dispose();
   cabelo?.dispose();
   // a RAÇA: as proporções dela na malha (raca.js), uma vez por corpo
   if (geo && raca) deformar(geo, raca, ordem, inversos, pecas[0].bindMatrix, doCorpo);
+  // … e as EDIÇÕES do corpo, por cima (a aba guarda também a malha de antes delas: `base`)
+  if (comModelo) {
+    if (modelagemAberta()) { comModelo.base = geo.attributes.position.array.slice(); geo.userData.modelagem = comModelo; }
+    aplicarModelagem(geo, edicoes, comModelo);
+  }
   fundidas.set(chave, geo);
   return geo;
 }
@@ -358,7 +377,7 @@ export class CorpoGuerreiro {
     const comCor = usadas.some((o) => o.geometry.attributes.color);
     const material = (comCor && this.materiais.find((m) => m.vertexColors)) || (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
-    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado) : null;
+    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoesDoCorpo(ap.raca, ap.sexo)) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; return; }
     if (!this.fundida) {

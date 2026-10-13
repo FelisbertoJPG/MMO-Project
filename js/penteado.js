@@ -710,8 +710,8 @@ export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, 
     // … e a `d` cm dela (do tamanho da cabeça), para o lado em que o ímã o pôs
     aDistancia: (ima, d) => lugar(ima.g, doRosto).p.addScaledVector(ima.dir, d * escala),
   };
-  const m = new Malha();
-  for (const [forma, medidas] of formas) FORMAS[forma]?.(m, c, medidas);
+  const m = new Malha(), fim = [];
+  formas.forEach(([forma, medidas], i) => { FORMAS[forma]?.(m, c, medidas); fim[i] = m.v.length; });
   const n = m.v.length;
   if (!n) return null;
   const g = new THREE.BufferGeometry(), uvClaro = texelClaro(mapa) ?? [0.5, 0.5];
@@ -729,5 +729,8 @@ export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, 
   if (corV) g.setAttribute('color', corV);
   g.setAttribute('skinIndex', si); g.setAttribute('skinWeight', sw);
   g.computeVertexNormals();   // sem índice: normal por face
+  // o que é o cabelo, a barba e as sobrancelhas (os vértices de cada um, [de, até]: a modelagem os edita à parte)
+  const ate = (k) => (k > 0 ? fim[k - 1] : 0), nc = PENTEADOS[id]?.formas?.length ?? 0, nb = nc + (BARBAS[barba]?.formas?.length ?? 0);
+  g.userData.partes = { cabelo: [0, ate(nc)], barba: [ate(nc), ate(nb)], sobrancelhas: [ate(nb), n] };
   return g;
 }

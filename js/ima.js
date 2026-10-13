@@ -46,7 +46,7 @@ export function triangulosDe(pecas, ordem = null) {
 
 const _ab = new THREE.Vector3(), _ac = new THREE.Vector3(), _ap = new THREE.Vector3(), _bp = new THREE.Vector3(), _cp = new THREE.Vector3();
 // as coordenadas baricêntricas do ponto do triângulo (a, b, c) mais perto de p (Ericson, "Real-Time Collision Detection")
-function pertoNoTriangulo(p, a, b, c, bar) {
+export function pertoNoTriangulo(p, a, b, c, bar) {
   _ab.subVectors(b, a); _ac.subVectors(c, a); _ap.subVectors(p, a);
   const d1 = _ab.dot(_ap), d2 = _ac.dot(_ap);
   if (d1 <= 0 && d2 <= 0) return bar.set(1, 0, 0);

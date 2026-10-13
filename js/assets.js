@@ -96,6 +96,16 @@ export async function carregarEmpunhadura() {
   } catch { return {}; }
 }
 
+/** A MODELAGEM (assets/modelagem.json, modelagem.js): { corpos: { <chave do corpo>: as edições da malha dele } } ({ corpos: {} } sem o arquivo). */
+export async function carregarModelagem() {
+  try {
+    const r = await fetch('assets/modelagem.json', { cache: 'no-store' });
+    if (!r.ok) return { corpos: {} };
+    const j = await r.json();
+    return { corpos: j?.corpos && typeof j.corpos === 'object' && !Array.isArray(j.corpos) ? j.corpos : {} };
+  } catch { return { corpos: {} }; }
+}
+
 /** As ARMADURAS PINTADAS (assets/armaduras.json, casca.js): a lista de desenhos ([] sem o arquivo). */
 export async function carregarArmaduras() {
   try {
@@ -286,6 +296,7 @@ export const Assets = {
   armaduras: [],     // as armaduras PINTADAS (assets/armaduras.json; casca.js, guerreiro.js)
   racas: [],         // as RAÇAS (assets/racas.json; raca.js): o guerreiro com outra cor e proporções
   humano: null,      // os outros CORPOS do humano (`feminino`: raca.js `racaDe`), do mesmo arquivo
+  modelagem: { corpos: {} },   // as edições da MALHA de cada corpo (assets/modelagem.json; modelagem.js)
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
 
   async load(onProgress = () => {}) {
@@ -329,6 +340,7 @@ export const Assets = {
     this.empunhadura = await carregarEmpunhadura();
     this.armaduras = await carregarArmaduras();
     ({ racas: this.racas, humano: this.humano } = await lerRacas());
+    this.modelagem = await carregarModelagem();
     for (const clip of await Promise.all(ANIMACOES.map(carregarAnimacao))) if (clip) this.clips[clip.name] = clip;
     this.mapa = mapa; this.decor = decor.itens; this.grama = decor.grama;
     for (const [nome, m] of await Promise.all(MODELOS.map(async (n) => [n, await carregarModelo(n)]))) {
