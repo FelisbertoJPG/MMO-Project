@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-10-12.15",
-  "nota": "o ORC chegou: escolha a raça em Pausa → Aparência (Humano ou Orc)"
+  "versao": "2026-10-12.16",
+  "nota": "a ORC FEMININA chegou: Pausa → Aparência → Sexo (com as Tranças de guerra)"
 }

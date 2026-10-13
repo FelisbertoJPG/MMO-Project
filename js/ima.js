@@ -101,6 +101,33 @@ export function raio(tris, x, y, frente = false) {
   return achado ? { tri: achado, bar } : null;
 }
 
+const _e1 = new THREE.Vector3(), _e2 = new THREE.Vector3(), _h = new THREE.Vector3(), _s = new THREE.Vector3(), _k = new THREE.Vector3();
+/**
+ * O lugar da malha que um RAIO QUALQUER encontra: sai de `origem` na direção `dir` (de
+ * tamanho 1) e fica com o encontro mais LONGE (`longe`: saindo de dentro do corpo, é a pele
+ * de fora) ou com o mais perto — { tri, bar, t: a que distância } — ou null (não há malha ali).
+ */
+export function raioDe(tris, origem, dir, longe = true) {
+  let melhor = longe ? -Infinity : Infinity, achado = null, bar = null;
+  for (const tri of tris) {
+    const A = tri[0].p;
+    _e1.subVectors(tri[1].p, A); _e2.subVectors(tri[2].p, A);
+    _h.crossVectors(dir, _e2);
+    const a = _e1.dot(_h);
+    if (Math.abs(a) < 1e-9) continue;   // (o raio corre ao longo do triângulo)
+    _s.subVectors(origem, A);
+    const u = _s.dot(_h) / a;
+    if (u < -1e-4 || u > 1 + 1e-4) continue;
+    _k.crossVectors(_s, _e1);
+    const v = dir.dot(_k) / a;
+    if (v < -1e-4 || u + v > 1 + 1e-4) continue;
+    const t = _e2.dot(_k) / a;
+    if (t <= 1e-6 || (longe ? t <= melhor : t >= melhor)) continue;
+    melhor = t; achado = tri; bar = [1 - u - v, u, v];
+  }
+  return achado ? { tri: achado, bar, t: melhor } : null;
+}
+
 /**
  * Onde um lugar da malha ({ tri, bar }) foi parar: `mover(canto)` devolve o ponto de um
  * canto na malha como ela ficou (um Vector3 NOVO). Devolve { p: o ponto, n: a normal do

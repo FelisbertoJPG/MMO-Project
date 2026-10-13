@@ -17,6 +17,12 @@
  *    baixo cada ponto POUSA no corpo (`pousar`: um raio de trás para a frente acha a pele —
  *    ou a armadura do peito — naquele lugar) e fica preso aos mesmos ossos que ela: a mecha
  *    acompanha as costas em qualquer animação, sem física. Com elmo, sai de baixo dele.
+ *  - o cabelo que COBRE a cabeça (a TOUCA, os TUFOS): o couro cabeludo é achado por RAIOS
+ *    saídos do meio da cabeça (`CENTRO`, `direcao`: graus de volta e de lado), e a touca é
+ *    uma casca facetada sobre ele, presa aos ossos da pele dali. A CAÍDA é a mecha que cai
+ *    pela FRENTE do ombro (as "tranças de guerra": gomos amarrados com couro, a argola de
+ *    ferro de pontas e a ponta desfiada — `cauda`); o FIAPO, um fio solto preso à pele do
+ *    rosto.
  *
  * O penteado é feito JÁ com as proporções da raça (`deformador`, raca.js): o pouso é no
  * corpo como a raça o deixa, e a grossura da mecha não estica com ele (engrossada junto
@@ -47,17 +53,28 @@
  */
 import * as THREE from 'three';
 import { texelClaro } from './casca.js';
-import { triangulosDe, raio, grudar, lugar, normalLisa, pesos, misturar } from './ima.js';
+import { triangulosDe, raio, raioDe, grudar, lugar, normalLisa, pesos, misturar } from './ima.js';
 
 // quem não escolheu a cor ("Original"): o castanho do cabelo do modelo, medido na textura
 // dele — é a cor em que a barba e as sobrancelhas ficam
 const COR_PADRAO = '#62423c';
 const FAIXA = '#5b3a22', OSSO = '#e6dcc0';   // a tira de couro que amarra, e a argola de osso
+const FERRO = '#767e8a', FERRO_CLARO = '#bcc3cc';   // a argola de ferro das tranças de guerra, e as pontas dela
+// O MEIO DA CABEÇA na altura das orelhas (cm, pose T): de onde saem os raios que acham o couro
+const CENTRO = new THREE.Vector3(0, 169, -2.5);
+/**
+ * Uma direção a partir do meio da cabeça: `volta` graus do rosto à nuca POR CIMA (0 = para
+ * a frente, 90 = para cima, 180 = para trás) e `lado` graus para o lado (+ = o x positivo;
+ * ±90 = a orelha).
+ */
+const direcao = (volta, lado) => { const a = (volta * Math.PI) / 180, b = (lado * Math.PI) / 180; return new THREE.Vector3(Math.sin(b), Math.cos(b) * Math.sin(a), Math.cos(b) * Math.cos(a)); };
 // A LINHA DO MEIO do couro cabeludo (x = 0), da testa à nuca: [z, y], medidos na peça `head`
 const COURO = [[13.5, 180.5], [10.4, 184.3], [4.8, 187.2], [-2.8, 188.0], [-12.8, 182.7], [-15.2, 179.0], [-15.6, 175.6], [-15.2, 172.3], [-14.4, 168.8], [-11.3, 162.9]];
 const NUCA = 161;      // dessa altura para baixo a mecha pousa no corpo
 const AFUNDA = 1.3;    // quanto a raiz de cada forma entra na cabeça (não fica fresta)
 const FOLGA = 0.5;     // entre a mecha e o corpo em que ela pousa
+const BEIRA = 0.45;    // a que distância da pele fica a beirada da touca (rente, o crânio facetado aparecia por entre os triângulos dela)
+const COBRE = 0.5;     // quanto a touca passa de cada quina do crânio (ver `touca`)
 
 /**
  * Os penteados que há. `formas`: [nome da forma em `FORMAS`, as medidas dela]. As medidas
@@ -66,6 +83,9 @@ const FOLGA = 0.5;     // entre a mecha e o corpo em que ela pousa
  */
 const CRISTA = (ate) => ['crina', { de: 2.5, ate, altura: 2.7, largura: 3.5, topo: 0.6, dente: 0.6 }];
 const TRANCA = (x = 0, o = {}) => ['mecha', { raiz: 33.5, x, solta: [[179.4, -18.6], [175, -20.6], [169.5, -20.2], [165, -18.6]], ate: 120, raio: 2.7, elo: 4.6, argola: true, ...o }];
+// as TRANÇAS DE GUERRA: a mecha de cada lado (nasce atrás da orelha e cai pela frente do ombro) e o fiapo da têmpora
+const CAIDA = (lado) => ['caida', { lado, raiz: [198, 47], solta: [[11.8, 164.2, -7.2], [13.4, 160.2, -2.8]], x: 12.8, abre: -2.2, de: 151, ate: 120, raio: 4.1, gomos: 4 }];
+const FIAPO = (lado) => ['fiapo', { lado, pontos: [[9.3, 176.6, 4.8], [10.8, 172.4, 4.4], [11.2, 167.4, 4.8], [10.9, 162.6, 5.6], [10.4, 158.8, 6.2]] }];
 export const PENTEADOS = {
   rabo: { nome: 'Rabo de cavalo', formas: [['mecha', { raiz: 29.5, solta: [[187, -16.8], [186.2, -21.4], [181, -24.6], [174, -25], [167.5, -22.6]], ate: 134, raio: 3.7 }]] },
   tranca: { nome: 'Trança', formas: [TRANCA()] },
@@ -75,6 +95,11 @@ export const PENTEADOS = {
   moicano: { nome: 'Moicano', formas: [['crina', { de: 1.5, ate: 42, altura: 9, largura: 3.1, topo: 0.3, dente: 2.4, inclina: 0.2 }]] },
   espinhos: { nome: 'Espinhos', formas: [['espinhos', { de: 3.5, ate: 39, n: 8, altura: 11.5, largura: 2.6, base: 3.6 }]] },
   cristaTranca: { nome: 'Crista e trança', formas: [CRISTA(31), TRANCA()] },
+  guerreira: { nome: 'Tranças de guerra', formas: [
+    ['touca', { de: 36, ate: 204, lado: 62, linhas: 9, colunas: 9, folga: 1.1, onda: 0.7, recua: 10 }],
+    ['tufos', { deita: 62, largura: 2, base: 3.4, pontas: [[74, 0, 6.5], [80, -26, 5.5], [80, 26, 5.5], [104, -13, 7.5], [104, 13, 7.5], [110, -38, 6], [110, 38, 6], [134, 0, 8.5], [138, -26, 7], [138, 26, 7]] }],
+    CAIDA(1), CAIDA(-1), FIAPO(1), FIAPO(-1),
+  ] },
 };
 
 /**
@@ -315,6 +340,109 @@ const FORMAS = {
     fio(m, c, linha, { raio, elo, argola, achata });
   },
 
+  // A TOUCA: o cabelo que COBRE a cabeça, penteado para trás — uma casca facetada sobre o
+  // couro cabeludo, da testa (`de`) à nuca (`ate`: graus de volta, ver `direcao`) e até
+  // `lado` graus para cada lado (o que sobra, em volta do meio da cabeça, é o lugar da
+  // orelha). A BEIRADA fecha na pele; por dentro fica a `folga` cm dela, e uma fileira sim,
+  // outra não, sobe `onda` a mais (os gomos do cabelo penteado). `recua`: quantos graus a
+  // linha da testa recua nas têmporas.
+  touca(m, c, { de, ate, lado, linhas = 9, colunas = 9, folga = 1.1, onda = 0.6, recua = 0 }) {
+    if (c.elmo) return;
+    const meio = (colunas - 1) / 2, comeco = (fj) => de + recua * (2 * fj - 1) ** 2;
+    // a grade: onde cada raio acha o couro, e a que distância dele fica a casca ali
+    const grade = [];
+    for (let j = 0; j < colunas; j++) {
+      const fj = j / (colunas - 1), borda = j === 0 || j === colunas - 1, gomo = (j - meio) % 2 === 0, coluna = [];
+      for (let i = 0; i < linhas; i++) {
+        const fi = i / (linhas - 1), h = c.noCranio(direcao(comeco(fj) + (ate - comeco(fj)) * fi, (fj * 2 - 1) * lado));
+        const beira = borda || i === 0 || i === linhas - 1;
+        coluna.push(h && { h, beira, gomo, f: beira ? BEIRA : folga * (0.7 + 0.3 * Math.sin(Math.PI * fi)) + (gomo ? onda : 0) });
+      }
+      grade.push(coluna);
+    }
+    // A CASCA COBRE O CRÂNIO: a cabeça do modelo é facetada (quase uma caixa), e a grade corta as
+    // quinas dela — a pele aparecia por entre os triângulos do cabelo. Cada ponto do crânio que
+    // ficaria para fora da casca (medido do meio da cabeça) levanta os quatro cantos da casa dele
+    for (let vez = 0; vez < 2; vez++) for (const v of c.pontosDoCranio()) {
+      const d = v.clone().sub(CENTRO), longe = d.length(), fj = (Math.asin(d.x / longe) / ((lado * Math.PI) / 180) + 1) / 2;
+      if (fj < 0 || fj > 1) continue;
+      let volta = (Math.atan2(d.y, d.z) * 180) / Math.PI;
+      if (volta < -90) volta += 360;
+      const fi = (volta - comeco(fj)) / (ate - comeco(fj));
+      if (fi < 0 || fi > 1) continue;
+      const pj = fj * (colunas - 1), pi = fi * (linhas - 1), j = Math.min(colunas - 2, Math.floor(pj)), i = Math.min(linhas - 2, Math.floor(pi)), a = pj - j, b = pi - i;
+      const cantos = [[grade[j][i], (1 - a) * (1 - b)], [grade[j + 1][i], a * (1 - b)], [grade[j][i + 1], (1 - a) * b], [grade[j + 1][i + 1], a * b]];
+      if (cantos.some(([k]) => !k)) continue;
+      const falta = longe + COBRE - cantos.reduce((s, [k, w]) => s + (k.h.t + k.f) * w, 0);
+      if (falta > 0) for (const [k] of cantos) k.f += falta;
+    }
+    const canto = (k) => k && { p: k.h.p(k.f), cor: c.tom(k.beira ? 0.7 : k.gomo ? 1.14 : 0.86), w: k.h.w, dentro: k.h.p(-3) };
+    const pontos = grade.map((coluna) => coluna.map(canto));
+    for (let j = 0; j < colunas - 1; j++) for (let i = 0; i < linhas - 1; i++) {
+      const a = pontos[j][i], b = pontos[j + 1][i], d = pontos[j + 1][i + 1], e = pontos[j][i + 1];
+      if (!a || !b || !d || !e) continue;
+      m.tri(a.dentro, a, b, d); m.tri(a.dentro, a, d, e);
+    }
+  },
+
+  // OS TUFOS: pontas de cabelo deitadas para trás, por cima da touca — `pontas`: [volta,
+  // lado, altura] de cada uma (graus no crânio, cm). `deita`: quantos graus caem para trás
+  // (0 = de pé); `largura` e `base`: a meia largura e o meio comprimento do pé.
+  tufos(m, c, { pontas, deita = 55, largura = 1.6, base = 2.8 }) {
+    if (c.elmo) return;
+    const ca = Math.cos((deita * Math.PI) / 180), sa = Math.sin((deita * Math.PI) / 180);
+    naCabeca(m, c, (r) => {
+      pontas.forEach(([volta, lado, altura], i) => {
+        const h = c.noCranio(direcao(volta, lado));
+        if (!h) return;
+        // para onde a volta anda (da testa para a nuca), rente ao couro, e o lado
+        const a = (volta * Math.PI) / 180, tras = new THREE.Vector3(0, Math.cos(a), -Math.sin(a));
+        tras.addScaledVector(h.n, -tras.dot(h.n)).normalize();
+        const eixo = h.n.clone().multiplyScalar(ca).addScaledVector(tras, sa);
+        const A = new THREE.Vector3().crossVectors(h.n, tras).multiplyScalar(largura), B = tras.clone().multiplyScalar(base);
+        tubo(r, [
+          { c: h.q.clone().addScaledVector(h.n, -AFUNDA), a: A, b: B, cor: c.tom(0.74), w: c.CABECA },
+          { c: h.q.clone().addScaledVector(eixo, altura * 0.45), a: A.clone().multiplyScalar(0.72), b: B.clone().multiplyScalar(0.6), cor: c.tom(1), w: c.CABECA },
+          { c: h.q.clone().addScaledVector(eixo, altura), a: ZERO, b: ZERO, cor: c.tom(i % 2 ? 1.3 : 1.2), w: c.CABECA },
+        ], LOSANGO);
+      });
+    });
+  },
+
+  // A CAÍDA: a mecha que cai pela FRENTE do ombro (a de um `lado`: 1 ou −1). Nasce atrás da
+  // orelha (`raiz`: [volta, lado] no crânio), passa pelos pontos `solta` ([x, y, z] do lado
+  // +x, presos à cabeça) e, do ombro (`de`) para baixo, POUSA no corpo pela frente — em `x`,
+  // chegando `abre` cm mais para fora (ou para dentro) na ponta — até a altura `ate`. Onde o
+  // corpo recua debaixo dela (abaixo do busto) ela não volta: cai a PRUMO (`prumo`: quanto
+  // pode recuar a cada cm que desce). É uma CAUDA AMARRADA (`cauda`): `gomos`, `ferro`.
+  caida(m, c, { lado = 1, raiz, solta, x, abre = 0, de = 151, ate, raio, gomos = 3, ferro = true, achata = 0.86, prumo = 0.12 }) {
+    const R = raio * c.k, linha = [];
+    if (!c.elmo) {
+      const h = c.noCranio(direcao(raiz[0], raiz[1] * lado));
+      if (h) for (const d of [-AFUNDA, raio * 0.5]) linha.push({ p: c.firme(h.q.clone().addScaledVector(h.n, d)), w: c.CABECA });
+      for (const [sx, sy, sz] of solta) linha.push({ p: c.firme(new THREE.Vector3(sx * lado, sy, sz)), w: c.CABECA });
+    }
+    let z = -Infinity, antes = null;
+    for (let y = de; y > ate - 1; y -= 3) {
+      const s = c.pousar((x + (abre * (de - y)) / (de - ate)) * lado, y, true);
+      if (!s) continue;
+      let frente = s.p.z + (R * achata + FOLGA) / Math.max(0.55, s.n.z);
+      if (antes !== null) frente = Math.max(frente, z - prumo * Math.max(0, antes - s.p.y));
+      z = frente; antes = s.p.y;
+      linha.push({ p: s.p.setZ(frente), w: s.w });
+    }
+    cauda(m, c, linha, { raio, gomos, ferro, achata });
+  },
+
+  // O FIAPO: um fio fino solto à frente da orelha, da têmpora ao maxilar — `pontos`: [x, y,
+  // z] (do lado +x), cada um preso à pele do rosto (o ÍMÃ) à distância a que foi desenhado.
+  fiapo(m, c, { lado = 1, pontos, raio = 0.62 }) {
+    if (c.elmo) return;
+    const linha = [];
+    for (const [x, y, z] of pontos) { const ima = c.ima(new THREE.Vector3(x * lado, y, z)); if (ima) linha.push({ p: c.aDistancia(ima, ima.d), w: ima.w }); }
+    fio(m, c, linha, { raio, achata: 0.8, larg: 1 });
+  },
+
   // O RECORTE: as `partes` da barba do MODELO (o bigode, o queixo, o maxilar, a costeleta),
   // cada ponto preso à pele do rosto (o ÍMÃ: `c.naPele`). `folga`: quanto a camada de fora
   // sai a mais (a barba mais cheia) — com ELMO fica rente, como a do modelo, que cabe dentro
@@ -389,13 +517,11 @@ const FORMAS = {
 };
 
 /**
- * O FIO: o tubo ao longo de uma linha de pontos já nas proporções da raça ({ p, w: os
- * pesos, f: quanto alarga ali }) — o rabo (engrossa ao sair, ondula e afina), a TRANÇA
- * (`elo`: o comprimento de cada gomo), com a `argola` de osso antes da ponta, ou a CUNHA
- * (larga no começo, afinando até a ponta).
+ * O TRILHO de um fio: a linha de pontos medida. `em(s)`: o ponto (e os pesos dele) a `s` cm
+ * do começo; `est`: uma estação do tubo ali — a seção deitada de lado (larga em x, achatada
+ * contra o corpo); `quadro`: os eixos dela (`t` ao longo do fio, `u` de lado, `v`).
  */
-function fio(m, c, linha, { raio, elo = 0, argola = false, achata = 0.72, larg = 1.15, cunha = false }) {
-  if (linha.length < 2) return;
+function trilho(c, linha, raio, achata, larg) {
   const R = raio * c.k;   // (a grossura acompanha o tamanho da cabeça)
   // a linha medida: um ponto (e os pesos dele) a `s` cm do começo
   const comp = [0];
@@ -414,6 +540,58 @@ function fio(m, c, linha, { raio, elo = 0, argola = false, achata = 0.72, larg =
     const u = X.clone().addScaledVector(t, -t.x).normalize(), v = new THREE.Vector3().crossVectors(u, t);
     return { c: p.addScaledVector(u, desvio * R), a: u.multiplyScalar(q * R * larg * f), b: v.multiplyScalar(q * R * achata), cor, w };
   };
+  const quadro = (s) => {
+    const { p, w, f } = em(s), t = em(s + 1).p.sub(em(s - 1).p).normalize(), u = X.clone().addScaledVector(t, -t.x).normalize();
+    return { p, w, f, t, u, v: new THREE.Vector3().crossVectors(u, t) };
+  };
+  return { R, total, em, est, quadro };
+}
+
+/**
+ * A CAUDA AMARRADA (as tranças de guerra): o rabo grosso preso em `gomos` por voltas de
+ * couro, com a argola de FERRO de pontas (`ferro`; sem ele, mais uma volta de couro) e o
+ * tufo desfiado no fim (`ponta`: o comprimento dele, cm).
+ */
+function cauda(m, c, linha, { raio, gomos = 3, ferro = true, achata = 0.86, larg = 1.05, ponta = 8.5 }) {
+  if (linha.length < 2) return;
+  const { R, total, est, quadro } = trilho(c, linha, raio, achata, larg);
+  const k = c.k, argola = 2.4 * k, amarra = 1.2 * k, corpo = Math.max(total * 0.5, total - ponta * k - argola), L = corpo / gomos;
+  const couro = new THREE.Color(FAIXA), metal = new THREE.Color(ferro ? FERRO : FAIXA), lista = [est(0, 0.6, c.tom(0.7))];
+  for (let i = 0; i < gomos; i++) {
+    const a = i * L, b = a + L, f = 1 - 0.1 * (i / Math.max(1, gomos - 1)), fim = i === gomos - 1;
+    // o gomo: cheio no meio, fino onde a amarra aperta
+    lista.push(est(a + (L - amarra) * 0.5, f, c.tom(1.1)), est(b - (fim ? 0 : amarra), 0.7 * f, c.tom(0.84)));
+    if (fim) break;
+    // a amarra: uma volta de couro (estações repetidas: a cor não escorre para o cabelo)
+    lista.push(est(b - amarra, 0.79 * f, couro), est(b, 0.79 * f, couro), est(b, 0.7 * f, c.tom(0.8)));
+  }
+  // a argola e o tufo da ponta (abre e afina)
+  const q = 0.88, resto = total - corpo - argola;
+  lista.push(est(corpo, q, metal), est(corpo + argola, q, metal));
+  lista.push(est(corpo + argola, 0.62, c.tom(0.82)), est(corpo + argola + resto * 0.42, 0.9, c.tom(1.06)), est(total, 0, c.tom(1.28)));
+  tubo(m, lista, HEXAGONO, [true, false]);
+  if (!ferro) return;
+  // as PONTAS da argola: três pirâmides viradas para fora (para a frente e para os dois lados)
+  const { p, u, v, t, w, f } = quadro(corpo + argola * 0.5), claro = new THREE.Color(FERRO_CLARO);
+  for (const graus of [-62, 0, 62]) {
+    const g = (graus * Math.PI) / 180, fora = u.clone().multiplyScalar(Math.sin(g)).addScaledVector(v, -Math.cos(g));
+    const pe = p.clone().addScaledVector(u, Math.sin(g) * q * R * larg * f).addScaledVector(v, -Math.cos(g) * q * R * achata);
+    tubo(m, [
+      { c: pe.clone().addScaledVector(fora, -0.3 * k), a: t.clone().multiplyScalar(0.62 * k), b: new THREE.Vector3().crossVectors(fora, t).multiplyScalar(0.62 * k), cor: metal, w },
+      { c: pe.clone().addScaledVector(fora, 1.7 * k), a: ZERO, b: ZERO, cor: claro, w },
+    ], LOSANGO);
+  }
+}
+
+/**
+ * O FIO: o tubo ao longo de uma linha de pontos já nas proporções da raça ({ p, w: os
+ * pesos, f: quanto alarga ali }) — o rabo (engrossa ao sair, ondula e afina), a TRANÇA
+ * (`elo`: o comprimento de cada gomo), com a `argola` de osso antes da ponta, ou a CUNHA
+ * (larga no começo, afinando até a ponta).
+ */
+function fio(m, c, linha, { raio, elo = 0, argola = false, achata = 0.72, larg = 1.15, cunha = false }) {
+  if (linha.length < 2) return;
+  const { total, est } = trilho(c, linha, raio, achata, larg);
   const ponta = argola ? 7.5 * c.k : 0, corpo = total - ponta, lista = [];
   if (elo) {
     // a TRANÇA: gomos — fina na emenda, grossa no meio, um para cada lado
@@ -450,7 +628,8 @@ const FRENTE = new THREE.Vector3(0, 0, 1), TRAS = new THREE.Vector3(0, 0, -1);
  *  - `apoio`: as peças em que a mecha e o pendente podem pousar (o tronco, o pescoço, a
  *    armadura do peito); `pecaDaBarba`: a peça `Beard` do modelo (a matéria do recorte);
  *    `pecaDaSobrancelha`: a `Eye_Brows`; `pecaDoRosto`: a `Face` — a pele a que a barba e
- *    as sobrancelhas são presas;
+ *    as sobrancelhas são presas; `pecaDaCabeca`: a `head` — com a `Face`, o crânio em que
+ *    a touca e os tufos assentam;
  *  - `ordem`, `deformador`, `escala`: os ossos do esqueleto único, a conta da raça para um
  *    ponto (raca.js `deformadorDe`) e o tamanho da cabeça dela; `rosto`: o que a raça faz ao
  *    rosto antes dos ossos — a arcada, o queixo (`rostoDaRaca`, ou null); `largo`: o quanto
@@ -458,11 +637,11 @@ const FRENTE = new THREE.Vector3(0, 0, 1), TRAS = new THREE.Vector3(0, 0, -1);
  *  - `modelo`: uma geometria já pronta da malha fundida (os atributos saem do mesmo tipo:
  *    o `mergeGeometries` recusa tipos diferentes); `mapa`: a textura do corpo.
  */
-export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, pecaDaBarba, pecaDaSobrancelha, pecaDoRosto, ordem, deformador, escala, rosto, largo, modelo, mapa }) {
+export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, pecaDaBarba, pecaDaSobrancelha, pecaDoRosto, pecaDaCabeca, ordem, deformador, escala, rosto, largo, modelo, mapa }) {
   const formas = [...(PENTEADOS[id]?.formas ?? []), ...(BARBAS[barba]?.formas ?? []), ...(SOBRANCELHAS[sobrancelha]?.formas ?? [])];
   if (!formas.length) return null;
   const base = new THREE.Color(cor ?? COR_PADRAO), cabeca = Math.max(0, ordem.indexOf('Head'));
-  let tris = null, daBarba = null, daSobrancelha = null, pele = null;
+  let tris = null, daBarba = null, daSobrancelha = null, pele = null, cranio = null, quinas = null;
   // um canto da malha como a raça o deixa (as proporções), e o do ROSTO (antes, a arcada e o queixo)
   const movido = (k) => deformador(k.p.clone(), k.o, k.w);
   const doRosto = (k) => deformador(rosto ? rosto(k.p.clone()) : k.p.clone(), k.o, k.w);
@@ -497,6 +676,26 @@ export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, 
       const e = pouso(1, y, frente), d = pouso(-1, y, frente);
       if (!e || !d) return e ?? d;
       return { p: e.p.add(d.p).multiplyScalar(0.5).setX(0), n: e.n.add(d.n).normalize(), w: misturar([[e.w, 0.5], [d.w, 0.5]]) };
+    },
+    // o ímã de um ponto do modelo (ver `imaDe`)
+    ima: (p) => imaDe(p),
+    // O CRÂNIO (as peças `head` e `Face`): onde um raio saído do meio da cabeça encontra o
+    // couro — { q, n: o ponto e a normal lisa, no modelo; w: os ossos dali; p(folga): o
+    // ponto como a raça o deixa, `folga` cm para fora (do tamanho da cabeça) }
+    noCranio(dir) {
+      const g = raioDe(cranio ??= triangulosDe([pecaDaCabeca, pecaDoRosto].filter(Boolean), ordem), CENTRO, dir);
+      if (!g) return null;
+      const n = normalLisa(g);
+      return { q: CENTRO.clone().addScaledVector(dir, g.t), t: g.t, n, w: pesos(g), p: (folga) => lugar(g, doRosto).p.addScaledVector(n, folga * escala) };
+    },
+    // os pontos do crânio (um por lugar), no modelo
+    pontosDoCranio() {
+      if (!quinas) {
+        const vistos = new Map();
+        for (const tri of (cranio ??= triangulosDe([pecaDaCabeca, pecaDoRosto].filter(Boolean), ordem))) for (const k of tri) vistos.set(`${k.p.x.toFixed(2)},${k.p.y.toFixed(2)},${k.p.z.toFixed(2)}`, k.p);
+        quinas = [...vistos.values()];
+      }
+      return quinas;
     },
     // a pele do ROSTO (a peça `Face`: é presa à cabeça — pelo pescoço, a barba esticaria ao virar o rosto)
     pele: () => pele ??= pecaDoRosto ? triangulosDe([pecaDoRosto], ordem) : [],

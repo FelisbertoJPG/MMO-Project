@@ -37,8 +37,9 @@ export const PELES = [
   // (tons pensados para a luz do jogo: a paleta original do modelo é #f8bb7f)
   ['Original', null], ['Clara', '#ffcfa0'], ['Morena clara', '#e8ae80'], ['Morena', '#cf9061'], ['Parda', '#ad7148'], ['Negra', '#80523a'],
 ];
+// (a ORDEM é o número no save, o 3º dígito: cor nova entra no FIM — no máximo 10)
 export const CABELOS = [
-  ['Original', null], ['Preto', '#1e1712'], ['Castanho', '#4b2f1b'], ['Castanho claro', '#7b4c27'], ['Loiro', '#c99f5c'], ['Ruivo', '#a3431f'], ['Grisalho', '#8c8a86'], ['Branco', '#e6e0d2'],
+  ['Original', null], ['Preto', '#1e1712'], ['Castanho', '#4b2f1b'], ['Castanho claro', '#7b4c27'], ['Loiro', '#c99f5c'], ['Ruivo', '#a3431f'], ['Grisalho', '#8c8a86'], ['Branco', '#e6e0d2'], ['Vinho', '#74202a'],
 ];
 export const OLHOS = [
   ['Original', null], ['Azuis', '#3f6fb8'], ['Verdes', '#4a8c4c'], ['Castanhos', '#6a4528'], ['Cinzentos', '#8a8f9c'],
@@ -116,7 +117,9 @@ export function tingir(peca, codigo) {
   let hex = null, escolhe = null;
   const uv = peca.geometry.attributes.uv;
   if (!uv) return peca;
-  if (PECAS_DE_PELE.includes(nome) && pele) { hex = pele; escolhe = (i) => naPele(uv.getX(i), uv.getY(i)); }
+  // (`peca.pele`: uma peça de pele que a raça acrescentou — o busto, raca.js)
+  const dePele = PECAS_DE_PELE.includes(nome) || !!peca.pele;
+  if (dePele && pele) { hex = pele; escolhe = (i) => naPele(uv.getX(i), uv.getY(i)); }
   else if (nome === 'Eyes' && olhos) {
     hex = olhos;
     const px0 = lerTextura(peca.material?.map);
@@ -132,7 +135,7 @@ export function tingir(peca, codigo) {
       // a pele: UMA razão para todas as peças de pele (senão cada peça sairia num tom
       // diferente); o resto, a média da própria peça
       let r;
-      if (PECAS_DE_PELE.includes(nome)) {
+      if (dePele) {
         tingidas.razaoPele ??= new Map();
         r = tingidas.razaoPele.get(hex) ?? null;
         if (!r) { r = razao(px, uv, escolhe, hex); tingidas.razaoPele.set(hex, r); }

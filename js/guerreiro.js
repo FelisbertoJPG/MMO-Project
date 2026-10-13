@@ -92,7 +92,8 @@ const LUGAR_DA_PECA = [['cabeca', /Helmet/i], ['bracos', /Forearm/i], ['pernas',
 export const lugarDaPeca = (nome) => LUGAR_DA_PECA.find(([, re]) => re.test(nome))?.[0] ?? 'peito';
 // onde o cabelo que cai pelas costas pode POUSAR (penteado.js): o pescoço e o tronco — e a
 // armadura do peito, que se soma em `vestir`
-const APOIO = /^(neck|Trapezius|Shoulder|Upper_Torso|Lower_Torso|hips)(_tingido)?$/;
+// (… e o busto e o top da raça, raca.js: as mechas que caem pela frente pousam neles)
+const APOIO = /^(neck|Trapezius|Shoulder|Upper_Torso|Lower_Torso|hips)(_tingido)?$|^(busto|top)_/;
 // AS ARMADURAS PINTADAS (casca.js, assets/armaduras.json): o lugar + conjunto que tem
 // desenho NÃO usa as peças do pacote, e sim a casca pintada sobre o corpo
 
@@ -332,19 +333,23 @@ export class CorpoGuerreiro {
     const elmo = usadas.some((o) => ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'cabeca') || !!desenho('cabeca', armadura[0]);
     // os nossos desenhos entram como mais peças da malha fundida
     LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas)); });
-    // o que a RAÇA acrescenta (as presas do orc)
-    if (this.raca) usadas.push(...pecasDaRaca(this.raca, this.pecas, elmo));
     // a APARÊNCIA: as peças de pele e de olhos tingidas
     if (aparenciaValida(aparencia)) for (let i = usadas.length - 1; i >= 0; i--) {
       if (!usadas[i].isSkinnedMesh) continue;
       const t = tingir(usadas[i], aparencia);
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
+    // o que a RAÇA acrescenta (as presas do orc; o busto e o top do corpo feminino — só no
+    // peito nu). O que é PELE (o busto) é tingido como ela — DEPOIS das peças do corpo: a
+    // razão da cor da pele é uma só, e quem a mede são elas
+    if (this.raca) for (const o of pecasDaRaca(this.raca, this.pecas, elmo, armadura[LUGARES.indexOf('peito')] !== '0')) {
+      usadas.push(o.pele && aparenciaValida(aparencia) ? tingir(o, aparencia) : o);
+    }
     // o PENTEADO, a BARBA e as SOBRANCELHAS (penteado.js): desenhados em código ao fundir o corpo
     const ap = lerAparencia(aparencia), cabelo = penteadoDe(this.raca, ap.cabelo), barba = barbaDe(this.raca, ap.barba), sobrancelha = sobrancelhaDe(this.raca, ap.sobrancelha), doPeito = desenho('peito', armadura[LUGARES.indexOf('peito')]);
     const peca = (nome) => this.pecas.find((o) => o.name === nome);
     const penteado = PENTEADOS[cabelo]?.formas || BARBAS[barba]?.formas || SOBRANCELHAS[sobrancelha]?.formas ? {
-      id: cabelo, barba, sobrancelha, cor: CABELOS[ap.cor][1], elmo, pecaDaBarba: peca('Beard'), pecaDaSobrancelha: peca('Eye_Brows'), pecaDoRosto: peca('Face'),
+      id: cabelo, barba, sobrancelha, cor: CABELOS[ap.cor][1], elmo, pecaDaBarba: peca('Beard'), pecaDaSobrancelha: peca('Eye_Brows'), pecaDoRosto: peca('Face'), pecaDaCabeca: peca('head'),
       apoio: usadas.filter((o) => APOIO.test(o.name) || (ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'peito') || (doPeito && o.name.startsWith(`casca_${doPeito.id}_`))),
     } : null;
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)

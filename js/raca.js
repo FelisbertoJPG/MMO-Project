@@ -48,6 +48,12 @@
  * ao canto do maxilar); `presasAltura`, de que altura do rosto nascem. O PÉ de cada uma é
  * preso à PELE do rosto pelo ÍMÃ (ima.js): onde quer que as réguas a ponham, nasce da malha.
  *
+ * O BUSTO (`pecasDoBusto`, `BUSTO`, `TOP`): o peito do modelo é o de um homem, e são poucos
+ * triângulos — não há o que esticar. `busto` (0 = sem, o padrão) ACRESCENTA os dois seios,
+ * peças novas de pele assentadas no peito (presas aos ossos dele), e o TOP de couro que os
+ * veste: os bojos, a faixa por baixo e as alças. Só no peito NU: com armadura no peito, não
+ * entram (ela os cobre).
+ *
  * AS ORELHAS (`moldarPeca`, `ORELHA`): NÃO se acrescenta orelha — o modelo já tem uma (uma
  * abinha na peça `Face`; um par a mais por cima dava quatro). `orelhas` ESTICA a que há: o
  * canto de cima e de fora dela é puxado para cima, para trás e para fora, até virar ponta.
@@ -65,7 +71,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { texelClaro } from './casca.js';
-import { triangulosDe, raio, grudar, lugar, normalLisa } from './ima.js';
+import { triangulosDe, raio, raioDe, grudar, lugar, normalLisa, pesos } from './ima.js';
 
 // [chave, rótulo, mínimo, máximo, padrão (1 se não diz), segue] — a tela Raças do editor
 // monta os controles por aqui. A LARGURA é o que se vê de FRENTE; a GROSSURA (o fundo), o
@@ -83,6 +89,7 @@ export const PROPORCOES = [
   ['ombrosGrossura', 'Ombros — grossura', 0.8, 1.8],
   ['peitoLargura', 'Peito — largura', 0.8, 1.6],
   ['peitoFundo', 'Peito — fundo', 0.8, 1.8],
+  ['busto', 'Busto (0 = sem)', 0, 2, 0],
   ['barrigaLargura', 'Barriga — largura', 0.8, 1.8],
   ['barrigaFrente', 'Barriga — para a frente', 0.8, 3],
   ['quadril', 'Quadril — largura', 0.8, 1.6],
@@ -217,11 +224,15 @@ function geometriaDasPresas(raca, rosto, cabeca, elmo) {
 }
 
 /**
- * As peças que a raça ACRESCENTA ao corpo (hoje, as presas), no formato da malha fundida
- * (`geometry`, `skeleton`, `material`, `name`). `pecas` são as do corpo do guerreiro;
- * `elmo`: há elmo (as presas não se afastam).
+ * As peças que a raça ACRESCENTA ao corpo (as presas; o busto e o top), no formato da malha
+ * fundida (`geometry`, `skeleton`, `material`, `name`). `pecas` são as do corpo do
+ * guerreiro; `elmo`: há elmo (as presas não se afastam); `peitoVestido`: há armadura no
+ * peito (o busto e o top não entram: ela os cobre).
  */
-export function pecasDaRaca(raca, pecas, elmo = false) {
+export function pecasDaRaca(raca, pecas, elmo = false, peitoVestido = false) {
+  return [...pecasDasPresas(raca, pecas, elmo), ...(peitoVestido ? [] : pecasDoBusto(raca, pecas))];
+}
+function pecasDasPresas(raca, pecas, elmo) {
   const p = proporcoesDe(raca), cabeca = pecas.find((o) => o.name === 'head');
   if (!(p.presas > 0.01) || !cabeca?.geometry.attributes.uv) return [];
   const chave = [p.presas, p.presasAfastadas, p.presasAltura, p.queixo, p.arcada, p.arcadaLargura, elmo ? 1 : 0].join('|');
@@ -231,6 +242,121 @@ export function pecasDaRaca(raca, pecas, elmo = false) {
     presas.set(chave, geometriaDasPresas(raca, pecas.find((o) => o.name === 'Face'), cabeca, elmo));
   }
   return [{ name: 'presas', geometry: presas.get(chave), skeleton: cabeca.skeleton, material: cabeca.material, bindMatrix: cabeca.bindMatrix }];
+}
+
+// ------------------------------------------------------------ o busto e o top
+// OS SEIOS (cm, pose T; o do lado +x — o outro é o espelho): cada um é uma cúpula facetada
+// assentada no peito. O pé dela é uma elipse em volta de (`x`, `y`), de meia largura `rx` e
+// alturas `cima` e `baixo` (cai mais depressa por baixo); o cume fica `cai` cm abaixo do
+// meio e sai `fundo` cm do peito. `busto` (a régua) multiplica o fundo e, pela raiz, o pé.
+// A cúpula: `lados` gomos em volta e os anéis `aneis` (frações do pé), cada um na altura
+// `perfil` (fração do fundo). O pé entra `afunda` cm na pele (não fica fresta).
+export const BUSTO = { x: 8.6, y: 129.6, rx: 7.8, cima: 8.4, baixo: 6.4, fundo: 5.8, cai: 1.6, lados: 8, aneis: [0.42, 0.78, 1], perfil: [0.94, 0.6, 0], afunda: 0.35 };
+// O TOP de couro: os BOJOS são os triângulos da cúpula, `folga` cm para fora — todos, menos a
+// JANELA do colo: `janela` são [gomo, anel] — o gomo (0 = o lado de fora, contando para cima e
+// para dentro) fica nu desse anel para fora (0 = o do cume): a beira de cima do bojo desce em
+// degraus do alto do seio até o meio do peito. A FAIXA dá a volta no tronco na altura
+// `faixa` (meia altura `meia`), e as ALÇAS sobem do alto de cada bojo, passam pelo ombro e
+// descem pelas costas até ela.
+export const TOP = { folga: 0.4, janela: [[2, 2], [3, 1]], faixa: 122.4, meia: 1.25, voltas: 28, alca: 0.8, passos: 15, cores: ['#6e4528', '#4a2c18', '#8a5a34'] };
+const PELE_UV = [0.4, 0.31];   // um ponto da faixa de pele da paleta do modelo (a pele é de uma cor só; a aparência a tinge)
+const bustos = new Map();
+function pecasDoBusto(raca, pecas) {
+  const b = proporcoesDe(raca).busto, tronco = pecas.find((o) => o.name === 'Upper_Torso');
+  if (!(b > 0.01) || !tronco?.geometry.attributes.uv) return [];
+  const chave = b.toFixed(3);
+  if (!bustos.has(chave)) {
+    if (bustos.size > 40) { for (const par of bustos.values()) for (const g of par) g.dispose(); bustos.clear(); }
+    bustos.set(chave, geometriasDoBusto(b, pecas, tronco));
+  }
+  const [pele, couro] = bustos.get(chave), base = { skeleton: tronco.skeleton, material: tronco.material, bindMatrix: tronco.bindMatrix };
+  // (`pele`: a aparência tinge a peça como o resto da pele — aparencia.js `tingir`)
+  return [{ name: `busto_${chave}`, geometry: pele, pele: true, ...base }, { name: `top_${chave}`, geometry: couro, ...base }];
+}
+function geometriasDoBusto(b, pecas, tronco) {
+  const o = BUSTO, T = TOP, tam = Math.sqrt(b), fundo = o.fundo * b;
+  // o corpo em que tudo assenta (todas as peças têm o mesmo esqueleto: os ossos são os da peça)
+  const torso = triangulosDe(['Upper_Torso', 'Trapezius', 'Lower_Torso', 'Shoulder', 'neck'].map((n) => pecas.find((x) => x.name === n)).filter(Boolean));
+  const naPele = (x, y) => {
+    const g = raio(torso, x, y, true) ?? grudar(torso, new THREE.Vector3(x, y, 14));
+    return { q: new THREE.Vector3().addScaledVector(g.tri[0].p, g.bar[0]).addScaledVector(g.tri[1].p, g.bar[1]).addScaledVector(g.tri[2].p, g.bar[2]), w: pesos(g) };
+  };
+  const pele = [], couro = [];   // os cantos, de três em três: { p, w, cor }
+  const tri = (lista, dentro, a, c2, d, cor) => {
+    const n = new THREE.Vector3().subVectors(c2.p, a.p).cross(new THREE.Vector3().subVectors(d.p, a.p));
+    if (n.lengthSq() < 1e-8) return;
+    const fora = new THREE.Vector3().add(a.p).add(c2.p).add(d.p).multiplyScalar(1 / 3).sub(dentro);
+    for (const k of n.dot(fora) < 0 ? [a, d, c2] : [a, c2, d]) lista.push({ p: k.p, w: k.w, cor });
+  };
+  const cor = T.cores.map((h) => new THREE.Color(h));
+  for (const lado of [1, -1]) {
+    // ---- a cúpula: o cume e os anéis (o do lado −x é o espelho: os mesmos números, o x trocado)
+    const ponto = (r, j, h) => {
+      const a = (j / o.lados) * Math.PI * 2, sx = Math.cos(a), sy = Math.sin(a);
+      const x = o.x + o.rx * tam * r * sx, y = o.y - o.cai * (1 - r) + (sy > 0 ? o.cima : o.baixo) * tam * r * sy, s = naPele(x * lado, y);
+      return { p: new THREE.Vector3(x * lado, y, s.q.z + fundo * h - (r >= 1 ? o.afunda : 0)), w: s.w };
+    };
+    const cume = ponto(0, 0, 1), aneis = o.aneis.map((r, k) => Array.from({ length: o.lados }, (_, j) => ponto(r, j, o.perfil[k])));
+    const dentro = cume.p.clone().setZ(cume.p.z - fundo - 2);
+    // (o bojo: o mesmo triângulo, um pouco para fora do meio do seio)
+    const fora = (k) => ({ p: k.p.clone().add(k.p.clone().sub(dentro).normalize().multiplyScalar(T.folga)), w: k.w });
+    const noBojo = (j, anel) => !T.janela.some(([gomo, de]) => gomo === j && anel >= de);
+    const face = (a, c2, d, j, anel) => {
+      tri(pele, dentro, a, c2, d, null);
+      if (noBojo(j, anel)) tri(couro, dentro, fora(a), fora(c2), fora(d), cor[anel === 0 ? 2 : 0]);
+    };
+    for (let j = 0; j < o.lados; j++) {
+      const k = (j + 1) % o.lados;
+      face(cume, aneis[0][j], aneis[0][k], j, 0);
+      for (let a = 0; a < aneis.length - 1; a++) { face(aneis[a][j], aneis[a][k], aneis[a + 1][k], j, a + 1); face(aneis[a][j], aneis[a + 1][k], aneis[a + 1][j], j, a + 1); }
+    }
+    // ---- a alça: do alto do bojo, por cima do ombro, até a faixa nas costas (raios saídos de dentro do ombro)
+    const cx = o.x * lado, origem = new THREE.Vector3(cx, 136, -3), de = 12, ate = 224, tira = [];
+    for (let i = 0; i <= T.passos; i++) {
+      const a = ((de + ((ate - de) * i) / T.passos) * Math.PI) / 180, dir = new THREE.Vector3(0, Math.sin(a), Math.cos(a)), par = [];
+      for (const dx of [-T.alca, T.alca]) {
+        const g = raioDe(torso, origem.clone().setX(cx + dx), dir);
+        par.push(g && { p: origem.clone().setX(cx + dx).addScaledVector(dir, g.t + T.folga), w: pesos(g) });
+      }
+      if (par[0] && par[1]) tira.push(par);
+    }
+    for (let i = 0; i < tira.length - 1; i++) {
+      const [a, c2] = tira[i], [e, d] = tira[i + 1], meio = origem;
+      tri(couro, meio, a, c2, d, cor[1]); tri(couro, meio, a, d, e, cor[1]);
+    }
+  }
+  // ---- a faixa: uma volta no tronco, por baixo dos seios (raios saídos da coluna)
+  const eixo = new THREE.Vector3(0, T.faixa, -2), volta = [];
+  for (let i = 0; i < T.voltas; i++) {
+    const a = (i / T.voltas) * Math.PI * 2, dir = new THREE.Vector3(Math.sin(a), 0, Math.cos(a)), par = [];
+    for (const dy of [-T.meia, T.meia]) {
+      const g = raioDe(torso, eixo.clone().setY(T.faixa + dy), dir);
+      par.push(g && { p: eixo.clone().setY(T.faixa + dy).addScaledVector(dir, g.t + T.folga), w: pesos(g) });
+    }
+    volta.push(par[0] && par[1] ? par : null);
+  }
+  for (let i = 0; i < T.voltas; i++) {
+    const A = volta[i], B = volta[(i + 1) % T.voltas];
+    if (!A || !B) continue;
+    tri(couro, eixo, A[0], B[0], B[1], cor[1]); tri(couro, eixo, A[0], B[1], A[1], cor[1]);
+  }
+  // ---- as duas geometrias, com os atributos do MESMO tipo dos do tronco (o `mergeGeometries` recusa tipos diferentes)
+  const uvClaro = texelClaro(tronco.material?.map) ?? [0.5, 0.5];
+  const geometria = (cantos, uvDe, comCor) => {
+    const n = cantos.length, g = new THREE.BufferGeometry();
+    const igual = (nome) => { const m = tronco.geometry.attributes[nome]; return new THREE.BufferAttribute(new m.array.constructor(n * m.itemSize), m.itemSize, m.normalized); };
+    const pos = new THREE.BufferAttribute(new Float32Array(n * 3), 3), uv = igual('uv'), si = igual('skinIndex'), sw = igual('skinWeight'), corV = comCor ? new THREE.BufferAttribute(new Float32Array(n * 3), 3) : null;
+    cantos.forEach((k, i) => {
+      pos.setXYZ(i, k.p.x, k.p.y, k.p.z); uv.setXY(i, uvDe[0], uvDe[1]);
+      si.setXYZW(i, ...k.w.o); sw.setXYZW(i, ...k.w.p);
+      if (corV) corV.setXYZ(i, k.cor.r, k.cor.g, k.cor.b);
+    });
+    g.setAttribute('position', pos); g.setAttribute('uv', uv); g.setAttribute('skinIndex', si); g.setAttribute('skinWeight', sw);
+    if (corV) g.setAttribute('color', corV);
+    g.computeVertexNormals();   // sem índice: normal por face
+    return g;
+  };
+  return [geometria(pele, PELE_UV, false), geometria(couro, uvClaro, true)];
 }
 
 // ------------------------------------------------------------ as orelhas
