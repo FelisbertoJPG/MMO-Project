@@ -16,6 +16,8 @@
  * dígitos a mais (a raça, mesmo 0, e a sobrancelha) quando ela não é a de sempre.
  * Um 6º dígito, quando há, é a RAÇA (raca.js; sem ele, humano): ela pode mandar na cor
  * da pele e dos olhos e tirar o cabelo e a barba, e muda as proporções do corpo.
+ * Um 8º, o SEXO (0 = masculino, o de sempre; 1 = feminino — raca.js `racaDe`): só vai no
+ * código quando é 1 (aí a raça e a sobrancelha vão sempre).
  *
  * COMO SE PINTA: o modelo do guerreiro tem as cores numa TEXTURA (a paleta), e a cor de
  * vértice dele é branca. Cada vértice de pele/cabelo/barba/olho ganha uma cor de vértice
@@ -28,7 +30,7 @@
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
-import { racaDe } from './raca.js';
+import { racaDe, proporcoesDe, SEXOS, temFeminino } from './raca.js';
 import { penteadosDe, nomeDoPenteado, barbasDe, nomeDaBarba, sobrancelhasDe, nomeDaSobrancelha } from './penteado.js';
 
 export const PELES = [
@@ -42,19 +44,23 @@ export const OLHOS = [
   ['Original', null], ['Azuis', '#3f6fb8'], ['Verdes', '#4a8c4c'], ['Castanhos', '#6a4528'], ['Cinzentos', '#8a8f9c'],
 ];
 export const APARENCIA_PADRAO = '01010';
-const CODIGO = /^[0-9]{5,7}$/;
+const CODIGO = /^[0-9]{5,8}$/;
 
-/** Lê um código (ou o padrão, se torto): { pele, cabelo, cor, barba, olhos, raca, sobrancelha }. */
+/** Lê um código (ou o padrão, se torto): { pele, cabelo, cor, barba, olhos, raca, sobrancelha, sexo }. */
 export function lerAparencia(c) {
   const s = CODIGO.test(c ?? '') ? c : APARENCIA_PADRAO;
   const d = [...s].map(Number);
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1], cor: d[2] < CABELOS.length ? d[2] : 0,
-    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1,
+    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] === 1 ? 1 : 0,
   };
 }
-// (humano de sobrancelha normal: os 5 dígitos de sempre; a raça é o 6º; a sobrancelha que não é a do modelo pede os 7)
-export const codigoDaAparencia = (a) => `${a.pele}${a.cabelo}${a.cor}${a.barba}${a.olhos}${(a.sobrancelha ?? 1) === 1 ? a.raca || '' : `${a.raca || 0}${a.sobrancelha}`}`;
+// (humano de sobrancelha normal: os 5 dígitos de sempre; a raça é o 6º; a sobrancelha que não é a do modelo pede os 7; o feminino, os 8)
+export function codigoDaAparencia(a) {
+  const sobrancelha = a.sobrancelha ?? 1;
+  const cauda = a.sexo ? `${a.raca || 0}${sobrancelha}${a.sexo}` : sobrancelha === 1 ? a.raca || '' : `${a.raca || 0}${sobrancelha}`;
+  return `${a.pele}${a.cabelo}${a.cor}${a.barba}${a.olhos}${cauda}`;
+}
 export const aparenciaValida = (c) => CODIGO.test(c ?? '');
 
 // ------------------------------------------------------------ a textura
@@ -105,7 +111,7 @@ export function esquecerTingidas() { for (const g of tingidas.values()) g?.dispo
  * própria peça (nada a tingir nela).
  */
 export function tingir(peca, codigo) {
-  const a = lerAparencia(codigo), nome = peca.name, raca = racaDe(a.raca);
+  const a = lerAparencia(codigo), nome = peca.name, raca = racaDe(a.raca, a.sexo);
   const pele = raca?.pele ?? PELES[a.pele][1], olhos = raca?.olhos ?? OLHOS[a.olhos][1];
   let hex = null, escolhe = null;
   const uv = peca.geometry.attributes.uv;
@@ -145,9 +151,11 @@ export function tingir(peca, codigo) {
 }
 
 // ------------------------------------------------------------ o painel (o editor no jogo)
-// [chave, rótulo, as opções (dada a raça), some quando a raça manda nisso]
+// [chave, rótulo, as opções (dada a raça), some quando a raça manda nisso (dada a raça e a aparência)]
 const LINHAS = [
   ['raca', 'Raça', () => racasDoPainel().map((r) => r.nome), () => racasDoPainel().length < 2],
+  // (o sexo só aparece para a raça que TEM o corpo feminino no arquivo: raca.js)
+  ['sexo', 'Sexo', () => SEXOS, (r, a) => !temFeminino(a.raca)],
   ['pele', 'Pele', () => PELES.map((p) => p[0]), (r) => !!r?.pele],
   ['cabelo', 'Cabelo', (r) => ['Sem cabelo', ...penteadosDe(r).map(nomeDoPenteado)], (r) => !penteadosDe(r).length],
   ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0])],
@@ -173,7 +181,7 @@ export class EditorDeAparencia {
     document.getElementById('aparencia-sorte').addEventListener('click', () => {
       const r = (n) => Math.floor(Math.random() * n);
       // (a raça não entra no sorteio: é escolha)
-      const raca = racaDe(lerAparencia(game.player.aparencia).raca), penteados = penteadosDe(raca).length, barbas = barbasDe(raca).length, sobrancelhas = sobrancelhasDe(raca).length;
+      const agora = lerAparencia(game.player.aparencia), raca = racaDe(agora.raca, agora.sexo), penteados = penteadosDe(raca).length, barbas = barbasDe(raca).length, sobrancelhas = sobrancelhasDe(raca).length;
       this.mudar({ pele: 1 + r(PELES.length - 1), cabelo: penteados && Math.random() < 0.85 ? 1 + r(penteados) : 0, cor: 1 + r(CABELOS.length - 1), barba: barbas && Math.random() < 0.6 ? 1 + r(barbas) : 0, olhos: r(OLHOS.length), sobrancelha: sobrancelhas ? 1 + r(sobrancelhas) : 0 });
     });
     // a volta da vista: 0 = de frente para o rosto, π = as costas
@@ -194,21 +202,27 @@ export class EditorDeAparencia {
   fechar() { this.el.classList.add('hidden'); }
 
   mudar(parcial) {
-    const p = this.game.player, a = { ...lerAparencia(p.aparencia), ...parcial };
-    // (trocou de raça: o número do cabelo e o da barba são o lugar na lista DELA — o que passa do fim vale o último)
-    a.cabelo = Math.min(a.cabelo, penteadosDe(racaDe(a.raca)).length);
-    a.barba = Math.min(a.barba, barbasDe(racaDe(a.raca)).length);
-    a.sobrancelha = Math.min(a.sobrancelha, sobrancelhasDe(racaDe(a.raca)).length);
+    const p = this.game.player, antes = lerAparencia(p.aparencia), a = { ...antes, ...parcial };
+    // (trocou de raça: o sexo só vale se ela tem o corpo)
+    if (!temFeminino(a.raca)) a.sexo = 0;
+    // O número do cabelo, da barba e da sobrancelha é o lugar na lista de CADA raça (e de cada
+    // corpo dela). Trocou de raça ou de sexo: fica o MESMO corte, se o outro o tem (a "Longa"
+    // é a 8ª do humano e a 6ª do orc); senão, o que passa do fim da lista vale o último
+    const de = racaDe(antes.raca, antes.sexo), raca = racaDe(a.raca, a.sexo);
+    for (const [k, lista] of [['cabelo', penteadosDe], ['barba', barbasDe], ['sobrancelha', sobrancelhasDe]]) {
+      const nova = lista(raca), id = !(k in parcial) && a[k] > 0 ? lista(de)[a[k] - 1] : null;
+      a[k] = (id ? nova.indexOf(id) + 1 : 0) || Math.min(a[k], nova.length);
+    }
     p.aparencia = codigoDaAparencia(a);
     p.refreshEquipment();
     this.desenhar();
   }
 
   desenhar() {
-    const a = lerAparencia(this.game.player.aparencia), raca = racaDe(a.raca), racas = racasDoPainel();
+    const a = lerAparencia(this.game.player.aparencia), raca = racaDe(a.raca, a.sexo), racas = racasDoPainel();
     this.lista.innerHTML = '';
     for (const [k, rotulo, opcoes, some] of LINHAS) {
-      if (some?.(raca)) continue;
+      if (some?.(raca, a)) continue;
       const ops = opcoes(raca), linha = document.createElement('div');
       // a raça anda pela lista das jogáveis (o número dela é o lugar no arquivo, não na lista)
       const agora = k === 'raca' ? Math.max(0, racas.findIndex((r) => r.n === a.raca)) : a[k];
@@ -224,11 +238,12 @@ export class EditorDeAparencia {
 
   /**
    * a câmera de frente para o rosto (chamada no laço, depois da câmera de sempre), girada
-   * pelo arrasto; indo para as costas ela se afasta e desce um pouco, para caber a trança
+   * pelo arrasto; indo para as costas ela se afasta e desce um pouco, para caber a trança.
+   * A altura é a do rosto da RAÇA (o orc é mais alto: a câmera ficava no queixo dele)
    */
   camera(cam) {
-    const p = this.game.player, f = p.facing + this.giro, atras = (1 - Math.cos(this.giro)) / 2;
-    const y = p.pos.y + 1.55 - 0.2 * atras, d = 1.25 + 0.7 * atras;
+    const p = this.game.player, f = p.facing + this.giro, atras = (1 - Math.cos(this.giro)) / 2, a = lerAparencia(p.aparencia);
+    const y = p.pos.y + 1.55 * proporcoesDe(racaDe(a.raca, a.sexo)).altura - 0.2 * atras, d = 1.25 + 0.7 * atras;
     cam.position.set(p.pos.x + Math.sin(f) * d - Math.cos(f) * 0.35, y + 0.08, p.pos.z + Math.cos(f) * d + Math.sin(f) * 0.35);
     cam.lookAt(p.pos.x - Math.cos(f) * 0.25, y - 0.05, p.pos.z + Math.sin(f) * 0.25);
   }

@@ -38,10 +38,10 @@ import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, ge
 // '0213' = sem elmo, peito da malha, braços de couro, pernas de placas (04/10/2026: a
 // armadura vem do EQUIPAMENTO; antes vinha do provador, inteira).
 // Depois de ':' vem a APARÊNCIA (aparencia.js: pele, cabelo, barba, olhos — 5 dígitos):
-// '0100:21310'. Sem ela, a do modelo. Um 6º dígito na aparência é a RAÇA (raca.js) e um 7º,
-// a SOBRANCELHA (penteado.js).
+// '0100:21310'. Sem ela, a do modelo. Um 6º dígito na aparência é a RAÇA (raca.js), um 7º, a
+// SOBRANCELHA (penteado.js), e um 8º, o SEXO (raca.js `racaDe`).
 export const NU = '0000';
-const CODIGO = /^[0-9]{4}(:[0-9]{5,7})?$/;
+const CODIGO = /^[0-9]{4}(:[0-9]{5,8})?$/;
 /** O corpo que veio da rede é válido? (os nomes de antes — 'nu', 'A1'… — ainda valem) */
 export const corpoValido = (c) => c === 'antigo' || CODIGO.test(c) || ['nu', 'A1', 'A2', 'A3'].includes(c);
 /** corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo; senão o código) */
@@ -289,8 +289,8 @@ export class CorpoGuerreiro {
     }
   }
 
-  /** a raça do código vestido (null = humano) */
-  get raca() { return racaDe(lerAparencia(this.armadura?.split(':')[1]).raca); }
+  /** a raça do código vestido, no corpo do sexo dele (null = o humano do modelo) */
+  get raca() { const a = lerAparencia(this.armadura?.split(':')[1]); return racaDe(a.raca, a.sexo); }
 
   // A raça nos ossos: a altura (a cena inteira, os pés no chão), os ossos afastados e o
   // tamanho das mãos. Devolve se a ALTURA ou as MÃOS mudaram — a pegada das armas depende

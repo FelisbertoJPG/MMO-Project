@@ -7,6 +7,15 @@
  * A raça é o 6º dígito da APARÊNCIA (aparencia.js): 0 (ou nenhum) = humano, n = a
  * n-ésima raça do arquivo — por isso a ORDEM do arquivo não muda (raça nova, no fim).
  *
+ * MASCULINO E FEMININO (o terreno, 12/10/2026): o 8º dígito da aparência é o SEXO (0 =
+ * masculino, 1 = feminino). O corpo FEMININO de uma raça é DADO: `feminino: { proporcoes,
+ * … }` dentro dela — e o do humano, em `humano.feminino`, ao lado de `racas` no arquivo
+ * (`Assets.humano`). É outro boneco inteiro: as proporções DELE, e o que mais mudar (a pele,
+ * `semBarba`, as listas); o que ele não diz vale o da raça. `racaDe(n, sexo)` devolve a raça
+ * já com esse corpo, e TUDO o que monta o boneco passa por ela — quem escreve código novo
+ * pede a raça por aí, com o sexo, e não precisa saber dele. Sem `feminino` no arquivo, a
+ * escolha não aparece para o jogador (`temFeminino`).
+ *
  * Uma raça: { id, nome, jogavel, pele, olhos, semCabelo, semBarba, penteados, barbas, sobrancelhas, proporcoes }.
  *  - `pele` / `olhos` ('#rrggbb' ou null): a cor é a da raça, e não a que o jogador escolheu;
  *  - `semCabelo` / `semBarba`: a peça sai;
@@ -95,8 +104,21 @@ export const PROPORCOES = [
   ['orelhas', 'Orelhas (esticadas)', 1, 3],
 ];
 
-/** A raça de número `n` (o dígito da aparência): null = humano, ou raça que não existe mais. */
-export const racaDe = (n) => (n > 0 ? Assets.racas?.[n - 1] ?? null : null);
+export const SEXOS = ['Masculino', 'Feminino'];
+// o corpo FEMININO da raça de número `n` (0 = o humano), ou undefined: não há
+const feminino = (n) => (n > 0 ? Assets.racas?.[n - 1]?.feminino : Assets.humano?.feminino);
+/** A raça de número `n` tem o corpo feminino? (só então o jogador escolhe o sexo) */
+export const temFeminino = (n) => !!feminino(n);
+/**
+ * A raça de número `n` (o dígito da aparência) no corpo do `sexo` (0 = masculino, 1 =
+ * feminino): de onde saem as proporções, as cores e as listas do boneco — ou null: o humano
+ * como o modelo é (ou raça que não existe mais). No feminino, a raça com o que o corpo
+ * `feminino` dela diz por cima (sem ele, a própria raça).
+ */
+export function racaDe(n, sexo = 0) {
+  const raca = n > 0 ? Assets.racas?.[n - 1] ?? null : null, f = sexo === 1 ? feminino(n) : null;
+  return f ? { ...raca, ...f, feminino: undefined } : raca;
+}
 /** As proporções completas de uma raça (o que falta, ou está torto, vale o padrão: o humano). */
 export function proporcoesDe(raca) {
   const p = {}, tem = raca?.proporcoes;

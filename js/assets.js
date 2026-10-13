@@ -106,15 +106,22 @@ export async function carregarArmaduras() {
   } catch { return []; }
 }
 
-/** As RAÇAS (assets/racas.json, raca.js): a lista, na ordem do arquivo ([] sem ele: só o humano). */
-export async function carregarRacas() {
+/**
+ * As RAÇAS (assets/racas.json, raca.js): { racas: a lista, na ordem do arquivo ([] sem ele:
+ * só o humano); humano: os OUTROS CORPOS do humano (hoje, `feminino`), ou null }.
+ */
+export async function lerRacas() {
   try {
     const r = await fetch('assets/racas.json', { cache: 'no-store' });
-    if (!r.ok) return [];
+    if (!r.ok) return { racas: [], humano: null };
     const j = await r.json();
-    return Array.isArray(j?.racas) ? j.racas.filter((x) => x && typeof x.id === 'string').slice(0, 9) : [];
-  } catch { return []; }
+    return {
+      racas: Array.isArray(j?.racas) ? j.racas.filter((x) => x && typeof x.id === 'string').slice(0, 9) : [],
+      humano: j?.humano && typeof j.humano === 'object' ? j.humano : null,
+    };
+  } catch { return { racas: [], humano: null }; }
 }
+export const carregarRacas = async () => (await lerRacas()).racas;
 
 async function carregarModelo(nome) {
   try {
@@ -278,6 +285,7 @@ export const Assets = {
   empunhadura: {},   // arma de duas mãos → os ajustes da pegada (assets/empunhadura.json; character.js)
   armaduras: [],     // as armaduras PINTADAS (assets/armaduras.json; casca.js, guerreiro.js)
   racas: [],         // as RAÇAS (assets/racas.json; raca.js): o guerreiro com outra cor e proporções
+  humano: null,      // os outros CORPOS do humano (`feminino`: raca.js `racaDe`), do mesmo arquivo
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
 
   async load(onProgress = () => {}) {
@@ -320,7 +328,7 @@ export const Assets = {
     const [mapa, decor] = await Promise.all([carregarMapa(), carregarDecor()]);
     this.empunhadura = await carregarEmpunhadura();
     this.armaduras = await carregarArmaduras();
-    this.racas = await carregarRacas();
+    ({ racas: this.racas, humano: this.humano } = await lerRacas());
     for (const clip of await Promise.all(ANIMACOES.map(carregarAnimacao))) if (clip) this.clips[clip.name] = clip;
     this.mapa = mapa; this.decor = decor.itens; this.grama = decor.grama;
     for (const [nome, m] of await Promise.all(MODELOS.map(async (n) => [n, await carregarModelo(n)]))) {
