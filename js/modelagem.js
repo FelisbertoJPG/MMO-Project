@@ -16,7 +16,9 @@
  *    armadura presa àqueles ossos vai junto;
  *  - por ORIGEM (o cabelo, a barba, as sobrancelhas, os olhos, as presas, o busto): o que foi
  *    desenhado à parte (`ORIGENS`, marcado por vértice ao fundir o corpo);
- *  - por LUGAR (as orelhas: a aba da peça `Face`, `ORELHA` do raca.js).
+ *  - por LUGAR (as orelhas: a aba da peça `Face`, `ORELHA` do raca.js; o busto: a pele em volta de
+ *    cada seio e o top, sumindo devagar até a costura — o seio é costurado no peito, e uma parte
+ *    que pegasse só ele abriria a costura).
  *
  * QUANDO: na malha FUNDIDA, depois das proporções da raça (guerreiro.js `geometriaFundida`)
  * — o que se vê na aba é o que se ajusta. Só a malha muda: os ossos ficam, e as animações
@@ -33,10 +35,13 @@
  *     O CENTRO é guardado como um ponto do MODELO (`em`: antes da raça) e achado de novo a
  *     cada montagem — o triângulo mais perto dele, entre os da mesma origem (`de`) — e o
  *     pincel age onde esse lugar foi parar: mudar as réguas da raça depois não o tira dali.
+ *     Puxão feito na pele do peito DEBAIXO de um seio (`sobOBusto`, raca.js `sobOBustoDe`) não faz
+ *     nada: a costura tira essa pele (`torsoCosturado`), e com armadura no peito ela fica debaixo
+ *     da armadura — os puxões que eram dela (feitos quando o seio era posto em cima) furavam as duas.
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
-import { temFeminino, ORELHA } from './raca.js';
+import { temFeminino, ORELHA, BUSTO } from './raca.js';
 import { pertoNoTriangulo } from './ima.js';
 
 // o que cada pedaço da malha fundida é (o código de cada vértice em `ctx.origem`)
@@ -61,7 +66,7 @@ export const PARTES = [
   { id: 'pescoco', nome: 'Pescoço', ossos: /^Neck$/, pivo: ['Neck'] },
   { id: 'ombros', nome: 'Ombros', ossos: /^Collar[LR]$/, pivo: ['CollarL', 'CollarR'], lados: true },
   { id: 'peito', nome: 'Peito', ossos: /^Spine(001)?$/, pivo: ['Spine001'] },
-  { id: 'busto', nome: 'Busto e top', origem: 'busto', lados: true },
+  { id: 'busto', nome: 'Busto e top', lugar: 'busto', lados: true },
   { id: 'barriga', nome: 'Barriga', ossos: /^Spine00[23]$/, pivo: ['Spine003'] },
   { id: 'quadril', nome: 'Quadril', ossos: /^Hips$/, pivo: ['Hips'] },
   { id: 'bracos', nome: 'Braços', ossos: /^Arm[LR]$/, pivo: ['ArmL', 'ArmR'], lados: true },
@@ -109,6 +114,17 @@ export function pesosDaParte(id, geo, ctx) {
       if (ctx.origem[i] !== 0) continue;
       const x = Math.abs(a[i * 3]), y = a[i * 3 + 1], z = a[i * 3 + 2];
       w[i] = s(x, c.x - 0.05, c.x + 0.2) * s(y, c.y[0] - 0.6, c.y[0]) * (1 - s(y, c.y[1], c.y[1] + 0.6)) * s(z, c.z[0] - 0.6, c.z[0]) * (1 - s(z, c.z[1], c.z[1] + 0.6));
+    }
+    return w;
+  }
+  if (p.lugar === 'busto') {
+    // a pele e o top em volta de cada seio (no MODELO, antes da raça): inteiro dentro do pé dele
+    // (`BUSTO`, no tamanho 100%), sumindo até um pouco além da costura
+    const a = ctx.antes, o = BUSTO, s = THREE.MathUtils.smoothstep, pele = [ORIGENS.indexOf('corpo'), ORIGENS.indexOf('busto')];
+    for (let i = 0; i < n; i++) {
+      if (!pele.includes(ctx.origem[i]) || a[i * 3 + 2] < 0) continue;
+      const dx = (Math.abs(a[i * 3]) - o.x) / o.rx, y = a[i * 3 + 1], dy = (y - o.y) / (y > o.y ? o.cima : o.baixo);
+      w[i] = 1 - s(Math.hypot(dx, dy), 1, 1.6);
     }
     return w;
   }
@@ -168,6 +184,44 @@ export function centroDoPuxao(x, geo, ctx, espelho = false, P = geo.attributes.p
   return new THREE.Vector3(P[i * 3] * u + P[j * 3] * v + P[k * 3] * s, P[i * 3 + 1] * u + P[j * 3 + 1] * v + P[k * 3 + 1] * s, P[i * 3 + 2] * u + P[j * 3 + 2] * v + P[k * 3 + 2] * s);
 }
 
+// O que SEGUE a pele (o couro do bojo, raca.js): cada vértice que segue um que mudou (ou que mudou ele
+// mesmo) volta a ficar à folga dele, em cima da pele, pela normal MÉDIA da pele ali como está agora
+function seguirAPele(P, idx, nt, ctx, mexeu) {
+  const s = ctx.segue, alvo = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) if (s[i] >= 0 && (mexeu[i] || mexeu[s[i]])) alvo[s[i]] = 1;
+  if (!alvo.includes(1)) return;
+  const chave = (i) => `${Math.round(P[i * 3] * 200)},${Math.round(P[i * 3 + 1] * 200)},${Math.round(P[i * 3 + 2] * 200)}`;
+  const media = new Map(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), seguidor = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) if (s[i] >= 0) seguidor[i] = 1;
+  // (as faces da pele: as de quem não segue ninguém — o couro não entra na conta da normal)
+  for (let t = 0; t < nt; t++) {
+    const i = verticeDe(idx, t, 0), j = verticeDe(idx, t, 1), k = verticeDe(idx, t, 2);
+    if (!(alvo[i] || alvo[j] || alvo[k]) || seguidor[i]) continue;
+    a.fromArray(P, i * 3); b.fromArray(P, j * 3); c.fromArray(P, k * 3);
+    n.subVectors(b, a).cross(c.sub(a));
+    for (const v of [i, j, k]) { const ch = chave(v); (media.get(ch) ?? media.set(ch, new THREE.Vector3()).get(ch)).add(n); }
+  }
+  for (let i = 0; i < s.length; i++) {
+    const j = s[i];
+    if (j < 0 || !alvo[j]) continue;
+    const m = media.get(chave(j));
+    if (!m || m.lengthSq() < 1e-12) continue;
+    m.normalize();
+    for (let e = 0; e < 3; e++) P[i * 3 + e] = P[j * 3 + e] + m.getComponent(e) * ctx.folgaDoTop;
+    mexeu[i] = 1;
+  }
+}
+
+// o lugar do puxão é a pele do peito debaixo de um seio? (dentro do pé dele, no modelo)
+function debaixoDoBusto(x, ctx) {
+  if (x.de !== 'corpo' || !ctx.sobOBusto?.length) return false;
+  const [px, py, pz] = x.em;
+  return pz > 0 && ctx.sobOBusto.some((e) => {
+    const dx = (px * e.lado - e.x) / e.rx, dy = (py - e.y) / (py > e.y ? e.cima : e.baixo);
+    return px * e.lado > 0 && dx * dx + dy * dy < 0.97;
+  });
+}
+
 // a normal MÉDIA de cada lugar perto dos centros (as quinas repetidas andam juntas: nada abre)
 function normaisPerto(P, idx, nt, centros, raio) {
   const media = new Map(), r2 = (raio + 0.5) ** 2, chave = (i) => `${Math.round(P[i * 3] * 200)},${Math.round(P[i * 3 + 1] * 200)},${Math.round(P[i * 3 + 2] * 200)}`;
@@ -212,7 +266,7 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   }
   // ---- 2. os PUXÕES, na ordem
   for (const x of edicoes.puxoes ?? []) {
-    if (!x?.em || !(x.raio > 0)) continue;
+    if (!x?.em || !(x.raio > 0) || debaixoDoBusto(x, ctx)) continue;
     const w = pesosDe(PARTE.has(x.parte) ? x.parte : 'corpo');
     const c = centroDoPuxao(x, geo, ctx, false, P, w);
     if (!c) continue;
@@ -234,6 +288,7 @@ export function aplicarModelagem(geo, edicoes, ctx) {
     }
   }
   if (!mexeu.includes(1)) return false;
+  if (ctx.segue) seguirAPele(P, idx, nt, ctx, mexeu);
   pos.needsUpdate = true;
   normaisDasFacesMexidas(geo, mexeu);
   geo.boundingBox = null; geo.boundingSphere = null;

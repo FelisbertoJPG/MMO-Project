@@ -29,7 +29,7 @@ import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS } from './aparencia.js';
-import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca } from './raca.js';
+import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, modelagemAberta } from './modelagem.js';
 
@@ -148,9 +148,18 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     const n = geo.attributes.position.count, origem = new Uint8Array(n), antes = new Float32Array(n * 3);
     let k = 0;
     const pedaco = (P, o, de = 0, ate = P.length / 3) => { antes.set(P.subarray(de * 3, ate * 3), k * 3); origem.fill(o, k, k + ate - de); k += ate - de; };
-    pecas.forEach((p, i) => pedaco((lista[i] === geos[i] ? p.geometry : p.geometry.toNonIndexed()).attributes.position.array, ORIGENS.indexOf(origemDaPeca(p.name))));
+    const inicio = pecas.map((p, i) => { const de = k; pedaco((lista[i] === geos[i] ? p.geometry : p.geometry.toNonIndexed()).attributes.position.array, ORIGENS.indexOf(origemDaPeca(p.name))); return de; });
+    // (o couro do bojo segue a pele do seio: raca.js — cada vértice dele, o vértice da pele de onde saiu)
+    const top = pecas.findIndex((p) => p.geometry.userData.segue), pele = pecas.findIndex((p) => /^busto_/.test(p.name));
+    if (top >= 0 && pele >= 0) {
+      comModelo.segue = new Int32Array(n).fill(-1);
+      pecas[top].geometry.userData.segue.forEach((j, i) => { if (j >= 0) comModelo.segue[inicio[top] + i] = inicio[pele] + j; });
+      comModelo.folgaDoTop = pecas[top].geometry.userData.folga;
+    }
     if (cabelo) for (const nome of ['cabelo', 'barba', 'sobrancelhas']) pedaco(cabelo.attributes.position.array, ORIGENS.indexOf(nome), ...cabelo.userData.partes[nome]);
     const volta = pecas[0].bindMatrix.clone().invert(), m = new THREE.Matrix4();
+    // (a pele do peito que o seio cobre: os puxões feitos nela não fazem nada — raca.js `sobOBustoDe`)
+    comModelo.sobOBusto = sobOBustoDe(raca);
     Object.assign(comModelo, { origem, antes, juntas: new Map(inversos ? ordem.map((nome, i) => [nome, new THREE.Vector3().setFromMatrixPosition(m.copy(inversos[i]).invert()).applyMatrix4(volta)]) : []) });
   }
   for (const g of geos) g.dispose();
@@ -363,6 +372,9 @@ export class CorpoGuerreiro {
     // razão da cor da pele é uma só, e quem a mede são elas
     if (this.raca) for (const o of pecasDaRaca(this.raca, this.pecas, elmo, armadura[LUGARES.indexOf('peito')] !== '0')) {
       usadas.push(o.pele && aparenciaValida(aparencia) ? tingir(o, aparencia) : o);
+      // (o busto é COSTURADO no peito: a pele debaixo dele sai e o buraco fecha até o pé dele — raca.js)
+      const i = o.costura ? usadas.findIndex((x) => /^Upper_Torso(_tingido)?$/.test(x.name)) : -1;
+      if (i >= 0) usadas[i] = torsoCosturado(usadas[i], o.costura);
     }
     // o PENTEADO, a BARBA e as SOBRANCELHAS (penteado.js): desenhados em código ao fundir o corpo
     const ap = lerAparencia(aparencia), cabelo = penteadoDe(this.raca, ap.cabelo), barba = barbaDe(this.raca, ap.barba), sobrancelha = sobrancelhaDe(this.raca, ap.sobrancelha), doPeito = desenho('peito', armadura[LUGARES.indexOf('peito')]);

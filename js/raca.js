@@ -50,9 +50,11 @@
  *
  * O BUSTO (`pecasDoBusto`, `BUSTO`, `TOP`): o peito do modelo é o de um homem, e são poucos
  * triângulos — não há o que esticar. `busto` (0 = sem, o padrão) ACRESCENTA os dois seios,
- * peças novas de pele assentadas no peito (presas aos ossos dele), e o TOP de couro que os
- * veste: os bojos, a faixa por baixo e as alças. Só no peito NU: com armadura no peito, não
- * entram (ela os cobre).
+ * cúpulas de pele presas aos ossos do peito, e o TOP de couro que os veste: os bojos, a faixa
+ * por baixo e as alças. Os seios são COSTURADOS no peito (`costuraDoBusto`, `torsoCosturado`):
+ * a pele do peito debaixo de cada um sai e o buraco é fechado do pé da cúpula até a beira
+ * dele — uma superfície só, que estica em vez de abrir fresta quando a malha é mexida (a
+ * modelagem). Só no peito NU: com armadura no peito, não entram (ela os cobre).
  *
  * AS ORELHAS (`moldarPeca`, `ORELHA`): NÃO se acrescenta orelha — o modelo já tem uma (uma
  * abinha na peça `Face`; um par a mais por cima dava quatro). `orelhas` ESTICA a que há: o
@@ -250,8 +252,9 @@ function pecasDasPresas(raca, pecas, elmo) {
 // alturas `cima` e `baixo` (cai mais depressa por baixo); o cume fica `cai` cm abaixo do
 // meio e sai `fundo` cm do peito. `busto` (a régua) multiplica o fundo e, pela raiz, o pé.
 // A cúpula: `lados` gomos em volta e os anéis `aneis` (frações do pé), cada um na altura
-// `perfil` (fração do fundo). O pé entra `afunda` cm na pele (não fica fresta).
-export const BUSTO = { x: 8.6, y: 129.6, rx: 7.8, cima: 8.4, baixo: 6.4, fundo: 5.8, cai: 1.6, lados: 8, aneis: [0.42, 0.78, 1], perfil: [0.94, 0.6, 0], afunda: 0.35 };
+// `perfil` (fração do fundo). O pé fica `afunda` cm dentro da pele — 0 desde a COSTURA (o pé é
+// a borda da pele do peito; enterrado, abria um sulco em volta do seio).
+export const BUSTO = { x: 8.6, y: 129.6, rx: 7.8, cima: 8.4, baixo: 6.4, fundo: 5.8, cai: 1.6, lados: 8, aneis: [0.42, 0.78, 1], perfil: [0.94, 0.6, 0], afunda: 0 };
 // O TOP de couro: os BOJOS são os triângulos da cúpula, `folga` cm para fora — todos, menos a
 // JANELA do colo: `janela` são [gomo, anel] — o gomo (0 = o lado de fora, contando para cima e
 // para dentro) fica nu desse anel para fora (0 = o do cume): a beira de cima do bojo desce em
@@ -266,12 +269,16 @@ function pecasDoBusto(raca, pecas) {
   if (!(b > 0.01) || !tronco?.geometry.attributes.uv) return [];
   const chave = b.toFixed(3);
   if (!bustos.has(chave)) {
-    if (bustos.size > 40) { for (const par of bustos.values()) for (const g of par) g.dispose(); bustos.clear(); }
+    if (bustos.size > 40) {
+      for (const [pele, couro, costura] of bustos.values()) { pele.dispose(); couro.dispose(); for (const g of costura?.feitos?.values() ?? []) g.dispose(); }
+      bustos.clear();
+    }
     bustos.set(chave, geometriasDoBusto(b, pecas, tronco));
   }
-  const [pele, couro] = bustos.get(chave), base = { skeleton: tronco.skeleton, material: tronco.material, bindMatrix: tronco.bindMatrix };
-  // (`pele`: a aparência tinge a peça como o resto da pele — aparencia.js `tingir`)
-  return [{ name: `busto_${chave}`, geometry: pele, pele: true, ...base }, { name: `top_${chave}`, geometry: couro, ...base }];
+  const [pele, couro, costura] = bustos.get(chave), base = { skeleton: tronco.skeleton, material: tronco.material, bindMatrix: tronco.bindMatrix };
+  // (`pele`: a aparência tinge a peça como o resto da pele — aparencia.js `tingir`; `costura`: quem
+  // monta o corpo troca o Upper_Torso pelo costurado — `torsoCosturado`)
+  return [{ name: `busto_${chave}`, geometry: pele, pele: true, costura, ...base }, { name: `top_${chave}`, geometry: couro, ...base }];
 }
 function geometriasDoBusto(b, pecas, tronco) {
   const o = BUSTO, T = TOP, tam = Math.sqrt(b), fundo = o.fundo * b;
@@ -281,14 +288,14 @@ function geometriasDoBusto(b, pecas, tronco) {
     const g = raio(torso, x, y, true) ?? grudar(torso, new THREE.Vector3(x, y, 14));
     return { q: new THREE.Vector3().addScaledVector(g.tri[0].p, g.bar[0]).addScaledVector(g.tri[1].p, g.bar[1]).addScaledVector(g.tri[2].p, g.bar[2]), w: pesos(g) };
   };
-  const pele = [], couro = [];   // os cantos, de três em três: { p, w, cor }
+  const pele = [], couro = [];   // os cantos, de três em três: { p, w, cor, de: o canto da cúpula de onde saiu }
   const tri = (lista, dentro, a, c2, d, cor) => {
     const n = new THREE.Vector3().subVectors(c2.p, a.p).cross(new THREE.Vector3().subVectors(d.p, a.p));
     if (n.lengthSq() < 1e-8) return;
     const fora = new THREE.Vector3().add(a.p).add(c2.p).add(d.p).multiplyScalar(1 / 3).sub(dentro);
-    for (const k of n.dot(fora) < 0 ? [a, d, c2] : [a, c2, d]) lista.push({ p: k.p, w: k.w, cor });
+    for (const k of n.dot(fora) < 0 ? [a, d, c2] : [a, c2, d]) lista.push({ p: k.p, w: k.w, cor, de: k.de ?? k });
   };
-  const cor = T.cores.map((h) => new THREE.Color(h));
+  const cor = T.cores.map((h) => new THREE.Color(h)), pes = [];
   for (const lado of [1, -1]) {
     // ---- a cúpula: o cume e os anéis (o do lado −x é o espelho: os mesmos números, o x trocado)
     const ponto = (r, j, h) => {
@@ -297,9 +304,10 @@ function geometriasDoBusto(b, pecas, tronco) {
       return { p: new THREE.Vector3(x * lado, y, s.q.z + fundo * h - (r >= 1 ? o.afunda : 0)), w: s.w };
     };
     const cume = ponto(0, 0, 1), aneis = o.aneis.map((r, k) => Array.from({ length: o.lados }, (_, j) => ponto(r, j, o.perfil[k])));
+    pes.push({ lado, anel: aneis.at(-1) });   // (o pé: onde a costura emenda a pele do peito)
     const dentro = cume.p.clone().setZ(cume.p.z - fundo - 2);
     // (o bojo: o mesmo triângulo, um pouco para fora do meio do seio)
-    const fora = (k) => ({ p: k.p.clone().add(k.p.clone().sub(dentro).normalize().multiplyScalar(T.folga)), w: k.w });
+    const fora = (k) => ({ p: k.p.clone().add(k.p.clone().sub(dentro).normalize().multiplyScalar(T.folga)), w: k.w, de: k });
     const noBojo = (j, anel) => !T.janela.some(([gomo, de]) => gomo === j && anel >= de);
     const face = (a, c2, d, j, anel) => {
       tri(pele, dentro, a, c2, d, null);
@@ -356,7 +364,144 @@ function geometriasDoBusto(b, pecas, tronco) {
     g.computeVertexNormals();   // sem índice: normal por face
     return g;
   };
-  return [geometria(pele, PELE_UV, false), geometria(couro, uvClaro, true)];
+  // O BOJO SEGUE A PELE: cada canto do couro do bojo diz de que vértice da pele do seio ele saiu
+  // (`userData.segue`; −1 = a faixa e as alças) — a modelagem, depois de mexer na malha, o põe de
+  // volta à folga do top em cima dele (puxões grandes mexiam a pele e o couro de jeitos diferentes
+  // na beira do pincel, e a pele furava o couro)
+  const daPele = new Map();
+  pele.forEach((k, i) => { if (!daPele.has(k.de)) daPele.set(k.de, i); });
+  const geoCouro = geometria(couro, uvClaro, true);
+  geoCouro.userData.segue = Int32Array.from(couro, (k) => daPele.get(k.de) ?? -1);
+  geoCouro.userData.folga = T.folga;
+  return [geometria(pele, PELE_UV, false), geoCouro, costuraDoBusto(tronco, pes, tam)];
+}
+
+/**
+ * A COSTURA de cada seio no peito: os triângulos do Upper_Torso que têm um canto DEBAIXO do pé
+ * da cúpula ou perto dele (dentro da elipse dele vezes `COSTURA`, na frente, do lado dele) saem, e a beira do buraco que eles
+ * deixam (um laço de pontos do peito) é ligada ao pé da cúpula. Devolve { tirar: os triângulos,
+ * lados: [{ lado, anel: o pé, borda: os vértices do laço }] } — ou null (o buraco não é um laço
+ * simples, ou não há ponto do peito debaixo do pé: o seio fica só posto em cima, como antes).
+ */
+// (o buraco vai um pouco além do pé — `COSTURA` vezes a elipse dele: perto do pé a costura não tinha
+// onde esticar, e a borda do seio puxada para baixo pela modelagem dobrava a pele por cima do top)
+const COSTURA = 1.35;
+function costuraDoBusto(tronco, pes, tam) {
+  const o = BUSTO, g = tronco.geometry, P = g.attributes.position, idx = g.index, nt = (idx ? idx.count : P.count) / 3;
+  const vi = (t, k) => (idx ? idx.getX(t * 3 + k) : t * 3 + k);
+  const chave = (i) => `${P.getX(i).toFixed(3)},${P.getY(i).toFixed(3)},${P.getZ(i).toFixed(3)}`;
+  const tirar = new Set(), lados = [];
+  for (const { lado, anel } of pes) {
+    const debaixo = (i) => {
+      const x = P.getX(i) * lado, y = P.getY(i);
+      // (a linha do meio fica: ela é a beira dos dois buracos — e no modelo o x dela é ±0,000, um fio para cada lado)
+      if (x <= 0.5 || P.getZ(i) <= 0) return false;
+      const dx = (x - o.x) / (o.rx * tam), dy = (y - o.y) / ((y > o.y ? o.cima : o.baixo) * tam);
+      return dx * dx + dy * dy < COSTURA * COSTURA;
+    };
+    const meus = [];
+    for (let t = 0; t < nt; t++) if ([0, 1, 2].some((k) => debaixo(vi(t, k)))) meus.push(t);
+    if (!meus.length || meus.some((t) => tirar.has(t))) return null;
+    for (const t of meus) tirar.add(t);
+    // a beira do buraco: as arestas dos triângulos tirados que não são de dois deles
+    const arestas = new Map();
+    for (const t of meus) for (let k = 0; k < 3; k++) {
+      const a = vi(t, k), b = vi(t, (k + 1) % 3), ka = chave(a), kb = chave(b), id = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+      const e = arestas.get(id);
+      if (e) e.n++; else arestas.set(id, { n: 1, a, b, ka, kb });
+    }
+    const vizinhos = new Map(), vertice = new Map();
+    for (const e of arestas.values()) {
+      if (e.n !== 1) continue;
+      for (const [k, i, outro] of [[e.ka, e.a, e.kb], [e.kb, e.b, e.ka]]) { (vizinhos.get(k) ?? vizinhos.set(k, []).get(k)).push(outro); vertice.set(k, i); }
+    }
+    if (!vizinhos.size || ![...vizinhos.values()].every((l) => l.length === 2)) return null;
+    // … em ordem: um laço só, que passe por todos
+    const inicio = vizinhos.keys().next().value, laco = [inicio];
+    for (let antes = null, aqui = inicio; ;) {
+      const prox = vizinhos.get(aqui).find((k) => k !== antes);
+      if (prox === inicio || prox === undefined) break;
+      laco.push(prox); antes = aqui; aqui = prox;
+      if (laco.length > vizinhos.size) return null;
+    }
+    if (laco.length !== vizinhos.size) return null;
+    lados.push({ lado, anel, borda: laco.map((k) => vertice.get(k)) });
+  }
+  return { tirar, lados };
+}
+
+/**
+ * O pé de cada seio da raça, como elipse no MODELO ([{ lado, x, y, rx, cima, baixo }], [] sem busto):
+ * a pele do peito ali é a que o seio cobre — a modelagem não vale puxão feito nela (`debaixoDoBusto`),
+ * com o seio costurado ou com a armadura no peito (que o tira).
+ */
+export function sobOBustoDe(raca) {
+  const b = proporcoesDe(raca).busto, o = BUSTO, tam = Math.sqrt(b);
+  return b > 0.01 ? [1, -1].map((lado) => ({ lado, x: o.x, y: o.y, rx: o.rx * tam, cima: o.cima * tam, baixo: o.baixo * tam })) : [];
+}
+
+/**
+ * O Upper_Torso COSTURADO (`costura` de `pecasDoBusto`): a peça do peito (a do modelo ou a tingida)
+ * sem os triângulos debaixo dos seios, e com a faixa que fecha o buraco — do laço da beira até o
+ * pé de cada cúpula, em volta do meio do seio (os dois na ordem do ângulo: cada passo avança no
+ * que vem antes). Os cantos da beira são vértices do peito (copiados inteiros: a cor, o osso); os
+ * do pé, os da cúpula (com a cor e a UV de um vértice da beira). Feita uma vez por peça e busto.
+ */
+export function torsoCosturado(peca, costura) {
+  const feitos = (costura.feitos ??= new Map());
+  if (!feitos.has(peca.geometry.uuid)) feitos.set(peca.geometry.uuid, costurar(peca.geometry, costura));
+  return { name: peca.name, geometry: feitos.get(peca.geometry.uuid), skeleton: peca.skeleton, material: peca.material, bindMatrix: peca.bindMatrix };
+}
+function costurar(g0, { tirar, lados }) {
+  const o = BUSTO, P0 = g0.attributes.position, idx = g0.index, nt = (idx ? idx.count : P0.count) / 3;
+  const vi = (t, k) => (idx ? idx.getX(t * 3 + k) : t * 3 + k);
+  const doPeito = (i) => new THREE.Vector3().fromBufferAttribute(P0, i);
+  // os cantos, de três em três: { i } (um vértice do peito) ou { p, w, ref } (o pé da cúpula)
+  const cantos = [];
+  for (let t = 0; t < nt; t++) if (!tirar.has(t)) for (let k = 0; k < 3; k++) cantos.push({ i: vi(t, k) });
+  const daCostura = cantos.length;
+  for (const { lado, anel, borda } of lados) {
+    const ang = (p) => Math.atan2(p.y - o.y, p.x * lado - o.x), desde = (a, a0) => (((a - a0) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const R = anel.map((k) => ({ c: { p: k.p, w: k.w, ref: borda[0] }, p: k.p })), L = borda.map((i) => ({ c: { i }, p: doPeito(i) }));
+    const a0 = ang(R[0].p);
+    for (const x of [...R, ...L]) x.d = desde(ang(x.p), a0);
+    R.sort((a, b) => a.d - b.d); L.sort((a, b) => a.d - b.d);
+    R.push({ ...R[0], d: Math.PI * 2 }); L.push({ ...L[0], d: L[0].d + Math.PI * 2 });
+    // por dentro (para virar os triângulos para fora): atrás do meio do pé
+    const meio = anel.reduce((s, k) => s.add(k.p), new THREE.Vector3()).multiplyScalar(1 / anel.length), dentro = meio.clone().setZ(meio.z - 10);
+    const pos = (c) => (c.p ?? doPeito(c.i));
+    const tri = (a, b, c) => {
+      const pa = pos(a), pb = pos(b), pc = pos(c), n = new THREE.Vector3().subVectors(pb, pa).cross(new THREE.Vector3().subVectors(pc, pa));
+      if (n.lengthSq() < 1e-8) return;
+      const fora = pa.clone().add(pb).add(pc).multiplyScalar(1 / 3).sub(dentro);
+      cantos.push(...(n.dot(fora) < 0 ? [a, c, b] : [a, b, c]));
+    };
+    for (let i = 0, j = 0, nR = R.length - 1, nL = L.length - 1; i < nR || j < nL;) {
+      if (j >= nL || (i < nR && R[i + 1].d <= L[j + 1].d)) { tri(R[i].c, R[i + 1].c, L[j].c); i++; }
+      else { tri(R[i].c, L[j + 1].c, L[j].c); j++; }
+    }
+  }
+  const g = new THREE.BufferGeometry(), n = cantos.length;
+  for (const [nome, a] of Object.entries(g0.attributes)) {
+    const arr = new a.array.constructor(n * a.itemSize), s = a.itemSize;
+    cantos.forEach((c, j) => {
+      const de = c.i ?? c.ref;
+      for (let k = 0; k < s; k++) arr[j * s + k] = a.array[de * s + k];   // (o resto: a cor, a UV, de um vértice da beira)
+      if (c.i !== undefined) return;
+      if (nome === 'position') { arr[j * 3] = c.p.x; arr[j * 3 + 1] = c.p.y; arr[j * 3 + 2] = c.p.z; }
+      else if (nome === 'skinIndex') for (let k = 0; k < 4; k++) arr[j * s + k] = c.w.o[k];
+      else if (nome === 'skinWeight') for (let k = 0; k < 4; k++) arr[j * s + k] = c.w.p[k];
+    });
+    g.setAttribute(nome, new THREE.BufferAttribute(arr, s, a.normalized));
+  }
+  // a normal reta das faces da costura (as do peito ficam como eram)
+  const P = g.attributes.position, N = g.attributes.normal, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  if (N) for (let t = daCostura; t < n; t += 3) {
+    a.fromBufferAttribute(P, t); b.fromBufferAttribute(P, t + 1).sub(a); c.fromBufferAttribute(P, t + 2).sub(a);
+    b.cross(c).normalize();
+    for (let k = 0; k < 3; k++) N.setXYZ(t + k, b.x, b.y, b.z);
+  }
+  return g;
 }
 
 // ------------------------------------------------------------ as orelhas
