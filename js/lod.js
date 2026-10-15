@@ -161,15 +161,36 @@ function materialDoCartaz({ textura, normais, lado, base }) {
   return m;
 }
 
+/**
+ * Reescreve um LOTE DE DESENHO da decoração (world.js, `agruparDecoracao`: uma peça no mapa
+ * inteiro, ou numa região de 96 m se projeta sombra) só com as cópias dos grupos à vista e não
+ * cortadas (a vegetação); `tudo` = todas (o pré-aquecimento). A esfera do corte de câmera
+ * passa a ser a dessas cópias.
+ */
+export function reescreverLote(l, tudo = false) {
+  const im = l.im;
+  if (!im) return;
+  let n = 0;
+  for (const c of l.copias) if (tudo || (c.g.visivel && !c.cortada)) im.setMatrixAt(n++, c.m);
+  im.count = n;
+  im.visible = n > 0;
+  im.instanceMatrix.needsUpdate = true;
+  if (n) im.computeBoundingSphere();
+}
+
 export class LOD {
   /**
    * `grupos`: de `World.agruparDecoracao` — por peça e região, os lotes (`ims`), onde
    * estão as cópias (`matrizes`), o meio e o raio da região (`centro`, `raio`) e o raio da
-   * peça (`raioPeca`).
+   * peça (`raioPeca`). `lotes`: os lotes de desenho (cada um com as suas `copias`, e o grupo
+   * de cada cópia) — um grupo que aparece ou some reescreve os lotes dele.
    */
-  constructor(world, grupos) {
+  constructor(world, grupos, lotes = []) {
     this.world = world;
     this.grupos = grupos;
+    this.lotes = lotes;
+    this.sujos = new Set();
+    this.tudo = false;
     this.cartazes = new Map();   // peça → { malha (InstancedMesh), grupos, sujo }
     const r = world.game.renderer;
     const plano = new THREE.PlaneGeometry(1, 1);
@@ -202,20 +223,15 @@ export class LOD {
     const foco = (H / 2) / Math.tan(camera.fov * Math.PI / 360);
     const p = camera.position;
     const fora = (this.world.ambience?.k ?? 0) > 0.5;
-    for (const g of this.grupos) {
-      const d = Math.max(0, g.centro.distanceTo(p) - g.raio);
-      // as três regras, cada uma com folga para quem anda na divisa não ficar trocando
-      const alemDe = (atual, limite, folga) => (atual ? d > limite - folga : d > limite);
-      const lado = g.dentro === fora && alemDe(g.lado, fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO, 5);
-      const longe = !!g.cartaz && alemDe(g.longe, D, 10);
-      const oculto = !g.cartaz && (g.oculto ? d > g.raioPeca * foco / limiar * 0.9 : d > g.raioPeca * foco / limiar);
-      if (lado === g.lado && longe === g.longe && oculto === g.oculto) continue;
-      // o cartaz aparece se a árvore está longe e do lado de cá
-      if (g.cartaz && (g.longe && !g.lado) !== (longe && !lado)) g.cartaz.sujo = true;
-      g.lado = lado; g.longe = longe; g.oculto = oculto;
-      const visivel = !lado && !longe && !oculto;
-      for (const im of g.ims) im.visible = visivel;
+    // SÓ QUANDO A CÂMERA ANDOU 1 m (15/10/2026): as ~1.300 contas de distância eram 2–3 ms por
+    // quadro com a CPU freada 8× (um celular fraco), parado ou só girando a câmera. As trocas
+    // têm folga de 5–10 m: 1 m de atraso não se vê
+    const u = this.ultimo;
+    if (!u || u.p.distanceToSquared(p) > 1 || u.fora !== fora || u.D !== D || u.limiar !== limiar || u.foco !== foco) {
+      this.ultimo = { p: p.clone(), fora, D, limiar, foco };
+      this.grupos_(p, fora, D, limiar, foco);
     }
+    // (fora do "andou 1 m": o pré-aquecimento suja os cartazes com a câmera parada)
     for (const c of this.cartazes.values()) {
       if (!c.sujo) continue;
       c.sujo = false;
@@ -227,6 +243,33 @@ export class LOD {
     this.tPersonagens = (this.tPersonagens ?? 0) + 1;
     if (this.tPersonagens % 8 === 0) this.personagens(camera, fora);
     if (this.tPersonagens % 8 === 4) this.soltas(camera, fora);
+  }
+
+  /** As três regras de cada grupo da decoração (o cartaz, o outro lado, o detalhe pequeno). */
+  grupos_(p, fora, D, limiar, foco) {
+    for (const g of this.grupos) {
+      const d = Math.max(0, g.centro.distanceTo(p) - g.raio);
+      // as três regras, cada uma com folga para quem anda na divisa não ficar trocando (sem
+      // função criada por grupo: eram ~1.300 por quadro, lixo para o coletor)
+      const lim = fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO;
+      const lado = g.dentro === fora && d > (g.lado ? lim - 5 : lim);
+      const longe = !!g.cartaz && d > (g.longe ? D - 10 : D);
+      const oculto = !g.cartaz && (g.oculto ? d > g.raioPeca * foco / limiar * 0.9 : d > g.raioPeca * foco / limiar);
+      if (lado === g.lado && longe === g.longe && oculto === g.oculto) continue;
+      // o cartaz aparece se a árvore está longe e do lado de cá
+      if (g.cartaz && (g.longe && !g.lado) !== (longe && !lado)) g.cartaz.sujo = true;
+      g.lado = lado; g.longe = longe; g.oculto = oculto;
+      const visivel = !lado && !longe && !oculto;
+      if (visivel !== g.visivel) { g.visivel = visivel; for (const l of g.lotes) this.sujos.add(l); }
+    }
+    if (this.sujos.size && !this.tudo) { for (const l of this.sujos) reescreverLote(l); this.sujos.clear(); }
+  }
+
+  /** O pré-aquecimento (main.js) desenha o mapa INTEIRO: todas as cópias nos lotes, e depois de volta. */
+  mostrarTudo(sim) {
+    this.tudo = sim;
+    for (const l of this.lotes) reescreverLote(l, sim);
+    this.sujos.clear();
   }
 
   /**
@@ -255,7 +298,9 @@ export class LOD {
         if (o.isLight || o.isInstancedMesh || o.isPoints || o.isSprite || o.isCamera || fora_.has(o) || lotes.has(o)) continue;
         if (o.frustumCulled === false || /^(ceu|água|capim|respingos|vitórias)/.test(o.name ?? '')) continue;
         const malhas = []; let ossos = false;
-        o.traverse((m) => { if (m.isSkinnedMesh) ossos = true; else if (m.isMesh && !m.isInstancedMesh) malhas.push(m); });
+        // (as CHAMAS também — sprites, 15/10/2026: do acampamento desenhavam-se as 52 das tochas da
+        // masmorra, a 210–290 m, atrás da rocha; eram um quinto das chamadas de desenho)
+        o.traverse((m) => { if (m.isSkinnedMesh) ossos = true; else if ((m.isMesh && !m.isInstancedMesh) || m.isSprite) malhas.push(m); });
         if (ossos || !malhas.length) continue;
         caixa.setFromObject(o).getBoundingSphere(esfera);
         if (!(esfera.radius > 0) || esfera.radius > 20) continue;      // o chão, o leito da lagoa: grandes demais para sumir pela distância
@@ -287,18 +332,23 @@ export class LOD {
     // só com a partida rodando: na tela de título os animais ainda não animaram, e a pose de
     // repouso deles tem outro tamanho — a esfera saía pequena (conferido)
     if (w.game.state === 'title') return;
-    // no máximo 12 preparados por passada: a esfera da pose percorre todos os vértices com os
-    // ossos — todos de uma vez eram um pico de ~105 ms ao entrar no mundo (visto no monitor)
-    let preparar = 12;
+    // A ESFERA DA POSE percorre todos os vértices com os ossos: todos de uma vez eram um pico de
+    // ~105 ms ao entrar no mundo, e 12 por passada, 589 ms num celular fraco (relatório de um
+    // PowerVR GE8320, 15/10/2026). Agora o teto é de TEMPO (3 ms por passada, no mínimo um), e
+    // só de quem está à vista desde a passada anterior (já desenhado: os ossos estão na pose) —
+    // esconder pela distância não espera por ela
+    const limite = performance.now() + 3;
     for (const e of [...(w.game.all ?? []), ...(w.cadaveres ?? [])]) {
       const raiz = e.model?.root ?? e.model?.scene ?? e.root;
       if (!raiz || !e.pos) continue;
       if (!e.__lodMalhas) {
-        if (preparar-- <= 0) continue;
         e.__lodMalhas = [];
-        raiz.traverse((o) => {
-          if (!o.isMesh) return;
-          e.__lodMalhas.push(o);
+        raiz.traverse((o) => { if (o.isMesh) e.__lodMalhas.push(o); });
+        e.__lodOculto = false;
+        e.__lodEsfera = false;
+      } else if (!e.__lodEsfera && !e.__lodOculto && performance.now() < limite) {
+        e.__lodEsfera = true;
+        for (const o of e.__lodMalhas) {
           if (o.frustumCulled === false && o.isSkinnedMesh) {
             // a esfera da POSE DE VERDADE (com os ossos — quando o LOD passa aqui o personagem
             // já foi desenhado): a da geometria crua ficava no lugar errado nos animais (o
@@ -310,15 +360,14 @@ export class LOD {
               o.boundingSphere = null;
               o.computeBoundingSphere();
               const s = o.boundingSphere;
-              if (!s || !(s.radius > 0.05) || !Number.isFinite(s.center.x)) { o.boundingSphere = null; return; }
+              if (!s || !(s.radius > 0.05) || !Number.isFinite(s.center.x)) { o.boundingSphere = null; continue; }
               // folga: o dobro, e no mínimo 4 m a mais — peça pequena (galhada, rabo) anda até
               // ~2,5 m quando o bicho troca de animação (pastar, correr), conferido
               s.radius = Math.max(s.radius * 2 + 1.5, s.radius + 4);
             }
             o.frustumCulled = true;
           }
-        });
-        e.__lodOculto = false;
+        }
       }
       const d = e.pos.distanceTo(p), dentro = !w.isOpenAir(...w.cellOf(e.pos));
       const folga = e.__lodOculto ? -5 : 0;

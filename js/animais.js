@@ -122,8 +122,13 @@ class ModeloAnimal {
 
   flash(on) { this.mats.forEach((m, i) => { if (m.emissive) { if (on) m.emissive.setRGB(0.35, 0.12, 0.1); else m.emissive.copy(this.brilho[i]); } }); }
   update(dt) {
-    // escondido pelo LOD (`oculto`, lod.js): a animação a cada 4 quadros, com o tempo acumulado
-    if (this.oculto) { this._pendente = (this._pendente ?? 0) + dt; if ((this._salto = ((this._salto ?? 0) + 1) % 4)) return; dt = this._pendente; this._pendente = 0; }
+    // escondido pelo LOD (`oculto`, lod.js): ninguém vê os ossos, e a lógica do bicho não lê o
+    // relógio do clipe (os tempos dele são o `stateT`) — então a animação NÃO RODA (15/10/2026;
+    // antes, a cada 4 quadros: ~27 bichos escondidos do acampamento). O tempo fica guardado e
+    // vai inteiro no primeiro quadro em que ele volta à vista. (O manequim dos inimigos segue a
+    // cada 4 quadros: as janelas de golpe deles são o tempo do clipe.)
+    if (this.oculto) { this._pendente = (this._pendente ?? 0) + dt; return; }
+    if (this._pendente) { dt += this._pendente; this._pendente = 0; }
     this.mixer.update(dt);
   }
 }

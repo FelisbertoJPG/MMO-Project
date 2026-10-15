@@ -339,6 +339,29 @@ function umEsqueleto(cena) {
   });
 }
 
+/**
+ * AS TRILHAS PARADAS DOS BICHOS (15/10/2026): ~80% das trilhas dos clipes dos animais
+ * (Quaternius: ~1.400 por espécie, ~1.100 delas paradas) guardam o MESMO valor do começo ao
+ * fim, igual à pose de repouso do osso — e o mixer as interpolava e aplicava todo quadro, em
+ * cada bicho (a animação deles era ~12% da CPU do quadro com a CPU freada 8×, a conta de um
+ * celular fraco). Sem elas o osso fica onde já está: nada muda na tela, nem nas transições (o
+ * mixer mistura com o valor original o que nenhuma ação anima). SÓ NOS BICHOS: no manequim
+ * UAL o código mexe nos ossos depois da animação (dedos, correções de pose), e sem a trilha
+ * repondo o valor a cada quadro a mexida se acumularia.
+ */
+function semTrilhasParadas(clip, cena) {
+  const tracks = clip.tracks.filter((t) => {
+    const n = t.getValueSize(), v = t.values;
+    for (let i = n; i < v.length; i++) if (Math.abs(v[i] - v[i % n]) > 1e-5) return true;
+    const { nodeName, propertyName } = THREE.PropertyBinding.parseTrackName(t.name);
+    const atual = THREE.PropertyBinding.findNode(cena, nodeName)?.[propertyName];
+    if (!atual?.toArray) return true;
+    const a = atual.toArray();
+    return !(a.length === n && a.every((x, i) => Math.abs(x - v[i]) < 1e-4));
+  });
+  return tracks.length === clip.tracks.length ? clip : new THREE.AnimationClip(clip.name, clip.duration, tracks, clip.blendMode);
+}
+
 function fundirAnimal(cena, nome) {
   const malhas = [];
   cena.traverse((o) => { if (o.isSkinnedMesh) malhas.push(o); });
@@ -426,7 +449,7 @@ export const Assets = {
         const vistos = new Set();
         gltf.scene.traverse((c) => { if (c.isMesh && !vistos.has(c.material)) { vistos.add(c.material); c.material.color.multiply(new THREE.Color(0xb0b8b0)); } });
         fundirAnimal(gltf.scene, name);
-        this.animais[name] = { scene: gltf.scene, clips: gltf.animations };
+        this.animais[name] = { scene: gltf.scene, clips: gltf.animations.map((c) => semTrilhasParadas(c, gltf.scene)) };
       } else if (kind === 'guerreiro') {
         this.guerreiro = gltf.scene;
       } else if (kind === 'char') {

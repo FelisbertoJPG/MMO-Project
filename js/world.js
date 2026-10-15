@@ -5,7 +5,7 @@ import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { corDoChao, texturaDoChao, REPETE_CHAO, montarCaminhos, terreiro } from './campo.js';
 import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
-import { LOD } from './lod.js';
+import { LOD, reescreverLote } from './lod.js';
 
 const flatDistXZ = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 export const S = 1.5; // escala da masmorra (salas e corredores 50% maiores)
@@ -294,6 +294,27 @@ function messageTexture(seed) {
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+/**
+ * A RECEITA de um material (para `agruparDecoracao` dividir os iguais): o tipo, a chave do
+ * programa e cada propriedade dele — cor pelo valor, textura pela imagem e pelos ajustes.
+ * O que não sei comparar (uniformes próprios, planos de corte…) devolve `null`: fica sozinho.
+ */
+function receitaDoMaterial(m) {
+  const partes = [m.type, m.customProgramCacheKey()];
+  for (const k of Object.keys(m).sort()) {
+    if (k === 'uuid' || k === 'id' || k === 'name' || k === 'userData' || k === 'version' || k === '_listeners') continue;
+    const v = m[k];
+    if (typeof v === 'function') continue;
+    if (v === null || typeof v !== 'object') { partes.push(k, v); continue; }
+    if (v.isColor) partes.push(k, v.getHex());
+    else if (v.isTexture) partes.push(k, v.source.uuid, v.wrapS, v.wrapT, ...v.offset.toArray(), ...v.repeat.toArray(), v.rotation, ...v.center.toArray(), v.minFilter, v.magFilter, v.anisotropy, v.flipY, v.colorSpace, v.channel, v.generateMipmaps, v.premultiplyAlpha);
+    else if (v.isVector2 || v.isVector3 || v.isEuler) partes.push(k, ...v.toArray());
+    else if (k === 'defines' || (Array.isArray(v) && v.every((x) => x === null || typeof x !== 'object'))) partes.push(k, JSON.stringify(v));
+    else return null;
+  }
+  return JSON.stringify(partes);
 }
 
 /**
@@ -1204,7 +1225,7 @@ export class World {
     // quadros/s com a placa folgada). Região maior = menos chamadas e um pouco mais de
     // triângulos fora da câmera, que a placa aguenta.
     const LOTE_ARVORE = 4 * CELL, LOTE_RESTO = 8 * CELL;
-    const lotes = new Map();
+    const lotes = new Map(), entradas = [];
     // os GRUPOS do LOD (lod.js): por peça e região, os lotes dela e onde está cada cópia
     const grupos = new Map();
     for (const raiz of pecas) {
@@ -1222,37 +1243,27 @@ export class World {
       const deDentro = this.ehDeDentro(...this.cellOf(raiz.position)), regiao = `${rx},${rz},${deDentro ? 'd' : 'f'}`;
       const chaveG = `${prop}|${regiao}`;
       let g = grupos.get(chaveG);
-      if (!g) grupos.set(chaveG, (g = { prop, ims: new Set(), matrizes: [], posicoes: [], raioPeca: 0, nDentro: 0 }));
+      if (!g) grupos.set(chaveG, (g = { prop, ims: new Set(), lotes: new Set(), visivel: true, matrizes: [], posicoes: [], raioPeca: 0, nDentro: 0 }));
       g.matrizes.push(raiz.matrixWorld.clone());
       if (deDentro) g.nDentro++;   // peça da masmorra (lod.js: o outro lado)
       g.posicoes.push(raiz.position.clone());
       if (Assets.props[prop]) g.raioPeca = Math.max(g.raioPeca, this.caixaDoProp(prop).getSize(new THREE.Vector3()).length() / 2 * raiz.scale.x);
-      for (const m of malhas) {
-        const mats = Array.isArray(m.material) ? m.material : [m.material];
-        const chave = `${m.geometry.uuid}|${mats.map((x) => x.uuid).join(',')}|${m.castShadow}|${m.receiveShadow}|${regiao}`;
-        let l = lotes.get(chave);
-        if (!l) lotes.set(chave, (l = { malha: m, matrizes: [], grupo: g }));
-        // um quebrável dentro do lote: ele precisa saber qual cópia é a dele
-        if (raiz.userData.quebravel) (l.donos ??= []).push([raiz.userData.quebravel, l.matrizes.length]);
-        l.matrizes.push(m.matrixWorld.clone());
-      }
+      for (const m of malhas) entradas.push({ malha: m, g, m: m.matrixWorld.clone(), x: raiz.position.x, z: raiz.position.z, q: raiz.userData.quebravel });
       raiz.removeFromParent();
     }
-    // OS LOTES NUM GRUPO PARADO (11/10/2026). O perfil de CPU do jogo (GT 730: o "render" não caía
-    // com menos chamadas de desenho) mostrou que ~35% do quadro era o three.js PERCORRENDO a cena:
-    // `updateMatrixWorld` (refaz a matriz de cada objeto, todo quadro) e `projectObject`. Os ~1.300
-    // lotes nunca saem do lugar (a matriz deles é a identidade; cada cópia tem a sua, dentro do
-    // lote): ficam num grupo cujo `updateMatrixWorld` não faz nada.
-    const parados = new THREE.Group();
-    parados.name = 'lotes da decoração';
-    for (const { malha, matrizes, donos, grupo } of lotes.values()) {
-      // UMA "CASCA" DE GEOMETRIA POR LOTE (13/10/2026): os lotes da mesma peça dividiam a geometria,
-      // e o three.js guarda a ligação dos atributos (o VAO) por geometria + programa — como cada
-      // lote tem o SEU `instanceMatrix`, a cada desenho ele via "mudou" e religava todos os atributos
-      // (o perfil de CPU com o freio de 4×, a conta de um celular: ~13% do quadro em `setup`,
-      // `bindBuffer` e `vertexAttribPointer`, no quadro e de novo em cada vista da sombra)
-      const im = new THREE.InstancedMesh(cascaDaGeometria(malha.geometry), malha.material, matrizes.length);
-      matrizes.forEach((mt, i) => im.setMatrixAt(i, mt));
+    // OS LOTES DE DESENHO ≠ OS GRUPOS DO LOD (15/10/2026). Eram a mesma coisa (peça × região de
+    // 48 m), e a decoração é VARIADA: do acampamento desenhavam-se 163 lotes com 3,2 cópias em
+    // média (103 com uma ou duas) — e com lotes maiores pouco mudava (144 m: 61), porque o que
+    // multiplica é o número de peças diferentes. Agora o lote de desenho é UM POR PEÇA NO MAPA
+    // INTEIRO, e quem diz o que vai nele é o LOD: a cada grupo que aparece ou some, ele reescreve
+    // no lote só as cópias dos grupos à vista (`reescreverLote`, lod.js; a esfera do corte de
+    // câmera passa a ser a delas). A peça que projeta SOMBRA fica em regiões de 96 m: a sombra da
+    // tocha (seis vistas em volta do jogador) e a do sol cortam pelo lote, e com o mapa inteiro
+    // num lote só desenhariam todas as cópias à vista em cada vista. A geometria continua
+    // dividida (nada a mais na memória); a regra da sombra é a de antes, por grupo.
+    const LOTE_SOMBRA = 16 * CELL;
+    for (const e of entradas) {
+      const { malha, g } = e, mats = [].concat(malha.material);
       // peça PEQUENA (capim de decoração, flores, pedrinhas: menos de 1,2 m de raio) não
       // projeta a sombra da tocha (07/10/2026): com a tocha acesa, a sombra redesenha tudo
       // que projeta sombra num raio de 24 m SEIS vezes (as faces do cubo) — eram ~2.200
@@ -1262,19 +1273,67 @@ export class World {
       // uma chamada a mais por quadro (e seis com a tocha). Numa GT 730 as sombras eram 575 das
       // 1.007 chamadas, e o limite era a CPU montando chamadas. Flores, juncos, trigo (`gi-`),
       // moitas e pedras médias saíram: a sombra delas mal se vê no capim
-      im.castShadow = malha.castShadow && !/^floor|RockPath|PathRocks|^gi-|Bush/.test(grupo.prop) && (/Tree(?!Stump)/.test(grupo.prop) ? grupo.raioPeca >= 1.2 : grupo.raioPeca >= 2.2);
+      const sombra = malha.castShadow && !/^floor|RockPath|PathRocks|^gi-|Bush/.test(g.prop) && (/Tree(?!Stump)/.test(g.prop) ? g.raioPeca >= 1.2 : g.raioPeca >= 2.2);
+      const regiao = sombra ? `${Math.floor(e.x / LOTE_SOMBRA)},${Math.floor(e.z / LOTE_SOMBRA)}` : 'mapa';
+      const chave = `${malha.geometry.uuid}|${mats.map((x) => x.uuid).join(',')}|${sombra}|${malha.receiveShadow}|${regiao}`;
+      let l = lotes.get(chave);
+      if (!l) lotes.set(chave, (l = { malha, sombra, copias: [] }));
+      const c = { m: e.m, g, cortada: false };
+      l.copias.push(c);
+      g.lotes.add(l);
+      // um quebrável dentro do lote (a vegetação): ele precisa saber qual cópia é a dele
+      if (e.q) (e.q.instancias ??= []).push({ lote: l, c });
+    }
+    // OS LOTES NUM GRUPO PARADO (11/10/2026). O perfil de CPU do jogo (GT 730: o "render" não caía
+    // com menos chamadas de desenho) mostrou que ~35% do quadro era o three.js PERCORRENDO a cena:
+    // `updateMatrixWorld` (refaz a matriz de cada objeto, todo quadro) e `projectObject`. Os ~1.300
+    // lotes nunca saem do lugar (a matriz deles é a identidade; cada cópia tem a sua, dentro do
+    // lote): ficam num grupo cujo `updateMatrixWorld` não faz nada.
+    const parados = new THREE.Group();
+    parados.name = 'lotes da decoração';
+    // UM MATERIAL POR RECEITA (15/10/2026): cada peça do pacote chega com os seus materiais, e
+    // muitos são iguais em tudo (o mesmo atlas, a mesma cor) — do acampamento, os opacos
+    // desenhados tinham 91 materiais e só 43 receitas. A cada troca de material o three.js
+    // reenvia TODOS os uniformes (as luzes, a névoa, a cor…): `setProgram` era um quarto da CPU
+    // do quadro com a CPU freada 8× (a conta de um celular fraco). Os lotes de materiais iguais
+    // passam a dividir UMA cópia, só deles (dividida com uma malha comum, o programa trocaria a
+    // cada desenho: instanciado × não). Nada muda na tela.
+    const receitas = new Map();
+    const unico = (m) => {
+      const k = receitaDoMaterial(m);
+      if (k === null) return m;
+      let r = receitas.get(k);
+      if (!r) {
+        r = m.clone();
+        // (o `clone` não leva os ganchos do shader: as `gi-`, assets.js)
+        r.onBeforeCompile = m.onBeforeCompile; r.customProgramCacheKey = m.customProgramCacheKey;
+        receitas.set(k, r);
+      }
+      return r;
+    };
+    for (const l of lotes.values()) {
+      const { malha, copias } = l;
+      // UMA "CASCA" DE GEOMETRIA POR LOTE (13/10/2026): os lotes da mesma peça dividiam a geometria,
+      // e o three.js guarda a ligação dos atributos (o VAO) por geometria + programa — como cada
+      // lote tem o SEU `instanceMatrix`, a cada desenho ele via "mudou" e religava todos os atributos
+      // (o perfil de CPU com o freio de 4×, a conta de um celular: ~13% do quadro em `setup`,
+      // `bindBuffer` e `vertexAttribPointer`, no quadro e de novo em cada vista da sombra)
+      const im = new THREE.InstancedMesh(cascaDaGeometria(malha.geometry), Array.isArray(malha.material) ? malha.material.map(unico) : unico(malha.material), copias.length);
+      copias.forEach((c, i) => im.setMatrixAt(i, c.m));
+      im.castShadow = l.sombra;   // (a regra está acima, na montagem dos lotes)
       im.receiveShadow = malha.receiveShadow;
       im.computeBoundingSphere();
       im.matrixAutoUpdate = false;
       parados.add(im);
-      grupo.ims.add(im);
-      for (const [q, idx] of donos ?? []) (q.instancias ??= []).push({ im, idx, m: matrizes[idx] });
+      l.im = im;
+      for (const c of copias) c.g.ims.add(im);
     }
     this.scene.add(parados);
     parados.updateMatrixWorld(true);
     parados.matrixAutoUpdate = false;
     parados.updateMatrixWorld = () => {};
     this.lotesDeDecoracao = lotes.size;
+    this.materiaisDosLotes = receitas.size;
     // o meio e o raio de cada grupo (as cópias, mais o tamanho da peça)
     for (const g of grupos.values()) {
       g.centro = g.posicoes.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(g.posicoes.length);
@@ -1282,7 +1341,7 @@ export class World {
       g.dentro = g.nDentro * 2 > g.posicoes.length;   // a maioria das cópias está dentro da masmorra
       delete g.posicoes;
     }
-    this.lod = new LOD(this, [...grupos.values()]);
+    this.lod = new LOD(this, [...grupos.values()], [...lotes.values()]);
   }
 
   /**
@@ -1518,8 +1577,7 @@ export class World {
   /** Mostra/esconde: a peça solta, ou a(s) cópia(s) dela dentro de um lote. */
   mostrarQuebravel(q, sim) {
     if (!q.instancias) { q.raiz.visible = sim; return; }
-    this.zero ??= new THREE.Matrix4().makeScale(0, 0, 0);
-    for (const { im, idx, m } of q.instancias) { im.setMatrixAt(idx, sim ? m : this.zero); im.instanceMatrix.needsUpdate = true; }
+    for (const { lote, c } of q.instancias) { c.cortada = !sim; reescreverLote(lote, this.lod?.tudo); }
   }
 
   /** Folhas verdes rodopiando e caindo devagar (a vegetação cortada). */
@@ -1867,7 +1925,7 @@ export class World {
     M?.fase('lod');
 
     for (const f of this.flames) {
-      if (!f.g.visible) continue;
+      if (!f.g.visible || !f.outer.layers.isEnabled(0)) continue;   // (escondida pelo LOD: lod.js, `soltas`)
       const k = 1 + Math.sin(t * 13 + f.seed) * 0.08 + Math.sin(t * 7.7 + f.seed * 3) * 0.07;
       f.outer.scale.set(f.size * 1.3 * (2 - k), f.size * 1.8 * k, 1);
       f.inner.material.opacity = 0.8 + Math.sin(t * 17 + f.seed) * 0.2;

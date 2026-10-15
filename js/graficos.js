@@ -51,6 +51,20 @@ export const QUALIDADES = {
     nuvens: 2, reflexoS: 20, clarao: false,
     impostor: 65, limiarPx: 3.5,
   },
+  // O CELULAR FRACO (15/10/2026; relatório de um PowerVR GE8320 com 2 GB: 12–16 quadros/s no
+  // Baixo, a CPU no limite). Ali o que pesa é a CPU, e o que o Baixo tira para poupá-la (o capim,
+  // o filtro de cor, o reflexo do sol) quase não custa CPU: o capim é UMA chamada de desenho, o
+  // filtro é da página. Então fica o Baixo no que custa CPU (sem sombras, poucas luzes, o
+  // detalhe pequeno some de longe) e a BELEZA volta: o capim (mais ralo que o do Médio, as
+  // touceiras maiores — o tapete continua fechado), o tom da masmorra, as nuvens, o clarão.
+  // Escolhido sozinho no celular fraco (`ehCelularFraco`), sem escolha guardada.
+  celular: {
+    nome: 'Celular', pixelRatio: 1, antialias: false,
+    sombra: null, tipoSombra: THREE.BasicShadowMap, sol: null,
+    luzes: 3, luzesFora: 2, filtroDeCor: true, particulas: 0.6, capim: 20,
+    nuvens: 3, reflexoS: 20, clarao: true,
+    impostor: 65, limiarPx: 3.5,
+  },
 };
 
 const CHAVE = 'masmorra:graficos';
@@ -72,12 +86,28 @@ export const RESOLUCOES = [1, 0.85, 0.7, 0.55, 0.4];
  * qualidade. Liga/desliga no menu de pausa; a escolha fica no `localStorage`.
  */
 const FPS_MIN = 40;
-const ESCALA_MIN = { alto: 0.7, medio: 0.65, baixo: 0.6 };
+const ESCALA_MIN = { alto: 0.7, medio: 0.65, baixo: 0.6, celular: 0.75 };
 
-/** A qualidade guardada (ou a padrão: Médio no celular, Alto no computador). */
+/** A qualidade guardada (ou a padrão: Celular no celular fraco, Médio no celular, Alto no computador). */
 export function qualidadeSalva(toque = false) {
   try { const q = localStorage.getItem(CHAVE); if (QUALIDADES[q]) return q; } catch { }
-  return toque ? 'medio' : 'alto';
+  return !toque ? 'alto' : ehCelularFraco() ? 'celular' : 'medio';
+}
+
+/**
+ * CELULAR FRACO: pouca memória (`deviceMemory` ≤ 3 GB — o Safari não diz, e o iPhone fica no
+ * Médio) ou uma placa de entrada (PowerVR, Mali antigas, Adreno 3xx–5xx), lida de um contexto
+ * WebGL de passagem (o do jogo ainda não existe: o antisserrilhado sai da qualidade).
+ */
+export function ehCelularFraco() {
+  if ((navigator.deviceMemory ?? 8) <= 3) return true;
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    const ext = gl?.getExtension('WEBGL_debug_renderer_info');
+    const placa = (ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || '';
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return /PowerVR|Mali-(T|4|G31|G51|G52|G71|G72)|Adreno \(TM\) [345]\d\d/i.test(placa);
+  } catch { return false; }
 }
 
 export class Graficos {
