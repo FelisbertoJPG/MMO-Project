@@ -20,9 +20,10 @@ const MAX_BUFFER = 20;
 const APARENCIAS = {
   fantasma: { cor: 0xa8c8ff, brilho: 0x2c4c9a, opacidade: 0.38 },
   sangue: { cor: 0xff4a3a, brilho: 0x8a1408, opacidade: 0.55 },
-  // Na sala: o boneco SÓLIDO, com a cor da armadura dele e só um brilho tingido
-  aliado: { cor: null, brilho: 0x14284f, opacidade: 1 },
-  rival: { cor: null, brilho: 0x5a0c08, opacidade: 1 },
+  // No Mundo online e na sala: o boneco SÓLIDO, como ele é (15/10/2026: o brilho azul do
+  // aliado e o vermelho do rival saíram — os outros jogadores ficavam de outra cor)
+  aliado: null,
+  rival: null,
   solido: null,   // o boneco como ele é
 };
 
