@@ -173,8 +173,12 @@ const racasDoPainel = () => [{ n: 0, nome: 'Humano' }, ...Assets.racas.map((r, i
  * O EDITOR DE PERSONAGEM no jogo (`game.menu = 'aparencia'`): um painel com ◀ ▶ por
  * opção, a câmera no rosto do jogador, e o corpo mudando na hora. "Pronto" grava.
  * ARRASTAR fora do painel (mouse ou dedo) gira a vista em volta do personagem: o rabo de
- * cavalo e as tranças ficam nas costas, e de frente não se viam.
+ * cavalo e as tranças ficam nas costas, e de frente não se viam. A RODA do mouse e a PINÇA
+ * (dois dedos) aproximam e afastam (`dist`, de `DIST_MIN` — o rosto enche a tela — a
+ * `DIST_MAX` — o corpo inteiro).
  */
+const DIST_MIN = 0.42, DIST_PADRAO = 1.25, DIST_MAX = 3.2;
+const _alvo = new THREE.Vector3(), _cam = new THREE.Vector3();
 export class EditorDeAparencia {
   constructor(game) {
     this.game = game;
@@ -189,20 +193,41 @@ export class EditorDeAparencia {
     });
     // a volta da vista: 0 = de frente para o rosto, π = as costas
     this.giro = 0;
-    let de = null;
-    addEventListener('pointerdown', (e) => { if (this.aberto && !e.target.closest?.('#aparencia')) de = e.clientX; });
-    addEventListener('pointermove', (e) => { if (de === null || !this.aberto) return; this.giro += (e.clientX - de) * 0.012; de = e.clientX; });
-    for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, () => { de = null; });
+    this.dist = DIST_PADRAO;
+    // os dedos (ou o mouse) apertados FORA do painel: um gira, dois fazem a pinça
+    this.dedos = new Map();
+    const pinca = () => { const [a, b] = [...this.dedos.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    addEventListener('pointerdown', (e) => { if (this.aberto && !e.target.closest?.('#aparencia')) this.dedos.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+    addEventListener('pointermove', (e) => {
+      const d = this.dedos.get(e.pointerId);
+      if (!d || !this.aberto) return;
+      if (this.dedos.size === 1) this.giro += (e.clientX - d.x) * 0.012;
+      const antes = this.dedos.size >= 2 ? pinca() : 0;
+      d.x = e.clientX; d.y = e.clientY;
+      if (antes > 20) this.aproximar(antes / Math.max(20, pinca()));
+    });
+    for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => this.dedos.delete(e.pointerId));
+    addEventListener('wheel', (e) => {
+      if (!this.aberto || e.target.closest?.('#aparencia')) return;
+      this.aproximar(Math.exp(e.deltaY * (e.deltaMode === 1 ? 33 : 1) * 0.0012));
+    }, { passive: true });
   }
 
   get aberto() { return !this.el.classList.contains('hidden'); }
 
+  /** a distância da câmera vezes `k` (< 1 aproxima) */
+  aproximar(k) { this.dist = THREE.MathUtils.clamp(this.dist * k, DIST_MIN, DIST_MAX); }
+
   abrir() {
     this.el.classList.remove('hidden');
     this.giro = 0;
+    this.dist = DIST_PADRAO;
+    this.el.querySelector('.aparencia-dica').textContent = document.body.classList.contains('toque')
+      ? 'Arraste fora do painel para girar · pinça para aproximar'
+      : 'Arraste fora do painel para girar · roda do mouse para aproximar';
     this.desenhar();
   }
-  fechar() { this.el.classList.add('hidden'); }
+  fechar() { this.el.classList.add('hidden'); this.dedos.clear(); }
 
   mudar(parcial) {
     const p = this.game.player, antes = lerAparencia(p.aparencia), a = { ...antes, ...parcial };
@@ -242,12 +267,30 @@ export class EditorDeAparencia {
   /**
    * a câmera de frente para o rosto (chamada no laço, depois da câmera de sempre), girada
    * pelo arrasto; indo para as costas ela se afasta e desce um pouco, para caber a trança.
-   * A altura é a do rosto da RAÇA (o orc é mais alto: a câmera ficava no queixo dele)
+   * A altura é a do rosto da RAÇA (o orc é mais alto: a câmera ficava no queixo dele).
+   * Afastando (`dist`), a vista desce do rosto para o meio do corpo. Parede atrás: a câmera
+   * encosta nela, como a de sempre. O personagem fica no MEIO da parte da tela que o painel
+   * não cobre (`setViewOffset`: a imagem anda de lado sem mudar o ângulo da vista).
    */
   camera(cam) {
-    const p = this.game.player, f = p.facing + this.giro, atras = (1 - Math.cos(this.giro)) / 2, a = lerAparencia(p.aparencia);
-    const y = p.pos.y + 1.55 * proporcoesDe(racaDe(a.raca, a.sexo)).altura - 0.2 * atras, d = 1.25 + 0.7 * atras;
-    cam.position.set(p.pos.x + Math.sin(f) * d - Math.cos(f) * 0.35, y + 0.08, p.pos.z + Math.cos(f) * d + Math.sin(f) * 0.35);
-    cam.lookAt(p.pos.x - Math.cos(f) * 0.25, y - 0.05, p.pos.z + Math.sin(f) * 0.25);
+    const p = this.game.player, w = this.game.world, f = p.facing + this.giro, atras = (1 - Math.cos(this.giro)) / 2, a = lerAparencia(p.aparencia);
+    const alto = proporcoesDe(racaDe(a.raca, a.sexo)).altura, corpo = THREE.MathUtils.clamp((this.dist - DIST_PADRAO) / (DIST_MAX - DIST_PADRAO), 0, 1);
+    const y = p.pos.y + 1.55 * alto - 0.2 * atras;
+    _alvo.set(p.pos.x, y - 0.05 - 0.6 * alto * corpo, p.pos.z);
+    let d = this.dist * (1 + 0.56 * atras);
+    _cam.set(_alvo.x + Math.sin(f) * d, 0, _alvo.z + Math.cos(f) * d);
+    d *= Math.max(DIST_MIN * 0.8 / d, w.rayFraction(_alvo, _cam, 0.15) - 0.03);
+    _cam.set(_alvo.x + Math.sin(f) * d, _alvo.y + 0.13 + 0.25 * corpo, _alvo.z + Math.cos(f) * d);
+    _cam.y = Math.max(_cam.y, w.alturaChao(_cam) + 0.3);
+    cam.position.copy(_cam);
+    cam.lookAt(_alvo);
+    // a câmera de sempre (que no Mundo online segue rodando por baixo do menu) esconde o
+    // modelo quando passa perto da cabeça — e, indo do rosto para trás do ombro, ela passava
+    // por dentro dele: o personagem sumia em alguns ângulos
+    p.model.scene.visible = true;
+    if (p.model.guerreiro) p.model.guerreiro.cena.visible = true;
+    const W = innerWidth, H = innerHeight, r = this.el.getBoundingClientRect();
+    const meio = r.left > W - r.right ? r.left / 2 : (r.right + W) / 2;
+    cam.setViewOffset(W, H, W / 2 - meio, 0, W, H);
   }
 }

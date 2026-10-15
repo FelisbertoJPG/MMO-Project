@@ -1162,6 +1162,7 @@ class Game {
       this.shake = Math.max(0, this.shake - dt * 2.5);
     }
     if (this.menu === 'aparencia') this.editorAparencia.camera(this.camera);   // a câmera no rosto
+    else if (this.camera.view?.enabled) this.camera.clearViewOffset();   // (o painel tirava a imagem do meio)
     this.toque?.update();
     this.graficos.update();
     this.ui.update(dt);
