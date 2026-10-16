@@ -4,6 +4,10 @@ import { Assets } from './assets.js';
 import { buildOutfit, makeWeapon, makeShield } from './gear.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { CorpoGuerreiro } from './guerreiro.js';
+import { PersonagemEsculpido, esculpidoDoCodigo } from './esculpido.js';
+
+// o corpo de quem joga para um código: o guerreiro, ou o ESCULPIDO da raça (esculpido.js)
+const corpoPara = (modelo, armadura) => (esculpidoDoCodigo(armadura) ? new PersonagemEsculpido(modelo, armadura) : new CorpoGuerreiro(modelo, armadura));
 
 // Golpes: tempos em SEGUNDOS do clipe (medidos pela velocidade da ponta da lâmina).
 // from/to recortam trechos de clipes longos (combos); hit = janela de dano; arc = abertura do golpe.
@@ -67,7 +71,7 @@ export class CharacterModel {
     this.pesoMaoL = 0;   // a mão esquerda com algo nela (tocha, escudo, comida): os dedos fechados
     // o corpo do guerreiro (guerreiro.js): o manequim segue animando, invisível.
     // `armadura` como em `usarGuerreiro` (false = só o manequim, o padrão dos inimigos)
-    this.guerreiro = armadura !== false && Assets.guerreiro ? new CorpoGuerreiro(this, armadura) : null;
+    this.guerreiro = armadura !== false && Assets.guerreiro ? corpoPara(this, armadura) : null;
   }
 
   // Troca o corpo com o jogo rodando (o provador, e a armadura equipada): `false` = o
@@ -79,12 +83,14 @@ export class CharacterModel {
       if (!this.guerreiro) return;
       this.guerreiro.remover();
       this.guerreiro = null;
-    } else if (this.guerreiro) {
+    } else if (this.guerreiro && (this.guerreiro.esculpido ?? null) === esculpidoDoCodigo(armadura)) {
       this.guerreiro.vestir(armadura);
       if (!this.guerreiro.alturaMudou) return;   // (raça de outra altura: as armas voltam à mão no tamanho certo)
     } else {
+      // (o corpo é OUTRO: o guerreiro ↔ o esculpido de uma raça — esculpido.js)
       if (!Assets.guerreiro) return;
-      this.guerreiro = new CorpoGuerreiro(this, armadura);
+      this.guerreiro?.remover();
+      this.guerreiro = corpoPara(this, armadura);
     }
     for (const lado of ['r', 'l']) {
       const obj = (lado === 'r' ? this.slotR : this.slotL)?.children[0];
@@ -235,7 +241,7 @@ export class CharacterModel {
     const h = this.slotR, base = h.userData.base;
     if (!base) return;
     const g = this.guerreiro;
-    const osso = (ual, gu) => (g ? g.cena.getObjectByName(gu) : this.scene.getObjectByName(ual));
+    const osso = (ual, gu) => (g ? g.cena.getObjectByName(g.esculpido ? ual : gu) : this.scene.getObjectByName(ual));   // (os ossos do esculpido têm os nomes do UAL)
     const ombroL = osso('upperarm_l', 'ArmL'), cotL = osso('lowerarm_l', 'ElbowL'), maoL = osso('hand_l', 'HandL');
     const ombroR = osso('upperarm_r', 'ArmR'), cotR = osso('lowerarm_r', 'ElbowR'), maoR = osso('hand_r', 'HandR');
     // a espada volta à pegada de uma mão: é dela que sai a espada da animação

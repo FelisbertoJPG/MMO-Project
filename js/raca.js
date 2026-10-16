@@ -119,6 +119,13 @@ const feminino = (n) => (n > 0 ? Assets.racas?.[n - 1]?.feminino : Assets.humano
 /** A raça de número `n` tem o corpo feminino? (só então o jogador escolhe o sexo) */
 export const temFeminino = (n) => !!feminino(n);
 /**
+ * A RAÇA ESCULPIDA (16/10/2026): `esculpido` no `racas.json` = o nome de um corpo feito de
+ * fotos (esculpido.js, `assets/esculpidos/<nome>.glb`) — quem é dessa raça joga com AQUELE
+ * corpo inteiro (malha, cores, roupa), e o resto da raça (proporções, cores, cabelo) não vale.
+ * Devolve o nome, se o arquivo carregou; senão null (aí é o guerreiro, como qualquer raça).
+ */
+export const esculpidoDe = (raca) => (raca?.esculpido && Assets.esculpidos?.[raca.esculpido] ? raca.esculpido : null);
+/**
  * A raça de número `n` (o dígito da aparência) no corpo do `sexo` (0 = masculino, 1 =
  * feminino): de onde saem as proporções, as cores e as listas do boneco — ou null: o humano
  * como o modelo é (ou raça que não existe mais). No feminino, a raça com o que o corpo

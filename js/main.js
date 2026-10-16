@@ -26,7 +26,7 @@ import { ControlesToque, ehToque } from './toque.js';
 import { Provador } from './provador.js';
 import { Capim } from './capim.js';
 import { Agua } from './agua.js';
-import { Esculpidos } from './esculpido.js';
+import { aquecerEsculpidos } from './esculpido.js';
 import { Telemetria, enviarDesempenho, aparelho } from './telemetria.js';
 import { tirarDoExpositor, derrubarItens } from './expositor.js';
 import { tela } from './tela.js';
@@ -115,7 +115,6 @@ class Game {
     this.world = new World(this);
     this.capim = new Capim(this);   // as graminhas que balançam com o vento (capim.js)
     this.agua = new Agua(this);     // a lagoa e as vitórias-régias (agua.js)
-    this.esculpidos = new Esculpidos(this);   // os personagens feitos de fotos, na vitrine do acampamento (esculpido.js)
     this.effects = new Effects(this);
     this.projectiles = new Projectiles(this);
     this.ui = new UI(this);
@@ -748,6 +747,8 @@ class Game {
     const w = this.world, r = this.renderer, larg = w.cols * CELL, prof = w.rows * CELL;
     // (a PINTURA, pintura.js: o shader dela — transparente, com ossos — compila aqui, e não quando chega alguém pintado)
     const tirarPintura = aquecerPintura(this.player?.model?.guerreiro);
+    // (os ESCULPIDOS, esculpido.js: o shader de quem joga com a raça dele, e não quando ele chega)
+    const tirarEsculpidos = aquecerEsculpidos(this.scene, new THREE.Vector3(larg / 2, 0, prof / 2));
     const cam = new THREE.OrthographicCamera(-larg / 2 - 10, larg / 2 + 10, prof / 2 + 10, -prof / 2 - 10, 1, 1200);
     cam.position.set(larg / 2, 600, prof / 2);
     cam.up.set(0, 0, -1);
@@ -788,6 +789,7 @@ class Game {
     for (const c of cartazes) if (c.malha.count === 1) { c.malha.count = 0; c.sujo = true; }
     w.distribuirLuzes();
     tirarPintura();
+    tirarEsculpidos();
   }
 
   // ---------- Menus ----------
@@ -1229,7 +1231,6 @@ class Game {
       M?.fase('mundo');
       this.capim.update(dt);
       this.agua.update(dt);
-      this.esculpidos.update(dt);
       M?.fase('capim');
       this.player.updateCamera(dt, this.camera);
       M?.fase('câmera');

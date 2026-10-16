@@ -77,7 +77,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 | `/agent_mapa` | `mapa-e-cenario` | floresta, mata, acampamento, WindHills, relevo, `decor.json` e o decorador, vegetação `gi-`/`lp-`, água e lagoas, animais, o terraço e o dragão |
 | `/agent_ceu` | `ceu-capim-e-chao` | ciclo do dia, céu (`ceu.js`: sol, lua, nuvens, reflexo, clarão), luz, o tapete de capim, a cor do chão, caminhos, categorias das peças |
 | `/agent_corpo` | `corpo-e-animacao` | o guerreiro (`guerreiro.glb`), retarget, malha fundida, dedos, clipes do Mixamo, guarda, duas mãos (IK), empunhadura, personagens esculpidos de fotos (`ferramentas/contorno`, `esculpido.js`) |
-| `/agent_aparencia` | `aparencia-e-racas` | painel de Aparência, raças e corpo feminino, proporções, busto, rosto, presas, orelhas, penteados, barbas, sobrancelhas, ímã, modelagem, pintura, piscada |
+| `/agent_aparencia` | `aparencia-e-racas` | painel de Aparência, raças e corpo feminino, raça esculpida (Dennis), proporções, busto, rosto, presas, orelhas, penteados, barbas, sobrancelhas, ímã, modelagem, pintura, piscada |
 | `/agent_combate` | `combate-e-itens` | escudo e postura, fratura, esqueleto desmontado, item caído e raridade, expositores, quebráveis, comida e receitas, a ficha (atributos, armaduras, peso, `FICHA`) |
 | `/agent_rede` | `rede-e-mmo` | `js/rede/`, protocolo, sala, duelo, co-op, o Mundo online (`servidor-mundo.mjs`, simulador, `game.sessao`), chat global, chat de voz |
 | `/agent_interface` | `interface-e-celular` | tela de entrada, HUD, menu de pausa em telas, coordenadas, câmeras (primeira pessoa, isométrica, véu), toque, tela deitada, carregamento no celular |

@@ -770,10 +770,10 @@ export class Player {
     camera.lookAt(look);
   }
 
-  /** A altura dos olhos, da raça (o orc é mais alto). */
+  /** A altura dos olhos, da raça (o orc é mais alto) — a do corpo vestido (o esculpido tem a dele). */
   get alturaDosOlhos() {
     const a = lerAparencia(this.aparencia);
-    return 1.6 * (proporcoesDe(racaDe(a.raca, a.sexo)).altura ?? 1);
+    return 1.6 * (this.model.guerreiro?.altura ?? proporcoesDe(racaDe(a.raca, a.sexo)).altura ?? 1);
   }
 
   cameraPrimeira(dt, camera) {

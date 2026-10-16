@@ -31,7 +31,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { tela, pontoNaTela, retanguloNaTela } from './tela.js';
-import { racaDe, proporcoesDe, SEXOS, temFeminino } from './raca.js';
+import { racaDe, proporcoesDe, SEXOS, temFeminino, esculpidoDe } from './raca.js';
 import { penteadosDe, nomeDoPenteado, barbasDe, nomeDaBarba, sobrancelhasDe, nomeDaSobrancelha } from './penteado.js';
 
 export const PELES = [
@@ -255,6 +255,9 @@ export class EditorDeAparencia {
     this.lista.innerHTML = '';
     for (const [k, rotulo, opcoes, some] of LINHAS) {
       if (some?.(raca, a)) continue;
+      // (a raça ESCULPIDA — um corpo feito de fotos, esculpido.js — já vem pintada e vestida:
+      // só a linha da raça; o resto do código fica guardado para quando voltar ao humano)
+      if (k !== 'raca' && esculpidoDe(raca)) continue;
       const ops = opcoes(raca), linha = document.createElement('div');
       // a raça anda pela lista das jogáveis (o número dela é o lugar no arquivo, não na lista)
       const agora = k === 'raca' ? Math.max(0, racas.findIndex((r) => r.n === a.raca)) : a[k];
@@ -280,7 +283,8 @@ export class EditorDeAparencia {
     // (a câmera isométrica usa outra lente: aqui, a de sempre)
     if (cam.userData.fovNormal != null && cam.fov !== cam.userData.fovNormal) { cam.fov = cam.userData.fovNormal; cam.updateProjectionMatrix(); }
     const p = this.game.player, w = this.game.world, f = p.facing + this.giro, atras = (1 - Math.cos(this.giro)) / 2, a = lerAparencia(p.aparencia);
-    const alto = proporcoesDe(racaDe(a.raca, a.sexo)).altura, corpo = THREE.MathUtils.clamp((this.dist - DIST_PADRAO) / (DIST_MAX - DIST_PADRAO), 0, 1);
+    // (a altura do corpo vestido — a do esculpido é a dele; sem corpo, a da raça)
+    const alto = p.model.guerreiro?.altura ?? proporcoesDe(racaDe(a.raca, a.sexo)).altura, corpo = THREE.MathUtils.clamp((this.dist - DIST_PADRAO) / (DIST_MAX - DIST_PADRAO), 0, 1);
     const y = p.pos.y + 1.55 * alto - 0.2 * atras;
     _alvo.set(p.pos.x, y - 0.05 - 0.6 * alto * corpo, p.pos.z);
     let d = this.dist * (1 + 0.56 * atras);
