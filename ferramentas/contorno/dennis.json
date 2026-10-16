@@ -1,6 +1,7 @@
 {
   "_leiame": "O RECORTE do Dennis para o esculpir.mjs (ferramentas/contorno). Coordenadas em PIXELS de cada imagem (x da esquerda, y de cima). 'marcos' = alturas que se correspondem nas vistas (chao, barra do casaco, ombro, olhos, topo do capuz): as fotos estao em perspectiva e cada uma estica o corpo de um jeito, os marcos as alinham com a FRENTE. 'eixo' = o x do meio do corpo. Peca: x = [vista, x0, y0, x1, y1] (a caixa onde a largura e lida), z = a caixa da profundidade (vista de lado). 'ossos' = a corrente de ossos do manequim UAL que a peca segue. Alturas e larguras do 'esqueleto' em fracoes da altura.",
   "nome": "dennis",
+  "fotos": "C:/Users/Mestre/Desktop/dennis",
   "altura": 1.25,
   "passo": 2,
   "vistas": {
@@ -9,7 +10,7 @@
     "costas": { "arquivo": "WhatsApp Image 2026-10-16 at 15.36.25.jpeg", "tolerancia": 70, "eixo": 94, "espelhar": true, "marcos": { "chao": 312, "barra": 238, "ombro": 110, "topo": 20 } },
     "cor": { "arquivo": "WhatsApp Image 2026-10-16 at 15.37.12.jpeg", "tolerancia": 45, "eixo": 114, "marcos": { "chao": 365, "barra": 277, "olhos": 74, "topo": 15 } }
   },
-  "esqueleto": { "quadril": 0.30, "coxa": [0.075, 0.29], "joelho": 0.16, "tornozelo": 0.075, "pe": 0.55, "pescoco": 0.70, "ombro": [0.135, 0.665], "braco": 0.28, "mao": 0.10 },
+  "esqueleto": { "quadril": 0.3, "coxa": [0.075, 0.29], "joelho": 0.16, "tornozelo": 0.075, "pe": 0.55, "pescoco": 0.7, "ombro": [0.135, 0.665], "braco": 0.28, "mao": 0.1 },
   "pecas": [
     { "nome": "capuz", "x": ["frente", 52, 8, 168, 104], "escolha": "tudo", "z": ["lado", 12, 18, 108, 125], "ossos": ["spine_03", "neck_01", "Head"], "expoente": 2.3, "cor": "#e3a03a", "projetar": true,
       "rosto": { "u": 0, "v": 0.805, "raioU": 0.10, "raioV": 0.095, "fundo": 0.05 } },

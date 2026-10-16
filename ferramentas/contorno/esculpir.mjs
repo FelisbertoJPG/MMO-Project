@@ -18,7 +18,8 @@
 // O cajado sai como peça rígida à parte (o jogo o põe na mão direita).
 //
 // Uso (da raiz do jogo):
-//   node ferramentas/contorno/esculpir.mjs ferramentas/contorno/dennis.json "<pasta das fotos>" [--conferir=<pasta>]
+//   node ferramentas/contorno/esculpir.mjs ferramentas/contorno/dennis.json ["<pasta das fotos>"] [--conferir=<pasta>]
+// (sem a pasta, vale a `fotos` do recorte)
 // Grava assets/esculpidos/<nome>.glb. Com --conferir, grava na pasta as fotos com a silhueta e
 // as caixas (vistas-<nome>.png) e o resultado desenhado de 4 lados (resultado-<nome>.png).
 // Usa o three r185 de ferramentas/guerreiro (o do jogo não tem o GLTFExporter).
@@ -37,10 +38,13 @@ const { GLTFExporter } = await import('../guerreiro/addons/GLTFExporter.js');
 console.warn = () => {};
 
 const args = process.argv.slice(2);
-const [ARQ_RECORTE, PASTA] = args.filter((a) => !a.startsWith('--'));
-if (!ARQ_RECORTE || !PASTA) { console.log('uso: node esculpir.mjs <recorte.json> <pasta das fotos> [--conferir=<pasta>] [--saida=<arquivo.glb>]'); process.exit(1); }
+const [ARQ_RECORTE, PASTA_ARG] = args.filter((a) => !a.startsWith('--'));
+if (!ARQ_RECORTE) { console.log('uso: node esculpir.mjs <recorte.json> <pasta das fotos> [--conferir=<pasta>] [--saida=<arquivo.glb>]'); process.exit(1); }
 const opcao = (n) => args.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3);
 const R = JSON.parse(fs.readFileSync(ARQ_RECORTE, 'utf8'));
+// a pasta das fotos: a do comando, ou a que o recorte lembra (`fotos`; o Editor de Personagem regera por ela)
+const PASTA = PASTA_ARG ?? R.fotos;
+if (!PASTA || !fs.existsSync(PASTA)) { console.log(`sem a pasta das fotos (${PASTA ?? 'nem no comando nem em "fotos" do recorte'})`); process.exit(1); }
 const H = R.altura;
 const SAIDA = opcao('saida') ?? path.join(RAIZ, 'assets/esculpidos', `${R.nome}.glb`);
 const CONFERIR = opcao('conferir');
