@@ -7,6 +7,7 @@
  *   node ferramentas/desempenho/ler.mjs --dias 2     outro período
  *   node ferramentas/desempenho/ler.mjs --id 123     o relatório inteiro de um registro
  *   node ferramentas/desempenho/ler.mjs --json       tudo, cru
+ *   node ferramentas/desempenho/ler.mjs --limpar     APAGA todos os registros (migration 0004)
  *
  * A chave de leitura vem de DESEMPENHO_CHAVE ou de `chave.txt` nesta pasta (fora do git) e
  * tem de ser a mesma de `masmorra.segredos` (ver a migration 0003).
@@ -21,6 +22,13 @@ const chave = process.env.DESEMPENHO_CHAVE || (existsSync(arquivo) ? readFileSyn
 if (!chave) { console.error('Sem a chave de leitura: DESEMPENHO_CHAVE ou ferramentas/desempenho/chave.txt.'); process.exit(1); }
 
 const dias = Number(opcao('dias', 7)), id = opcao('id') ? Number(opcao('id')) : null;
+const cabecalho = { apikey: CHAVE_API, 'content-type': 'application/json', 'content-profile': 'masmorra' };
+if (args.includes('--limpar')) {
+  const l = await fetch(`${URL_}/rest/v1/rpc/limpar_desempenho`, { method: 'POST', headers: cabecalho, body: JSON.stringify({ p_chave: chave }) });
+  const n = l.ok ? await l.json() : null;
+  console.log(!l.ok ? `O Supabase respondeu ${l.status}: ${(await l.text()).slice(0, 300)}${l.status === 404 ? ' (a migration 0004 ainda não foi rodada?)' : ''}` : n < 0 ? 'Chave de leitura errada: nada foi apagado.' : `Apagados ${n} registros.`);
+  process.exit(l.ok && n >= 0 ? 0 : 1);
+}
 const r = await fetch(`${URL_}/rest/v1/rpc/ler_desempenho`, {
   method: 'POST',
   headers: { apikey: CHAVE_API, 'content-type': 'application/json', 'content-profile': 'masmorra' },

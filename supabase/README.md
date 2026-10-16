@@ -9,7 +9,7 @@ separado do `public` do Duel Academy. A única ligação entre os dois é
 
 1. **SQL Editor → New query →** colar `migrations/0001_masmorra_inicial.sql` → **Run**.
    Depois, do mesmo jeito, `migrations/0002_personagens_do_mundo.sql` (o Mundo online)
-   e `migrations/0003_desempenho.sql` (o relatório automático de desempenho) — com a
+   e `migrations/0003_desempenho.sql` + `0004_desempenho_teto.sql` (o relatório automático de desempenho, com teto de 30 MB, interruptor próprio e `limpar_desempenho`) — com a
    chave de leitura dela (a do arquivo `ferramentas/desempenho/chave.txt`, fora do git):
    `insert into masmorra.segredos values ('leitura_desempenho', '<a chave>') on conflict (chave) do update set valor = excluded.valor;`
 2. **Project Settings → Data API → Exposed schemas →** acrescentar `masmorra` e salvar.
