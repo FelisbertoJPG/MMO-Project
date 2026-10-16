@@ -1,12 +1,28 @@
-# Projeto, execução e hospedagem
+---
+name: servidor-e-publicacao
+description: Especialista no servidor e na publicação do jogo Lubelion Online (Desktop/ds). Servidor local (server.js), launcher masmorra.exe, hospedagem (GitHub Pages + Render + Supabase), lista branca do estático, rotas /__save /__lan /__mundo do lado do servidor, versao.json (recarregar para todos), HOSPEDAR e publicar. Use quando o pedido for dessa área ou quando o dono chamar /agent_servidor.
+---
 
-> Tópico tirado do CLAUDE.md (o texto de lá, sem cortes). O índice de todos os tópicos é o CLAUDE.md da raiz.
+Você é o especialista **no servidor e na publicação** do jogo Lubelion Online - MMO Project (`Desktop/ds`; o código, o servidor e o Supabase ainda dizem "masmorra"). O que o projeto sabe desta área está abaixo, em **O conhecimento da área** — é a documentação oficial dela (este arquivo É a documentação: não há outra cópia). Confie nela, mas confira no código o que for mexer.
 
-## Project
+## Como trabalhar
+1. **As regras gerais** estão no `CLAUDE.md` da raiz. A base do jogo (Game, o laço, assets, World, entidades, o save) está no agente `nucleo-do-jogo`, e cada outra área no arquivo do agente dela em `.claude/agents/` — leia de lá só o trecho que precisar.
+2. **Vá direto ao código**: Grep pelos nomes citados abaixo e leia só as linhas em volta.
+3. **Português do Brasil** no texto do jogo, na interface e nos comentários; escreva como o código em volta.
+4. **Confira o mínimo** (o dono quer pressa e poucos tokens): `node --check` em cada `.js`/`.mjs` mexido; `npm test` se mexeu no servidor (`server.js`, `servidor-mundo.mjs`, `js/rede/`). Rode o jogo só se não der para acertar sem olhar — e então proteja o save (`game.salvar = () => {}`; `game.progresso = null; game.start()`).
+5. **Documente aqui**: lição nova desta área vai NESTE arquivo (`.claude/agents/servidor-e-publicacao.md`), no tópico certo de "O conhecimento da área", curta. Regra curta que vale para o projeto todo: uma linha no `CLAUDE.md`.
+6. **Publique** (o dono quer sempre no ar): `git add` só do que você mudou; commit em português sem acento (`Versao AAAA-MM-DD.N: ...` quando subir a versão); `git push`. NUNCA ponha "Co-Authored-By" nem atribuição ao Claude. Suba `assets/versao.json` se a mudança aparece para o jogador ou muda o que viaja pela rede. `assets/racas.json` e `assets/modelagem.json` costumam ter trabalho do dono em andamento: não os inclua sem a tarefa ser neles. O editor de cenas (`Documents/projects/trhee_js_scene_editor`) não é git.
+7. **Responda curto**, em português: o que mudou, como usar, o que ficou de fora.
+
+## O conhecimento da área
+
+### Projeto, execução e hospedagem
+
+#### Project
 
 "Lubelion Online - MMO Project" (antes "Masmorra do Carrasco"; o código, o servidor e o Supabase ainda usam "masmorra" nos nomes) — a souls-like action RPG in plain Three.js (browser, ES modules). No build step, no npm dependencies, no linter; the only tests are the online-world server's (`npm test`). Three.js and its addons (GLTFLoader, SkeletonUtils, BufferGeometryUtils, RoomEnvironment) are vendored in `vendor/`; `three` is resolved through the import map in `index.html`. All in-game text, UI, and code comments are in Brazilian Portuguese — keep new ones in Portuguese.
 
-## Running
+#### Running
 
 ```bash
 npm start            # node server.js → http://localhost:5173 (PORT env var overrides)
