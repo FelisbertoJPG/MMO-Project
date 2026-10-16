@@ -1,5 +1,5 @@
 ---
-description: Especialista na aparência e nas raças do jogo (o agente aparencia-e-racas)
+description: Especialista na aparência e nas raças do jogo — versão leve, rápida e econômica (o agente aparencia-e-racas)
 argument-hint: <o pedido>
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Especialista na base do jogo (o agente nucleo-do-jogo)
+description: Especialista na base do jogo — versão leve, rápida e econômica (o agente nucleo-do-jogo)
 argument-hint: <o pedido>
 ---
 

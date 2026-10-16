@@ -1,5 +1,5 @@
 ---
-description: Especialista no combate e nos itens do jogo (o agente combate-e-itens)
+description: Especialista no combate e nos itens do jogo — versão leve, rápida e econômica (o agente combate-e-itens)
 argument-hint: <o pedido>
 ---
 

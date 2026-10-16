@@ -1,5 +1,5 @@
 ---
-description: Especialista no corpo do jogador e nas animações do jogo (o agente corpo-e-animacao)
+description: Especialista no corpo do jogador e nas animações do jogo — versão leve, rápida e econômica (o agente corpo-e-animacao)
 argument-hint: <o pedido>
 ---
 

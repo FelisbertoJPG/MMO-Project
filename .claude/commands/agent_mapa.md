@@ -1,5 +1,5 @@
 ---
-description: Especialista no mapa e no cenário do jogo (o agente mapa-e-cenario)
+description: Especialista no mapa e no cenário do jogo — versão leve, rápida e econômica (o agente mapa-e-cenario)
 argument-hint: <o pedido>
 ---
 

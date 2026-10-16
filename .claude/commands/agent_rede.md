@@ -1,5 +1,5 @@
 ---
-description: Especialista no online e no MMO do jogo (o agente rede-e-mmo)
+description: Especialista no online e no MMO do jogo — versão leve, rápida e econômica (o agente rede-e-mmo)
 argument-hint: <o pedido>
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Especialista na interface e no celular do jogo (o agente interface-e-celular)
+description: Especialista na interface e no celular do jogo — versão leve, rápida e econômica (o agente interface-e-celular)
 argument-hint: <o pedido>
 ---
 

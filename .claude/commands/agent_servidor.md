@@ -1,5 +1,5 @@
 ---
-description: Especialista no servidor e na publicação do jogo (o agente servidor-e-publicacao)
+description: Especialista no servidor e na publicação do jogo — versão leve, rápida e econômica (o agente servidor-e-publicacao)
 argument-hint: <o pedido>
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Especialista no céu, no capim e no chão do jogo (o agente ceu-capim-e-chao)
+description: Especialista no céu, no capim e no chão do jogo — versão leve, rápida e econômica (o agente ceu-capim-e-chao)
 argument-hint: <o pedido>
 ---
 

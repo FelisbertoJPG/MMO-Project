@@ -1,5 +1,5 @@
 ---
-description: Especialista no desempenho deste jogo (o agente desempenho-do-jogo)
+description: Especialista no desempenho do jogo — versão leve, rápida e econômica (o agente desempenho-do-jogo)
 argument-hint: <o pedido>
 ---
 
