@@ -26,6 +26,7 @@ import { ControlesToque, ehToque } from './toque.js';
 import { Provador } from './provador.js';
 import { Capim } from './capim.js';
 import { Agua } from './agua.js';
+import { Esculpidos } from './esculpido.js';
 import { Telemetria, enviarDesempenho, aparelho } from './telemetria.js';
 import { tirarDoExpositor, derrubarItens } from './expositor.js';
 import { tela } from './tela.js';
@@ -114,6 +115,7 @@ class Game {
     this.world = new World(this);
     this.capim = new Capim(this);   // as graminhas que balançam com o vento (capim.js)
     this.agua = new Agua(this);     // a lagoa e as vitórias-régias (agua.js)
+    this.esculpidos = new Esculpidos(this);   // os personagens feitos de fotos, na vitrine do acampamento (esculpido.js)
     this.effects = new Effects(this);
     this.projectiles = new Projectiles(this);
     this.ui = new UI(this);
@@ -1227,6 +1229,7 @@ class Game {
       M?.fase('mundo');
       this.capim.update(dt);
       this.agua.update(dt);
+      this.esculpidos.update(dt);
       M?.fase('capim');
       this.player.updateCamera(dt, this.camera);
       M?.fase('câmera');

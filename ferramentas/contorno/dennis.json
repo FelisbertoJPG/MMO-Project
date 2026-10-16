@@ -1,0 +1,27 @@
+{
+  "_leiame": "O RECORTE do Dennis para o esculpir.mjs (ferramentas/contorno). Coordenadas em PIXELS de cada imagem (x da esquerda, y de cima). 'marcos' = alturas que se correspondem nas vistas (chao, barra do casaco, ombro, olhos, topo do capuz): as fotos estao em perspectiva e cada uma estica o corpo de um jeito, os marcos as alinham com a FRENTE. 'eixo' = o x do meio do corpo. Peca: x = [vista, x0, y0, x1, y1] (a caixa onde a largura e lida), z = a caixa da profundidade (vista de lado). 'ossos' = a corrente de ossos do manequim UAL que a peca segue. Alturas e larguras do 'esqueleto' em fracoes da altura.",
+  "nome": "dennis",
+  "altura": 1.25,
+  "passo": 2,
+  "vistas": {
+    "frente": { "arquivo": "WhatsApp Image 2026-10-16 at 15.36.50.jpeg", "tolerancia": 70, "eixo": 109, "marcos": { "chao": 320, "barra": 245, "ombro": 108, "olhos": 63, "topo": 12 } },
+    "lado": { "arquivo": "WhatsApp Image 2026-10-16 at 15.36.33.jpeg", "tolerancia": 70, "eixo": 68, "espelhar": true, "marcos": { "chao": 346, "barra": 250, "ombro": 113, "topo": 22 } },
+    "costas": { "arquivo": "WhatsApp Image 2026-10-16 at 15.36.25.jpeg", "tolerancia": 70, "eixo": 94, "espelhar": true, "marcos": { "chao": 312, "barra": 238, "ombro": 110, "topo": 20 } },
+    "cor": { "arquivo": "WhatsApp Image 2026-10-16 at 15.37.12.jpeg", "tolerancia": 45, "eixo": 114, "marcos": { "chao": 365, "barra": 277, "olhos": 74, "topo": 15 } }
+  },
+  "esqueleto": { "quadril": 0.30, "coxa": [0.075, 0.29], "joelho": 0.16, "tornozelo": 0.075, "pe": 0.55, "pescoco": 0.70, "ombro": [0.135, 0.665], "braco": 0.28, "mao": 0.10 },
+  "pecas": [
+    { "nome": "capuz", "x": ["frente", 52, 8, 168, 104], "escolha": "tudo", "z": ["lado", 12, 18, 108, 125], "ossos": ["spine_03", "neck_01", "Head"], "expoente": 2.3, "cor": "#e3a03a", "projetar": true,
+      "rosto": { "u": 0, "v": 0.805, "raioU": 0.10, "raioV": 0.095, "fundo": 0.05 } },
+    { "nome": "casaco", "x": ["frente", 64, 98, 154, 244], "escolha": "tudo", "z": ["lado", 28, 118, 90, 256], "ossos": ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01"], "saia": 0.4, "expoente": 2.6, "cor": "#e2762c", "projetar": true },
+    { "nome": "perna_r", "x": ["frente", 60, 247, 104, 322], "z": ["lado", 30, 252, 96, 348], "estender": 228, "ossos": ["thigh_r", "calf_r", "foot_r"], "expoente": 2.2, "cor": "#5e2230", "projetar": true, "faixas": [[0.10, "#2b2226"], [0.14, "#a82c2a"]] },
+    { "nome": "perna_l", "x": ["frente", 118, 247, 176, 322], "z": ["lado", 30, 252, 96, 348], "estender": 228, "ossos": ["thigh_l", "calf_l", "foot_l"], "expoente": 2.2, "cor": "#5e2230", "projetar": true, "faixas": [[0.10, "#2b2226"], [0.14, "#a82c2a"]] },
+    { "nome": "mochila", "x": ["costas", 40, 80, 136, 246], "z": ["lado", 84, 76, 134, 246], "altura": "z", "ossos": ["spine_02", "spine_03"], "expoente": 3.2, "cor": "#43386f" },
+    { "nome": "braco_l", "tipo": "braco", "lado": "l", "x": ["frente", 150, 110, 188, 200], "escolha": "direita", "raioMin": 0.045, "ossos": ["upperarm_l", "lowerarm_l", "hand_l"], "cor": "#e2762c", "punho": [0.85, "#c45e28"] },
+    { "nome": "braco_r", "tipo": "braco", "lado": "r", "x": ["frente", 150, 110, 188, 200], "escolha": "direita", "raioMin": 0.045, "ossos": ["upperarm_r", "lowerarm_r", "hand_r"], "cor": "#e2762c", "punho": [0.85, "#c45e28"] },
+    { "nome": "mao_l", "tipo": "mao", "lado": "l", "x": ["frente", 156, 198, 190, 234], "cor": "#a8cc44" },
+    { "nome": "mao_r", "tipo": "mao", "lado": "r", "x": ["frente", 156, 198, 190, 234], "cor": "#a8cc44" }
+  ],
+  "olhos": { "pontos": [[-0.040, 0.834], [0.042, 0.834]], "raio": 0.021, "cor": "#f4fbf6" },
+  "cajado": { "x": ["frente", 2, 4, 56, 326], "escolha": "esquerda", "ignorar": [[92, 170]], "largMax": 26, "profMax": 9, "cor": "#6a3320" }
+}

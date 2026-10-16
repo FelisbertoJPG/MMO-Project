@@ -73,7 +73,11 @@ export const PROPS = [
 // (AnimationClip.toJSON). Entram em Assets.clips pelo NOME do clipe, como as do UAL;
 // faltando uma, o jogo segue com as de sempre.
 export const ANIMACOES = ['greatsword-idle'];
-export const ANIMAIS_MODELOS = ['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
+// OS ESCULPIDOS PELO CONTORNO (esculpido.js; feitos de fotos por ferramentas/contorno/esculpir.mjs):
+// assets/esculpidos/<nome>.glb, com o esqueleto do manequim UAL em outras proporções. Faltando
+// um, ele só não aparece.
+export const ESCULPIDOS = ['dennis'];
+export const ANIMAIS_MODELOS =['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
 
@@ -418,6 +422,7 @@ export const Assets = {
   modelagem: { corpos: {} },   // as edições da MALHA de cada corpo (assets/modelagem.json; modelagem.js)
   pinturas: new Map(),         // as imagens das folhas pintadas nos corpos (assets/pintura/; pintura.js): arquivo → imagem
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
+  esculpidos: {},    // nome → a cena dos personagens feitos de fotos (esculpido.js)
 
   async load(onProgress = () => {}) {
     const loader = new GLTFLoader();
@@ -427,6 +432,7 @@ export const Assets = {
       ...PROPS.map((n) => ['prop', n, `assets/dungeon/${n}.glb`]),
       ...ANIMAIS_MODELOS.map((n) => ['animal', n, `assets/animais/${n}.glb`]),
       ['guerreiro', 'guerreiro', 'assets/guerreiro/guerreiro.glb'],   // o corpo do jogador (guerreiro.js)
+      ...ESCULPIDOS.map((n) => ['esculpido', n, `assets/esculpidos/${n}.glb`]),
     ];
     dividirImagens(loader);   // a mesma imagem embutida em vários .glb: uma vez só na memória
     let done = 0;
@@ -435,7 +441,7 @@ export const Assets = {
     const relogio = setInterval(avisar, 400);
     await Promise.all(jobs.map(async ([kind, name, url]) => {
       // um animal faltando não derruba o jogo: ele só não nasce (animais.js)
-      const gltf = kind === 'animal' || kind === 'guerreiro' ? await carregarGltf(loader, url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await carregarGltf(loader, url);
+      const gltf = kind === 'animal' || kind === 'guerreiro' || kind === 'esculpido' ? await carregarGltf(loader, url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await carregarGltf(loader, url);
       if (!gltf) { done++; avisar(); return; }
       gltf.scene.traverse((c) => {
         if (c.isMesh) {
@@ -452,6 +458,8 @@ export const Assets = {
         this.animais[name] = { scene: gltf.scene, clips: gltf.animations.map((c) => semTrilhasParadas(c, gltf.scene)) };
       } else if (kind === 'guerreiro') {
         this.guerreiro = gltf.scene;
+      } else if (kind === 'esculpido') {
+        this.esculpidos[name] = gltf.scene;
       } else if (kind === 'char') {
         for (const clip of gltf.animations) this.clips[clip.name] ??= clip;
         if (name === 'UAL1') this.baseScene = gltf.scene;
