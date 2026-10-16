@@ -209,34 +209,59 @@
     <div class="aparencia-botoes"><button id="aparencia-sorte">Sortear</button><button id="aparencia-pronto">Pronto</button></div>
   </div>
 
-  <!-- Pausa -->
+  <!-- Pausa — O MENU EM TELAS (16/10/2026): a principal e uma por opção (`Game.telaDaPausa`);
+       "‹ Voltar" e o Esc voltam um passo. Os ids de dentro são os de sempre (graficos, voz, monitor). -->
   <div id="pause" class="overlay hidden">
     <div class="panel pause-panel">
-      <h2>Pausado</h2>
+      <h2 id="pausa-titulo">Pausado</h2>
       <!-- onde o jogador está (para reportar um lugar): Game.mostrarCoordenadas -->
       <div id="coordenadas" title="clique para copiar"></div>
-      <button id="resume-btn">Continuar</button>
-      <button id="aparencia-btn">Aparência</button>
-      <!-- o monitor de desempenho (js/monitor.js; F3 também abre e fecha) -->
-      <button id="monitor-btn">Desempenho</button>
-      <button id="sair-mundo-btn">Sair para a tela inicial</button>
-      <div id="graficos-opcoes"><span>Gráficos</span><button data-q="alto">Alto</button><button data-q="medio">Médio</button><button data-q="baixo">Baixo</button><button data-q="celular" title="Para celular fraco: leve na CPU, com o capim e o tom do jogo">Celular</button></div>
-      <!-- a resolução automática (graficos.js): menos pixels quando os quadros não dão conta -->
-      <div id="resolucao-opcao"><span>Resolução</span><button data-res="auto" title="Quando o jogo pesa, desenha com menos pixels (um pouco menos nítido) e volta quando sobra">Automática</button><button data-res="1">100%</button><button data-res="0.85">85%</button><button data-res="0.7">70%</button><button data-res="0.55">55%</button><button data-res="0.4">40%</button></div>
-      <!-- as sombras (a do sol e a da tocha): graficos.js -->
-      <div id="sombras-opcao"><span>Sombras</span><button data-sombras="sim">Ligadas</button><button data-sombras="nao">Desligadas</button></div>
-      <!-- o chat de voz (js/rede/voz.js, js/vozui.js): o microfone, a tecla de falar e o volume -->
-      <div id="voz-opcoes">
-        <div class="voz-linha"><span>Microfone</span><button data-modo="mudo" title="Você não fala, mas ouve os outros">Desligado</button><button data-modo="aberto" title="O microfone fica sempre ligado">Aberto</button><button data-modo="segurar" title="Fala só com a tecla apertada">Segurar para falar</button></div>
-        <div class="voz-linha"><span>Tecla</span><button id="voz-tecla" title="Clique e aperte a tecla (ou um botão lateral do mouse)">V</button><span>Volume</span><input id="voz-volume" type="range" min="0" max="100" step="5"><div id="voz-medidor" title="O seu microfone"><div></div></div></div>
-        <div id="voz-estado"></div>
+      <div class="pausa-tela pausa-menu" data-tela="menu">
+        <button id="resume-btn">Continuar</button>
+        <button data-abre="graficos">Qualidade Gráfica</button>
+        <button id="aparencia-btn">Aparência</button>
+        <button data-abre="controles">Controles</button>
+        <button data-abre="interface">Interface</button>
+        <button id="sair-mundo-btn">Sair para a tela inicial</button>
       </div>
-      <div class="controls small">
-        <div><b>WASD</b> mover</div><div><b>Clique Esq.</b> ataque leve</div>
-        <div><b>F</b> ataque pesado</div><div><b>Clique Dir.</b> defender</div>
-        <div><b>Espaço</b> rolar / correr</div><div><b>Q</b> travar mira</div>
-        <div><b>R</b> usar item</div><div><b>C</b> trocar item</div>
-        <div><b>E</b> interagir</div><div><b>I</b> inventário</div><div><b>T</b> tocha</div><div><b>M</b> mensagem</div><div><b>O</b> multijogador</div><div><b>Enter</b> chat</div><div><b class="voz-tecla-nome">V</b> falar (voz)</div>
+      <div class="pausa-tela hidden" data-tela="graficos">
+        <!-- o monitor de desempenho (js/monitor.js; F3 também abre e fecha) -->
+        <button id="monitor-btn" class="pausa-largo">Testar Desempenho</button>
+        <div id="graficos-opcoes"><span>Gráficos</span><button data-q="alto">Alto</button><button data-q="medio">Médio</button><button data-q="baixo">Baixo</button><button data-q="celular" title="Para celular fraco: leve na CPU, com o capim e o tom do jogo">Celular</button></div>
+        <!-- a resolução automática (graficos.js): menos pixels quando os quadros não dão conta -->
+        <div id="resolucao-opcao"><span>Resolução</span><button data-res="auto" title="Quando o jogo pesa, desenha com menos pixels (um pouco menos nítido) e volta quando sobra">Automática</button><button data-res="1">100%</button><button data-res="0.85">85%</button><button data-res="0.7">70%</button><button data-res="0.55">55%</button><button data-res="0.4">40%</button></div>
+        <!-- as sombras (a do sol e a da tocha): graficos.js -->
+        <div id="sombras-opcao"><span>Sombras</span><button data-sombras="sim">Ligadas</button><button data-sombras="nao">Desligadas</button></div>
+        <button class="pausa-voltar" data-volta="menu">‹ Voltar</button>
+      </div>
+      <div class="pausa-tela hidden" data-tela="controles">
+        <div class="controls small">
+          <div><b>WASD</b> mover</div><div><b>Mouse</b> câmera</div>
+          <div><b>Clique Esq.</b> ataque leve</div><div><b>F</b> ataque pesado</div>
+          <div><b>Clique Dir.</b> defender</div><div><b>Espaço</b> rolar / correr</div>
+          <div><b>Q</b> travar mira</div><div><b>E</b> interagir</div>
+          <div><b>R</b> usar item</div><div><b>C</b> trocar item</div>
+          <div><b>T</b> tocha</div><div><b>I</b> inventário</div>
+          <div><b>M</b> mensagem no chão</div><div><b>O</b> multijogador</div>
+          <div><b>Enter</b> chat</div><div><b class="voz-tecla-nome">V</b> falar (voz)</div>
+          <div><b>Esc</b> menu</div><div><b>F3</b> desempenho</div>
+        </div>
+        <button class="pausa-voltar" data-volta="menu">‹ Voltar</button>
+      </div>
+      <div class="pausa-tela pausa-menu hidden" data-tela="interface">
+        <button data-abre="voz">Chat de voz</button>
+        <!-- o chat global (rede/chat.js) à vista ou não: Game.mostrarChat -->
+        <div id="chat-opcao"><span>Chat global</span><button data-chat="sim">Mostrar</button><button data-chat="nao">Ocultar</button></div>
+        <button class="pausa-voltar" data-volta="menu">‹ Voltar</button>
+      </div>
+      <div class="pausa-tela hidden" data-tela="voz">
+        <!-- o chat de voz (js/rede/voz.js, js/vozui.js): o microfone, a tecla de falar e o volume -->
+        <div id="voz-opcoes">
+          <div class="voz-linha"><span>Microfone</span><button data-modo="mudo" title="Você não fala, mas ouve os outros">Desligado</button><button data-modo="aberto" title="O microfone fica sempre ligado">Aberto</button><button data-modo="segurar" title="Fala só com a tecla apertada">Segurar para falar</button></div>
+          <div class="voz-linha"><span>Tecla</span><button id="voz-tecla" title="Clique e aperte a tecla (ou um botão lateral do mouse)">V</button><span>Volume</span><input id="voz-volume" type="range" min="0" max="100" step="5"><div id="voz-medidor" title="O seu microfone"><div></div></div></div>
+          <div id="voz-estado"></div>
+        </div>
+        <button class="pausa-voltar" data-volta="interface">‹ Voltar</button>
       </div>
     </div>
   </div>

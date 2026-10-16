@@ -451,6 +451,35 @@ class Game {
     for (const b of document.querySelectorAll('#sombras-opcao button')) {
       b.addEventListener('click', () => { this.graficos.alternarSombras(b.dataset.sombras === 'sim'); this.marcarGraficos(); });
     }
+    // O MENU DE PAUSA EM TELAS (16/10/2026): a principal (Continuar, Qualidade Gráfica, Aparência,
+    // Controles, Interface, Sair) e uma tela por opção; "‹ Voltar" e o Esc voltam um passo
+    for (const b of document.querySelectorAll('#pause [data-abre]')) b.addEventListener('click', () => this.telaDaPausa(b.dataset.abre));
+    for (const b of document.querySelectorAll('#pause [data-volta]')) b.addEventListener('click', () => this.telaDaPausa(b.dataset.volta));
+    // o chat global à vista ou não (Interface), guardado neste navegador
+    let oculto = false;
+    try { oculto = localStorage.getItem('masmorra:chat') === 'oculto'; } catch { }
+    this.mostrarChat(!oculto);
+    for (const b of document.querySelectorAll('#chat-opcao button')) b.addEventListener('click', () => this.mostrarChat(b.dataset.chat === 'sim', true));
+  }
+
+  /** Troca a tela do menu de pausa (`menu`, `graficos`, `controles`, `interface`, `voz`). */
+  telaDaPausa(nome) {
+    this.pausaTela = nome;
+    for (const t of document.querySelectorAll('#pause .pausa-tela')) t.classList.toggle('hidden', t.dataset.tela !== nome);
+    const TITULOS = { menu: 'Pausado', graficos: 'Qualidade Gráfica', controles: 'Controles', interface: 'Interface', voz: 'Chat de voz' };
+    document.getElementById('pausa-titulo').textContent = TITULOS[nome] ?? 'Pausado';
+    // as coordenadas (e a hora) só na tela principal
+    document.getElementById('coordenadas').classList.toggle('hidden', nome !== 'menu');
+  }
+
+  /**
+   * O CHAT GLOBAL à vista ou oculto (menu de pausa → Interface). Oculto, ele ainda aparece
+   * enquanto se escreve (Enter, ou o botão do celular): só as mensagens dos outros somem da tela.
+   */
+  mostrarChat(sim, guardar = false) {
+    document.body.classList.toggle('sem-chat', !sim);
+    for (const b of document.querySelectorAll('#chat-opcao button')) b.classList.toggle('ativo', (b.dataset.chat === 'sim') === sim);
+    if (guardar) try { sim ? localStorage.removeItem('masmorra:chat') : localStorage.setItem('masmorra:chat', 'oculto'); } catch { }
   }
 
   /**
@@ -477,7 +506,7 @@ class Game {
     this.online.comecarPartida();
     if (salvo) { this.snapCamera(); this.ui.centerMessage('Lubelion', 'info', 3000); }
     else this.comecarFora();
-    document.getElementById('sair-mundo-btn').textContent = 'Sair do mundo';
+    document.getElementById('sair-mundo-btn').textContent = 'Sair do Mundo';
     r.mundo.ligar();
     this.salvar({ nuvem: true });   // o personagem novo já fica guardado
   }
@@ -747,7 +776,7 @@ class Game {
     this.input.clearAll();
     if (kind === 'inventory') this.inventory.open();
     if (kind === 'bonfire') this.ui.openBonfire();
-    if (kind === 'pause') { this.mostrarCoordenadas(); this.marcarGraficos(); document.getElementById('pause').classList.remove('hidden'); }
+    if (kind === 'pause') { this.mostrarCoordenadas(); this.marcarGraficos(); this.telaDaPausa('menu'); document.getElementById('pause').classList.remove('hidden'); }
     if (kind === 'sala') this.salaUI.abrir();
     if (kind === 'aparencia') this.editorAparencia.abrir();
     if (kind === 'escrever') {
@@ -1094,6 +1123,8 @@ class Game {
   handleMenuInput() {
     const inp = this.input;
     if (this.menu === 'inventory' && (inp.pressed('KeyI') || inp.pressed('Tab') || inp.pressed('Escape'))) this.closeMenu();
+    // (no menu de pausa, numa tela de dentro o Esc volta um passo: a voz volta à Interface, o resto à principal)
+    else if (this.menu === 'pause' && this.pausaTela && this.pausaTela !== 'menu' && inp.pressed('Escape')) this.telaDaPausa(this.pausaTela === 'voz' ? 'interface' : 'menu');
     else if ((this.menu === 'bonfire' || this.menu === 'pause' || this.menu === 'escrever' || this.menu === 'sala' || this.menu === 'aparencia') && inp.pressed('Escape')) this.closeMenu();
     else if (this.menu === 'sala' && inp.pressed('KeyO')) this.closeMenu();
   }
