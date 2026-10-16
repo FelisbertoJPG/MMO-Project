@@ -82,5 +82,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 | `/agent_rede` | `rede-e-mmo` | `js/rede/`, protocolo, sala, duelo, co-op, o Mundo online (`servidor-mundo.mjs`, simulador, `game.sessao`), chat global, chat de voz |
 | `/agent_interface` | `interface-e-celular` | tela de entrada, HUD, menu de pausa em telas, coordenadas, câmeras (primeira pessoa, isométrica, véu), toque, tela deitada, carregamento no celular |
 | `/agent_desempenho` | `desempenho-do-jogo` | qualidades gráficas, luzes, LOD, sombras, resolução automática, máquina fraca e celular, o monitor (F3), perfil de CPU, telemetria |
+| `/agent_otimizador` | `otimizador-de-desempenho` (do usuário) | lentidão NOVA a investigar medindo: o método (medir, achar o gargalo, uma mudança por vez, provar) com o kit — monitor portátil e perfil de CPU (`--freio`). Ajuste ou dúvida sobre o que já foi feito aqui = `/agent_desempenho` |
+| `/agent_rapido` | `executor-rapido` (do usuário) | qualquer área, com pressa: faz direto, sem a fase longa de testes |
 
-Fora do projeto (do usuário): `/agent_rapido` (o `executor-rapido`: faz direto, sem a fase longa de testes) e o `otimizador-de-desempenho` (o método genérico de otimizar).
+Os dois últimos ficam em `~/.claude/` (valem em todos os projetos); a fonte do otimizador e do comando dele é `ferramentas/agente-desempenho/` (mudou lá → `node ferramentas/agente-desempenho/instalar.mjs --usuario`).

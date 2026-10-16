@@ -6,7 +6,9 @@
  *   node instalar.mjs --usuario            → ~/.claude/agents/ e ~/.claude/kit-desempenho/
  *                                            (vale para TODOS os projetos desta máquina)
  *
- * Rodar de novo atualiza (regrava os três arquivos). Não mexe em mais nada do projeto: quem
+ * Também instala o comando /agent_otimizador (<.claude>/commands/), que chama o agente.
+ *
+ * Rodar de novo atualiza (regrava os quatro arquivos). Não mexe em mais nada do projeto: quem
  * põe o monitor dentro do jogo é o agente, quando for trabalhar nele.
  */
 import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
@@ -27,6 +29,7 @@ if (!existsSync(raiz) || !statSync(raiz).isDirectory()) { console.error(`não ac
 const base = path.join(raiz, '.claude');
 const copias = [
   ['otimizador-de-desempenho.md', path.join(base, 'agents', 'otimizador-de-desempenho.md')],
+  ['agent_otimizador.md', path.join(base, 'commands', 'agent_otimizador.md')],
   [path.join('kit', 'monitor-desempenho.js'), path.join(base, 'kit-desempenho', 'monitor-desempenho.js')],
   [path.join('kit', 'perfil-cpu.mjs'), path.join(base, 'kit-desempenho', 'perfil-cpu.mjs')],
 ];
@@ -39,5 +42,6 @@ for (const [de, para] of copias) {
 }
 console.log(`\nInstalado ${doUsuario ? 'para todos os projetos desta máquina' : `no projeto ${raiz}`}.`);
 console.log('Abra (ou reabra) o Claude Code no projeto e peça, por exemplo:');
-console.log('  "use o agente otimizador-de-desempenho para descobrir por que o jogo está lento"');
+console.log('  /agent_otimizador descobrir por que o jogo está lento');
+console.log('  (ou: "use o agente otimizador-de-desempenho para descobrir por que o jogo está lento")');
 console.log('(`/agents` lista os agentes que o Claude Code está vendo.)');

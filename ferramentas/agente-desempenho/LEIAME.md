@@ -11,6 +11,7 @@ Nasceu do caminho de otimização do **Lubelion Online** (three.js): tudo o que 
 | `otimizador-de-desempenho.md` | **o agente**: o método, como ler um relatório, os remédios por tipo de gargalo, as armadilhas de medida |
 | `kit/monitor-desempenho.js` | **o monitor de desempenho**, para qualquer projeto three.js: F3 abre o painel, "Diagnosticar e copiar" gera o relatório |
 | `kit/perfil-cpu.mjs` | **o perfil de CPU**: abre um Chrome, mede e diz em que função a CPU está; simula máquina fraca (`--freio`) |
+| `agent_otimizador.md` | **o comando** `/agent_otimizador <pedido>`, que passa o pedido para o agente |
 | `instalar.mjs` | copia tudo para o lugar certo |
 
 ## Instalar
@@ -29,13 +30,13 @@ Em todos os projetos desta máquina:
 node instalar.mjs --usuario
 ```
 
-À mão, se preferir: `otimizador-de-desempenho.md` vai para `.claude/agents/` e os dois arquivos de `kit/` vão para `.claude/kit-desempenho/` — dentro do projeto, ou dentro da pasta do usuário (`C:\Users\<você>\.claude\`).
+À mão, se preferir: `otimizador-de-desempenho.md` vai para `.claude/agents/`, `agent_otimizador.md` para `.claude/commands/` e os dois arquivos de `kit/` vão para `.claude/kit-desempenho/` — dentro do projeto, ou dentro da pasta do usuário (`C:\Users\<você>\.claude\`).
 
 Depois, abra (ou reabra) o Claude Code na pasta do jogo.
 
 ## Usar
 
-Peça em linguagem normal:
+Chame `/agent_otimizador <o que está lento>`, ou peça em linguagem normal:
 
 > use o agente otimizador-de-desempenho para descobrir por que o jogo está lento no meu PC
 
