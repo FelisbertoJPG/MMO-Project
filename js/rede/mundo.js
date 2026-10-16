@@ -41,7 +41,7 @@
  * absurdo (dano > 500, golpe de longe, item que não existe) é descartado.
  */
 import * as THREE from 'three';
-import { TIPO, instantaneo, limparInstantaneo, retratoDoInimigo, lerRetrato } from './protocolo.js';
+import { lerQuebra, TIPO, instantaneo, limparInstantaneo, retratoDoInimigo, lerRetrato } from './protocolo.js';
 import { transporteMundo } from './transporte.js';
 import { req } from './supabase.js';
 import { ENVIO_MS, BATIDA_MS } from './fantasmas.js';
@@ -681,7 +681,7 @@ export class Mundo {
       return res;
     }
     if (alvo.dead || !alvo.active || alvo.invulnerable) return null;
-    this.cano.enviar(TIPO.GOLPE, { id: alvo.netId, dano: Math.round(dano), poise: Math.round(poise ?? 20), fogo: !!opts.fire, o: vet(origem) });
+    this.cano.enviar(TIPO.GOLPE, { id: alvo.netId, dano: Math.round(dano), poise: Math.round(poise ?? 20), fogo: !!opts.fire, qn: opts.quebra?.nivel ?? 0, qd: Math.round(opts.quebra?.dano ?? 0), o: vet(origem) });
     alvo.flashT = 0.12;   // resposta imediata; a vida de verdade vem no próximo MUNDO
     return 'hit';
   }
@@ -695,7 +695,7 @@ export class Mundo {
     // o atraso perdoa uns metros, não a masmorra inteira (a bomba alcança mais que a espada)
     if (flatDist(e.pos, quem.pos) > (c.fogo ? 22 : 8) + e.radius) return;
     const origem = lerVet(c.o) ?? quem.pos.clone();
-    const res = e.takeDamage(dano, origem, poise, { fire: !!c.fogo });
+    const res = e.takeDamage(dano, origem, poise, { fire: !!c.fogo, quebra: lerQuebra(c) });
     if (!res) return;
     (e.bateram ??= new Set()).add(de);
     if (c.fogo) e.ignite?.(3);

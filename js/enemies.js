@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
+import { novoEscudo, danoNoEscudo, RECUPERA_APOS, RECUPERA_POR_S } from './escudo.js';
 import { Interpolador, giroCurto, loopa } from './remoto.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { CELL, S } from './world.js';
@@ -102,6 +103,11 @@ export class Enemy {
     this.model.root.visible = true;
     this.model.root.scale.setScalar(1);
     this.poiseCur = this.cfg.poise;
+    // o ESCUDO (escudo.js): volta inteiro a cada renascer (o quebrado é posto de novo no braço)
+    if (this.cfg.left) {
+      if (this.escudo?.quebrado) this.model.equip('l', shieldMesh(this.cfg.left));
+      this.escudo = novoEscudo(this.cfg.left, this.cfg.poise);
+    }
     this.cooldown = 0.6;
     this.flashT = 0; this.burnT = 0;
     this.recentDmg = 0; this.lastHit = -99;
@@ -129,7 +135,8 @@ export class Enemy {
   setState(s, data = {}) { this.state = s; this.stateT = 0; this.st = data; }
 
   // ---------- Dano ----------
-  takeDamage(amount, srcPos, poiseDmg = 20, { fire = false } = {}) {
+  takeDamage(amount, srcPos, poiseDmg = 20, opts = {}) {
+    const fire = !!opts.fire;
     if (this.dead || this.invulnerable) return false;
     const game = this.game;
     if (this.state === 'dormant') this.awaken(true);
@@ -137,12 +144,32 @@ export class Enemy {
     // Bloqueio frontal com escudo
     const frontal = angleToTarget(this.pos, this.facing, srcPos) < 1.0;
     const chance = this.guarding ? 0.9 : this.cfg.blockChance;
-    if (this.cfg.blockChance && ['chase', 'idle', 'blockstun'].includes(this.state) && frontal && Math.random() < chance) {
-      game.effects.sparks(this.model.handL.getWorldPosition(new THREE.Vector3()));
+    const esc = this.escudo;
+    if (this.cfg.blockChance && !esc?.quebrado && ['chase', 'idle', 'blockstun'].includes(this.state) && frontal && Math.random() < chance) {
+      const mao = this.model.handL.getWorldPosition(new THREE.Vector3());
+      game.effects.sparks(mao);
       this.applyDamage(amount * 0.15);
       if (this.hp <= 0) { this.die(); return 'hit'; }
-      // Golpes pesados quebram a guarda
-      if (poiseDmg >= 45 && Math.random() < 0.6) {
+      if (esc) {
+        esc.ultimoGolpe = game.time;
+        // o ESCUDO (escudo.js): só a arma com força para o material o racha; zerou, ele se parte
+        // em pedaços e a postura vai junto
+        const d = danoNoEscudo(opts.quebra, esc.material);
+        if (d > 0) {
+          esc.vida = Math.max(0, esc.vida - d);
+          game.effects.burst(mao, { count: 10, color: [0.5, 0.36, 0.22], speed: 3.5, size: 0.07, life: 0.5, gravity: 10 });
+          if (esc.vida <= 0) { this.quebrarEscudo(srcPos); return 'hit'; }
+        }
+        // a POSTURA da guarda: TODO golpe defendido gasta (até o que não arranha o escudo); zerou, a guarda abre
+        esc.postura -= poiseDmg;
+        if (esc.postura <= 0) {
+          esc.postura = esc.posturaMax;
+          this.guarding = false;
+          this.stagger(srcPos, 1.1);
+          return 'hit';
+        }
+      } else if (poiseDmg >= 45 && Math.random() < 0.6) {
+        // (sem a ficha do escudo: golpes pesados quebram a guarda)
         this.guarding = false;
         this.stagger(srcPos, 1.1);
         return 'hit';
@@ -184,6 +211,23 @@ export class Enemy {
     this.facing = yawTo(this.pos, srcPos) + side * Math.PI / 2;
     this.setState('dodge', { dur: 0.6 });
     this.model.play('Roll', { loop: false, duration: 0.6, restart: true, fade: 0.05 });
+  }
+
+  /**
+   * O ESCUDO SE PARTE (escudo.js): os pedaços dele voam (fratura.js), o braço fica vazio e a
+   * postura quebra junto (cambaleia longo). Na MARIONETE (`srcPos` nulo) é só o visual: quem
+   * cambaleia é o retrato que chega.
+   */
+  quebrarEscudo(srcPos) {
+    const esc = this.escudo;
+    if (!esc || esc.quebrado) return;
+    esc.quebrado = true; esc.vida = 0;
+    const peca = this.model.slotL?.children[0];
+    if (peca && this.model.root.visible) this.game.world.soltarFragmentos(peca, `escudo:${esc.kind}`, 7, srcPos, 1.2);
+    this.model.equip('l', null);
+    this.guarding = false;
+    this.game.sfx.quebrar?.();
+    if (srcPos && !this.game.marionetes) this.stagger(srcPos, 1.4);
   }
 
   stagger(srcPos, dur = 0.6) {
@@ -354,7 +398,7 @@ export class Enemy {
     const m = this.model;
     // Guerreiro com escudo ergue a guarda enquanto espera para atacar
     const p = this.alvo;
-    this.guarding = !!this.cfg.blockChance && this.state === 'chase' && this.cooldown > 0.25 && flatDist(p.pos, this.pos) < 4.5;
+    this.guarding = !!this.cfg.blockChance && !this.escudo?.quebrado && this.state === 'chase' && this.cooldown > 0.25 && flatDist(p.pos, this.pos) < 4.5;
     if (!['chase', 'return', 'idle'].includes(this.state)) return;
     if (this.guarding) { m.play('Idle_Shield_Loop', { fade: 0.15 }); return; }
     if (strafe) m.play('Walk_Loop', { speed: 1.0 });
@@ -443,6 +487,9 @@ export class Enemy {
       if (Math.random() < 0.6) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, Math.random() * this.height, (Math.random() - 0.5) * 0.8)), vel: new THREE.Vector3(0, 1.5, 0), color: [1, 0.5, 0.1], size: 0.18, life: 0.5 });
       if (this.hp <= 0) this.die();
     }
+    // a postura da guarda volta aos poucos, sem apanhar por um tempo (escudo.js)
+    const esc = this.escudo;
+    if (esc && esc.postura < esc.posturaMax && this.game.time - esc.ultimoGolpe > RECUPERA_APOS) esc.postura = Math.min(esc.posturaMax, esc.postura + esc.posturaMax * RECUPERA_POR_S * dt);
     if (this.dead) this.updateDeath(dt);
     else {
       this.updateAI(dt);
@@ -476,6 +523,14 @@ export class Enemy {
       if (e.hp < this.hp - 0.5) { this.recentDmg = this.game.time - this.lastHit < 2.5 ? this.recentDmg + Math.round(this.hp - e.hp) : Math.round(this.hp - e.hp); this.lastHit = this.game.time; }
       this.hp = e.hp;
       this.active = e.ativo;
+      // o ESCUDO como o simulador o tem (escudo.js): a barra, os losangos e a quebra (só o visual)
+      if (this.escudo && e.esc != null) {
+        const esc = this.escudo;
+        if (e.esc < 0 && !esc.quebrado) this.quebrarEscudo(null);
+        else if (e.esc >= 0 && esc.quebrado) { this.model.equip('l', shieldMesh(this.cfg.left)); esc.quebrado = false; }
+        if (e.esc >= 0) { const v = e.esc * esc.max; if (v < esc.vida - 0.5) esc.ultimoGolpe = this.game.time; esc.vida = v; }
+        esc.postura = e.post * esc.posturaMax;
+      }
       this.model.root.visible = e.visivel;
       if (e.morto && !this.dead) {
         this.dead = true;

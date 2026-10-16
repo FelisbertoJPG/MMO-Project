@@ -401,6 +401,8 @@ export class Player {
       arc: spec.arc, reach: w.reach + (heavy ? 0.2 : 0),
       damage: w.damage * (heavy ? 1.55 : 1) * this.damageMul,
       poise: (w.poise ?? 10) * (heavy ? 1.8 : 1),
+      // contra ESCUDO (escudo.js): o forte racha 1,6× mais; a tocha não racha
+      quebra: w.quebra && kind !== 'torch' ? { nivel: w.quebra.nivel, dano: w.quebra.dano * (heavy ? 1.6 : 1) } : null,
       fire: kind === 'torch',
       hitSet: new Set(), queued: null, swung: false, recovering: false,
       // de onde o golpe pode ser emendado (outro golpe, rolar): logo depois do acerto, ou
@@ -435,7 +437,7 @@ export class Player {
         const allowed = a.arc + Math.atan2(e.radius, Math.max(d, 0.1));
         if (a.arc < 3 && angleToTarget(this.pos, this.facing, e.pos) > allowed) continue;
         a.hitSet.add(e);
-        const res = this.game.golpear(e, a.damage, this.pos, a.poise, { fire: a.fire || this.buffs.resin > 0 });
+        const res = this.game.golpear(e, a.damage, this.pos, a.poise, { fire: a.fire || this.buffs.resin > 0, quebra: a.quebra });
         if (res) {
           game.hitstop = a.kind === 'heavy' ? 0.1 : 0.06;
           game.addShake(a.kind === 'heavy' ? 0.2 : 0.1);

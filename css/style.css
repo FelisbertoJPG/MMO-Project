@@ -111,6 +111,14 @@ button:disabled { opacity: .4; cursor: default; }
 .ebar .bar { height: 6px; border-color: #2a2420; }
 .ebar .fill { background: #a01e1e; }
 .ebar .trail { background: #d9b34a; transition: width .5s ease-in .3s; }
+/* o ESCUDO do inimigo (escudo.js, ui.js): a barra branca da durabilidade e, embaixo, os
+   losangos da postura da guarda (cheio = ainda aguenta) */
+.ebar .escudo { margin-top: 5px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ebar .esc-barra { width: 76px; height: 7px; background: #121214; border: 1px solid #3a3a3e; border-radius: 4px; overflow: hidden; box-shadow: 0 0 4px rgba(0,0,0,.6); }
+.ebar .esc-fill { height: 100%; background: linear-gradient(#ffffff, #cfd3da); border-radius: 3px; transition: width .2s ease-out; }
+.ebar .esc-pips { display: flex; gap: 7px; }
+.ebar .esc-pips i { width: 7px; height: 7px; transform: rotate(45deg); border: 1.5px solid #e9ecf0; box-sizing: border-box; background: transparent; box-shadow: 0 0 3px rgba(0,0,0,.7); }
+.ebar .esc-pips i.cheio { background: #f4f6f8; }
 .ebar .dmg { position: absolute; right: 0; top: -18px; font-family: var(--serif); font-size: 14px; color: #fff; text-shadow: 0 0 3px #000; }
 
 #lock-reticle {

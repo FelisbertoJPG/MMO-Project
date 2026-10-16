@@ -133,6 +133,12 @@ const NET_ID = /^(e\d{1,3}|carrasco|wyrm|lacaio\d{1,4})$/;
  * flags: 1 = ativo, 2 = morto, 4 = visível. `extra` só no dragão (a pose dele
  * não é de clipe: são as peças girando — ver `Dragao.animar`).
  */
+/** A força contra ESCUDO que veio num GOLPE (`qn` = o nível, `qd` = o dano), conferida — ou null. */
+export function lerQuebra(c) {
+  const n = c?.qn, d = c?.qd;
+  return Number.isInteger(n) && n >= 1 && n <= 3 && Number.isFinite(d) && d >= 0 && d <= 300 ? { nivel: n, dano: d } : null;
+}
+
 export function retratoDoInimigo(e) {
   const raiz = e.model?.root ?? e.root;
   const flags = (e.active ? 1 : 0) | (e.dead ? 2 : 0) | (raiz?.visible ? 4 : 0);
@@ -141,14 +147,16 @@ export function retratoDoInimigo(e) {
   if (e.ultimaAnim) {
     extra = { rz: r2(e.root.rotation.z), br: Math.round(e.brasa?.intensity ?? 0), anim: PARTES_DA_POSE.map((k) => r2(e.ultimaAnim[k] ?? 0)) };
   }
+  // o ESCUDO (escudo.js): [a durabilidade de 0 a 1, ou −1 = quebrado; a postura de 0 a 1]
+  const esc = e.escudo ? [e.escudo.quebrado ? -1 : r2(e.escudo.vida / e.escudo.max), r2(e.escudo.postura / e.escudo.posturaMax)] : null;
   return [e.netId, r2(e.pos.x), r2(e.pos.y), r2(e.pos.z), r2(e.facing), e.model?.currentName ?? null,
-    atual ? r2(atual.timeScale) : 1, Math.round(e.hp), e.state, flags, r2(e.stateT ?? 0), extra];
+    atual ? r2(atual.timeScale) : 1, Math.round(e.hp), e.state, flags, r2(e.stateT ?? 0), extra, esc];
 }
 
 /** Confere um retrato que chegou. Devolve `{netId, x, y, z, g, a, s, hp, st, ativo, morto, visivel, t, extra}` ou null. */
 export function lerRetrato(q, limites = null) {
   if (!Array.isArray(q) || q.length < 11) return null;
-  const [netId, x, y, z, g, a, s, hp, st, flags, t, extra] = q;
+  const [netId, x, y, z, g, a, s, hp, st, flags, t, extra, esc] = q;
   if (typeof netId !== 'string' || !NET_ID.test(netId)) return null;
   if (![x, y, z, g, s, hp, flags, t].every(Number.isFinite) || Math.abs(y) > 100 || hp < -1e4 || hp > 1e5) return null;
   if (limites && (x < limites.minX - 50 || x > limites.maxX + 50 || z < limites.minZ - 50 || z > limites.maxZ + 50)) return null;
@@ -158,7 +166,12 @@ export function lerRetrato(q, limites = null) {
     st: typeof st === 'string' && st.length <= 16 ? st : 'idle',
     ativo: !!(flags & 1), morto: !!(flags & 2), visivel: !!(flags & 4),
     extra: null,
+    esc: null, post: 1,
   };
+  if (Array.isArray(esc) && esc.length === 2 && esc.every(Number.isFinite)) {
+    r.esc = Math.max(-1, Math.min(1, esc[0]));
+    r.post = Math.max(0, Math.min(1, esc[1]));
+  }
   if (extra && typeof extra === 'object' && Array.isArray(extra.anim) && extra.anim.length === PARTES_DA_POSE.length && extra.anim.every(Number.isFinite)) {
     r.extra = { rz: Number.isFinite(extra.rz) ? extra.rz : 0, br: Number.isFinite(extra.br) ? extra.br : 0,
       anim: Object.fromEntries(PARTES_DA_POSE.map((k, i) => [k, extra.anim[i]])) };

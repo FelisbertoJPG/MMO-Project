@@ -294,7 +294,9 @@ export class UI {
       if (!el) {
         el = document.createElement('div');
         el.className = 'ebar';
-        el.innerHTML = '<div class="dmg"></div><div class="bar"><div class="trail"></div><div class="fill"></div></div>';
+        el.innerHTML = '<div class="dmg"></div><div class="bar"><div class="trail"></div><div class="fill"></div></div>'
+          // o ESCUDO (escudo.js): a barra branca da durabilidade e os losangos da postura
+          + (e.escudo ? '<div class="escudo"><div class="esc-barra"><div class="esc-fill"></div></div><div class="esc-pips"><i></i><i></i><i></i></div></div>' : '');
         this.enemyBars.appendChild(el);
         this.ebarMap.set(e, el);
       }
@@ -303,6 +305,16 @@ export class UI {
       el.querySelector('.fill').style.width = pct;
       el.querySelector('.trail').style.width = pct;
       el.querySelector('.dmg').textContent = game.time - e.lastHit < 2.5 && e.recentDmg > 0 ? e.recentDmg : '';
+      const esc = e.escudo;
+      if (esc) {
+        const caixa = el.querySelector('.escudo');
+        caixa.classList.toggle('hidden', esc.quebrado);
+        if (!esc.quebrado) {
+          caixa.querySelector('.esc-fill').style.width = `${(esc.vida / esc.max) * 100}%`;
+          const cheios = Math.ceil((esc.postura / esc.posturaMax) * 3 - 1e-6);
+          caixa.querySelectorAll('.esc-pips i').forEach((p, k) => p.classList.toggle('cheio', k < cheios));
+        }
+      }
     }
     for (const [e, el] of this.ebarMap) if (!seen.has(e)) { el.remove(); this.ebarMap.delete(e); }
   }

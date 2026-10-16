@@ -26,7 +26,7 @@
  * que é absurdo (dano > 500, golpe de longe) é descartado.
  */
 import * as THREE from 'three';
-import { TIPO, retratoDoInimigo, lerRetrato } from './protocolo.js';
+import { lerQuebra, TIPO, retratoDoInimigo, lerRetrato } from './protocolo.js';
 import { Enemy, ENEMY_TYPES } from '../enemies.js';
 
 /** De quanto em quanto tempo o dono manda o MUNDO. */
@@ -152,7 +152,7 @@ export class Coop {
 
   /** O meu golpe acertou um inimigo NA MINHA TELA: quem aplica é o dono. */
   golpear(alvo, dano, origem, poise, opts = {}) {
-    this.sala.enviar(TIPO.GOLPE, { id: alvo.netId, dano: Math.round(dano), poise: Math.round(poise ?? 20), fogo: !!opts.fire, o: vet(origem) });
+    this.sala.enviar(TIPO.GOLPE, { id: alvo.netId, dano: Math.round(dano), poise: Math.round(poise ?? 20), fogo: !!opts.fire, qn: opts.quebra?.nivel ?? 0, qd: Math.round(opts.quebra?.dano ?? 0), o: vet(origem) });
     alvo.flashT = 0.12;   // resposta imediata; a vida de verdade vem no próximo MUNDO
     return 'hit';
   }
@@ -176,7 +176,7 @@ export class Coop {
     // o atraso perdoa uns metros, não a masmorra inteira
     if (this.outro && Math.hypot(e.pos.x - this.outro.pos.x, e.pos.z - this.outro.pos.z) > 8 + e.radius) return;
     const origem = lerVet(c.o) ?? this.outro?.pos.clone() ?? e.pos.clone();
-    const res = e.takeDamage(dano, origem, poise, { fire: !!c.fogo });
+    const res = e.takeDamage(dano, origem, poise, { fire: !!c.fogo, quebra: lerQuebra(c) });
     if (res && c.fogo) e.ignite?.(3);
     if (res) this.game.sfx.hit();
   }

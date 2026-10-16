@@ -6,6 +6,7 @@ import { corDoChao, texturaDoChao, REPETE_CHAO, montarCaminhos, terreiro } from 
 import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
 import { LOD, reescreverLote } from './lod.js';
+import { fragmentos } from './fratura.js';
 
 const flatDistXZ = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 export const S = 1.5; // escala da masmorra (salas e corredores 50% maiores)
@@ -1604,6 +1605,14 @@ export class World {
   restaurarQuebraveis() { for (const q of this.quebraveis) this.restaurar(q); }
 
   soltarPedacos(q, origem) {
+    // O PRÓPRIO OBJETO EM PEDAÇOS (16/10/2026, fratura.js): o barril em tábuas de barril, o
+    // caixote em lascas de caixote. Os blocos de cor ficam só para a peça sem malha
+    if (this.soltarFragmentos(q.raiz, `q:${q.prop ?? q.cfg?.cor}`, q.cfg.pedacos, origem)) {
+      const caixa = new THREE.Box3().setFromObject(q.raiz), meio = caixa.getCenter(new THREE.Vector3());
+      this.game.effects.burst(meio, { count: 18, color: [0.55, 0.47, 0.38], speed: 3, size: 0.1, life: 0.6, gravity: 5 });
+      this.game.sfx.quebrar?.();
+      return;
+    }
     // `setFromObject` mede mesmo escondido; o tamanho da peça guia o dos pedaços
     const caixa = new THREE.Box3().setFromObject(q.raiz);
     const tam = caixa.getSize(new THREE.Vector3());
@@ -1627,6 +1636,37 @@ export class World {
     }
     this.game.effects.burst(q.pos.clone().setY(chao + altura * 0.5), { count: 26, color: [0.55, 0.47, 0.38], speed: 3.5, size: 0.14, life: 0.7, gravity: 5 });
     this.game.sfx.quebrar?.();
+  }
+
+  /**
+   * Os PEDAÇOS DE UM OBJETO (fratura.js) voando do lugar dele: cada lasca sai na posição, giro e
+   * escala em que estava, empurrada para fora do meio (e para longe de `origem`, quem bateu).
+   * `n` pedaços; `forca` multiplica o empurrão. Devolve se soltou algo (objeto sem malha: não).
+   */
+  soltarFragmentos(raiz, chave, n = 8, origem = null, forca = 1) {
+    const frags = fragmentos(raiz, chave, n);
+    if (!frags.length) return false;
+    raiz.updateMatrixWorld(true);
+    const mw = raiz.matrixWorld, pos = new THREE.Vector3(), quat = new THREE.Quaternion(), esc = new THREE.Vector3();
+    mw.decompose(pos, quat, esc);
+    const caixa = new THREE.Box3().setFromObject(raiz), meio = caixa.getCenter(new THREE.Vector3());
+    const de = origem ? new THREE.Vector3(meio.x - origem.x, 0, meio.z - origem.z).normalize() : new THREE.Vector3();
+    this.pedacos ??= [];
+    for (const f of frags) {
+      const g = new THREE.Group();
+      for (const { geometry, material } of f.partes) g.add(new THREE.Mesh(geometry, material));
+      g.position.copy(f.centro).applyMatrix4(mw);
+      g.quaternion.copy(quat);
+      g.scale.copy(esc);
+      this.scene.add(g);
+      const fora = g.position.clone().sub(meio).setY(0);
+      if (fora.lengthSq() > 1e-6) fora.normalize();
+      const vel = new THREE.Vector3((Math.random() - 0.5) * 2, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 2)
+        .addScaledVector(fora, 2.2 * forca).addScaledVector(de, 2 * forca);
+      const giro = new THREE.Vector3((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+      this.pedacos.push({ m: g, vel, giro, t: 0, meia: Math.max(0.02, f.raio * Math.max(esc.x, esc.y, esc.z) * 0.25) });
+    }
+    return true;
   }
 
   /** Os pedaços voam, quicam, ficam no chão uns segundos e afundam. */

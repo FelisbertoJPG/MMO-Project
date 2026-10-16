@@ -230,7 +230,9 @@ export const ITEMS = {
   },
 
   // ARMAS (ficha.js): `escala` = quanto a arma aproveita da força (E a A), `requisito` =
-  // força mínima (abaixo dela, golpes fracos), `peso` = o que conta na carga
+  // força mínima (abaixo dela, golpes fracos), `peso` = o que conta na carga, `quebra` = a força
+  // contra o ESCUDO do inimigo (escudo.js: { nivel = o material mais duro que racha, dano por
+  // golpe }; sem ela, o golpe defendido só gasta a postura)
   dagger: {
     name: 'Adaga Enferrujada', type: 'weapon', icon: ICONS.dagger, model: 'dagger',
     desc: 'Encontrada junto a um prisioneiro que nunca saiu da cela. Curta, veloz e barata de usar.',
@@ -243,6 +245,7 @@ export const ITEMS = {
     desc: 'Espada reta de um guarda da masmorra. Equilibrada e confiável.',
     damage: 30, speed: 0.85, stamina: 16, reach: 2.0, poise: 20,
     escala: 'C', requisito: 10, peso: 3,
+    quebra: { nivel: 1, dano: 14 },   // contra ESCUDO (escudo.js): racha madeira
     light: ['slashA', 'slashB', 'slashC'], heavy: 'overhead',
   },
   axe: {
@@ -250,6 +253,7 @@ export const ITEMS = {
     desc: 'Machado pesado de um carcereiro. Golpes brutais que quebram a postura.',
     damage: 40, speed: 0.72, stamina: 21, reach: 1.9, poise: 35,
     escala: 'B', requisito: 14, peso: 4.5,
+    quebra: { nivel: 2, dano: 28 },   // madeira e ferro
     light: ['slashC', 'slashB'], heavy: 'overhead',
   },
   greatsword: {
@@ -257,6 +261,7 @@ export const ITEMS = {
     desc: 'Espada colossal de um cavaleiro que tentou desafiar o Carrasco. Empunhada com as duas mãos.',
     damage: 62, speed: 0.7, stamina: 30, reach: 2.5, poise: 60,
     escala: 'A', requisito: 18, peso: 9,
+    quebra: { nivel: 3, dano: 34 },   // tudo: a madeira em 3 golpes
     terminaGolpe: true,   // o golpe vai até o FIM da animação: nada o corta (nem outro golpe, nem rolar)
     guarda: 0.5,   // bloqueia com a própria lâmina (o escudo vai para as costas)
     light: ['heavy1', 'heavy2', 'heavy3', 'heavy4'], heavy: 'overhead',
