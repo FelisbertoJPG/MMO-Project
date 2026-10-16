@@ -4,6 +4,7 @@ import { corpoGuardado, NU, codigoDaArmadura } from './guerreiro.js';
 import { APARENCIA_PADRAO, lerAparencia } from './aparencia.js';
 import { racaDe, proporcoesDe } from './raca.js';
 import { tela } from './tela.js';
+import { VEU } from './veu.js';
 import { DURACAO as DURACAO_REFEICAO, objetoDaRefeicao } from './refeicao.js';
 import {
   curva, VIDA_BASE, VITALIDADE, VIGOR_BASE, RESISTENCIA_VIGOR, CARGA_BASE, RESISTENCIA_CARGA,
@@ -829,6 +830,12 @@ export class Player {
     if (camera.position.distanceToSquared(_camIso) > 400) camera.position.copy(_camIso);   // (chegando de outro modo: sem voar até lá)
     else camera.position.lerp(_camIso, 1 - Math.exp(-dt * 10));
     camera.lookAt(alvo);
+    // o VÉU (veu.js): a copa da árvore entre a câmera e o personagem fica meio transparente —
+    // em volta do peito dele como a câmera o vê, acima da cintura
+    camera.updateMatrixWorld();
+    VEU.uVeu.value = this.game.menu === 'aparencia' ? 0 : 0.6;
+    VEU.uVeuAlvo.value.copy(alvo).applyMatrix4(camera.matrixWorldInverse);
+    VEU.uVeuChao.value = this.pos.y + 1.3;
     // para o LOD e a poeira: de onde uma câmera comum veria
     (camera.userData.vistaDe ??= new THREE.Vector3()).set(alvo.x - fx * cp * 13, alvo.y + sp * 13, alvo.z - fz * cp * 13);
     camera.userData.lodFov = camera.userData.fovNormal;
@@ -849,6 +856,7 @@ export class Player {
     const u = camera.userData;
     if (u.fovNormal != null && camera.fov !== u.fovNormal) { camera.fov = u.fovNormal; camera.updateProjectionMatrix(); this.game.effects?.setScale(tela.h, camera.fov); }
     u.vistaDe = null; u.lodFov = null;
+    VEU.uVeu.value = 0;
     const r = this.game.renderer;
     if (r.clippingPlanes.length) r.clippingPlanes = [];
   }

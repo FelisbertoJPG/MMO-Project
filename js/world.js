@@ -7,6 +7,7 @@ import { CharacterModel } from './character.js';
 import { makeWeapon } from './gear.js';
 import { LOD, reescreverLote } from './lod.js';
 import { fragmentos } from './fratura.js';
+import { vestirVeu } from './veu.js';
 
 const flatDistXZ = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 export const S = 1.5; // escala da masmorra (salas e corredores 50% maiores)
@@ -1302,12 +1303,14 @@ export class World {
     const receitas = new Map();
     const unico = (m) => {
       const k = receitaDoMaterial(m);
-      if (k === null) return m;
+      if (k === null) return vestirVeu(m);
       let r = receitas.get(k);
       if (!r) {
         r = m.clone();
         // (o `clone` não leva os ganchos do shader: as `gi-`, assets.js)
         r.onBeforeCompile = m.onBeforeCompile; r.customProgramCacheKey = m.customProgramCacheKey;
+        // o VÉU da câmera isométrica (veu.js): parado (uVeu = 0) fora dela
+        vestirVeu(r);
         receitas.set(k, r);
       }
       return r;
