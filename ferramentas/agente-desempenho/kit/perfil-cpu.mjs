@@ -12,6 +12,7 @@
  *   --preparar "<js>"   JavaScript rodado na página antes do perfil (pode usar await):
  *                       entrar no jogo, ir ao lugar pesado. `--preparar @arquivo.js` lê do arquivo
  *   --depois 2          segundos entre o preparar e o perfil (a cena assentar)
+ *   --foto x.png        uma foto da página no FIM (depois do --avaliar) — para conferir o que se vê
  *   --avaliar "<js>"    uma expressão avaliada NO FIM, com o resultado impresso — por exemplo
  *                       "await __monitor.diagnosticar().then(() => __monitor.relatorio())"
  *   --top 30            quantas linhas por tabela
@@ -43,7 +44,7 @@ import path from 'node:path';
 const args = process.argv.slice(2);
 const opcao = (nome, padrao = null) => { const i = args.indexOf(`--${nome}`); return i >= 0 && i + 1 < args.length ? args[i + 1] : padrao; };
 const tem = (nome) => args.includes(`--${nome}`);
-const comValor = new Set(['segundos', 'espera', 'preparar', 'depois', 'avaliar', 'top', 'salvar', 'largura', 'altura', 'chrome', 'anexar', 'freio', 'escala']);
+const comValor = new Set(['segundos', 'espera', 'preparar', 'depois', 'avaliar', 'top', 'salvar', 'largura', 'altura', 'chrome', 'anexar', 'freio', 'escala', 'foto']);
 const url = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--') && comValor.has(args[i - 1].slice(2))));
 if (!url || tem('ajuda') || tem('help')) {
   console.log(readFileSync(new URL(import.meta.url), 'utf8').split('*/')[0].replace(/^#!.*\n/, '').replace(/^\/\*\*\n?/, '').replace(/^ \* ?/gm, ''));
@@ -262,6 +263,11 @@ try {
   if (AVALIAR) {
     const v = await cdp.rodar(`return (${AVALIAR.trim().replace(/;$/, '')});`);
     console.log('\n' + '='.repeat(80) + '\n' + (typeof v === 'string' ? v : JSON.stringify(v, null, 2)));
+  }
+  if (opcao('foto')) {
+    const { data } = await cdp.pedir('Page.captureScreenshot', { format: 'png' });
+    writeFileSync(opcao('foto'), Buffer.from(data, 'base64'));
+    console.error(`foto gravada em ${opcao('foto')}`);
   }
   if (FREIO > 1 && ANEXAR) await cdp.pedir('Emulation.setCPUThrottlingRate', { rate: 1 });
   cdp.ws.fechar();

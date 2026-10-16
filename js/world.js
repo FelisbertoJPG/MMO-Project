@@ -2035,7 +2035,7 @@ export class World {
 
     // Poeira ao redor da câmera
     const arr = this.dust.geometry.attributes.position.array;
-    const cx = camera.position.x, cz = camera.position.z;
+    const vc = camera.userData.vistaDe ?? camera.position, cx = vc.x, cz = vc.z;
     for (let i = 0; i < arr.length; i += 3) {
       arr[i] += Math.sin(t * 0.4 + i) * dt * 0.1;
       arr[i + 1] -= dt * 0.12;

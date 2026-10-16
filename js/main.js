@@ -467,9 +467,10 @@ class Game {
     for (const b of document.querySelectorAll('#camera-opcao button')) b.addEventListener('click', () => this.escolherCamera(b.dataset.camera, true));
   }
 
-  /** O modo da câmera (`Player.updateCamera`): `ombro`, `primeira` ou `diablo`. */
+  /** O modo da câmera (`Player.updateCamera`): `ombro`, `primeira` ou `isometrica`. */
   escolherCamera(modo, guardar = false) {
-    if (!['ombro', 'primeira', 'diablo'].includes(modo)) modo = 'ombro';
+    if (modo === 'diablo') modo = 'isometrica';   // (o nome de antes)
+    if (!['ombro', 'primeira', 'isometrica'].includes(modo)) modo = 'ombro';
     const antes = this.modoCamera;
     this.modoCamera = modo;
     for (const b of document.querySelectorAll('#camera-opcao button')) b.classList.toggle('ativo', b.dataset.camera === modo);
@@ -479,6 +480,13 @@ class Game {
       // a inclinação de cada modo tem outro sentido: volta à de sempre (a primeira pessoa olha reto)
       p.camPitch = modo === 'primeira' ? 0.1 : 0.3;
       p.esconderCorpo(false);
+    }
+    // a ISOMÉTRICA usa um plano de recorte global (a vista em corte da masmorra): pôr ou tirar o
+    // plano muda TODOS os shaders — já aqui, e desenhando o mapa uma vez (senão, tranco no jogo)
+    const r = this.renderer;
+    if (r && (modo === 'isometrica') !== (r.clippingPlanes.length > 0)) {
+      if (modo === 'isometrica') { p.planoIso ??= new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e4); r.clippingPlanes = [p.planoIso]; } else r.clippingPlanes = [];
+      if (this.state !== 'loading') this.preaquecer?.();
     }
   }
 

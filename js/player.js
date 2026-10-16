@@ -3,6 +3,7 @@ import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js'
 import { corpoGuardado, NU, codigoDaArmadura } from './guerreiro.js';
 import { APARENCIA_PADRAO, lerAparencia } from './aparencia.js';
 import { racaDe, proporcoesDe } from './raca.js';
+import { tela } from './tela.js';
 import { DURACAO as DURACAO_REFEICAO, objetoDaRefeicao } from './refeicao.js';
 import {
   curva, VIDA_BASE, VITALIDADE, VIGOR_BASE, RESISTENCIA_VIGOR, CARGA_BASE, RESISTENCIA_CARGA,
@@ -16,6 +17,10 @@ import { Assets } from './assets.js';
 const SPRINT_HOLD = 0.28;
 const ROLL_COST = 22;
 const _v = new THREE.Vector3();
+// A CÂMERA ISOMÉTRICA (cameraIsometrica): a inclinação da projeção isométrica de verdade
+// (arctan 1/√2 ≈ 35,264°), a lente estreita de longe (quase sem perspectiva) e a altura do corte
+export const ISO_INCLINACAO = Math.atan(1 / Math.SQRT2), ISO_FOV = 15, ISO_DIST = 55, ISO_CORTE = 2.8, ISO_CORTE_ARENA = 7.5;
+const _alvoIso = new THREE.Vector3(), _camIso = new THREE.Vector3();
 
 // estados em que a mão esquerda faz outra coisa (ou o boneco está no chão): sem as duas mãos na arma
 export const MAO_OCUPADA = ['heal', 'item', 'interact', 'dead', 'rest', 'restUp', 'lying', 'standing'];
@@ -249,11 +254,15 @@ export class Player {
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
     this.blockHitT = Math.max(0, this.blockHitT - dt);
 
-    if (!this.lockTarget) {
+    if (game.modoCamera === 'isometrica') {
+      // a ISOMÉTRICA não gira solta: arrastar de lado vira a vista de 90 em 90 graus (cameraIsometrica)
+      this.isoArrasto = (this.isoArrasto ?? 0) + inp.dx;
+      if (Math.abs(this.isoArrasto) > 260) { this.isoQuarto = (this.isoQuarto ?? 0) - Math.sign(this.isoArrasto); this.isoArrasto = 0; }
+    } else if (!this.lockTarget) {
       this.camYaw -= inp.dx * 0.0024;
-      // (a primeira pessoa olha mais para cima e para baixo; o estilo Diablo tem a inclinação fixa)
+      // (a primeira pessoa olha mais para cima e para baixo)
       const [baixo, alto] = game.modoCamera === 'primeira' ? [-1.2, 1.3] : [-0.3, 1.0];
-      if (game.modoCamera !== 'diablo') this.camPitch = THREE.MathUtils.clamp(this.camPitch + inp.dy * 0.0024, baixo, alto);
+      this.camPitch = THREE.MathUtils.clamp(this.camPitch + inp.dy * 0.0024, baixo, alto);
     }
     if (inp.pressed('KeyQ') || inp.mousePressed(1)) this.toggleLock();
     if (this.lockTarget && (this.lockTarget.dead || !this.lockTarget.active || flatDist(this.lockTarget.pos, this.pos) > 24)) this.lockTarget = null;
@@ -712,13 +721,14 @@ export class Player {
 
   /**
    * A CÂMERA (16/10/2026: três modos, `game.modoCamera`, menu de pausa → Interface):
-   * `ombro` (a de sempre, atrás do ombro), `primeira` (os olhos do personagem) e `diablo`
-   * (de cima, inclinada — na masmorra o teto a segura).
+   * `ombro` (a de sempre, atrás do ombro), `primeira` (os olhos do personagem) e `isometrica`
+   * (a vista dos jogos isométricos: ver `cameraIsometrica`).
    */
   updateCamera(dt, camera) {
+    if (this.game.modoCamera === 'isometrica') return this.cameraIsometrica(dt, camera);
+    this.sairDaIsometrica(camera);
     if (this.primeiraPessoa) return this.cameraPrimeira(dt, camera);
     if (this.corpoEscondido) this.esconderCorpo(false);
-    if (this.game.modoCamera === 'diablo') return this.cameraDiablo(dt, camera);
     const world = this.game.world;
     // a cabeça A PARTIR DO CHÃO de onde está (no andar de cima, 6 m acima)
     const target = new THREE.Vector3(this.pos.x, this.pos.y + 1.65, this.pos.z);
@@ -786,26 +796,60 @@ export class Player {
     camera.lookAt(camera.position.x + fx * cp, camera.position.y - sp, camera.position.z + fz * cp);
   }
 
-  cameraDiablo(dt, camera) {
-    const world = this.game.world;
-    // inclinação fixa (~54°) e longe; o giro segue o mouse/dedo como sempre
-    const PITCH = 0.95, DIST = 13;
-    const alvo = new THREE.Vector3(this.pos.x, this.pos.y + 1.0, this.pos.z);
-    const cp = Math.cos(PITCH), sp = Math.sin(PITCH), fx = Math.sin(this.camYaw), fz = Math.cos(this.camYaw);
-    let dist = DIST;
-    // dentro da masmorra o teto segura a câmera (mais perto, a mesma inclinação) e a parede atrás
-    // encurta, como na de sempre; ao ar livre ela sobe à vontade
-    const teto = world.ceilingAt(this.pos) - 0.3;
-    if (alvo.y + sp * dist > teto) dist = Math.max(2, (teto - alvo.y) / sp);
-    if (!world.isOpenAir(...world.cellOf(this.pos))) {
-      const longe = alvo.clone().add(_v.set(-fx * cp * dist, 0, -fz * cp * dist));
-      dist *= Math.max(0.25, world.rayFraction(alvo, longe, 0.3) - 0.03);
-    }
-    const cam = new THREE.Vector3(alvo.x - fx * cp * dist, alvo.y + sp * dist, alvo.z - fz * cp * dist);
-    cam.y = Math.max(cam.y, world.alturaChao(cam) + 0.6);
-    camera.position.lerp(cam, 1 - Math.exp(-dt * 12));
+  /**
+   * A CÂMERA ISOMÉTRICA (16/10/2026), no jeito dos jogos isométricos (Diablo, Hades, Baldur's
+   * Gate, os RPGs táticos):
+   *   • o ÂNGULO clássico: a vista desce `ISO_INCLINACAO` = arctan(1/√2) ≈ 35,264° (a projeção
+   *     isométrica de verdade: os três eixos com o mesmo encurtamento) e gira 45° em relação ao
+   *     mapa (as células aparecem como losangos); NÃO gira solta — arrastar de lado (mouse ou
+   *     dedo) vira a vista de 90 em 90°, como nesses jogos (`isoQuarto`, no `update`);
+   *   • QUASE SEM PERSPECTIVA: uma câmera ortográfica quebraria o céu, a névoa, o LOD e a
+   *     interface; aqui é a mesma câmera com uma lente "teleobjetiva" (`ISO_FOV` = 15°) de LONGE
+   *     (`ISO_DIST`): as paralelas quase não convergem e o tamanho das coisas não muda com a
+   *     distância. Para o resto do jogo continuar medindo "de perto", a câmera diz de onde uma
+   *     câmera comum veria (`userData.vistaDe`, a 13 m do jogador, e `lodFov`: o LOD e a poeira
+   *     usam) e a névoa é compensada pela distância (senão, de 55 m, ela cobria tudo);
+   *   • A VISTA EM CORTE na masmorra: um plano de recorte global (`renderer.clippingPlanes`)
+   *     tira tudo acima de `ISO_CORTE` m sobre o chão do jogador — o teto e o alto das paredes —,
+   *     como as plantas em corte desses jogos; na arena (o Carrasco é alto), mais em cima; ao ar
+   *     livre o plano fica no céu. O plano EXISTE o tempo todo na isométrica (só a altura muda):
+   *     ligar e desligar o recorte recompila todos os shaders — `Game.escolherCamera` pré-aquece.
+   */
+  cameraIsometrica(dt, camera) {
+    const world = this.game.world, r = this.game.renderer;
+    if (this.corpoEscondido) this.esconderCorpo(false);
+    // o giro: 45° mais os quartos de volta pedidos; vai até lá suave
+    const quer = Math.PI / 4 + (this.isoQuarto ?? 0) * Math.PI / 2;
+    this.camYaw = turnTowards(this.camYaw, quer, dt * 7);
+    const p = ISO_INCLINACAO, cp = Math.cos(p), sp = Math.sin(p), fx = Math.sin(this.camYaw), fz = Math.cos(this.camYaw);
+    const alvo = _alvoIso.set(this.pos.x, this.pos.y + 1.0, this.pos.z);
+    if (camera.userData.fovNormal == null) camera.userData.fovNormal = camera.fov;
+    if (camera.fov !== ISO_FOV && this.game.menu !== 'aparencia') { camera.fov = ISO_FOV; camera.updateProjectionMatrix(); this.game.effects?.setScale(tela.h, camera.fov); }
+    _camIso.set(alvo.x - fx * cp * ISO_DIST, alvo.y + sp * ISO_DIST, alvo.z - fz * cp * ISO_DIST);
+    if (camera.position.distanceToSquared(_camIso) > 400) camera.position.copy(_camIso);   // (chegando de outro modo: sem voar até lá)
+    else camera.position.lerp(_camIso, 1 - Math.exp(-dt * 10));
+    camera.lookAt(alvo);
+    // para o LOD e a poeira: de onde uma câmera comum veria
+    (camera.userData.vistaDe ??= new THREE.Vector3()).set(alvo.x - fx * cp * 13, alvo.y + sp * 13, alvo.z - fz * cp * 13);
+    camera.userData.lodFov = camera.userData.fovNormal;
+    // a névoa conta da câmera: de longe ela cobria tudo — a densidade cai na proporção
+    if (this.game.scene.fog?.density) this.game.scene.fog.density *= 13 / ISO_DIST;
+    // a vista em corte (dentro da masmorra)
+    const [lin, col] = world.cellOf(this.pos);
+    const dentro = !world.isOpenAir(lin, col);
+    this.planoIso ??= new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e4);
+    this.planoIso.constant = dentro ? this.pos.y + (world.isArenaCell(lin, col) ? ISO_CORTE_ARENA : ISO_CORTE) : 1e4;
+    if (r.clippingPlanes[0] !== this.planoIso) r.clippingPlanes = [this.planoIso];
     this.model.scene.visible = true;
     if (this.model.guerreiro) this.model.guerreiro.cena.visible = true;
-    camera.lookAt(alvo);
+  }
+
+  /** Volta do que a isométrica mudou: a lente, o recorte, as dicas ao LOD. */
+  sairDaIsometrica(camera) {
+    const u = camera.userData;
+    if (u.fovNormal != null && camera.fov !== u.fovNormal) { camera.fov = u.fovNormal; camera.updateProjectionMatrix(); this.game.effects?.setScale(tela.h, camera.fov); }
+    u.vistaDe = null; u.lodFov = null;
+    const r = this.game.renderer;
+    if (r.clippingPlanes.length) r.clippingPlanes = [];
   }
 }

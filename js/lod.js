@@ -220,8 +220,10 @@ export class LOD {
     const q = this.world.game.graficos?.q ?? {};
     const D = q.impostor ?? 110, limiar = q.limiarPx ?? 2;
     const H = this.world.game.renderer.domElement.clientHeight || innerHeight;
-    const foco = (H / 2) / Math.tan(camera.fov * Math.PI / 360);
-    const p = camera.position;
+    // (a câmera isométrica — player.js — vê de longe com lente estreita; ela diz de onde uma
+    // câmera comum veria, e com que lente: as distâncias e os pixels saem iguais)
+    const foco = (H / 2) / Math.tan((camera.userData.lodFov ?? camera.fov) * Math.PI / 360);
+    const p = camera.userData.vistaDe ?? camera.position;
     const fora = (this.world.ambience?.k ?? 0) > 0.5;
     // SÓ QUANDO A CÂMERA ANDOU 1 m (15/10/2026): as ~1.300 contas de distância eram 2–3 ms por
     // quadro com a CPU freada 8× (um celular fraco), parado ou só girando a câmera. As trocas
@@ -286,7 +288,7 @@ export class LOD {
    * projétil — fica de fora, sempre desenhado). A luz de dentro delas não muda (`distribuirLuzes`).
    */
   soltas(camera, fora) {
-    const w = this.world, g = w.game, p = camera.position;
+    const w = this.world, g = w.game, p = camera.userData.vistaDe ?? camera.position;
     if (g.state === 'title') return;
     if (!this.listaDeSoltas) {
       const fora_ = new Set();
@@ -328,7 +330,7 @@ export class LOD {
    * o jogo mexe no `visible` das peças de equipamento). A lógica deles continua igual.
    */
   personagens(camera, fora) {
-    const w = this.world, p = camera.position;
+    const w = this.world, p = camera.userData.vistaDe ?? camera.position;
     // só com a partida rodando: na tela de título os animais ainda não animaram, e a pose de
     // repouso deles tem outro tamanho — a esfera saía pequena (conferido)
     if (w.game.state === 'title') return;

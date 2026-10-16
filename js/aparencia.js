@@ -277,6 +277,8 @@ export class EditorDeAparencia {
    * não cobre (`setViewOffset`: a imagem anda de lado sem mudar o ângulo da vista).
    */
   camera(cam) {
+    // (a câmera isométrica usa outra lente: aqui, a de sempre)
+    if (cam.userData.fovNormal != null && cam.fov !== cam.userData.fovNormal) { cam.fov = cam.userData.fovNormal; cam.updateProjectionMatrix(); }
     const p = this.game.player, w = this.game.world, f = p.facing + this.giro, atras = (1 - Math.cos(this.giro)) / 2, a = lerAparencia(p.aparencia);
     const alto = proporcoesDe(racaDe(a.raca, a.sexo)).altura, corpo = THREE.MathUtils.clamp((this.dist - DIST_PADRAO) / (DIST_MAX - DIST_PADRAO), 0, 1);
     const y = p.pos.y + 1.55 * alto - 0.2 * atras;
