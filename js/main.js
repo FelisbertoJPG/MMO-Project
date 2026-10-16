@@ -27,6 +27,7 @@ import { Provador } from './provador.js';
 import { Capim } from './capim.js';
 import { Agua } from './agua.js';
 import { Telemetria, enviarDesempenho, aparelho } from './telemetria.js';
+import { tirarDoExpositor, derrubarItens } from './expositor.js';
 import { tela } from './tela.js';
 import { Graficos, qualidadeSalva } from './graficos.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
@@ -282,6 +283,8 @@ class Game {
       for (const [id, peso] of tabela) { r -= peso; if (r <= 0) { item = id; break; } }
       if (item) this.world.addPickup(item, 1, { x: q.pos.x + (Math.random() - 0.5) * 0.6, z: q.pos.z + (Math.random() - 0.5) * 0.6 }, false);
     }
+    // o expositor (expositor.js): o que ainda estava nele cai no chão, para pegar
+    if (q.cfg.expositor) derrubarItens(this.world, q.cfg.expositor, origem);
     if (!q.cfg.local) this.sessao?.aoQuebrar?.(q);   // a vegetação é de cada um
   }
 
@@ -1026,7 +1029,7 @@ class Game {
 
   interact(it) {
     const p = this.player, world = this.world, inv = this.inventory;
-    if (this.marionetes && this.regras.visitaSoAjuda && ['pickup', 'chest', 'torch', 'door', 'bonfire', 'bloodstain'].includes(it.type)) {
+    if (this.marionetes && this.regras.visitaSoAjuda && ['pickup', 'expositor', 'chest', 'torch', 'door', 'bonfire', 'bloodstain'].includes(it.type)) {
       this.ui.toast('No mundo de outro jogador, você só pode ajudar.');
       this.sfx.locked();
       return;
@@ -1040,6 +1043,15 @@ class Game {
         this.readingAt = p.pos.clone();
         break;
       case 'outraMancha': this.online.mortes?.tocar(it); break;
+      case 'expositor':
+        // o item no suporte de armas / cavalete de armadura (expositor.js)
+        p.startInteract('PickUp', () => {
+          if (it.tirado) return;
+          inv.add(it.itemId, 1);
+          tirarDoExpositor(world, it.exp, it.k);
+          this.sfx.pickup();
+        }, { dur: 1.3, at: 0.45, face });
+        break;
       case 'pickup':
         p.startInteract('PickUp', () => {
           if (!world.pickups.includes(it)) return;
@@ -1146,7 +1158,7 @@ class Game {
     const label = it ? (it.type === 'torch' && this.inventory.count('torch') ? 'Pegar tocha (você já tem uma)' : it.label) : null;
     // o item caído tem a FICHA dele ao lado (ui.js `mostrarLoot`); no PC ela toma o lugar do aviso
     // de baixo — no celular o aviso fica (é o botão de pegar)
-    const ficha = it?.type === 'pickup';
+    const ficha = it?.type === 'pickup' || it?.type === 'expositor';
     this.ui.setPrompt(ficha && !this.toque ? null : label);
     this.ui.mostrarLoot(ficha ? it : null);
     if (it && inp.pressed('KeyE')) { this.interact(it); this.ui.setPrompt(null); }

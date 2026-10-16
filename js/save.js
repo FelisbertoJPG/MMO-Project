@@ -1,3 +1,4 @@
+import { estadoDosExpositores, aplicarExpositores } from './expositor.js';
 import { ITEMS } from './items.js';
 import { RECEITAS } from './receitas.js';
 import { req } from './rede/supabase.js';
@@ -150,6 +151,7 @@ export function coletar(game) {
       baus: w.chests.map((c) => c.open),
       tochas: w.torches.map((t) => t.lit),
       itensNoChao: w.pickups.map((x) => ({ id: x.itemId, qtd: x.qty, x: x.pos.x, z: x.pos.z, fixo: x.persistent })),
+      expositores: estadoDosExpositores(w),   // o que já saiu de cada suporte/cavalete (expositor.js)
       mancha,
       carrascoVencido: game.boss.defeated,
       dragaoVencido: game.dragao.defeated,
@@ -218,6 +220,7 @@ export function aplicarProgresso(game, s) {
     if (c.lid) c.lid.rotation.x = -1.25;
   });
   (m.tochas ?? []).forEach((acesa, i) => { if (!acesa && w.torches[i]) w.takeTorch(w.torches[i]); });
+  aplicarExpositores(w, m.expositores);
   for (const x of [...w.pickups]) w.removePickup(x);
   for (const x of m.itensNoChao ?? []) if (existe(x?.id) && Number.isFinite(x.x) && Number.isFinite(x.z)) w.addPickup(x.id, x.qtd, { x: andou(x.x), z: x.z }, x.fixo);
   if (m.mancha) w.setBloodstain({ x: andou(m.mancha.x), z: m.mancha.z }, m.mancha.almas);

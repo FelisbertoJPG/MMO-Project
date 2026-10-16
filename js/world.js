@@ -9,6 +9,7 @@ import { makeWeapon } from './gear.js';
 import { LOD, reescreverLote } from './lod.js';
 import { fragmentos } from './fratura.js';
 import { vestirVeu } from './veu.js';
+import { montarExpositores } from './expositor.js';
 
 const flatDistXZ = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 export const S = 1.5; // escala da masmorra (salas e corredores 50% maiores)
@@ -405,6 +406,8 @@ export class World {
     this.buildFogGate();
     this.buildMessages();
     this.buildDust();
+    // o suporte de armas e o cavalete de armadura, com os itens de verdade (expositor.js)
+    this.expositores = montarExpositores(this);
   }
 
   // ---------- Grid ----------
