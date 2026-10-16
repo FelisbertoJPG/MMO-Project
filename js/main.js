@@ -460,6 +460,26 @@ class Game {
     try { oculto = localStorage.getItem('masmorra:chat') === 'oculto'; } catch { }
     this.mostrarChat(!oculto);
     for (const b of document.querySelectorAll('#chat-opcao button')) b.addEventListener('click', () => this.mostrarChat(b.dataset.chat === 'sim', true));
+    // a câmera (Interface): atrás do ombro, primeira pessoa ou estilo Diablo, guardada neste navegador
+    let cam = 'ombro';
+    try { cam = localStorage.getItem('masmorra:camera') || 'ombro'; } catch { }
+    this.escolherCamera(cam);
+    for (const b of document.querySelectorAll('#camera-opcao button')) b.addEventListener('click', () => this.escolherCamera(b.dataset.camera, true));
+  }
+
+  /** O modo da câmera (`Player.updateCamera`): `ombro`, `primeira` ou `diablo`. */
+  escolherCamera(modo, guardar = false) {
+    if (!['ombro', 'primeira', 'diablo'].includes(modo)) modo = 'ombro';
+    const antes = this.modoCamera;
+    this.modoCamera = modo;
+    for (const b of document.querySelectorAll('#camera-opcao button')) b.classList.toggle('ativo', b.dataset.camera === modo);
+    if (guardar) try { localStorage.setItem('masmorra:camera', modo); } catch { }
+    const p = this.player;
+    if (p && antes && antes !== modo) {
+      // a inclinação de cada modo tem outro sentido: volta à de sempre (a primeira pessoa olha reto)
+      p.camPitch = modo === 'primeira' ? 0.1 : 0.3;
+      p.esconderCorpo(false);
+    }
   }
 
   /** Troca a tela do menu de pausa (`menu`, `graficos`, `controles`, `interface`, `voz`). */

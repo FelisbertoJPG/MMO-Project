@@ -249,9 +249,11 @@
         <button class="pausa-voltar" data-volta="menu">‹ Voltar</button>
       </div>
       <div class="pausa-tela pausa-menu hidden" data-tela="interface">
+        <!-- a câmera (Player.updateCamera): atrás do ombro, primeira pessoa ou de cima: Game.escolherCamera -->
+        <div id="camera-opcao" class="pausa-opcao"><span>Câmera</span><button data-camera="ombro" title="A de sempre, atrás do ombro">Atrás do ombro</button><button data-camera="primeira" title="Os olhos do personagem: o golpe vai para onde você olha">Primeira pessoa</button><button data-camera="diablo" title="De cima, inclinada (na masmorra o teto a segura mais perto)">Estilo Diablo</button></div>
         <button data-abre="voz">Chat de voz</button>
         <!-- o chat global (rede/chat.js) à vista ou não: Game.mostrarChat -->
-        <div id="chat-opcao"><span>Chat global</span><button data-chat="sim">Mostrar</button><button data-chat="nao">Ocultar</button></div>
+        <div id="chat-opcao" class="pausa-opcao"><span>Chat global</span><button data-chat="sim">Mostrar</button><button data-chat="nao">Ocultar</button></div>
         <button class="pausa-voltar" data-volta="menu">‹ Voltar</button>
       </div>
       <div class="pausa-tela hidden" data-tela="voz">

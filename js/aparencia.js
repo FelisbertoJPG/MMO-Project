@@ -223,6 +223,7 @@ export class EditorDeAparencia {
 
   abrir() {
     this.el.classList.remove('hidden');
+    this.game.player.esconderCorpo?.(false);   // (a primeira pessoa esconde o corpo da câmera)
     this.giro = 0;
     this.dist = DIST_PADRAO;
     this.el.querySelector('.aparencia-dica').textContent = document.body.classList.contains('toque')

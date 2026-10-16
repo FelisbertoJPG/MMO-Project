@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
 import { corpoGuardado, NU, codigoDaArmadura } from './guerreiro.js';
-import { APARENCIA_PADRAO } from './aparencia.js';
+import { APARENCIA_PADRAO, lerAparencia } from './aparencia.js';
+import { racaDe, proporcoesDe } from './raca.js';
 import { DURACAO as DURACAO_REFEICAO, objetoDaRefeicao } from './refeicao.js';
 import {
   curva, VIDA_BASE, VITALIDADE, VIGOR_BASE, RESISTENCIA_VIGOR, CARGA_BASE, RESISTENCIA_CARGA,
@@ -250,7 +251,9 @@ export class Player {
 
     if (!this.lockTarget) {
       this.camYaw -= inp.dx * 0.0024;
-      this.camPitch = THREE.MathUtils.clamp(this.camPitch + inp.dy * 0.0024, -0.3, 1.0);
+      // (a primeira pessoa olha mais para cima e para baixo; o estilo Diablo tem a inclinação fixa)
+      const [baixo, alto] = game.modoCamera === 'primeira' ? [-1.2, 1.3] : [-0.3, 1.0];
+      if (game.modoCamera !== 'diablo') this.camPitch = THREE.MathUtils.clamp(this.camPitch + inp.dy * 0.0024, baixo, alto);
     }
     if (inp.pressed('KeyQ') || inp.mousePressed(1)) this.toggleLock();
     if (this.lockTarget && (this.lockTarget.dead || !this.lockTarget.active || flatDist(this.lockTarget.pos, this.pos) > 24)) this.lockTarget = null;
@@ -287,11 +290,11 @@ export class Player {
           this.pos.addScaledVector(dir, speed * dt);
           this.moveSpeed = speed;
           const faceTarget = this.lockTarget && !sprint;
-          const want = faceTarget ? yawTo(this.pos, this.lockTarget.pos) : Math.atan2(dir.x, dir.z);
+          const want = faceTarget ? yawTo(this.pos, this.lockTarget.pos) : this.rumo(dir);
           this.facing = turnTowards(this.facing, want, dt * 12);
         } else if (this.lockTarget) {
           this.facing = turnTowards(this.facing, yawTo(this.pos, this.lockTarget.pos), dt * 10);
-        }
+        } else if (this.primeiraPessoa) this.facing = this.camYaw;
         if (sprint) { this.stamina -= 14 * dt; staminaUse = true; this.staminaDelay = 0.4; }
         this.st.sprint = sprint;
         this.st.dir = dir;
@@ -407,7 +410,7 @@ export class Player {
     this.stamina -= w.stamina * (heavy ? 1.6 : 1);
     this.staminaDelay = 0.6;
     if (this.lockTarget) this.facing = yawTo(this.pos, this.lockTarget.pos);
-    else if (dir) this.facing = Math.atan2(dir.x, dir.z);
+    else if (dir || this.primeiraPessoa) this.facing = this.rumo(dir);
     this.setState('attack', data);
     this.model.play(spec.clip, { loop: false, speed, from, restart: true, fade: 0.1 });
   }
@@ -416,7 +419,7 @@ export class Player {
     const a = this.st, game = this.game;
     const p = this.stateT / a.dur;
     if (p < a.hitStart * 0.8) {
-      const want = this.lockTarget ? yawTo(this.pos, this.lockTarget.pos) : dir ? Math.atan2(dir.x, dir.z) : this.facing;
+      const want = this.lockTarget ? yawTo(this.pos, this.lockTarget.pos) : dir || this.primeiraPessoa ? this.rumo(dir) : this.facing;
       this.facing = turnTowards(this.facing, want, dt * 5);
     }
     if (p > a.hitStart * 0.4 && p < a.hitEnd) {
@@ -524,7 +527,7 @@ export class Player {
     const s = this.st, p = this.stateT / s.dur, game = this.game;
     if (dir) {
       this.pos.addScaledVector(dir, 1.2 * dt);
-      if (!this.lockTarget) this.facing = turnTowards(this.facing, Math.atan2(dir.x, dir.z), dt * 5);
+      if (!this.lockTarget) this.facing = turnTowards(this.facing, this.rumo(dir), dt * 5);
     }
     if (this.lockTarget) this.facing = turnTowards(this.facing, yawTo(this.pos, this.lockTarget.pos), dt * 8);
     const applyAt = { heal: 0.5, comer: 0.55, throw: 0.5, home: 0.95 }[s.def.use] ?? 0.6;
@@ -681,7 +684,39 @@ export class Player {
   }
 
   // ---------- Câmera com colisão ----------
+  /** Na PRIMEIRA PESSOA (e vivo: morto, a vista sai para trás do ombro para se ver cair). */
+  get primeiraPessoa() { return this.game.modoCamera === 'primeira' && !this.dead; }
+
+  /**
+   * Para onde o corpo vira ao andar: para onde anda — e, na primeira pessoa, para onde a VISTA
+   * olha (o golpe vai na mira; andar de lado ou para trás não vira o corpo).
+   */
+  rumo(dir) { return this.primeiraPessoa ? this.camYaw : dir ? Math.atan2(dir.x, dir.z) : this.facing; }
+
+  /**
+   * A PRIMEIRA PESSOA esconde o CORPO da câmera e deixa as armas (o que está nas mãos e nas
+   * costas). Por `layers` (o jogo mexe no `visible` das peças); some também a sombra dele.
+   */
+  esconderCorpo(sim) {
+    if (!sim && !this.corpoEscondido) return;
+    this.corpoEscondido = sim;
+    const m = this.model, armas = [m.slotR, m.slotL, m.slotCostas];
+    m.root.traverse((o) => {
+      if (!o.isMesh && !o.isSprite) return;
+      for (let p = o; p; p = p.parent) if (armas.includes(p)) return;
+      o.layers.set(sim ? 31 : 0);
+    });
+  }
+
+  /**
+   * A CÂMERA (16/10/2026: três modos, `game.modoCamera`, menu de pausa → Interface):
+   * `ombro` (a de sempre, atrás do ombro), `primeira` (os olhos do personagem) e `diablo`
+   * (de cima, inclinada — na masmorra o teto a segura).
+   */
   updateCamera(dt, camera) {
+    if (this.primeiraPessoa) return this.cameraPrimeira(dt, camera);
+    if (this.corpoEscondido) this.esconderCorpo(false);
+    if (this.game.modoCamera === 'diablo') return this.cameraDiablo(dt, camera);
     const world = this.game.world;
     // a cabeça A PARTIR DO CHÃO de onde está (no andar de cima, 6 m acima)
     const target = new THREE.Vector3(this.pos.x, this.pos.y + 1.65, this.pos.z);
@@ -720,5 +755,55 @@ export class Player {
     look.y += 0.35;
     if (this.lockTarget) look.lerp(new THREE.Vector3(this.lockTarget.pos.x, this.lockTarget.height * 0.55, this.lockTarget.pos.z), 0.3);
     camera.lookAt(look);
+  }
+
+  /** A altura dos olhos, da raça (o orc é mais alto). */
+  get alturaDosOlhos() {
+    const a = lerAparencia(this.aparencia);
+    return 1.6 * (proporcoesDe(racaDe(a.raca, a.sexo)).altura ?? 1);
+  }
+
+  cameraPrimeira(dt, camera) {
+    // o corpo some (menos no painel de Aparência, que precisa dele); de 8 em 8 quadros de novo,
+    // para pegar as peças que o equipamento trocou
+    if (this.game.menu === 'aparencia') this.esconderCorpo(false);
+    else if (!this.corpoEscondido || (this.quadroCam = (this.quadroCam ?? 0) + 1) % 8 === 0) this.esconderCorpo(true);
+    this.model.scene.visible = true;
+    if (this.model.guerreiro) this.model.guerreiro.cena.visible = true;
+    // com a mira travada, a vista vai ao alvo (o giro e a inclinação)
+    const olho = _v.set(this.pos.x, this.pos.y + this.alturaDosOlhos, this.pos.z);
+    if (this.lockTarget) {
+      const lt = this.lockTarget;
+      this.camYaw = turnTowards(this.camYaw, yawTo(this.pos, lt.pos), dt * 8);
+      const quer = Math.atan2(olho.y - (lt.pos.y + (lt.height ?? 1.8) * 0.6), Math.max(0.5, flatDist(lt.pos, this.pos)));
+      this.camPitch += (quer - this.camPitch) * Math.min(1, dt * 6);
+    }
+    const cp = Math.cos(this.camPitch), sp = Math.sin(this.camPitch), fx = Math.sin(this.camYaw), fz = Math.cos(this.camYaw);
+    // um palmo à frente da cabeça (o corpo está escondido, mas não o que encosta nela)
+    camera.position.set(olho.x + fx * 0.12, olho.y, olho.z + fz * 0.12);
+    camera.lookAt(camera.position.x + fx * cp, camera.position.y - sp, camera.position.z + fz * cp);
+  }
+
+  cameraDiablo(dt, camera) {
+    const world = this.game.world;
+    // inclinação fixa (~54°) e longe; o giro segue o mouse/dedo como sempre
+    const PITCH = 0.95, DIST = 13;
+    const alvo = new THREE.Vector3(this.pos.x, this.pos.y + 1.0, this.pos.z);
+    const cp = Math.cos(PITCH), sp = Math.sin(PITCH), fx = Math.sin(this.camYaw), fz = Math.cos(this.camYaw);
+    let dist = DIST;
+    // dentro da masmorra o teto segura a câmera (mais perto, a mesma inclinação) e a parede atrás
+    // encurta, como na de sempre; ao ar livre ela sobe à vontade
+    const teto = world.ceilingAt(this.pos) - 0.3;
+    if (alvo.y + sp * dist > teto) dist = Math.max(2, (teto - alvo.y) / sp);
+    if (!world.isOpenAir(...world.cellOf(this.pos))) {
+      const longe = alvo.clone().add(_v.set(-fx * cp * dist, 0, -fz * cp * dist));
+      dist *= Math.max(0.25, world.rayFraction(alvo, longe, 0.3) - 0.03);
+    }
+    const cam = new THREE.Vector3(alvo.x - fx * cp * dist, alvo.y + sp * dist, alvo.z - fz * cp * dist);
+    cam.y = Math.max(cam.y, world.alturaChao(cam) + 0.6);
+    camera.position.lerp(cam, 1 - Math.exp(-dt * 12));
+    this.model.scene.visible = true;
+    if (this.model.guerreiro) this.model.guerreiro.cena.visible = true;
+    camera.lookAt(alvo);
   }
 }
