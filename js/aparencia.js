@@ -30,6 +30,7 @@
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
+import { tela, pontoNaTela, retanguloNaTela } from './tela.js';
 import { racaDe, proporcoesDe, SEXOS, temFeminino } from './raca.js';
 import { penteadosDe, nomeDoPenteado, barbasDe, nomeDaBarba, sobrancelhasDe, nomeDaSobrancelha } from './penteado.js';
 
@@ -197,13 +198,15 @@ export class EditorDeAparencia {
     // os dedos (ou o mouse) apertados FORA do painel: um gira, dois fazem a pinça
     this.dedos = new Map();
     const pinca = () => { const [a, b] = [...this.dedos.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
-    addEventListener('pointerdown', (e) => { if (this.aberto && !e.target.closest?.('#aparencia')) this.dedos.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+    // (os pontos no sistema da página girada pelo CSS no iPhone: tela.js)
+    addEventListener('pointerdown', (e) => { if (this.aberto && !e.target.closest?.('#aparencia')) this.dedos.set(e.pointerId, pontoNaTela(e.clientX, e.clientY)); });
     addEventListener('pointermove', (e) => {
       const d = this.dedos.get(e.pointerId);
       if (!d || !this.aberto) return;
-      if (this.dedos.size === 1) this.giro += (e.clientX - d.x) * 0.012;
+      const p = pontoNaTela(e.clientX, e.clientY);
+      if (this.dedos.size === 1) this.giro += (p.x - d.x) * 0.012;
       const antes = this.dedos.size >= 2 ? pinca() : 0;
-      d.x = e.clientX; d.y = e.clientY;
+      d.x = p.x; d.y = p.y;
       if (antes > 20) this.aproximar(antes / Math.max(20, pinca()));
     });
     for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => this.dedos.delete(e.pointerId));
@@ -289,7 +292,7 @@ export class EditorDeAparencia {
     // por dentro dele: o personagem sumia em alguns ângulos
     p.model.scene.visible = true;
     if (p.model.guerreiro) p.model.guerreiro.cena.visible = true;
-    const W = innerWidth, H = innerHeight, r = this.el.getBoundingClientRect();
+    const W = tela.w, H = tela.h, r = retanguloNaTela(this.el.getBoundingClientRect());
     const meio = r.left > W - r.right ? r.left / 2 : (r.right + W) / 2;
     cam.setViewOffset(W, H, W / 2 - meio, 0, W, H);
   }

@@ -16,6 +16,7 @@
  * `localStorage` deste navegador; sem escolha, o celular começa no Médio.
  */
 import * as THREE from 'three';
+import { tela } from './tela.js';
 
 export const QUALIDADES = {
   alto: {
@@ -243,7 +244,7 @@ export class Graficos {
     // (a escolhida à mão continua valendo)
     this.escala = this.fixa ?? 1; this.res.esperaAte = performance.now() + 3000; this.res.teste = null; this.res.bloqueioAte = 0;
     r.setPixelRatio(this.resolucaoBase * this.escala);
-    r.setSize(innerWidth, innerHeight);
+    r.setSize(tela.w, tela.h);
     const sombras = this.comSombras;
     r.shadowMap.enabled = sombras;
     r.shadowMap.type = q.tipoSombra;

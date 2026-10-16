@@ -8,7 +8,10 @@ separado do `public` do Duel Academy. A única ligação entre os dois é
 ## Ligar (uma vez)
 
 1. **SQL Editor → New query →** colar `migrations/0001_masmorra_inicial.sql` → **Run**.
-   Depois, do mesmo jeito, `migrations/0002_personagens_do_mundo.sql` (o Mundo online).
+   Depois, do mesmo jeito, `migrations/0002_personagens_do_mundo.sql` (o Mundo online)
+   e `migrations/0003_desempenho.sql` (o relatório automático de desempenho) — com a
+   chave de leitura dela (a do arquivo `ferramentas/desempenho/chave.txt`, fora do git):
+   `insert into masmorra.segredos values ('leitura_desempenho', '<a chave>') on conflict (chave) do update set valor = excluded.valor;`
 2. **Project Settings → Data API → Exposed schemas →** acrescentar `masmorra` e salvar.
    Sem isso, a API responde 406 a tudo daqui, e o jogo mostra "online desligado".
 3. Reabrir o jogo (`masmorra.exe`).
@@ -33,6 +36,8 @@ Do mais leve ao definitivo. Nenhum deles afeta o Duel Academy:
 | `personagens` | o personagem de cada conta no MUNDO ONLINE, quando o servidor de mundo não tem disco (`MUNDO_SAVES=nuvem`); conferido por `personagem_valido()` | só o dono |
 | `mensagens` + `avaliacoes` | texto livre no chão, até 140 letras; votos +1/−1, e com nota −3 a mensagem some | logados leem; escrita por `escrever_mensagem()`/`avaliar()` (com limite de 10/hora e 30 por autor) |
 | `mortes` | manchas de sangue com os últimos 5 s gravados | logados leem; escrita por `registrar_morte()` |
+| `desempenho` | o relatório automático de desempenho de cada aparelho (`js/telemetria.js`): `jogo`, `erro`, `caiu`; sem conta nem nome | ninguém direto: grava `registrar_desempenho()` (anônimo, com limites), lê `ler_desempenho(chave)` — `ferramentas/desempenho/ler.mjs` |
+| `segredos` | a chave de leitura do `desempenho` | só o SQL Editor |
 
 Os **canais ao vivo** (os fantasmas, e depois o co-op) usam tópicos
 `masmorra:*` **privados**. As policies em `realtime.messages` só deixam

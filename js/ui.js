@@ -1,3 +1,4 @@
+import { tela } from './tela.js';
 import * as THREE from 'three';
 import { ITEMS, ICON_PANELA } from './items.js';
 import { custoDoNivel, curva, VITALIDADE, RESISTENCIA_VIGOR, RESISTENCIA_CARGA, FORCA } from './ficha.js';
@@ -274,7 +275,7 @@ export class UI {
   project(pos) {
     _v.copy(pos).project(this.game.camera);
     if (_v.z > 1) return null;
-    return { x: (_v.x * 0.5 + 0.5) * innerWidth, y: (-_v.y * 0.5 + 0.5) * innerHeight };
+    return { x: (_v.x * 0.5 + 0.5) * tela.w, y: (-_v.y * 0.5 + 0.5) * tela.h };
   }
 
   updateEnemyBars() {

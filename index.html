@@ -245,11 +245,52 @@
        jogo NÃO roda. Enquanto a tela de carregamento está à mostra, qualquer erro aparece nela
        (antes a barra ficava parada, muda, para sempre) e tocar nela recarrega. Também avisa o
        navegador que não tem "import map" (Safari antes do 16.4: o jogo nem começa a baixar). -->
+  <!-- E O RASTRO DA CARGA (15/10/2026, js/telemetria.js): cada etapa fica em `masmorra:carga`
+       (e, jogando, em `masmorra:vivo`); quem sai direito apaga. Achou um rastro na abertura
+       seguinte = a página morreu À VISTA (o Safari mata a aba que passa da memória, sem erro
+       nenhum para pegar) — vai um registro `caiu` ao Supabase. O erro da carga vai como `erro`. -->
   <script>
     (function () {
+      var URL_ = 'https://shclhlbfkdnnqxboiuqc.supabase.co', CHAVE = 'sb_publishable_FxGEPSbXqJEBBUqG9ugJ6w_3z5AaVzC';   // (as de js/rede/supabase.js)
+      window.__sessao = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      var ler = function (k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+      var gravar = function (k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } };
+      var aparelho = navigator.userAgent + ' · núcleos ' + (navigator.hardwareConcurrency || '?') + ' · memória ' + (navigator.deviceMemory || '?') + ' GB · tela ' + screen.width + '×' + screen.height + ' @' + devicePixelRatio;
+      // (a mesma de `enviarDesempenho` no telemetria.js)
+      var enviar = function (tipo, campos) {
+        try {
+          if (localStorage.getItem('masmorra:telemetria') === 'nao') return;
+          var p = { sessao: window.__sessao, tipo: tipo, versao: window.__versao || '?', aparelho: aparelho };
+          for (var k in campos) p[k] = campos[k];
+          fetch(URL_ + '/rest/v1/rpc/registrar_desempenho', { method: 'POST', keepalive: true, body: JSON.stringify({ p: p }), headers: { apikey: CHAVE, 'content-type': 'application/json', 'content-profile': 'masmorra' } }).catch(function () { });
+        } catch (e) { }
+      };
+      window.__enviarDesempenho = enviar;
+      // o rastro da abertura (ou da partida) anterior que não saiu direito — e só se estava à vista
+      var recente = function (r) { return r && r.visivel !== false && Date.now() - (r.t || 0) < 6 * 3600 * 1000; };
+      var carga = ler('masmorra:carga'), vivo = ler('masmorra:vivo');
+      if (recente(carga) && !carga.erro) enviar('caiu', { versao: carga.versao || '?', aparelho: carga.aparelho, gpu: carga.gpu, dados: { quando: 'abrindo', etapa: carga.etapa, segundos: Math.round(((carga.t || 0) - (carga.ini || carga.t || 0)) / 1000) } });
+      if (recente(vivo)) enviar('caiu', { versao: vivo.versao || '?', aparelho: vivo.aparelho, gpu: vivo.gpu, modo: vivo.modo, qualidade: vivo.qualidade, fps: vivo.fps, cpu: vivo.cpu, chamadas: vivo.chamadas, dados: { quando: 'jogando', jogado: vivo.jogado, regiao: vivo.regiao, memoria: vivo.memoria } });
+      gravar('masmorra:vivo', null);
+      var ini = Date.now(), ultima = 0, etapa = 'abrindo';
+      window.__etapa = function (e, gpu) {
+        etapa = e || etapa;
+        if (Date.now() - ultima < 700 && !gpu) return;   // (o "baixando N de M" vem a cada arquivo)
+        ultima = Date.now();
+        var r = ler('masmorra:carga') || {};
+        gravar('masmorra:carga', { s: window.__sessao, ini: ini, t: Date.now(), etapa: etapa, versao: window.__versao, aparelho: aparelho, gpu: gpu || r.gpu, visivel: !document.hidden });
+      };
+      window.__cargaPronta = function () { gravar('masmorra:carga', null); window.__etapa = function () { }; };
+      window.__etapa('abrindo');
+      fetch('assets/versao.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (v) { window.__versao = v.versao; }).catch(function () { });
+      // fechou ou trocou de app durante a carga: não é queda
+      addEventListener('pagehide', function () { gravar('masmorra:carga', null); });
+      document.addEventListener('visibilitychange', function () { var r = ler('masmorra:carga'); if (r) { r.visivel = !document.hidden; gravar('masmorra:carga', r); } });
+      var mostrou = false;
       var mostrar = function (m) {
         var l = document.getElementById('loading'), t = document.querySelector('.load-text');
         if (!l || !t || l.classList.contains('hidden')) return;
+        if (!mostrou) { mostrou = true; enviar('erro', { dados: { erro: String(m).slice(0, 2000), etapa: etapa } }); var r = ler('masmorra:carga'); if (r) { r.erro = true; gravar('masmorra:carga', r); } }
         t.textContent = m + ' Toque aqui para tentar de novo.';
         t.style.color = '#e0a890'; t.style.fontStyle = 'normal';
         l.style.cursor = 'pointer';

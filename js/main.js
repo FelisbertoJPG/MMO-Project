@@ -26,6 +26,8 @@ import { ControlesToque, ehToque } from './toque.js';
 import { Provador } from './provador.js';
 import { Capim } from './capim.js';
 import { Agua } from './agua.js';
+import { Telemetria, enviarDesempenho, aparelho } from './telemetria.js';
+import { tela } from './tela.js';
 import { Graficos, qualidadeSalva } from './graficos.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
@@ -47,7 +49,7 @@ class Game {
     this.graficos = new Graficos(this, qualidadeSalva(ehToque()), ehToque());
     this.renderer = new THREE.WebGLRenderer({ antialias: Graficos.antialias(this.graficos.nome), powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.setSize(innerWidth, innerHeight);
+    this.renderer.setSize(tela.w, tela.h);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -58,10 +60,12 @@ class Game {
       const m = 'A placa de vídeo ficou sem memória e o jogo parou de desenhar. Recarregue a página (fechar outros apps e abas ajuda).';
       globalThis.__erroDeCarga?.(m);
       this.ui?.toast(m);
+      // (jogando, o vigia não manda: vai daqui, com o resumo de quando caiu — js/telemetria.js)
+      if (this.state !== 'loading') enviarDesempenho('erro', { ...this.telemetria?.resumo(), aparelho: aparelho(), dados: { erro: 'contexto WebGL perdido (a placa ficou sem memória)', jogado: Math.round(this.telemetria?.jogado ?? 0) } });
     });
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 300);
+    this.camera = new THREE.PerspectiveCamera(62, tela.w / tela.h, 0.1, 300);
     this.clock = new THREE.Clock();
     this.time = 0;
     this.hitstop = 0;
@@ -88,11 +92,13 @@ class Game {
     // ficava muda por dezenas de segundos (montar o mundo e compilar os shaders), ou parava
     // num pedido emperrado — "nunca terminou". (A pausa deixa o navegador pintar o texto antes
     // do trabalho pesado, que não solta a página; um erro aparece pelo vigia do index.html.)
-    const dizer = (t) => { text.textContent = t; return new Promise((ok) => setTimeout(ok, 50)); };
+    // (cada etapa também vai para o RASTRO da carga do vigia: se a página morrer aqui, a próxima
+    // abertura sabe onde — js/telemetria.js)
+    const dizer = (t) => { text.textContent = t; globalThis.__etapa?.(t); return new Promise((ok) => setTimeout(ok, 50)); };
     try {
       await Assets.load((k, i) => {
         fill.style.width = `${Math.round(k * 100)}%`;
-        if (i) text.textContent = `Baixando o jogo… ${i.feitos} de ${i.total} arquivos (${Math.round(i.bytes / 1048576)} MB)`;
+        if (i) { text.textContent = `Baixando o jogo… ${i.feitos} de ${i.total} arquivos (${Math.round(i.bytes / 1048576)} MB)`; globalThis.__etapa?.(text.textContent); }
       });
     } catch (e) {
       e.message = 'não consegui baixar o jogo (' + e.message + ')';
@@ -144,16 +150,19 @@ class Game {
     // Aplica a qualidade gráfica e COMPILA todos os shaders agora, na tela de
     // carregamento — compilar na hora em que algo aparece era um engasgo.
     await dizer('Preparando os gráficos… (na primeira vez demora mais)');
+    this.telemetria = new Telemetria(this);
+    globalThis.__etapa?.(null, this.telemetria.gpu);
     this.graficos.aplicar();
     this.marcarGraficos();
     this.monitor = new Monitor(this);   // o monitor de desempenho (F3; monitor.js)
     this.preaquecer();
-    text.textContent = 'Entrando…';
+    text.textContent = 'Entrando…'; globalThis.__etapa?.('Entrando…');
     // A conta guardada reabre sozinha; sem rede em 6 s, segue offline.
     await Promise.race([this.online.iniciar(), new Promise((ok) => setTimeout(ok, 6000))]);
     // Há um servidor nosso por trás da página, ou só arquivos (GitHub Pages)? Decide onde o save mora.
     await detectarHospedagem();
     document.getElementById('loading').classList.add('hidden');
+    globalThis.__cargaPronta?.();   // abriu: o rastro da carga some (daqui em diante é o `masmorra:vivo`)
     await this.prepararTitulo();
     this.state = 'title';
     this.renderer.setAnimationLoop(() => this.loop());
@@ -1048,10 +1057,11 @@ class Game {
   }
 
   onResize() {
-    this.camera.aspect = innerWidth / innerHeight;
+    // (`tela`: o tamanho como o jogo o vê — com a página girada pelo CSS no iPhone, trocado)
+    this.camera.aspect = tela.w / tela.h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(innerWidth, innerHeight);
-    this.effects?.setScale(innerHeight, this.camera.fov);
+    this.renderer.setSize(tela.w, tela.h);
+    this.effects?.setScale(tela.h, this.camera.fov);
   }
 
   // ---------- Loop ----------

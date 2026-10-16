@@ -18,12 +18,14 @@
  * **Tela deitada**: no primeiro toque o jogo pede tela cheia e trava na
  * horizontal (`screen.orientation.lock`, que só existe com tela cheia — o
  * Android aceita; o iPhone não tem nenhum dos dois). Em pé durante o jogo,
- * um aviso pede para girar o celular.
+ * um aviso pede para girar o celular — e onde o navegador não sabe deitar
+ * (o iPhone) a página gira pelo CSS (`tela.js`).
  *
  * O que abre o TECLADO do celular (chat, mensagem) é chamado direto no toque:
  * fora do gesto do dedo o navegador não deixa a caixa de texto ganhar o foco.
  */
 import { TECLA_TOQUE } from './rede/voz.js';
+import { tela, pontoNaTela, atualizarTela } from './tela.js';
 
 /** É celular/tablet? (`?toque` na URL força, para testar no computador.) */
 export function ehToque() {
@@ -92,6 +94,8 @@ export class ControlesToque {
     this.girar = document.createElement('div');
     this.girar.id = 'girar';
     this.girar.innerHTML = '<div><div class="girar-icone">⟳</div>Gire o celular para jogar<br><small>toque aqui para deitar a tela</small></div>';
+    // o navegador sabe deitar a tela sozinho? (o Safari do iPhone não: a página gira pelo CSS)
+    this.podeDeitar = !!(document.documentElement.requestFullscreen && screen.orientation?.lock);
     this.girar.addEventListener('click', () => this.deitarTela());
     document.body.append(this.girar);
 
@@ -161,31 +165,33 @@ export class ControlesToque {
     // tocar fora com o chat aberto = desistir de escrever
     if (this.game.online.chat?.escrevendo) this.game.online.chat.fecharEscrita();
     const joyLivre = ![...this.dedos.values()].some((d) => d.tipo === 'joy');
-    if (joyLivre && e.clientX < innerWidth * 0.42) {
-      this.dedos.set(e.pointerId, { tipo: 'joy', x0: e.clientX, y0: e.clientY });
-      this.joy.style.left = `${e.clientX}px`;
-      this.joy.style.top = `${e.clientY}px`;
+    const p = pontoNaTela(e.clientX, e.clientY);   // (com a página girada pelo CSS, tela.js)
+    if (joyLivre && p.x < tela.w * 0.42) {
+      this.dedos.set(e.pointerId, { tipo: 'joy', x0: p.x, y0: p.y });
+      this.joy.style.left = `${p.x}px`;
+      this.joy.style.top = `${p.y}px`;
       this.joy.classList.remove('hidden');
       this.pino.style.transform = 'translate(-50%, -50%)';
       return;
     }
-    this.dedos.set(e.pointerId, { tipo: 'cam', x: e.clientX, y: e.clientY });
+    this.dedos.set(e.pointerId, { tipo: 'cam', x: p.x, y: p.y });
   }
 
   pointermove(e) {
     const d = this.dedos.get(e.pointerId);
     if (!d) return;
     e.preventDefault();
+    const p = pontoNaTela(e.clientX, e.clientY);
     if (d.tipo === 'joy') {
-      let dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+      let dx = p.x - d.x0, dy = p.y - d.y0;
       const r = Math.hypot(dx, dy);
       if (r > RAIO_JOY) { dx *= RAIO_JOY / r; dy *= RAIO_JOY / r; }
       this.pino.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
       this.inp.eixo = { x: dx / RAIO_JOY, z: -dy / RAIO_JOY };
     } else if (d.tipo === 'cam') {
-      this.inp.dx += (e.clientX - d.x) * SENS_CAMERA;
-      this.inp.dy += (e.clientY - d.y) * SENS_CAMERA;
-      d.x = e.clientX; d.y = e.clientY;
+      this.inp.dx += (p.x - d.x) * SENS_CAMERA;
+      this.inp.dy += (p.y - d.y) * SENS_CAMERA;
+      d.x = p.x; d.y = p.y;
     }
   }
 
@@ -214,6 +220,8 @@ export class ControlesToque {
     const g = this.game;
     const jogando = g.state === 'playing';
     document.body.classList.toggle('jogando', jogando);
+    // em pé, jogando, num navegador que não deita a tela (ou cuja trava falhou): a página gira
+    atualizarTela(jogando && (!this.podeDeitar || this.semTrava));
     const visivel = jogando && !g.menu;
     if (!visivel && this.dedos.size) this.soltarTudo();
     this.el.classList.toggle('hidden', !visivel);
