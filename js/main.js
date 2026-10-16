@@ -1144,7 +1144,11 @@ class Game {
     if (inp.pressed('ArrowUp') || inp.wheel < 0) this.inventory.cycleQuick(-1);
     const it = p.state === 'free' ? this.nearestInteractable() : null;
     const label = it ? (it.type === 'torch' && this.inventory.count('torch') ? 'Pegar tocha (você já tem uma)' : it.label) : null;
-    this.ui.setPrompt(label);
+    // o item caído tem a FICHA dele ao lado (ui.js `mostrarLoot`); no PC ela toma o lugar do aviso
+    // de baixo — no celular o aviso fica (é o botão de pegar)
+    const ficha = it?.type === 'pickup';
+    this.ui.setPrompt(ficha && !this.toque ? null : label);
+    this.ui.mostrarLoot(ficha ? it : null);
     if (it && inp.pressed('KeyE')) { this.interact(it); this.ui.setPrompt(null); }
   }
 

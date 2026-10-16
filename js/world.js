@@ -3,7 +3,8 @@ import { Assets } from './assets.js';
 import { categoriaDaPeca, CRESCE_CAPIM } from './categorias.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { corDoChao, texturaDoChao, REPETE_CHAO, montarCaminhos, terreiro } from './campo.js';
-import { CharacterModel } from './character.js';
+import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
+import { ITEMS, RARIDADES, raridadeDe } from './items.js';
 import { makeWeapon } from './gear.js';
 import { LOD, reescreverLote } from './lod.js';
 import { fragmentos } from './fratura.js';
@@ -295,6 +296,24 @@ function messageTexture(seed) {
     g.stroke();
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** O ÍCONE de um item (o SVG do ITEMS) numa textura, para o item caído sem modelo. Uma por item. */
+const icones = new Map();
+function texturaDoIcone(id) {
+  if (icones.has(id)) return icones.get(id);
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  const svg = ITEMS[id]?.icon;
+  if (svg) {
+    const img = new Image();
+    img.onload = () => { c.getContext('2d').drawImage(img, 0, 0, 128, 128); t.needsUpdate = true; };
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+  icones.set(id, t);
   return t;
 }
 
@@ -1017,16 +1036,45 @@ export class World {
     c.root.updateMatrixWorld(true);
   }
 
+  /**
+   * O ITEM CAÍDO (16/10/2026): o PRÓPRIO item no chão — a arma deitada, o escudo, a tocha (o
+   * modelo dela, levemente tingido na cor da raridade); o que não tem modelo (comida, anel,
+   * armadura, ingrediente) é o ícone dele, de pé, flutuando — e em volta um BRILHO na cor da
+   * RARIDADE (items.js `raridadeDe`) que pulsa. Perto dele, a ficha (ui.js `mostrarLoot`).
+   */
   addPickup(itemId, qty, pos, persistent = true) {
     const g = new THREE.Group();
-    const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW.tex, color: 0xfff2d0, blending: THREE.AdditiveBlending, depthWrite: false }));
-    core.scale.set(0.45, 0.45, 1);
-    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW.tex, color: 0xa0c0ff, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5, transparent: true }));
-    halo.scale.set(1.3, 1.3, 1);
-    g.add(core, halo);
-    g.position.set(pos.x, this.alturaChao(pos) + 0.35, pos.z);   // no relevo, sobre o chão
+    const def = ITEMS[itemId], raridade = raridadeDe(itemId), cor = new THREE.Color(RARIDADES[raridade].cor);
+    const chao = this.alturaChao(pos);
+    g.position.set(pos.x, chao, pos.z);
+    // o brilho em volta (o mesmo sprite das chamas: nada de shader novo)
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW.tex, color: cor, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.5, transparent: true }));
+    halo.scale.set(1.7, 1.7, 1); halo.position.y = 0.12;
+    g.add(halo);
+    let item = null, flutua = false;
+    const modelo = def?.model;
+    if (modelo && (def.type === 'weapon' || def.type === 'shield' || def.type === 'torch')) {
+      const m = def.type === 'shield' ? shieldMesh(modelo) : weaponMesh(modelo);
+      // deitado no chão (a arma é feita apontando para +Z: de lado, a lâmina fica chata no chão)
+      if (def.type !== 'shield') m.rotation.z = Math.PI / 2;
+      const casca = new THREE.Group(); casca.add(m);
+      casca.rotation.y = Math.random() * Math.PI * 2;
+      casca.updateMatrixWorld(true);
+      const caixa = new THREE.Box3().setFromObject(casca), meio = caixa.getCenter(new THREE.Vector3());
+      m.position.sub(new THREE.Vector3(meio.x, caixa.min.y - 0.02, meio.z).applyQuaternion(casca.quaternion.clone().invert()));
+      // um toque da cor da raridade no próprio item (materiais próprios: o brilho não vaza para as outras armas)
+      m.traverse((o) => { if (o.isMesh && o.material?.emissive) { o.material = o.material.clone(); o.material.emissive.copy(cor); o.material.emissiveIntensity = 0.28; o.castShadow = true; } });
+      item = casca;
+    } else {
+      // sem modelo: o ícone do item, de pé, flutuando
+      item = new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaDoIcone(itemId), transparent: true, depthWrite: false }));
+      item.scale.set(0.55, 0.55, 1);
+      item.position.y = 0.55;
+      flutua = true;
+    }
+    g.add(item);
     this.scene.add(g);
-    const p = { type: 'pickup', itemId, qty, pos: new THREE.Vector3(pos.x, 0, pos.z), radius: 1.6, label: 'Pegar item', mesh: g, persistent, seed: Math.random() * 10 };
+    const p = { type: 'pickup', itemId, qty, pos: new THREE.Vector3(pos.x, 0, pos.z), radius: 1.6, label: `Pegar ${def?.name ?? 'item'}${qty > 1 ? ` (${qty})` : ''}`, mesh: g, halo, item, flutua, raridade, cor, chao, persistent, seed: Math.random() * 10 };
     this.pickups.push(p);
     this.interactables.push(p);
     return p;
@@ -1679,7 +1727,8 @@ export class World {
       const p = this.pedacos[k];
       p.t += dt;
       const chao = this.alturaChao(p.m.position) + p.meia;
-      if (p.t < 14) {
+      const vida = p.vida ?? 14;   // (o esqueleto desmontado fica mais: desmontar.js)
+      if (p.t < vida) {
         p.vel.y -= 16 * dt;
         p.m.position.addScaledVector(p.vel, dt);
         if (p.m.position.y <= chao) {
@@ -1690,7 +1739,11 @@ export class World {
         p.m.rotation.x += p.giro.x * dt; p.m.rotation.y += p.giro.y * dt; p.m.rotation.z += p.giro.z * dt;
       } else {
         p.m.position.y -= dt * 0.25;   // afunda no chão e some
-        if (p.t > 16) { this.scene.remove(p.m); this.pedacos.splice(k, 1); }
+        if (p.t > vida + 2) {
+          this.scene.remove(p.m);
+          if (p.descartar) p.m.traverse((o) => o.geometry?.dispose());   // (as geometrias só daquela peça)
+          this.pedacos.splice(k, 1);
+        }
       }
     }
   }
@@ -2030,9 +2083,10 @@ export class World {
       if (o <= 0) this.fog.meshes.forEach((m) => (m.visible = false));
     }
     for (const p of this.pickups) {
-      p.mesh.position.y = 0.35 + Math.sin(t * 2 + p.seed) * 0.07;
-      p.mesh.children[1].material.opacity = 0.35 + Math.sin(t * 3 + p.seed) * 0.15;
-      if (Math.random() < dt * 3) fx.spawn({ pos: p.mesh.position.clone(), vel: new THREE.Vector3((Math.random() - 0.5) * 0.3, 0.6, (Math.random() - 0.5) * 0.3), color: [0.8, 0.9, 1], size: 0.05, life: 1 });
+      // o brilho pulsa; o ícone (o item sem modelo) flutua; faíscas na cor da raridade
+      p.halo.material.opacity = 0.38 + Math.sin(t * 3 + p.seed) * 0.14;
+      if (p.flutua) p.item.position.y = 0.55 + Math.sin(t * 2 + p.seed) * 0.06;
+      if (Math.random() < dt * 2.5) fx.spawn({ pos: p.mesh.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.1, (Math.random() - 0.5) * 0.5)), vel: new THREE.Vector3((Math.random() - 0.5) * 0.2, 0.7, (Math.random() - 0.5) * 0.2), color: [p.cor.r, p.cor.g, p.cor.b], size: 0.05, life: 1 });
     }
     if (this.bloodstain) this.bloodstain.mesh.material.opacity = 0.7 + Math.sin(t * 4) * 0.3;
 

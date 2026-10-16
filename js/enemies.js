@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
 import { novoEscudo, danoNoEscudo, RECUPERA_APOS, RECUPERA_POR_S } from './escudo.js';
+import { desmontar } from './desmontar.js';
 import { Interpolador, giroCurto, loopa } from './remoto.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { CELL, S } from './world.js';
@@ -64,6 +65,9 @@ export const ENEMY_TYPES = {
  * dano dos golpes, equilíbrio (quanto aguenta sem cambalear), a pausa entre ataques
  * (menor = mais agressivo) e as almas (um pouco mais, que agora dão mais trabalho).
  */
+/** Quanto da queda o esqueleto faz inteiro antes de desmontar (desmontar.js). */
+const DESMONTA_APOS = 0.3;
+
 export const REFORCO_ESQUELETOS = { vida: 1.6, dano: 1.2, equilibrio: 1.5, pausa: 0.85, almas: 1.3 };
 for (const t of Object.values(ENEMY_TYPES)) {
   if (!t.skeleton) continue;
@@ -102,6 +106,7 @@ export class Enemy {
     this.active = true;
     this.model.root.visible = true;
     this.model.root.scale.setScalar(1);
+    this.desmontado = false; this.desmontarEm = null;
     this.poiseCur = this.cfg.poise;
     // o ESCUDO (escudo.js): volta inteiro a cada renascer (o quebrado é posto de novo no braço)
     if (this.cfg.left) {
@@ -138,6 +143,7 @@ export class Enemy {
   takeDamage(amount, srcPos, poiseDmg = 20, opts = {}) {
     const fire = !!opts.fire;
     if (this.dead || this.invulnerable) return false;
+    this.golpeDe = srcPos?.clone?.() ?? null;   // (de onde veio o último golpe: o esqueleto desmonta para longe dele)
     const game = this.game;
     if (this.state === 'dormant') this.awaken(true);
     if (fire) amount *= this.cfg.fireWeak ?? 1;
@@ -244,7 +250,16 @@ export class Enemy {
     this.setState('dead');
     this.model.play(this.deathAnim, { loop: false, fade: 0.1 });
     this.game.sfx.rattle();
+    if (this.cfg.skeleton) this.desmontarEm = DESMONTA_APOS;
     this.game.onEnemyKilled(this);
+  }
+
+  /** O ESQUELETO DESMONTA (desmontar.js): as partes caem soltas e o boneco some. */
+  desmontarAgora() {
+    const raiz = this.model.root;
+    if (raiz.visible && raiz.parent) desmontar(this.model, this.game.world, this.golpeDe);
+    this.desmontado = true;
+    raiz.visible = false;
   }
 
   get deathAnim() { return 'Death01'; }
@@ -477,6 +492,8 @@ export class Enemy {
   // ---------- Atualização ----------
   update(dt) {
     this.stateT += dt;
+    // o esqueleto vencido desmonta um instante depois de cair (o começo da queda é a animação)
+    if (this.desmontarEm != null && this.dead && (this.desmontarEm -= dt) <= 0) { this.desmontarEm = null; this.desmontarAgora(); }
     if (this.game.marionetes) return this.updateMarionete(dt);
     if (!this.active) return;
     this.escolherAlvo(dt);
@@ -531,17 +548,19 @@ export class Enemy {
         if (e.esc >= 0) { const v = e.esc * esc.max; if (v < esc.vida - 0.5) esc.ultimoGolpe = this.game.time; esc.vida = v; }
         esc.postura = e.post * esc.posturaMax;
       }
-      this.model.root.visible = e.visivel;
+      this.model.root.visible = e.visivel && !this.desmontado;
       if (e.morto && !this.dead) {
         this.dead = true;
         this.setState('dead');
         this.model.play(this.deathAnim, { loop: false, fade: 0.1 });
         this.game.sfx.rattle();
+        if (this.cfg.skeleton) this.desmontarEm = DESMONTA_APOS;   // (desmonta aqui também: é só o visual)
       } else if (!e.morto && this.dead) {
         // RENASCEU lá (no mundo online os inimigos voltam por tempo): desfaz o
         // que a morte daqui deixou — o Carrasco encolhe ao morrer, e sem isto
         // voltaria do tamanho de um grão
         this.dead = false;
+        this.desmontado = false; this.desmontarEm = null;
         this.model.root.scale.setScalar(1);
         this.model.flash(false);
         this.setState(e.st === 'dormant' ? 'acordado' : e.st);   // 'dormant' é posto logo abaixo, com a pose

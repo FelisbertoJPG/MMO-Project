@@ -319,3 +319,30 @@ export const ITEMS = {
 };
 
 export const ICON_TORCH_OUT = ICONS.torchOut;
+
+/**
+ * A RARIDADE (16/10/2026): a cor do item caído (o brilho em volta dele no chão e a ficha que
+ * aparece perto dele — world.js `addPickup`, ui.js `mostrarLoot`). Um item pode dizer a sua
+ * (`raridade` no ITEMS); sem ela, vale a da tabela `RARIDADE_DO_ITEM`, e depois a do tipo.
+ */
+export const RARIDADES = {
+  comum: { nome: 'Comum', cor: '#d9d4c7' },
+  incomum: { nome: 'Incomum', cor: '#6fd36a' },
+  raro: { nome: 'Raro', cor: '#4ea6ff' },
+  epico: { nome: 'Épico', cor: '#b277ff' },
+  lendario: { nome: 'Lendário', cor: '#f4c542' },
+};
+const RARIDADE_DO_ITEM = {
+  dagger: 'comum', longsword: 'incomum', axe: 'raro', greatsword: 'epico',
+  shieldRound: 'comum', shieldKnight: 'raro', torch: 'comum',
+  ringLife: 'raro', ringWolf: 'raro', ringGreen: 'epico',
+  cellKey: 'incomum', executionerSoul: 'lendario', wyrmSoul: 'lendario',
+  firebomb: 'incomum', gororoba: 'comum',
+};
+const RARIDADE_DO_TIPO = { ingrediente: 'comum', consumable: 'comum', ring: 'raro', key: 'incomum', weapon: 'incomum', shield: 'comum' };
+const RARIDADE_DO_CONJUNTO = { 1: 'incomum', 2: 'raro', 3: 'epico' };   // couro, malha, placas
+export function raridadeDe(id) {
+  const def = ITEMS[id];
+  const r = def?.raridade ?? RARIDADE_DO_ITEM[id] ?? (def?.type === 'armadura' ? RARIDADE_DO_CONJUNTO[def.conjunto] : null) ?? RARIDADE_DO_TIPO[def?.type] ?? 'comum';
+  return RARIDADES[r] ? r : 'comum';
+}

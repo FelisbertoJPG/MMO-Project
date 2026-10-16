@@ -119,6 +119,15 @@ button:disabled { opacity: .4; cursor: default; }
 .ebar .esc-pips { display: flex; gap: 7px; }
 .ebar .esc-pips i { width: 7px; height: 7px; transform: rotate(45deg); border: 1.5px solid #e9ecf0; box-sizing: border-box; background: transparent; box-shadow: 0 0 3px rgba(0,0,0,.7); }
 .ebar .esc-pips i.cheio { background: #f4f6f8; }
+/* A FICHA DO ITEM CAÍDO (ui.js mostrarLoot): o losango com o ícone, a tecla e a etiqueta na cor da raridade */
+#loot { position: absolute; transform: translate(26px, -50%); display: flex; align-items: center; gap: 0; pointer-events: none; z-index: 2; --raridade: #d9d4c7; }
+#loot .loot-losango { width: 58px; height: 58px; transform: rotate(45deg); background: #0b0b0c; border: 2px solid var(--raridade); box-shadow: 0 0 14px color-mix(in srgb, var(--raridade) 55%, transparent); display: flex; align-items: center; justify-content: center; flex: none; }
+#loot .loot-icone { width: 54px; height: 54px; transform: rotate(-45deg); }
+#loot .loot-icone svg { width: 100%; height: 100%; }
+#loot .loot-tecla { width: 22px; height: 22px; margin: 26px 0 0 -6px; border-radius: 50%; background: #2a2a2e; border: 2px solid var(--raridade); color: var(--raridade); font: 700 12px var(--body); display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; flex: none; }
+#loot .loot-etiqueta { margin-left: 14px; padding: 4px 12px 5px; background: rgba(8, 8, 10, .88); border: 2px solid var(--raridade); display: flex; flex-direction: column; line-height: 1.1; white-space: nowrap; }
+#loot .loot-nome { font-family: var(--serif); font-size: 17px; color: #f4efe2; letter-spacing: .03em; }
+#loot .loot-raridade { font-size: 11px; color: var(--raridade); text-transform: uppercase; letter-spacing: .12em; }
 .ebar .dmg { position: absolute; right: 0; top: -18px; font-family: var(--serif); font-size: 14px; color: #fff; text-shadow: 0 0 3px #000; }
 
 #lock-reticle {

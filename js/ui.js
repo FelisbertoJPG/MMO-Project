@@ -1,6 +1,6 @@
 import { tela } from './tela.js';
 import * as THREE from 'three';
-import { ITEMS, ICON_PANELA } from './items.js';
+import { ITEMS, ICON_PANELA, RARIDADES } from './items.js';
 import { custoDoNivel, curva, VITALIDADE, RESISTENCIA_VIGOR, RESISTENCIA_CARGA, FORCA } from './ficha.js';
 import { RECEITAS, podeCozinhar, listaDaReceita, NA_PANELA } from './receitas.js';
 import { fmtTime } from './inventory.js';
@@ -92,8 +92,30 @@ export class UI {
   esconderConvite() { document.getElementById('convite').classList.add('hidden'); }
   get readerOpen() { return !this.reader.classList.contains('hidden'); }
 
+  /**
+   * A FICHA DO ITEM CAÍDO (16/10/2026), ao lado dele quando se está perto: o losango com o ícone,
+   * a tecla de pegar e o nome numa etiqueta na cor da RARIDADE (items.js). `null` esconde.
+   */
+  mostrarLoot(it) {
+    this.loot ??= document.getElementById('loot');
+    const el = this.loot;
+    const s = it && this.project(_v.copy(it.mesh.position).setY(it.mesh.position.y + 0.4).clone());
+    if (!it || !s) { el.classList.add('hidden'); this.lootDe = null; return; }
+    if (this.lootDe !== it) {
+      this.lootDe = it;
+      const def = ITEMS[it.itemId], r = RARIDADES[it.raridade] ?? RARIDADES.comum;
+      el.style.setProperty('--raridade', r.cor);
+      el.querySelector('.loot-icone').innerHTML = def?.icon ?? '';
+      el.querySelector('.loot-nome').textContent = `${def?.name ?? it.itemId}${it.qty > 1 ? ` ×${it.qty}` : ''}`;
+      el.querySelector('.loot-raridade').textContent = r.nome;
+      el.querySelector('.loot-tecla').classList.toggle('hidden', document.body.classList.contains('toque'));
+    }
+    el.style.left = `${s.x}px`; el.style.top = `${s.y}px`;
+    el.classList.remove('hidden');
+  }
+
   setPrompt(text) {
-    if (!text) { this.prompt.classList.add('hidden'); return; }
+    if (!text) { this.prompt.classList.add('hidden'); this.mostrarLoot(null); return; }
     this.prompt.innerHTML = `<b>E</b> &nbsp;${text}`;
     this.prompt.classList.remove('hidden');
   }
