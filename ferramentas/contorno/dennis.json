@@ -1,9 +1,11 @@
 {
-  "_leiame": "O RECORTE do Dennis para o esculpir.mjs (ferramentas/contorno). Coordenadas em PIXELS de cada imagem (x da esquerda, y de cima). 'marcos' = alturas que se correspondem nas vistas (chao, barra do casaco, ombro, olhos, topo do capuz): as fotos estao em perspectiva e cada uma estica o corpo de um jeito, os marcos as alinham com a FRENTE. 'eixo' = o x do meio do corpo. Peca: x = [vista, x0, y0, x1, y1] (a caixa onde a largura e lida), z = a caixa da profundidade (vista de lado). 'ossos' = a corrente de ossos do manequim UAL que a peca segue. Alturas e larguras do 'esqueleto' em fracoes da altura.",
+  "_leiame": "O RECORTE do Dennis para o esculpir.mjs (ferramentas/contorno). Coordenadas em PIXELS de cada imagem (x da esquerda, y de cima). 'marcos' = alturas que se correspondem nas vistas (chao, barra do casaco, ombro, olhos, topo do capuz): as fotos estao em perspectiva e cada uma estica o corpo de um jeito, os marcos as alinham com a FRENTE. 'eixo' = o x do meio do corpo. Peca: x = [vista, x0, y0, x1, y1] (a caixa onde a largura e lida), z = a caixa da profundidade (vista de lado). 'ossos' = a corrente de ossos do manequim UAL que a peca segue. Alturas e larguras do 'esqueleto' em fracoes da altura. 'lowpoly' = poucas fatias (so as que mudam a forma: 'tolerancia' em fracoes da altura) e 'lados' em volta (por peca, 'lados'), faces planas; 'corSolida' = uma cor lisa por regiao (a 'cor' da peca, as 'faixas', o 'rosto' com 'cor' e 'borda' (o forro), a 'frente' aberta do casaco) - o gerador imprime a mediana da foto em cada uma, para comparar.",
   "nome": "dennis",
   "fotos": "C:/Users/Mestre/Desktop/dennis",
   "altura": 1.25,
   "passo": 2,
+  "lowpoly": { "lados": 12, "tolerancia": 0.008, "alisar": 3, "juntas": 0.03 },
+  "corSolida": true,
   "vistas": {
     "frente": { "arquivo": "WhatsApp Image 2026-10-16 at 15.36.50.jpeg", "tolerancia": 70, "eixo": 109, "marcos": { "chao": 320, "barra": 245, "ombro": 108, "olhos": 63, "topo": 12 } },
     "lado": { "arquivo": "WhatsApp Image 2026-10-16 at 15.36.33.jpeg", "tolerancia": 70, "eixo": 68, "espelhar": true, "marcos": { "chao": 346, "barra": 250, "ombro": 113, "topo": 22 } },
@@ -12,9 +14,10 @@
   },
   "esqueleto": { "quadril": 0.3, "coxa": [0.075, 0.29], "joelho": 0.16, "tornozelo": 0.075, "pe": 0.55, "pescoco": 0.7, "ombro": [0.135, 0.665], "braco": 0.28, "mao": 0.1 },
   "pecas": [
-    { "nome": "capuz", "x": ["frente", 52, 8, 168, 104], "escolha": "tudo", "z": ["lado", 12, 18, 108, 125], "ossos": ["spine_03", "neck_01", "Head"], "expoente": 2.3, "cor": "#e3a03a", "projetar": true,
-      "rosto": { "u": 0, "v": 0.805, "raioU": 0.10, "raioV": 0.095, "fundo": 0.05 } },
-    { "nome": "casaco", "x": ["frente", 64, 98, 154, 244], "escolha": "tudo", "z": ["lado", 28, 118, 90, 256], "ossos": ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01"], "saia": 0.4, "expoente": 2.6, "cor": "#e2762c", "projetar": true },
+    { "nome": "capuz", "x": ["frente", 52, 8, 168, 104], "escolha": "tudo", "z": ["lado", 12, 18, 108, 125], "ossos": ["spine_03", "neck_01", "Head"], "expoente": 2.3, "cor": "#e3a03a", "projetar": true, "lados": 20,
+      "rosto": { "u": 0, "v": 0.80, "raioU": 0.10, "raioV": 0.12, "fundo": 0.05, "cor": "#40b4a1", "borda": "#b8432c" } },
+    { "nome": "casaco", "x": ["frente", 64, 98, 154, 244], "escolha": "tudo", "z": ["lado", 28, 118, 90, 256], "ossos": ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01"], "saia": 0.4, "expoente": 2.6, "cor": "#e2762c", "projetar": true, "lados": 16,
+      "frente": { "meia": 0.035, "ate": 0.68, "cor": "#524080" } },
     { "nome": "perna_r", "x": ["frente", 60, 247, 104, 322], "z": ["lado", 30, 252, 96, 348], "estender": 228, "ossos": ["thigh_r", "calf_r", "foot_r"], "expoente": 2.2, "cor": "#5e2230", "projetar": true, "faixas": [[0.10, "#2b2226"], [0.14, "#a82c2a"]] },
     { "nome": "perna_l", "x": ["frente", 118, 247, 176, 322], "z": ["lado", 30, 252, 96, 348], "estender": 228, "ossos": ["thigh_l", "calf_l", "foot_l"], "expoente": 2.2, "cor": "#5e2230", "projetar": true, "faixas": [[0.10, "#2b2226"], [0.14, "#a82c2a"]] },
     { "nome": "mochila", "x": ["costas", 40, 80, 136, 246], "z": ["lado", 84, 76, 134, 246], "altura": "z", "ossos": ["spine_02", "spine_03"], "expoente": 3.2, "cor": "#43386f" },

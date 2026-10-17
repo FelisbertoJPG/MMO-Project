@@ -257,7 +257,11 @@ export class PersonagemEsculpido {
 /**
  * (Game.preaquecer) um boneco de cada esculpido no meio do mapa, com o material de quem joga
  * com ele: o shader compila no carregamento, e não quando o primeiro chega. Devolve quem os tira.
+ * Os MATERIAIS do aquecimento ficam vivos (até o próximo aquecimento): o `dispose` deles fazia o
+ * three.js apagar o programa recém-compilado, e quem virava Dennis compilava tudo de novo
+ * (medido em 17/10/2026: 2 programas "Esculpido", com e sem ossos, na troca de raça).
  */
+let aquecidos = [];
 export function aquecerEsculpidos(cena, pos) {
   const postos = [];
   for (const nome of ESCULPIDOS) {
@@ -267,5 +271,10 @@ export function aquecerEsculpidos(cena, pos) {
     c.root.position.copy(pos);
     cena.add(c.root);
   }
-  return () => { for (const [c, mats] of postos) { c.root.removeFromParent(); for (const m of mats) m.dispose(); } };
+  return () => {
+    for (const [c] of postos) c.root.removeFromParent();
+    // (os de antes saem só agora, com os novos já segurando o programa)
+    for (const mats of aquecidos) for (const m of mats) m.dispose();
+    aquecidos = postos.map(([, mats]) => mats);
+  };
 }

@@ -67,7 +67,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 **Desempenho** (→ base `desempenho-do-jogo`)
 - Nunca ler pixels da placa no meio do jogo (`readPixels`) nem criar/descartar material a cada vez.
 - Luz: nunca ligar/desligar `visible` fora de `World.distribuirLuzes` (recompila tudo).
-- Material ou luz que só aparece no meio do jogo: desenhe-a uma vez no `Game.preaquecer`.
+- Material ou luz que só aparece no meio do jogo: desenhe-a uma vez no `Game.preaquecer` — e NÃO descarte (`dispose`) o material do aquecimento logo depois: o three.js apaga o programa junto e ele compila de novo no jogo (ver `aquecerEsculpidos`).
 - `InstancedMesh` novo: geometria só dele. Malha animada: uma por personagem e um `Skeleton` por personagem. Objeto parado: `matrixAutoUpdate = false`. `frustumCulled = false` só com motivo.
 - A IMAGEM das texturas é dividida entre peças: nada de desenhar por cima de `map.image`.
 - Fase nova no laço = um `M?.fase('nome')`; mudou a configuração de algo que pesa → ponha o teste dele no diagnóstico do monitor. O monitor não pode gerar lixo por quadro.
