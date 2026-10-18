@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. **Chamar o agente leve** direto (você mesmo, ferramenta Agent, subagent_type `<agente>`) — rápido e econômico, sem testes pesados;
 3. **Chamar o agente forte** (subagent_type `<agente>-forte`) — para mudança grande ou delicada, ou bug difícil.
 
-Marque como recomendada a que cabe (dúvida ou ajuste pequeno → ler a base; tarefa pontual → leve; grande/delicada → forte). Não pergunte se o pedido já veio por um `/agent_…`, se o usuário já disse nesta conversa como prefere, ou se é pergunta que se responde sem mexer em código. Documentação nova vai na base da área (área nova = a base + os dois agentes + os dois comandos em `.claude/commands/` + linha na tabela).
+Marque como recomendada a que cabe (dúvida ou ajuste pequeno → ler a base; tarefa pontual → leve; grande/delicada → forte). Não pergunte se é AJUSTE PEQUENO OU PONTUAL (aí faça direto lendo a base — regra do dono, 18/10/2026; só pergunte em tarefa grande ou delicada), se o pedido já veio por um `/agent_…`, se o usuário já disse nesta conversa como prefere, ou se é pergunta que se responde sem mexer em código. Documentação nova vai na base da área (área nova = a base + os dois agentes + os dois comandos em `.claude/commands/` + linha na tabela).
 
 ## Projeto
 
