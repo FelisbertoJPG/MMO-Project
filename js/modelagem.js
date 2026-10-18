@@ -22,7 +22,8 @@
  * puxão (o lugar da malha mais perto dele — um vértice, se foi grudado num), DEPOIS das partes e dos
  * puxões e ANTES dos cortes (o triângulo de baixo ainda inteiro); o triângulo entra no FIM da malha
  * (`acrescentarTriangulos`, que devolve outra geometria), com os pesos, a cor e a UV do vértice que
- * mais pesa em cada canto, virado para fora como a pele ali.
+ * mais pesa em cada canto, com as DUAS faces (dois triângulos, um de cada lado: tapando um buraco
+ * entre peças que apontam para lados opostos não há "para fora" certo, e o lado de trás some).
  *
  * AS PARTES (`PARTES`) são de três tipos:
  *  - por OSSO (a cabeça, o peito, os braços…): o peso de cada vértice nos ossos dela — o
@@ -381,8 +382,8 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   // (malha que JÁ os tem — a vista da aba Modelo, refeita a partir da base: eles voltam ao lugar
   // achado agora, em vez de levar as partes e os puxões de novo)
   const o = ctx.ordensNovos;
-  if (ctx.novos && ctx.novosDe != null && o?.length === ctx.novos.length && ctx.novosDe + o.length * 3 === n) {
-    ctx.novos.forEach((t, q) => o[q].forEach((c, e) => { const v = ctx.novosDe + q * 3 + e; for (let x = 0; x < 3; x++) P[v * 3 + x] = t.pos[c * 3 + x]; mexeu[v] = 1; }));
+  if (ctx.novos && ctx.novosDe != null && o?.length === ctx.novos.length * 2 && ctx.novosDe + o.length * 3 === n) {
+    o.forEach((ord, q) => ord.forEach((c, e) => { const v = ctx.novosDe + q * 3 + e, t = ctx.novos[q >> 1]; for (let x = 0; x < 3; x++) P[v * 3 + x] = t.pos[c * 3 + x]; mexeu[v] = 1; }));
   }
   // ---- 3. os CORTES: o triângulo some
   if (edicoes.cortes?.length) cortarTriangulos(geo, edicoes.cortes, ctx, mexeu);
@@ -459,17 +460,12 @@ function resolverNovos(geo, novos, ctx, P) {
  * triângulo criado, o número dele em `novos`).
  */
 export function acrescentarTriangulos(geo, ctx) {
-  const l = ctx?.novos;
-  if (!l || geo.index) return geo;
-  const n0 = geo.attributes.position.count, k = l.length * 3, g = new THREE.BufferGeometry(), nor = geo.attributes.normal;
-  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), m = new THREE.Vector3();
-  // virado para FORA: a face do lado da normal da pele dos cantos (senão os cantos 2 e 3 trocam)
-  const ordens = l.map((t) => {
-    a.fromArray(t.pos, 0); b.fromArray(t.pos, 3).sub(a); c.fromArray(t.pos, 6).sub(a);
-    m.set(0, 0, 0);
-    if (nor) for (const f of t.fonte) m.x += nor.getX(f), m.y += nor.getY(f), m.z += nor.getZ(f);
-    return b.cross(c).dot(m) < 0 ? [0, 2, 1] : [0, 1, 2];
-  });
+  if (!ctx?.novos || geo.index) return geo;
+  // (cada um DUAS vezes, uma de cada lado: as duas faces)
+  const l = ctx.novos.flatMap((t) => [t, t]);
+  const n0 = geo.attributes.position.count, k = l.length * 3, g = new THREE.BufferGeometry();
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const ordens = l.map((_, q) => (q % 2 ? [0, 2, 1] : [0, 1, 2]));
   for (const [nome, at] of Object.entries(geo.attributes)) {
     const s = at.itemSize, arr = new at.array.constructor((n0 + k) * s);
     arr.set(at.array);
