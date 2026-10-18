@@ -13,6 +13,10 @@
  * o relevo do rosto onde chega (a altura da pele em volta, lá e cá), como o pé das presas.
  * Corpo sem edição: a malha é a de sempre, bit a bit. (E `pinturas`: as folhas pintadas no corpo —
  * pintura.js.)
+ * `cortes`: [{ de, em: [x, y, z] }] — os TRIÂNGULOS REMOVIDOS (18/10/2026; a ferramenta "cortar" da
+ * aba): cada um é achado pelo MEIO dele no MODELO (`em`, a média dos três cantos em `antes`) e pela
+ * origem (`de`), e some (`cortarTriangulos`) — os três cantos vão para o mesmo ponto, com os
+ * mesmos pesos (a contagem de vértices não muda: o que guarda índices dela segue valendo).
  *
  * AS PARTES (`PARTES`) são de três tipos:
  *  - por OSSO (a cabeça, o peito, os braços…): o peso de cada vértice nos ossos dela — o
@@ -91,7 +95,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -360,12 +364,51 @@ export function aplicarModelagem(geo, edicoes, ctx) {
       mexeu[i] = 1;
     }
   }
+  // ---- 3. os CORTES: o triângulo some
+  if (edicoes.cortes?.length) cortarTriangulos(geo, edicoes.cortes, ctx, mexeu);
   if (!mexeu.includes(1)) return false;
   if (ctx.segue) seguirAPele(P, idx, nt, ctx, mexeu);
   pos.needsUpdate = true;
   normaisDasFacesMexidas(geo, mexeu);
   geo.boundingBox = null; geo.boundingSphere = null;
   return true;
+}
+
+/** O meio do triângulo `t` no MODELO (a média dos cantos em `ctx.antes`), em `v`. Malha sem índice. */
+export function meioNoModelo(t, ctx, v = new THREE.Vector3()) {
+  const A = ctx.antes, i = t * 9;
+  return v.set((A[i] + A[i + 3] + A[i + 6]) / 3, (A[i + 1] + A[i + 4] + A[i + 7]) / 3, (A[i + 2] + A[i + 5] + A[i + 8]) / 3);
+}
+// o meio guardado e o achado agora: o `em` é gravado a 2 casas (cm)
+const PERTO_DO_CORTE = 0.02;
+// some com os triângulos de `cortes` (só na malha SEM índice: cada triângulo tem os seus vértices)
+function cortarTriangulos(geo, cortes, ctx, mexeu) {
+  if (geo.index || !ctx.antes) return;
+  const P = geo.attributes.position.array, nt = geo.attributes.position.count / 3;
+  const si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  // (uma grade de 1 cm com os cortes: cada triângulo só confere os da casa dele)
+  const grade = new Map(), casa = (x, y, z) => `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
+  for (const c of cortes) {
+    const o = ORIGENS.indexOf(c?.de);
+    if (o < 0 || !Array.isArray(c.em) || c.em.length !== 3) continue;
+    const ks = new Set();
+    for (const dx of [-1, 1]) for (const dy of [-1, 1]) for (const dz of [-1, 1]) ks.add(casa(c.em[0] + dx * PERTO_DO_CORTE, c.em[1] + dy * PERTO_DO_CORTE, c.em[2] + dz * PERTO_DO_CORTE));
+    for (const k of ks) (grade.get(k) ?? grade.set(k, []).get(k)).push({ o, em: c.em });
+  }
+  if (!grade.size) return;
+  const m = new THREE.Vector3();
+  for (let t = 0; t < nt; t++) {
+    meioNoModelo(t, ctx, m);
+    const l = grade.get(casa(m.x, m.y, m.z));
+    if (!l?.some((c) => c.o === ctx.origem[t * 3] && Math.abs(c.em[0] - m.x) < PERTO_DO_CORTE && Math.abs(c.em[1] - m.y) < PERTO_DO_CORTE && Math.abs(c.em[2] - m.z) < PERTO_DO_CORTE)) continue;
+    // os três cantos no meio de agora, presos como o primeiro (senão a animação os separava)
+    const i = t * 9;
+    for (let k = 0; k < 3; k++) { const v = (P[i + k] + P[i + 3 + k] + P[i + 6 + k]) / 3; P[i + k] = P[i + 3 + k] = P[i + 6 + k] = v; }
+    for (const a of [si, sw]) if (a) for (let j = 1; j < 3; j++) for (let k = 0; k < a.itemSize; k++) a.array[(t * 3 + j) * a.itemSize + k] = a.array[t * 3 * a.itemSize + k];
+    if (si) si.needsUpdate = true;
+    if (sw) sw.needsUpdate = true;
+    mexeu[t * 3] = mexeu[t * 3 + 1] = mexeu[t * 3 + 2] = 1;
+  }
 }
 
 // a normal reta das faces que mudaram (o facetado do modelo); com índice, a lisa de todas
