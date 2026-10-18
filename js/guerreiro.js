@@ -31,7 +31,7 @@ import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES, OLHOS, naPele } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
-import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, modelagemAberta } from './modelagem.js';
+import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, cascaDoOlho, CORES_DO_MODELO } from './pintura.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 
@@ -141,7 +141,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   const cabelo = penteado && inversos ? geometriaDoPenteado({
     ...penteado, ordem, deformador: deformadorDe(raca, ordem, inversos, pecas[0].bindMatrix), escala: proporcoesDe(raca).cabeca, rosto: rostoDaRaca(raca), largo: largoDoQueixo(raca), modelo: lista[0], mapa: pecas[0].material?.map,
   }) : null;
-  const geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
+  let geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
   // A MODELAGEM (modelagem.js), só quando o corpo tem edição (ou a aba Modelo do editor está
   // aberta): de onde veio cada vértice (`origem`) e onde ele estava no MODELO, antes da raça
   // (`antes`: é onde o pincel guarda o centro), e as juntas no espaço da malha (os pivôs)
@@ -174,6 +174,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     comModelo.base = geo.attributes.position.array.slice();
     if (modelagemAberta()) geo.userData.modelagem = comModelo;
     aplicarModelagem(geo, edicoes, comModelo);
+    // (os triângulos CRIADOS entram no fim: outra geometria, com o ctx crescido junto)
+    geo = acrescentarTriangulos(geo, comModelo);
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
     if (edicoes?.pinturas?.length) geo.userData.pinturas = edicoes.pinturas.map((folha) => ({ folha, geometry: geometriaDaFolha(folha, geo, comModelo) })).filter((f) => f.geometry);
   }

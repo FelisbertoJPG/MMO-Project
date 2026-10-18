@@ -17,6 +17,12 @@
  * aba): cada um é achado pelo MEIO dele no MODELO (`em`, a média dos três cantos em `antes`) e pela
  * origem (`de`), e some (`cortarTriangulos`) — os três cantos vão para o mesmo ponto, com os
  * mesmos pesos (a contagem de vértices não muda: o que guarda índices dela segue valendo).
+ * `novos`: [{ cantos: [{ de, em }, ×3], espelho }] — os TRIÂNGULOS CRIADOS (18/10/2026; a ferramenta
+ * "criar" da aba): cada canto é um ponto do MODELO numa origem, achado de novo como o centro de um
+ * puxão (o lugar da malha mais perto dele — um vértice, se foi grudado num), DEPOIS das partes e dos
+ * puxões e ANTES dos cortes (o triângulo de baixo ainda inteiro); o triângulo entra no FIM da malha
+ * (`acrescentarTriangulos`, que devolve outra geometria), com os pesos, a cor e a UV do vértice que
+ * mais pesa em cada canto, virado para fora como a pele ali.
  *
  * AS PARTES (`PARTES`) são de três tipos:
  *  - por OSSO (a cabeça, o peito, os braços…): o peso de cada vértice nos ossos dela — o
@@ -95,7 +101,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -172,7 +178,15 @@ const verticeDe = (idx, t, k) => (idx ? idx.getX(t * 3 + k) : t * 3 + k);
  * um Vector3 nas posições `P` como estão — ou null (não há malha dessa origem).
  */
 export function centroDoPuxao(x, geo, ctx, espelho = false, P = geo.attributes.position.array, w = null) {
-  const idx = geo.index, nt = (idx ? idx.count : geo.attributes.position.count) / 3, A = ctx.antes, o = ORIGENS.indexOf(x.de);
+  const l = lugarNoModelo(x, geo, ctx, espelho, w);
+  if (!l) return null;
+  const [i, j, k, u, v, s] = l;
+  return new THREE.Vector3(P[i * 3] * u + P[j * 3] * v + P[k * 3] * s, P[i * 3 + 1] * u + P[j * 3 + 1] * v + P[k * 3 + 1] * s, P[i * 3 + 2] * u + P[j * 3 + 2] * v + P[k * 3 + 2] * s);
+}
+// o lugar da malha que `x.em` marca (no MODELO, na origem `x.de`): [i, j, k, u, v, s] — os vértices do
+// triângulo mais perto e o ponto nele (baricêntricas) — ou null. Os triângulos CRIADOS não contam
+function lugarNoModelo(x, geo, ctx, espelho = false, w = null) {
+  const idx = geo.index, nt = ctx.novosDe != null ? ctx.novosDe / 3 : (idx ? idx.count : geo.attributes.position.count) / 3, A = ctx.antes, o = ORIGENS.indexOf(x.de);
   const q = new THREE.Vector3(espelho ? -x.em[0] : x.em[0], x.em[1], x.em[2]);
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), bar = new THREE.Vector3(), perto = new THREE.Vector3();
   let melhor = Infinity, achado = null;
@@ -188,9 +202,7 @@ export function centroDoPuxao(x, geo, ctx, espelho = false, P = geo.attributes.p
     const d = perto.distanceToSquared(q);
     if (d < melhor) { melhor = d; achado = [i, j, k, bar.x, bar.y, bar.z]; }
   }
-  if (!achado) return null;
-  const [i, j, k, u, v, s] = achado;
-  return new THREE.Vector3(P[i * 3] * u + P[j * 3] * v + P[k * 3] * s, P[i * 3 + 1] * u + P[j * 3 + 1] * v + P[k * 3 + 1] * s, P[i * 3 + 2] * u + P[j * 3 + 2] * v + P[k * 3 + 2] * s);
+  return achado;
 }
 
 // O que SEGUE a pele (o couro do bojo, raca.js): cada vértice que segue um que mudou (ou que mudou ele
@@ -364,6 +376,14 @@ export function aplicarModelagem(geo, edicoes, ctx) {
       mexeu[i] = 1;
     }
   }
+  // ---- 2b. os TRIÂNGULOS CRIADOS: onde cada canto está agora (antes dos cortes, que achatam o de baixo)
+  ctx.novos = edicoes.novos?.length && !idx ? resolverNovos(geo, edicoes.novos, ctx, P) : null;
+  // (malha que JÁ os tem — a vista da aba Modelo, refeita a partir da base: eles voltam ao lugar
+  // achado agora, em vez de levar as partes e os puxões de novo)
+  const o = ctx.ordensNovos;
+  if (ctx.novos && ctx.novosDe != null && o?.length === ctx.novos.length && ctx.novosDe + o.length * 3 === n) {
+    ctx.novos.forEach((t, q) => o[q].forEach((c, e) => { const v = ctx.novosDe + q * 3 + e; for (let x = 0; x < 3; x++) P[v * 3 + x] = t.pos[c * 3 + x]; mexeu[v] = 1; }));
+  }
   // ---- 3. os CORTES: o triângulo some
   if (edicoes.cortes?.length) cortarTriangulos(geo, edicoes.cortes, ctx, mexeu);
   if (!mexeu.includes(1)) return false;
@@ -409,6 +429,72 @@ function cortarTriangulos(geo, cortes, ctx, mexeu) {
     if (sw) sw.needsUpdate = true;
     mexeu[t * 3] = mexeu[t * 3 + 1] = mexeu[t * 3 + 2] = 1;
   }
+}
+
+// os cantos de cada triângulo criado, na malha de agora: [{ n: o número dele em `novos`, fonte: os
+// vértices que dão pesos/cor/UV, pos: 9 números, antes: 9 números (no modelo) }] — ou null
+function resolverNovos(geo, novos, ctx, P) {
+  const lista = [];
+  novos.forEach((x, n) => {
+    if (!Array.isArray(x?.cantos) || x.cantos.length !== 3 || !x.cantos.every((c) => Array.isArray(c?.em) && c.em.length === 3)) return;
+    for (const lado of x.espelho ? [false, true] : [false]) {
+      const fonte = [], pos = [], antes = [];
+      for (const c of x.cantos) {
+        const l = lugarNoModelo(c, geo, ctx, lado);
+        if (!l) break;
+        const [i, j, k, u, v, s] = l;
+        fonte.push(u >= v && u >= s ? i : v >= s ? j : k);
+        for (let e = 0; e < 3; e++) pos.push(P[i * 3 + e] * u + P[j * 3 + e] * v + P[k * 3 + e] * s);
+        antes.push(lado ? -c.em[0] : c.em[0], c.em[1], c.em[2]);
+      }
+      if (fonte.length === 3) lista.push({ n, fonte, pos, antes });
+    }
+  });
+  return lista.length ? lista : null;
+}
+/**
+ * Os TRIÂNGULOS CRIADOS (`ctx.novos`, do `aplicarModelagem`) no FIM da malha: devolve OUTRA
+ * geometria (a de antes é descartada) — ou a mesma, se não há nenhum. O `ctx` cresce junto
+ * (`origem`, `antes`, `base`) e ganha `novosDe` (o 1º vértice criado) e `novosQuem` (de cada
+ * triângulo criado, o número dele em `novos`).
+ */
+export function acrescentarTriangulos(geo, ctx) {
+  const l = ctx?.novos;
+  if (!l || geo.index) return geo;
+  const n0 = geo.attributes.position.count, k = l.length * 3, g = new THREE.BufferGeometry(), nor = geo.attributes.normal;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), m = new THREE.Vector3();
+  // virado para FORA: a face do lado da normal da pele dos cantos (senão os cantos 2 e 3 trocam)
+  const ordens = l.map((t) => {
+    a.fromArray(t.pos, 0); b.fromArray(t.pos, 3).sub(a); c.fromArray(t.pos, 6).sub(a);
+    m.set(0, 0, 0);
+    if (nor) for (const f of t.fonte) m.x += nor.getX(f), m.y += nor.getY(f), m.z += nor.getZ(f);
+    return b.cross(c).dot(m) < 0 ? [0, 2, 1] : [0, 1, 2];
+  });
+  for (const [nome, at] of Object.entries(geo.attributes)) {
+    const s = at.itemSize, arr = new at.array.constructor((n0 + k) * s);
+    arr.set(at.array);
+    l.forEach((t, q) => ordens[q].forEach((o, e) => arr.set(at.array.subarray(t.fonte[o] * s, (t.fonte[o] + 1) * s), (n0 + q * 3 + e) * s)));
+    g.setAttribute(nome, new THREE.BufferAttribute(arr, s, at.normalized));
+  }
+  const P = g.attributes.position.array, N = g.attributes.normal?.array;
+  const origem = new Uint8Array(n0 + k), antes = new Float32Array((n0 + k) * 3), base = ctx.base ? new Float32Array((n0 + k) * 3) : null;
+  origem.set(ctx.origem); antes.set(ctx.antes); base?.set(ctx.base);
+  l.forEach((t, q) => {
+    ordens[q].forEach((o, e) => {
+      const v = n0 + q * 3 + e;
+      for (let x = 0; x < 3; x++) { P[v * 3 + x] = t.pos[o * 3 + x]; antes[v * 3 + x] = t.antes[o * 3 + x]; if (base) base[v * 3 + x] = t.pos[o * 3 + x]; }
+      origem[v] = ctx.origem[t.fonte[o]];
+    });
+    // a normal reta da face (o facetado do modelo)
+    const v = (n0 + q * 3) * 3;
+    a.fromArray(P, v); b.fromArray(P, v + 3).sub(a); c.fromArray(P, v + 6).sub(a);
+    b.cross(c).normalize();
+    if (N) for (let e = 0; e < 3; e++) N.set([b.x, b.y, b.z], v + e * 3);
+  });
+  Object.assign(ctx, { origem, antes, ...(base ? { base } : {}), novosDe: n0, novosQuem: l.map((t) => t.n), ordensNovos: ordens });
+  g.userData = geo.userData;
+  geo.dispose();
+  return g;
 }
 
 // a normal reta das faces que mudaram (o facetado do modelo); com índice, a lisa de todas
