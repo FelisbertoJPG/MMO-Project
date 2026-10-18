@@ -510,8 +510,18 @@ function dividirNosVertices(geo, vertices, cortesDoDono, ctx) {
 // os cantos de cada triângulo criado, na malha de agora (`novos`: cada um com `n`, o número dele na
 // lista do dono, −1 nos pedaços dos vértices criados, e `umLado`): [{ n, umLado, fonte: os
 // vértices que dão pesos/cor/UV, pos: 9 números, antes: 9 números (no modelo) }] — ou null
+// cantos de criados a menos disto (cm, no modelo) um do outro são o MESMO ponto (a SOLDA): dois
+// triângulos colados à mão num vértice quase igual (84,35 × 84,37) ficavam com um vão finíssimo
+const SOLDA = 0.1;
 function resolverNovos(geo, novos, ctx, P) {
-  const lista = [];
+  const lista = [], soldados = [];
+  // o ponto já visto (da mesma origem) a menos da SOLDA, ou este mesmo — e passa a ser visto
+  const soldar = (de, em) => {
+    const j = soldados.find((s) => s.de === de && Math.abs(s.em[0] - em[0]) < SOLDA && Math.abs(s.em[1] - em[1]) < SOLDA && Math.abs(s.em[2] - em[2]) < SOLDA);
+    if (j) return j.em;
+    soldados.push({ de, em });
+    return em;
+  };
   novos.forEach((x) => {
     const n = x.n, umLado = !!x.umLado;
     if (!Array.isArray(x?.cantos) || x.cantos.length !== 3 || !x.cantos.every((c) => Array.isArray(c?.em) && c.em.length === 3)) return;
@@ -519,12 +529,14 @@ function resolverNovos(geo, novos, ctx, P) {
       const fonte = [], pos = [], antes = [];
       for (const c of x.cantos) {
         // (o pedaço de um vértice criado já sabe o vértice, ou o lugar, de cada canto)
-        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : c.lugar ?? lugarNoModelo(c, geo, ctx, lado);
+        // (o canto onde está de fato — do lado espelhado, o x ao contrário — e soldado aos já vistos)
+        const em = c.i != null || c.lugar ? c.em : soldar(c.de, lado ? [-c.em[0], c.em[1], c.em[2]] : c.em);
+        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : c.lugar ?? lugarNoModelo({ de: c.de, em }, geo, ctx);
         if (!l) break;
         const [i, j, k, u, v, s] = l;
         fonte.push(u >= v && u >= s ? i : v >= s ? j : k);
         for (let e = 0; e < 3; e++) pos.push(P[i * 3 + e] * u + P[j * 3 + e] * v + P[k * 3 + e] * s);
-        antes.push(lado ? -c.em[0] : c.em[0], c.em[1], c.em[2]);
+        antes.push(c.i != null || c.lugar ? (lado ? -c.em[0] : c.em[0]) : em[0], em[1], em[2]);
       }
       // (os atributos dos vértices de onde sai — pesos, cor, UV — copiados JÁ: os cortes, logo depois, trocam
       // os pesos do triângulo cortado, e o canto que colou num vértice dele andava com o osso errado ao animar)
