@@ -397,9 +397,11 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   }
   // ---- 3. os CORTES: o triângulo some (os do dono e os divididos pelos vértices criados)
   const cortes = [...(edicoes.cortes ?? []), ...(div?.cortes ?? [])];
+  // (o couro do top segue a pele ANTES dos cortes: depois, ele reabria o triângulo cortado do top —
+  // cada vértice voltava para cima da pele dele, e cortar ali não fazia nada)
+  if (ctx.segue && mexeu.includes(1)) seguirAPele(P, idx, nt, ctx, mexeu);
   if (cortes.length) cortarTriangulos(geo, cortes, ctx, mexeu);
   if (!mexeu.includes(1)) return false;
-  if (ctx.segue) seguirAPele(P, idx, nt, ctx, mexeu);
   pos.needsUpdate = true;
   normaisDasFacesMexidas(geo, mexeu);
   geo.boundingBox = null; geo.boundingSphere = null;
