@@ -529,7 +529,7 @@ function resolverNovos(geo, novos, ctx, P) {
       // (os atributos dos vértices de onde sai — pesos, cor, UV — copiados JÁ: os cortes, logo depois, trocam
       // os pesos do triângulo cortado, e o canto que colou num vértice dele andava com o osso errado ao animar)
       const copia = fonte.length === 3 ? Object.fromEntries(Object.entries(geo.attributes).map(([nome, at]) => [nome, fonte.map((f) => at.array.slice(f * at.itemSize, (f + 1) * at.itemSize))])) : null;
-      if (fonte.length === 3) lista.push({ n, fonte, pos, antes, umLado, copia });
+      if (fonte.length === 3) lista.push({ n, lado, fonte, pos, antes, umLado, copia });
     }
   });
   return lista.length ? lista : null;
