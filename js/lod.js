@@ -218,7 +218,7 @@ export class LOD {
   /** Todo quadro: o que está longe vira cartaz; o detalhe pequeno longe some. */
   update(camera) {
     const q = this.world.game.graficos?.q ?? {};
-    const D = q.impostor ?? 110, limiar = q.limiarPx ?? 2;
+    const D = q.impostor ?? 110, limiar = q.limiarPx ?? 2, A = q.alcance ?? Infinity;
     const H = this.world.game.renderer.domElement.clientHeight || innerHeight;
     // (a câmera isométrica — player.js — vê de longe com lente estreita; ela diz de onde uma
     // câmera comum veria, e com que lente: as distâncias e os pixels saem iguais)
@@ -229,9 +229,9 @@ export class LOD {
     // quadro com a CPU freada 8× (um celular fraco), parado ou só girando a câmera. As trocas
     // têm folga de 5–10 m: 1 m de atraso não se vê
     const u = this.ultimo;
-    if (!u || u.p.distanceToSquared(p) > 1 || u.fora !== fora || u.D !== D || u.limiar !== limiar || u.foco !== foco) {
-      this.ultimo = { p: p.clone(), fora, D, limiar, foco };
-      this.grupos_(p, fora, D, limiar, foco);
+    if (!u || u.p.distanceToSquared(p) > 1 || u.fora !== fora || u.D !== D || u.limiar !== limiar || u.foco !== foco || u.A !== A) {
+      this.ultimo = { p: p.clone(), fora, D, limiar, foco, A };
+      this.grupos_(p, fora, D, limiar, foco, A);
     }
     // (fora do "andou 1 m": o pré-aquecimento suja os cartazes com a câmera parada)
     for (const c of this.cartazes.values()) {
@@ -248,13 +248,14 @@ export class LOD {
   }
 
   /** As três regras de cada grupo da decoração (o cartaz, o outro lado, o detalhe pequeno). */
-  grupos_(p, fora, D, limiar, foco) {
+  grupos_(p, fora, D, limiar, foco, A = Infinity) {
     for (const g of this.grupos) {
       const d = Math.max(0, g.centro.distanceTo(p) - g.raio);
       // as três regras, cada uma com folga para quem anda na divisa não ficar trocando (sem
       // função criada por grupo: eram ~1.300 por quadro, lixo para o coletor)
       const lim = fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO;
-      const lado = g.dentro === fora && d > (g.lado ? lim - 5 : lim);
+      // (além do ALCANCE do Mínimo também: nem o lote nem o cartaz — a névoa já fechou ali)
+      const lado = (g.dentro === fora && d > (g.lado ? lim - 5 : lim)) || d > (g.lado ? A - 5 : A);
       const longe = !!g.cartaz && d > (g.longe ? D - 10 : D);
       const oculto = !g.cartaz && (g.oculto ? d > g.raioPeca * foco / limiar * 0.9 : d > g.raioPeca * foco / limiar);
       if (lado === g.lado && longe === g.longe && oculto === g.oculto) continue;
@@ -290,6 +291,7 @@ export class LOD {
   soltas(camera, fora) {
     const w = this.world, g = w.game, p = camera.userData.vistaDe ?? camera.position;
     if (g.state === 'title') return;
+    const alcance = (g.graficos?.q.alcance ?? Infinity) + 5;   // o longe do Mínimo (graficos.js)
     if (!this.listaDeSoltas) {
       const fora_ = new Set();
       for (const e of [g.player, ...(g.all ?? []), ...(w.cadaveres ?? []), ...(g.sessao?.outros ?? [])]) { const r = e?.model?.root ?? e?.model?.scene ?? e?.root; if (r) fora_.add(r); }
@@ -311,7 +313,7 @@ export class LOD {
     }
     for (const s of this.listaDeSoltas) {
       const d = Math.max(0, s.centro.distanceTo(p) - s.raio), folga = s.oculto ? -5 : 0;
-      const oculto = d > SOLTA_LONGE + folga || (s.dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
+      const oculto = d > Math.min(SOLTA_LONGE, alcance) + folga || (s.dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
       if (oculto === s.oculto) continue;
       s.oculto = oculto;
       for (const m of s.malhas) m.layers.set(oculto ? 31 : 0);
@@ -331,6 +333,7 @@ export class LOD {
    */
   personagens(camera, fora) {
     const w = this.world, p = camera.userData.vistaDe ?? camera.position;
+    const alcance = (w.game.graficos?.q.alcance ?? Infinity) + 5;   // o longe do Mínimo (graficos.js)
     // só com a partida rodando: na tela de título os animais ainda não animaram, e a pose de
     // repouso deles tem outro tamanho — a esfera saía pequena (conferido)
     if (w.game.state === 'title') return;
@@ -373,7 +376,7 @@ export class LOD {
       }
       const d = e.pos.distanceTo(p), dentro = !w.isOpenAir(...w.cellOf(e.pos));
       const folga = e.__lodOculto ? -5 : 0;
-      const oculto = d > PERSONAGEM_LONGE + folga || (dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
+      const oculto = d > Math.min(PERSONAGEM_LONGE, alcance) + folga || (dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
       if (oculto === e.__lodOculto) continue;
       e.__lodOculto = oculto;
       // ESCONDIDO, SAI DA CENA (11/10/2026): só com `layers` ele não era desenhado, mas o three.js

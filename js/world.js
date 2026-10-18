@@ -614,6 +614,10 @@ export class World {
     s.background.copy(a.dentro.fundo).lerp(F.fundo, a.k);
     s.fog.color.copy(a.dentro.nevoa).lerp(F.nevoa, a.k);
     s.fog.density = mix(a.dentro.dens, F.dens);
+    // a qualidade com ALCANCE (o Mínimo, graficos.js): a névoa fecha nele (~97% no alcance:
+    // 1 − e^−(d·dens)² com d·dens = 1,87), para o corte do longe não aparecer
+    const alcance = this.game.graficos?.q.alcance;
+    if (alcance) s.fog.density = Math.max(s.fog.density, 1.87 / alcance);
     a.hemi.intensity = mix(a.dentro.hemi, F.hemi);
     a.amb.intensity = mix(a.dentro.amb, F.amb);
     a.lua.intensity = mix(a.dentro.lua, F.lua);

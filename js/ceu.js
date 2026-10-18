@@ -22,7 +22,8 @@
  */
 import * as THREE from 'three';
 
-const RAIO = 250;   // < o `far` da câmera (300)
+const RAIO = 250;   // < o `far` da câmera (300; com o alcance do Mínimo, a abóbada encolhe — `update`)
+const _escalaCeu = new THREE.Vector3();
 const AZUL_DO_DIA = new THREE.Color(0x2f6fd0);
 
 const VERT = /* glsl */`
@@ -432,6 +433,9 @@ export class Ceu {
     // a abóbada em volta da câmera
     const cam = this.game.camera;
     this.abobada.matrix.makeTranslation(cam.position.x, cam.position.y, cam.position.z);
+    // com o `far` curto (o alcance do Mínimo, graficos.js) a abóbada encolhe para caber nele
+    // (o shader só usa a DIREÇÃO: o céu sai igual)
+    if (cam.far < RAIO * 1.1) { const e = (cam.far * 0.9) / RAIO; this.abobada.matrix.scale(_escalaCeu.set(e, e, e)); }
     this.abobada.matrixWorldNeedsUpdate = true;
     this.abobada.visible = k > 0.002;
     // o reflexo: de tempos em tempos, e logo ao entrar/sair da masmorra

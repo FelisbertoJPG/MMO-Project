@@ -151,6 +151,9 @@ export class Capim {
   /** O `capim` da qualidade gráfica (0 = sem capim): dele sai o `passo` da grade. */
   get densidade() { return Math.min(DENSIDADE_MAX, this.game.graficos?.q.capim ?? 22); }
 
+  /** Até quantas células em volta do jogador (o `capimRaio` da qualidade; o Mínimo, sem placa, só o perto). */
+  get raio() { return Math.min(RAIO, this.game.graficos?.q.capimRaio ?? RAIO); }
+
   /** Remonta já (a qualidade mudou). */
   refazer() { this.celula = null; this.prontas.clear(); }
 
@@ -158,16 +161,16 @@ export class Capim {
     this.tempo.value += dt;
     const w = this.game.world, p = this.game.player.pos;
     const [r0, c0] = w.cellOf(p);
-    const chave = `${r0},${c0},${this.densidade}`;
+    const R = this.raio, chave = `${r0},${c0},${this.densidade},${R}`;
     if (chave === this.celula) return;
     this.celula = chave;
     let j = 0;
     if (this.densidade > 0) {
-      for (let r = r0 - RAIO; r <= r0 + RAIO; r++) {
-        for (let c = c0 - RAIO; c <= c0 + RAIO; c++) {
+      for (let r = r0 - R; r <= r0 + R; r++) {
+        for (let c = c0 - R; c <= c0 + R; c++) {
           if (w.ch(r, c) !== 'f') continue;
           const dist = Math.hypot(r - r0, c - c0);
-          if (dist > RAIO + 0.5) continue;
+          if (dist > R + 0.5) continue;
           const t = this.celulaDoTapete(w, r, c, dist <= PERTO[0] ? 0 : dist <= PERTO[1] ? 1 : 2);
           if (j + t.n > this.maximo) continue;
           this.tapete.instanceMatrix.array.set(t.mats, j * 16);

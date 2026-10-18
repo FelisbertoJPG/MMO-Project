@@ -71,13 +71,17 @@ export const QUALIDADES = {
   // da resolução, com 62 ms de "render" e 85 ms fora do laço). Ali a CPU faz o trabalho da placa:
   // cada TRIÂNGULO e cada PIXEL custam, então sai o capim (189 mil triângulos dos 642 mil), as
   // árvores viram cartaz logo, o detalhe pequeno some cedo e a resolução começa abaixo de 1.
+  // E O LONGE NÃO EXISTE (o `alcance`, em metros): perto vai tudo — até o capim, ralo e só em
+  // volta (`capimRaio` células, ~18 m) —; até o alcance a névoa fecha, e além dele nada é
+  // desenhado: o `far` da câmera, a decoração (lod.js, como o "outro lado"), as peças soltas e
+  // os personagens; o céu encolhe junto (ceu.js). Qualidade sem `alcance` = o longe de sempre.
   // Escolhido sozinho na placa de software (`placaDeSoftware`), com um aviso de como ligar a placa.
   minimo: {
     nome: 'Mínimo', pixelRatio: 0.6, antialias: false,
     sombra: null, tipoSombra: THREE.BasicShadowMap, sol: null,
-    luzes: 2, luzesFora: 1, filtroDeCor: false, particulas: 0.3, capim: 0,
+    luzes: 2, luzesFora: 1, filtroDeCor: false, particulas: 0.3, capim: 8, capimRaio: 3,
     nuvens: 2, reflexoS: 30, clarao: false,
-    impostor: 35, limiarPx: 6,
+    impostor: 35, limiarPx: 6, alcance: 70,
   },
 };
 
@@ -350,6 +354,14 @@ export class Graficos {
    */
   update() {
     this.ajustarResolucao();
+    // O ALCANCE (o Mínimo): o `far` da câmera fecha nele, contado de onde uma câmera comum veria
+    // (a isométrica fica longe do jogador: `vistaDe`, player.js). Só mexe quando muda 1 m.
+    const cam = this.game.camera, A = this.q.alcance;
+    if (cam) {
+      const v = cam.userData.vistaDe;
+      const far = A ? Math.round(A + 10 + (v ? cam.position.distanceTo(v) : 0)) : 300;
+      if (Math.abs(cam.far - far) >= 1) { cam.far = far; cam.updateProjectionMatrix(); }
+    }
     // a sombra do sol só é redesenhada ao AR LIVRE (dentro da masmorra a luz dele é 0)
     const amb = this.game.world?.ambience, sol = amb?.lua;
     // E SÓ DE DIA (11/10/2026): de noite a luz da lua é fraca, a sombra dela quase não se vê, e é
