@@ -66,6 +66,19 @@ export const QUALIDADES = {
     nuvens: 3, reflexoS: 20, clarao: true,
     impostor: 65, limiarPx: 3.5,
   },
+  // SEM PLACA DE VÍDEO (18/10/2026; relatório de um Windows com o "Microsoft Basic Render Driver":
+  // o navegador desenha com a CPU — 4 núcleos, 4 GB —, 1–2 quadros/s no Alto e 6 no Celular a 40%
+  // da resolução, com 62 ms de "render" e 85 ms fora do laço). Ali a CPU faz o trabalho da placa:
+  // cada TRIÂNGULO e cada PIXEL custam, então sai o capim (189 mil triângulos dos 642 mil), as
+  // árvores viram cartaz logo, o detalhe pequeno some cedo e a resolução começa abaixo de 1.
+  // Escolhido sozinho na placa de software (`placaDeSoftware`), com um aviso de como ligar a placa.
+  minimo: {
+    nome: 'Mínimo', pixelRatio: 0.6, antialias: false,
+    sombra: null, tipoSombra: THREE.BasicShadowMap, sol: null,
+    luzes: 2, luzesFora: 1, filtroDeCor: false, particulas: 0.3, capim: 0,
+    nuvens: 2, reflexoS: 30, clarao: false,
+    impostor: 35, limiarPx: 6,
+  },
 };
 
 const CHAVE = 'masmorra:graficos';
@@ -87,12 +100,47 @@ export const RESOLUCOES = [1, 0.85, 0.7, 0.55, 0.4];
  * qualidade. Liga/desliga no menu de pausa; a escolha fica no `localStorage`.
  */
 const FPS_MIN = 40;
-const ESCALA_MIN = { alto: 0.7, medio: 0.65, baixo: 0.6, celular: 0.75 };
+const ESCALA_MIN = { alto: 0.7, medio: 0.65, baixo: 0.6, celular: 0.75, minimo: 0.6 };
+const CHAVE_SEM_PLACA = 'masmorra:sem-placa';   // já pôs o Mínimo uma vez neste navegador
 
-/** A qualidade guardada (ou a padrão: Celular no celular fraco, Médio no celular, Alto no computador). */
+/**
+ * A qualidade guardada (ou a padrão: Celular no celular fraco, Médio no celular, Alto no computador).
+ * Na PLACA DE SOFTWARE vai o Mínimo — por cima até da escolha guardada, UMA vez (quem tinha o Alto
+ * de antes, como no relatório de 18/10, nem sabia por que o jogo não andava); depois vale a do menu.
+ */
 export function qualidadeSalva(toque = false) {
-  try { const q = localStorage.getItem(CHAVE); if (QUALIDADES[q]) return q; } catch { }
+  let q = null;
+  try { q = localStorage.getItem(CHAVE); } catch { }
+  if (placaDeSoftware()) {
+    let visto = false;
+    try { visto = localStorage.getItem(CHAVE_SEM_PLACA) === 'sim'; localStorage.setItem(CHAVE_SEM_PLACA, 'sim'); } catch { }
+    if (!visto || !QUALIDADES[q]) return 'minimo';
+  }
+  if (QUALIDADES[q]) return q;
   return !toque ? 'alto' : ehCelularFraco() ? 'celular' : 'medio';
+}
+
+/** O nome da placa, lido de um contexto WebGL de passagem (o do jogo ainda não existe). Uma vez só. */
+let placaLida = null;
+export function nomeDaPlaca() {
+  if (placaLida != null) return placaLida;
+  placaLida = '';
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    const ext = gl?.getExtension('WEBGL_debug_renderer_info');
+    placaLida = (ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || gl?.getParameter(gl.RENDERER) || '';
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch { }
+  return placaLida;
+}
+
+/**
+ * SEM PLACA DE VÍDEO: o navegador desenha com a CPU — a aceleração de hardware desligada, o
+ * driver de vídeo faltando (o "Basic Render Driver" do Windows é o que sobra sem ele) ou a placa
+ * na lista negra do navegador. Nenhuma qualidade deixa isso bom: o remédio é ligar a placa.
+ */
+export function placaDeSoftware(placa = nomeDaPlaca()) {
+  return /SwiftShader|Basic Render|llvmpipe|softpipe|Software Rasterizer|Microsoft WARP/i.test(placa);
 }
 
 /**
@@ -102,13 +150,7 @@ export function qualidadeSalva(toque = false) {
  */
 export function ehCelularFraco() {
   if ((navigator.deviceMemory ?? 8) <= 3) return true;
-  try {
-    const gl = document.createElement('canvas').getContext('webgl');
-    const ext = gl?.getExtension('WEBGL_debug_renderer_info');
-    const placa = (ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || '';
-    gl?.getExtension('WEBGL_lose_context')?.loseContext();
-    return /PowerVR|Mali-(T|4|G31|G51|G52|G71|G72)|Adreno \(TM\) [345]\d\d/i.test(placa);
-  } catch { return false; }
+  return /PowerVR|Mali-(T|4|G31|G51|G52|G71|G72)|Adreno \(TM\) [345]\d\d/i.test(nomeDaPlaca());
 }
 
 export class Graficos {

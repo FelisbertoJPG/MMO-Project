@@ -30,7 +30,7 @@ import { aquecerEsculpidos } from './esculpido.js';
 import { Telemetria, enviarDesempenho, aparelho } from './telemetria.js';
 import { tirarDoExpositor, derrubarItens } from './expositor.js';
 import { tela } from './tela.js';
-import { Graficos, qualidadeSalva } from './graficos.js';
+import { Graficos, qualidadeSalva, placaDeSoftware } from './graficos.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
@@ -680,6 +680,11 @@ class Game {
     this.ui.show();
     this.state = 'playing';
     this.input.requestLock();
+    // SEM PLACA DE VÍDEO (graficos.js): a CPU desenha, e nenhuma qualidade resolve — diz como ligar
+    if (!this.avisouSemPlaca && placaDeSoftware()) {
+      this.avisouSemPlaca = true;
+      this.ui.toast('O navegador está desenhando SEM a placa de vídeo (por isso o jogo está lento). No Chrome: Configurações → Sistema → ligue "Usar aceleração gráfica quando disponível" e reinicie o navegador; se já estiver ligada, atualize o driver de vídeo.');
+    }
   }
 
   /** Volta de onde parou: o mundo como estava, o jogador se levantando. */

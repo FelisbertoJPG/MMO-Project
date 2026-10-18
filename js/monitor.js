@@ -572,6 +572,9 @@ export class Monitor {
     const g = this.game, r = g.renderer, dicas = [];
     const pix = this.gl.drawingBufferWidth * this.gl.drawingBufferHeight;
     dicas.push(`gargalo no último minuto: ${this.gargalo(j)}.`);
+    const dbg = this.gl.getExtension('WEBGL_debug_renderer_info');
+    // (a mesma conta de `placaDeSoftware` em graficos.js: o monitor não importa nada do jogo)
+    if (/SwiftShader|Basic Render|llvmpipe|softpipe|Software Rasterizer|Microsoft WARP/i.test(this.gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : this.gl.RENDERER) ?? '')) dicas.push('SEM PLACA DE VÍDEO: o navegador desenha com a CPU (aceleração de hardware desligada, driver de vídeo faltando ou placa bloqueada pelo navegador). O "render" e o "fora do laço" são a CPU fazendo o trabalho da placa — o remédio é ligar a placa, não o jogo; no jogo, a qualidade Mínimo.');
     if (Number.isFinite(j.gpu) && j.gpu > 0.8 * j.mediana && r.getPixelRatio() > 1) dicas.push(`a placa é o limite e o pixelRatio é ${r.getPixelRatio()} (${(pix / 1e6).toFixed(1)} milhões de pixels por quadro): menos resolução rende quase na proporção — ver "metade da resolução" no teste do lugar.`);
     if (j.sombra > 300) dicas.push(`a sombra da tocha faz ${Math.round(j.sombra)} das ${Math.round(j.chamadas)} chamadas por quadro (ela redesenha 6 vezes o que projeta sombra em 24 m): apagar a tocha de dia, ou menos peças projetando sombra, ou a sombra mais curta.`);
     if (j.chamadas > 1000) dicas.push(`${Math.round(j.chamadas)} chamadas de desenho por quadro é muito para placa integrada: juntar lotes, cortar por distância.`);
