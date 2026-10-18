@@ -456,8 +456,9 @@ function resolverNovos(geo, novos, ctx, P) {
 /**
  * Os TRIÂNGULOS CRIADOS (`ctx.novos`, do `aplicarModelagem`) no FIM da malha: devolve OUTRA
  * geometria (a de antes é descartada) — ou a mesma, se não há nenhum. O `ctx` cresce junto
- * (`origem`, `antes`, `base`) e ganha `novosDe` (o 1º vértice criado) e `novosQuem` (de cada
- * triângulo criado, o número dele em `novos`).
+ * (`origem`, `antes`, `base`) e ganha `novosDe` (o 1º vértice criado), `novosQuem` (de cada
+ * triângulo criado, o número dele em `novos`) e `criado` (1 = vértice CRIADO pela ferramenta, 0 = do
+ * corpo: a marca que a aba usa para achá-los — destacar, grudar nos vértices do corpo).
  */
 export function acrescentarTriangulos(geo, ctx) {
   if (!ctx?.novos || geo.index) return geo;
@@ -475,6 +476,7 @@ export function acrescentarTriangulos(geo, ctx) {
   const P = g.attributes.position.array, N = g.attributes.normal?.array;
   const origem = new Uint8Array(n0 + k), antes = new Float32Array((n0 + k) * 3), base = ctx.base ? new Float32Array((n0 + k) * 3) : null;
   origem.set(ctx.origem); antes.set(ctx.antes); base?.set(ctx.base);
+  const criado = new Uint8Array(n0 + k).fill(1, n0);
   l.forEach((t, q) => {
     ordens[q].forEach((o, e) => {
       const v = n0 + q * 3 + e;
@@ -487,7 +489,7 @@ export function acrescentarTriangulos(geo, ctx) {
     b.cross(c).normalize();
     if (N) for (let e = 0; e < 3; e++) N.set([b.x, b.y, b.z], v + e * 3);
   });
-  Object.assign(ctx, { origem, antes, ...(base ? { base } : {}), novosDe: n0, novosQuem: l.map((t) => t.n), ordensNovos: ordens });
+  Object.assign(ctx, { origem, antes, ...(base ? { base } : {}), novosDe: n0, novosQuem: l.map((t) => t.n), ordensNovos: ordens, criado });
   g.userData = geo.userData;
   geo.dispose();
   return g;
