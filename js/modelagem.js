@@ -17,6 +17,10 @@
  * aba): cada um é achado pelo MEIO dele no MODELO (`em`, a média dos três cantos em `antes`) e pela
  * origem (`de`), e some (`cortarTriangulos`) — os três cantos vão para o mesmo ponto, com os
  * mesmos pesos (a contagem de vértices não muda: o que guarda índices dela segue valendo).
+ * `vertices`: [{ de, em }] — os VÉRTICES CRIADOS (18/10/2026; a ferramenta "vértice" da aba): cada um
+ * ENTRA na malha (`dividirNosVertices`) — o triângulo em que cai vira 3, ou, numa aresta, os dois
+ * dela viram 2 cada (cortados e trocados por pedaços de um lado só) — e os cantos dos criados colam
+ * nele: o triângulo novo divide a aresta com o corpo, sem rachadura.
  * `novos`: [{ cantos: [{ de, em }, ×3], espelho }] — os TRIÂNGULOS CRIADOS (18/10/2026; a ferramenta
  * "criar" da aba): cada canto é um ponto do MODELO numa origem, achado de novo como o centro de um
  * puxão (o lugar da malha mais perto dele — um vértice, se foi grudado num), DEPOIS das partes e dos
@@ -102,7 +106,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -377,16 +381,23 @@ export function aplicarModelagem(geo, edicoes, ctx) {
       mexeu[i] = 1;
     }
   }
-  // ---- 2b. os TRIÂNGULOS CRIADOS: onde cada canto está agora (antes dos cortes, que achatam o de baixo)
-  ctx.novos = edicoes.novos?.length && !idx ? resolverNovos(geo, edicoes.novos, ctx, P) : null;
+  // ---- 2b. os VÉRTICES CRIADOS entram na malha: o triângulo em que cada um cai vira 3 (numa aresta,
+  // os dois daquela aresta viram 2 cada) — o de antes é cortado e os pedaços entram como criados de UM
+  // lado, na volta dele. Assim o triângulo criado que cola no vértice divide a ARESTA com o corpo
+  const div = edicoes.vertices?.length && !idx ? dividirNosVertices(geo, edicoes.vertices, edicoes.cortes ?? [], ctx) : null;
+  // ---- 2c. os TRIÂNGULOS CRIADOS: onde cada canto está agora (antes dos cortes, que achatam o de baixo)
+  const criados = [...(div?.novos ?? []), ...(edicoes.novos ?? []).map((x, n) => ({ ...x, n }))];
+  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P) : null;
   // (malha que JÁ os tem — a vista da aba Modelo, refeita a partir da base: eles voltam ao lugar
   // achado agora, em vez de levar as partes e os puxões de novo)
   const o = ctx.ordensNovos;
-  if (ctx.novos && ctx.novosDe != null && o?.length === ctx.novos.length * 2 && ctx.novosDe + o.length * 3 === n) {
-    o.forEach((ord, q) => ord.forEach((c, e) => { const v = ctx.novosDe + q * 3 + e, t = ctx.novos[q >> 1]; for (let x = 0; x < 3; x++) P[v * 3 + x] = t.pos[c * 3 + x]; mexeu[v] = 1; }));
+  const dq = ctx.novosDoTri;
+  if (ctx.novos && ctx.novosDe != null && o?.length === dq?.length && ctx.novosDe + o.length * 3 === n && dq.every((x) => x < ctx.novos.length)) {
+    o.forEach((ord, q) => ord.forEach((c, e) => { const v = ctx.novosDe + q * 3 + e, t = ctx.novos[dq[q]]; for (let x = 0; x < 3; x++) P[v * 3 + x] = t.pos[c * 3 + x]; mexeu[v] = 1; }));
   }
-  // ---- 3. os CORTES: o triângulo some
-  if (edicoes.cortes?.length) cortarTriangulos(geo, edicoes.cortes, ctx, mexeu);
+  // ---- 3. os CORTES: o triângulo some (os do dono e os divididos pelos vértices criados)
+  const cortes = [...(edicoes.cortes ?? []), ...(div?.cortes ?? [])];
+  if (cortes.length) cortarTriangulos(geo, cortes, ctx, mexeu);
   if (!mexeu.includes(1)) return false;
   if (ctx.segue) seguirAPele(P, idx, nt, ctx, mexeu);
   pos.needsUpdate = true;
@@ -405,26 +416,8 @@ const PERTO_DO_CORTE = 0.02;
 // some com os triângulos de `cortes` (só na malha SEM índice: cada triângulo tem os seus vértices)
 function cortarTriangulos(geo, cortes, ctx, mexeu) {
   if (geo.index || !ctx.antes) return;
-  // (os CRIADOS nunca: quem troca um triângulo ruim corta-o e cria outro nos MESMOS cantos — o mesmo
-  // meio. No jogo os cortes vêm antes de eles entrarem; na vista da aba, que já os tem, o corte os
-  // apagava, e o triângulo novo aparecia no boneco e sumia na edição)
-  const P = geo.attributes.position.array, nt = ctx.novosDe != null ? ctx.novosDe / 3 : geo.attributes.position.count / 3;
-  const si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
-  // (uma grade de 1 cm com os cortes: cada triângulo só confere os da casa dele)
-  const grade = new Map(), casa = (x, y, z) => `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
-  for (const c of cortes) {
-    const o = ORIGENS.indexOf(c?.de);
-    if (o < 0 || !Array.isArray(c.em) || c.em.length !== 3) continue;
-    const ks = new Set();
-    for (const dx of [-1, 1]) for (const dy of [-1, 1]) for (const dz of [-1, 1]) ks.add(casa(c.em[0] + dx * PERTO_DO_CORTE, c.em[1] + dy * PERTO_DO_CORTE, c.em[2] + dz * PERTO_DO_CORTE));
-    for (const k of ks) (grade.get(k) ?? grade.set(k, []).get(k)).push({ o, em: c.em });
-  }
-  if (!grade.size) return;
-  const m = new THREE.Vector3();
-  for (let t = 0; t < nt; t++) {
-    meioNoModelo(t, ctx, m);
-    const l = grade.get(casa(m.x, m.y, m.z));
-    if (!l?.some((c) => c.o === ctx.origem[t * 3] && Math.abs(c.em[0] - m.x) < PERTO_DO_CORTE && Math.abs(c.em[1] - m.y) < PERTO_DO_CORTE && Math.abs(c.em[2] - m.z) < PERTO_DO_CORTE)) continue;
+  const P = geo.attributes.position.array, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  for (const t of cortadosPor(cortes, ctx, geo)) {
     // os três cantos no meio de agora, presos como o primeiro (senão a animação os separava)
     const i = t * 9;
     for (let k = 0; k < 3; k++) { const v = (P[i + k] + P[i + 3 + k] + P[i + 6 + k]) / 3; P[i + k] = P[i + 3 + k] = P[i + 6 + k] = v; }
@@ -434,24 +427,109 @@ function cortarTriangulos(geo, cortes, ctx, mexeu) {
     mexeu[t * 3] = mexeu[t * 3 + 1] = mexeu[t * 3 + 2] = 1;
   }
 }
+// os triângulos do CORPO que os `cortes` pegam (pelo meio no modelo e a origem): um Set
+function cortadosPor(cortes, ctx, geo) {
+  // (os CRIADOS nunca: quem troca um triângulo ruim corta-o e cria outro nos MESMOS cantos — o mesmo
+  // meio. No jogo os cortes vêm antes de eles entrarem; na vista da aba, que já os tem, o corte os
+  // apagava, e o triângulo novo aparecia no boneco e sumia na edição)
+  const nt = ctx.novosDe != null ? ctx.novosDe / 3 : geo.attributes.position.count / 3, fora = new Set();
+  // (uma grade de 1 cm com os cortes: cada triângulo só confere os da casa dele)
+  const grade = new Map(), casa = (x, y, z) => `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
+  for (const c of cortes) {
+    const o = ORIGENS.indexOf(c?.de);
+    if (o < 0 || !Array.isArray(c.em) || c.em.length !== 3) continue;
+    const ks = new Set();
+    for (const dx of [-1, 1]) for (const dy of [-1, 1]) for (const dz of [-1, 1]) ks.add(casa(c.em[0] + dx * PERTO_DO_CORTE, c.em[1] + dy * PERTO_DO_CORTE, c.em[2] + dz * PERTO_DO_CORTE));
+    for (const k of ks) (grade.get(k) ?? grade.set(k, []).get(k)).push({ o, em: c.em });
+  }
+  if (!grade.size) return fora;
+  const m = new THREE.Vector3();
+  for (let t = 0; t < nt; t++) {
+    meioNoModelo(t, ctx, m);
+    const l = grade.get(casa(m.x, m.y, m.z));
+    if (l?.some((c) => c.o === ctx.origem[t * 3] && Math.abs(c.em[0] - m.x) < PERTO_DO_CORTE && Math.abs(c.em[1] - m.y) < PERTO_DO_CORTE && Math.abs(c.em[2] - m.z) < PERTO_DO_CORTE)) fora.add(t);
+  }
+  return fora;
+}
 
-// os cantos de cada triângulo criado, na malha de agora: [{ n: o número dele em `novos`, fonte: os
+// ---- os VÉRTICES CRIADOS dentro da malha (no MODELO, `antes`): { novos: os pedaços (criados de um
+// lado só, `umLado`, n = −1), cortes: os triângulos do corpo que eles trocam } — ou null
+const MESMO_PONTO = 1e-3;   // cm: o mesmo vértice (o `em` de um vértice do corpo é o `antes` dele)
+const NA_BEIRA = 0.04;      // a baricêntrica abaixo disto: o ponto está na aresta (ou no canto)
+function dividirNosVertices(geo, vertices, cortesDoDono, ctx) {
+  const A = ctx.antes, nt = (ctx.novosDe ?? geo.attributes.position.count) / 3, cortados = cortadosPor(cortesDoDono, ctx, geo);
+  // (o canto guarda o VÉRTICE dele, `i`: numa emenda há outro vértice no mesmo ponto, de outra peça e
+  // com outros pesos — achado de novo pela posição, o canto andava com a outra peça e abria fresta ao animar)
+  const ponto = (i) => ({ de: ORIGENS[ctx.origem[i]], em: [A[i * 3], A[i * 3 + 1], A[i * 3 + 2]], i });
+  const mesmo = (p, q) => p.de === q.de && p.em.every((x, k) => Math.abs(x - q.em[k]) < MESMO_PONTO);
+  const v3 = (p) => new THREE.Vector3(p.em[0], p.em[1], p.em[2]), bar = new THREE.Vector3();
+  // cada triângulo do corpo mexido → os pedaços dele, na volta dele: [[p, p, p], …]
+  const pedacos = new Map(), de = (t) => pedacos.get(t) ?? pedacos.set(t, [[ponto(t * 3), ponto(t * 3 + 1), ponto(t * 3 + 2)]]).get(t);
+  // o pedaço que tem a aresta q→p (o vizinho do outro lado da aresta p→q): de um já mexido, ou de um do corpo
+  const vizinho = (p, q) => {
+    for (const l of pedacos.values()) for (const s of l) for (let k = 0; k < 3; k++) if (mesmo(s[k], q) && mesmo(s[(k + 1) % 3], p)) return { l, s, k };
+    for (let t = 0; t < nt; t++) {
+      if (pedacos.has(t) || cortados.has(t)) continue;
+      for (let k = 0; k < 3; k++) if (mesmo(ponto(t * 3 + k), q) && mesmo(ponto(t * 3 + (k + 1) % 3), p)) { const l = de(t); return { l, s: l[0], k }; }
+    }
+    return null;
+  };
+  for (const v of vertices) {
+    if (!Array.isArray(v?.em) || v.em.length !== 3 || ORIGENS.indexOf(v.de) < 0) continue;
+    const lugar = lugarNoModelo(v, geo, ctx);
+    if (!lugar || cortados.has(Math.floor(lugar[0] / 3))) continue;
+    // (o lugar dele vai junto: todos os pedaços que o usam caem no MESMO ponto, com os mesmos pesos)
+    const V = { de: v.de, em: [...v.em], lugar }, l = de(Math.floor(lugar[0] / 3)), q = v3(V);
+    // o pedaço em que ele cai (o mais perto) e onde nele
+    let s = null, b = null, dm = Infinity;
+    for (const x of l) {
+      pertoNoTriangulo(q, v3(x[0]), v3(x[1]), v3(x[2]), bar);
+      const d = v3(x[0]).multiplyScalar(bar.x).add(v3(x[1]).multiplyScalar(bar.y)).add(v3(x[2]).multiplyScalar(bar.z)).distanceToSquared(q);
+      if (d < dm) { dm = d; s = x; b = [bar.x, bar.y, bar.z]; }
+    }
+    if (s.some((p) => mesmo(p, V))) continue;
+    const beira = b.map((x) => x < NA_BEIRA), nb = beira.filter(Boolean).length;
+    if (nb >= 2) continue;   // num canto: já é um vértice
+    if (!nb) { l.splice(l.indexOf(s), 1, [s[0], s[1], V], [s[1], s[2], V], [s[2], s[0], V]); continue; }
+    // numa ARESTA (a oposta ao canto de baricêntrica ~0): os dois lados dela viram 2
+    const k = beira.indexOf(true), pc = s[k], pa = s[(k + 1) % 3], pb = s[(k + 2) % 3];
+    l.splice(l.indexOf(s), 1, [pa, V, pc], [V, pb, pc]);
+    const o = vizinho(pa, pb);
+    if (o) { const qb = o.s[o.k], qa = o.s[(o.k + 1) % 3], pr = o.s[(o.k + 2) % 3]; o.l.splice(o.l.indexOf(o.s), 1, [qb, V, pr], [V, qa, pr]); }
+  }
+  const novos = [], cortes = [], m = new THREE.Vector3();
+  for (const [t, l] of pedacos) {
+    if (l.length < 2) continue;
+    meioNoModelo(t, ctx, m);
+    cortes.push({ de: ORIGENS[ctx.origem[t * 3]], em: [m.x, m.y, m.z] });
+    for (const s of l) novos.push({ cantos: s, umLado: true, n: -1 });
+  }
+  return novos.length ? { novos, cortes } : null;
+}
+
+// os cantos de cada triângulo criado, na malha de agora (`novos`: cada um com `n`, o número dele na
+// lista do dono, −1 nos pedaços dos vértices criados, e `umLado`): [{ n, umLado, fonte: os
 // vértices que dão pesos/cor/UV, pos: 9 números, antes: 9 números (no modelo) }] — ou null
 function resolverNovos(geo, novos, ctx, P) {
   const lista = [];
-  novos.forEach((x, n) => {
+  novos.forEach((x) => {
+    const n = x.n, umLado = !!x.umLado;
     if (!Array.isArray(x?.cantos) || x.cantos.length !== 3 || !x.cantos.every((c) => Array.isArray(c?.em) && c.em.length === 3)) return;
     for (const lado of x.espelho ? [false, true] : [false]) {
       const fonte = [], pos = [], antes = [];
       for (const c of x.cantos) {
-        const l = lugarNoModelo(c, geo, ctx, lado);
+        // (o pedaço de um vértice criado já sabe o vértice, ou o lugar, de cada canto)
+        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : c.lugar ?? lugarNoModelo(c, geo, ctx, lado);
         if (!l) break;
         const [i, j, k, u, v, s] = l;
         fonte.push(u >= v && u >= s ? i : v >= s ? j : k);
         for (let e = 0; e < 3; e++) pos.push(P[i * 3 + e] * u + P[j * 3 + e] * v + P[k * 3 + e] * s);
         antes.push(lado ? -c.em[0] : c.em[0], c.em[1], c.em[2]);
       }
-      if (fonte.length === 3) lista.push({ n, fonte, pos, antes });
+      // (os atributos dos vértices de onde sai — pesos, cor, UV — copiados JÁ: os cortes, logo depois, trocam
+      // os pesos do triângulo cortado, e o canto que colou num vértice dele andava com o osso errado ao animar)
+      const copia = fonte.length === 3 ? Object.fromEntries(Object.entries(geo.attributes).map(([nome, at]) => [nome, fonte.map((f) => at.array.slice(f * at.itemSize, (f + 1) * at.itemSize))])) : null;
+      if (fonte.length === 3) lista.push({ n, fonte, pos, antes, umLado, copia });
     }
   });
   return lista.length ? lista : null;
@@ -465,21 +543,24 @@ function resolverNovos(geo, novos, ctx, P) {
  */
 export function acrescentarTriangulos(geo, ctx) {
   if (!ctx?.novos || geo.index) return geo;
-  // (cada um DUAS vezes, uma de cada lado: as duas faces)
-  const l = ctx.novos.flatMap((t) => [t, t]);
+  // (cada um DUAS vezes, uma de cada lado: as duas faces — menos os pedaços dos vértices criados,
+  // que trocam um triângulo do corpo e ficam na volta dele)
+  const dq = ctx.novos.flatMap((t, q) => (t.umLado ? [q] : [q, q])), l = dq.map((q) => ctx.novos[q]);
   const n0 = geo.attributes.position.count, k = l.length * 3, g = new THREE.BufferGeometry();
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
-  const ordens = l.map((_, q) => (q % 2 ? [0, 2, 1] : [0, 1, 2]));
+  const ordens = dq.map((q, i) => (i > 0 && dq[i - 1] === q ? [0, 2, 1] : [0, 1, 2]));
   for (const [nome, at] of Object.entries(geo.attributes)) {
     const s = at.itemSize, arr = new at.array.constructor((n0 + k) * s);
     arr.set(at.array);
-    l.forEach((t, q) => ordens[q].forEach((o, e) => arr.set(at.array.subarray(t.fonte[o] * s, (t.fonte[o] + 1) * s), (n0 + q * 3 + e) * s)));
+    l.forEach((t, q) => ordens[q].forEach((o, e) => arr.set(t.copia?.[nome]?.[o] ?? at.array.subarray(t.fonte[o] * s, (t.fonte[o] + 1) * s), (n0 + q * 3 + e) * s)));
     g.setAttribute(nome, new THREE.BufferAttribute(arr, s, at.normalized));
   }
   const P = g.attributes.position.array, N = g.attributes.normal?.array;
   const origem = new Uint8Array(n0 + k), antes = new Float32Array((n0 + k) * 3), base = ctx.base ? new Float32Array((n0 + k) * 3) : null;
   origem.set(ctx.origem); antes.set(ctx.antes); base?.set(ctx.base);
-  const criado = new Uint8Array(n0 + k).fill(1, n0);
+  // (1 = criado pelo dono, 2 = pedaço de um triângulo dividido por um vértice criado)
+  const criado = new Uint8Array(n0 + k);
+  l.forEach((t, q) => criado.fill(t.n < 0 ? 2 : 1, n0 + q * 3, n0 + q * 3 + 3));
   l.forEach((t, q) => {
     ordens[q].forEach((o, e) => {
       const v = n0 + q * 3 + e;
@@ -492,7 +573,7 @@ export function acrescentarTriangulos(geo, ctx) {
     b.cross(c).normalize();
     if (N) for (let e = 0; e < 3; e++) N.set([b.x, b.y, b.z], v + e * 3);
   });
-  Object.assign(ctx, { origem, antes, ...(base ? { base } : {}), novosDe: n0, novosQuem: l.map((t) => t.n), ordensNovos: ordens, criado });
+  Object.assign(ctx, { origem, antes, ...(base ? { base } : {}), novosDe: n0, novosQuem: l.map((t) => t.n), ordensNovos: ordens, novosDoTri: dq, criado });
   g.userData = geo.userData;
   geo.dispose();
   return g;
