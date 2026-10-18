@@ -405,7 +405,10 @@ const PERTO_DO_CORTE = 0.02;
 // some com os triângulos de `cortes` (só na malha SEM índice: cada triângulo tem os seus vértices)
 function cortarTriangulos(geo, cortes, ctx, mexeu) {
   if (geo.index || !ctx.antes) return;
-  const P = geo.attributes.position.array, nt = geo.attributes.position.count / 3;
+  // (os CRIADOS nunca: quem troca um triângulo ruim corta-o e cria outro nos MESMOS cantos — o mesmo
+  // meio. No jogo os cortes vêm antes de eles entrarem; na vista da aba, que já os tem, o corte os
+  // apagava, e o triângulo novo aparecia no boneco e sumia na edição)
+  const P = geo.attributes.position.array, nt = ctx.novosDe != null ? ctx.novosDe / 3 : geo.attributes.position.count / 3;
   const si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
   // (uma grade de 1 cm com os cortes: cada triângulo só confere os da casa dele)
   const grade = new Map(), casa = (x, y, z) => `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
