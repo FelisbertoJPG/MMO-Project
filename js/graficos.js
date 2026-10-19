@@ -83,14 +83,44 @@ export const QUALIDADES = {
     sombra: null, tipoSombra: THREE.BasicShadowMap, sol: null,
     luzes: 2, luzesFora: 1, filtroDeCor: false, particulas: 0.3, capim: 8, capimRaio: 3,
     nuvens: 2, reflexoS: 30, clarao: false,
-    impostor: 35, limiarPx: 6, alcance: 70,
+    impostor: 15, limiarPx: 6, alcance: 70,   // (15 m desde 19/10/2026: era 35)
   },
 };
+
+/**
+ * A SOMBRA DO SOL SOME AOS POUCOS NA BORDA (19/10/2026). A caixa da sombra do sol anda com o
+ * jogador (`sol.raio` m para cada lado): o que saía dela perdia a sombra de uma vez — andando,
+ * a borda das sombras "cortava" no chão. Aqui, no `getShadow` do three.js (o da luz direcional;
+ * a da tocha é o `getPointShadow`, que não muda), a sombra clareia do último quarto da caixa até
+ * a borda. Vale para todo material compilado depois (este módulo carrega antes de tudo).
+ */
+{
+  const ch = THREE.ShaderChunk.shadowmap_pars_fragment, ini = ch.indexOf('float getShadow( sampler2D');
+  const fim = 'return mix( 1.0, shadow, shadowIntensity );', k = ch.indexOf(fim, ini);
+  if (ini >= 0 && k >= 0) {
+    THREE.ShaderChunk.shadowmap_pars_fragment = ch.slice(0, k) + `vec2 bordaDaSombra = abs( shadowCoord.xy * 2.0 - 1.0 );
+		float someNaBorda = smoothstep( 0.72, 0.97, max( bordaDaSombra.x, bordaDaSombra.y ) );
+		return mix( 1.0, shadow, shadowIntensity * ( 1.0 - someNaBorda ) );` + ch.slice(k + fim.length);
+  } else console.warn('graficos.js: o getShadow do three.js mudou — a sombra do sol não some aos poucos na borda');
+}
 
 const CHAVE = 'masmorra:graficos';
 const CHAVE_AUTO = 'masmorra:resolucao-auto';
 const CHAVE_FIXA = 'masmorra:resolucao';      // a resolução escolhida à mão (fração de 0 a 1)
 const CHAVE_SOMBRAS = 'masmorra:sombras';
+const CHAVE_DISTANCIA = 'masmorra:distancia';   // a distância de carregamento escolhida à mão (m)
+const CHAVE_DINAMICO = 'masmorra:dinamico';     // o carregamento dinâmico ligado ou não
+/**
+ * AS OPÇÕES AVANÇADAS (19/10/2026; menu de pausa → Qualidade Gráfica → Opções avançadas).
+ * A DISTÂNCIA DE CARREGAMENTO: até onde árvores, arbustos e plantas são o modelo de verdade
+ * (além, o cartaz — lod.js); por cima do `impostor` da qualidade, de `DISTANCIAS[0]` a `DIST_MAX`
+ * (o limite seguro: além de 80 m o cartaz já mal se distingue do modelo, e os triângulos crescem
+ * com o quadrado da distância). O CARREGAMENTO DINÂMICO: as passagens suaves (o pontilhado
+ * modelo ↔ cartaz, o capim encolhendo, a sombra da árvore que já é cartaz); desligado, tudo troca
+ * de uma vez — um pouco mais leve na placa, para a máquina que não aguenta.
+ */
+export const DISTANCIAS = [20, 30, 40, 50, 60, 80];
+const DIST_MAX = 80;
 /** As resoluções que o menu de pausa oferece (fração da resolução da qualidade). */
 export const RESOLUCOES = [1, 0.85, 0.7, 0.55, 0.4];
 
@@ -178,6 +208,9 @@ export class Graficos {
     // Com a CPU freada 4× no mesmo lugar: 29,6 → 41 quadros/s sem as sombras (de dia, com a do sol,
     // 27 → 41); Alto, Médio e Baixo quase não mudam a CPU — o que muda é a sombra.
     try { const s = localStorage.getItem(CHAVE_SOMBRAS); this.sombras = s ? s !== 'nao' : !toque; } catch { this.sombras = !toque; }
+    this.distancia = null;   // null = a da qualidade
+    try { const d = Number(localStorage.getItem(CHAVE_DISTANCIA)); if (DISTANCIAS.includes(d)) this.distancia = d; } catch { }
+    try { this.dinamico = localStorage.getItem(CHAVE_DINAMICO) !== 'nao'; } catch { this.dinamico = true; }
     this.res = { ini: 0, quadros: 0, baixos: 0, altos: 0, esperaAte: 0 };
   }
 
@@ -200,6 +233,24 @@ export class Graficos {
 
   /** Há sombra nesta qualidade (o Baixo não tem) e o jogador não a desligou? */
   get comSombras() { return this.sombras && !!this.q.sombra; }
+
+  /** Até onde a vegetação é o modelo (m): a escolhida à mão ou a da qualidade (lod.js). */
+  get distanciaDeCarga() { return Math.min(DIST_MAX, this.distancia ?? this.q.impostor ?? 110); }
+
+  /** A distância de carregamento à mão (`null` = a da qualidade). O LOD a lê a cada quadro. */
+  escolherDistancia(v) {
+    this.distancia = DISTANCIAS.includes(v) ? v : null;
+    try { if (this.distancia) localStorage.setItem(CHAVE_DISTANCIA, String(this.distancia)); else localStorage.removeItem(CHAVE_DISTANCIA); } catch { }
+    this.game.monitor?.evento(`distância de carregamento ${this.distanciaDeCarga} m${this.distancia ? '' : ' (a da qualidade)'}`);
+  }
+
+  /** O carregamento dinâmico ligado ou não (lod.js e capim.js o leem a cada quadro). */
+  alternarDinamico(ligar = !this.dinamico) {
+    if (ligar === this.dinamico) return;
+    this.dinamico = ligar;
+    try { localStorage.setItem(CHAVE_DINAMICO, ligar ? 'sim' : 'nao'); } catch { }
+    this.game.monitor?.evento(`carregamento dinâmico ${ligar ? 'ligado' : 'desligado'}`);
+  }
 
   /** Liga ou desliga as sombras (menu de pausa). Muda os shaders: recompila e desenha uma vez, como a troca de qualidade. */
   alternarSombras(ligar = !this.sombras) {

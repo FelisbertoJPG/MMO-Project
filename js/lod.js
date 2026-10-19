@@ -30,7 +30,9 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 
 export const VISTAS = 8;
-const RES = 256;   // pixels de cada foto (a textura é VISTAS × RES de largura)
+const RES = 256;   // pixels de cada foto da ÁRVORE (a textura é VISTAS × RES de largura); a peça pequena tem menos (`resDaFoto`)
+/** A resolução de cada foto pelo tamanho da peça (m): árvore 256, arbusto 128, flor e tufo 64. */
+const resDaFoto = (lado) => (lado >= 5 ? RES : lado >= 1.5 ? RES / 2 : RES / 4);
 const VER_DENTRO_DE_FORA = 40, VER_FORA_DE_DENTRO = 60;
 const SOLTA_LONGE = 130;        // peça solta do cenário (fogueira, tocha, baú, porta) mais longe que isto não é desenhada
 const PERSONAGEM_LONGE = 110;   // personagem (inimigo, animal) mais longe que isto não é desenhado
@@ -82,9 +84,10 @@ export function vestirTroca(m) {
   return m;
 }
 
-/** As peças que viram impostor ao longe: as árvores (o toco não) e, desde 19/10/2026, os
- *  arbustos `lp-Bush_*` — ~140 mil triângulos do acampamento, todos desenhados até o horizonte. */
-export const viraImpostor = (prop) => /Tree(?!Stump)|Bush/.test(prop);
+/** As peças que viram impostor ao longe: as árvores (o toco não), os arbustos `lp-Bush_*` e,
+ *  desde 19/10/2026 (mesmo dia), a vegetação miúda — flores, juncos, trigo (`gi-`), os tufos
+ *  `Grass_*`, plantas e samambaias: ~2.700 cópias que trocavam de uma vez por região de 48 m. */
+export const viraImpostor = (prop) => /Tree(?!Stump)|Bush|^gi-|(^|-)Grass|Flower|Plant|Fern/.test(prop);
 
 /**
  * As fotos de uma árvore: `VISTAS` vistas em volta, de lado, numa câmera ortográfica que
@@ -99,7 +102,7 @@ function assarImpostor(renderer, prop) {
   const caixa = new THREE.Box3().setFromObject(fonte);
   const raioH = Math.max(-caixa.min.x, caixa.max.x, -caixa.min.z, caixa.max.z);
   const lado = Math.max(2 * raioH, caixa.max.y - caixa.min.y) * 1.02;
-  const base = caixa.min.y;
+  const base = caixa.min.y, res = resDaFoto(lado);
   // a cena da COR: luz ambiente pura de força π — o material de pé (MeshStandard) devolve a própria cor
   const cenaCor = new THREE.Scene();
   cenaCor.add(fonte.clone(true));
@@ -126,7 +129,7 @@ function assarImpostor(renderer, prop) {
     if (o.material.length === 1) o.material = o.material[0];
   });
   cenaNormal.add(copia);
-  const novoAlvo = (colorSpace) => new THREE.WebGLRenderTarget(RES * VISTAS, RES, {
+  const novoAlvo = (colorSpace) => new THREE.WebGLRenderTarget(res * VISTAS, res, {
     samples: 4, generateMipmaps: true, colorSpace,
     minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter,
   });
@@ -142,8 +145,8 @@ function assarImpostor(renderer, prop) {
       const t = (i / VISTAS) * Math.PI * 2;
       cam.position.set(Math.sin(t) * lado * 2, base + meio, Math.cos(t) * lado * 2);
       cam.lookAt(0, base + meio, 0);
-      alvo.viewport.set(i * RES, 0, RES, RES);
-      alvo.scissor.set(i * RES, 0, RES, RES);
+      alvo.viewport.set(i * res, 0, res, res);
+      alvo.scissor.set(i * res, 0, res, res);
       renderer.setRenderTarget(alvo);
       renderer.clear();
       renderer.render(cena, cam);
@@ -242,7 +245,7 @@ export function reescreverLote(l, tudo = false) {
   const im = l.im;
   if (!im) return;
   let n = 0;
-  for (const c of l.copias) if (tudo || (c.g.visivel && !c.cortada && !c.longe)) im.setMatrixAt(n++, c.m);
+  for (const c of l.copias) if (tudo || (c.g.visivel && !c.cortada && !c.longe && !c.oculta)) im.setMatrixAt(n++, c.m);
   im.count = n;
   im.visible = n > 0;
   im.instanceMatrix.needsUpdate = true;
@@ -298,20 +301,23 @@ export class LOD {
       g.copias = [];
     }
     for (const l of lotes) for (const c of l.copias) {
-      if (!c.g.cartaz) continue;
       c.l = l; c.p = new THREE.Vector3().setFromMatrixPosition(c.m);
-      c.longe = false; c.comSombra = false;
-      c.g.copias.push(c);
+      c.longe = false; c.comSombra = false; c.oculta = false;
+      (c.g.copias ??= []).push(c);
+      if (l.sombra) c.g.projeta = true;
     }
   }
 
   /** Todo quadro: o que está longe vira cartaz; o detalhe pequeno longe some. */
   update(camera) {
     const q = this.world.game.graficos?.q ?? {};
-    const D = q.impostor ?? 110, limiar = q.limiarPx ?? 2, A = q.alcance ?? Infinity;
+    // a distância e o "dinâmico" das OPÇÕES AVANÇADAS (graficos.js); desligado, a troca é seca
+    // (sem a faixa da passagem) e a árvore que é cartaz não projeta sombra
+    const G = this.world.game.graficos, D = G?.distanciaDeCarga ?? q.impostor ?? 110, dinamico = G?.dinamico !== false;
+    const limiar = q.limiarPx ?? 2, A = q.alcance ?? Infinity, banda = dinamico ? BANDA : 0;
     // até onde a árvore que virou cartaz ainda projeta a sombra do sol: a caixa dela é um
     // quadrado de `raio` em volta do jogador (o canto a √2·raio), e a câmera fica atrás dele
-    const sol = q.sol && this.world.game.graficos?.sombras !== false ? q.sol.raio * 1.45 + 6 : 0;
+    const sol = dinamico && q.sol && G?.sombras !== false ? q.sol.raio * 1.45 + 6 : 0;
     const H = this.world.game.renderer.domElement.clientHeight || innerHeight;
     // (a câmera isométrica — player.js — vê de longe com lente estreita; ela diz de onde uma
     // câmera comum veria, e com que lente: as distâncias e os pixels saem iguais)
@@ -319,16 +325,16 @@ export class LOD {
     const p = camera.userData.vistaDe ?? camera.position;
     const fora = (this.world.ambience?.k ?? 0) > 0.5;
     TROCA.uTrocaVista.value.copy(p);
-    TROCA.uTrocaPerto.value = D - BANDA;
+    TROCA.uTrocaPerto.value = D - Math.max(banda, 0.01);
     TROCA.uTrocaLonge.value = D;
     this.world.ambience?.lua?.shadow.camera.layers.enable(CAMADA_SOMBRA);
     // SÓ QUANDO A CÂMERA ANDOU 1 m (15/10/2026): as ~1.300 contas de distância eram 2–3 ms por
     // quadro com a CPU freada 8× (um celular fraco), parado ou só girando a câmera. As trocas
     // têm folga de 5–10 m: 1 m de atraso não se vê
     const u = this.ultimo;
-    if (!u || u.p.distanceToSquared(p) > 1 || u.fora !== fora || u.D !== D || u.limiar !== limiar || u.foco !== foco || u.A !== A || u.sol !== sol) {
-      this.ultimo = { p: p.clone(), fora, D, limiar, foco, A, sol };
-      this.grupos_(p, fora, D, limiar, foco, A, sol);
+    if (!u || u.p.distanceToSquared(p) > 1 || u.fora !== fora || u.D !== D || u.limiar !== limiar || u.foco !== foco || u.A !== A || u.sol !== sol || u.banda !== banda) {
+      this.ultimo = { p: p.clone(), fora, D, limiar, foco, A, sol, banda };
+      this.grupos_(p, fora, D, limiar, foco, A, sol, banda);
     }
     // (fora do "andou 1 m": o pré-aquecimento suja os cartazes com a câmera parada)
     for (const c of this.cartazes.values()) {
@@ -345,10 +351,10 @@ export class LOD {
   }
 
   /** As três regras de cada grupo da decoração (o cartaz, o outro lado, o detalhe pequeno). */
-  grupos_(p, fora, D, limiar, foco, A = Infinity, sol = 0) {
+  grupos_(p, fora, D, limiar, foco, A = Infinity, sol = 0, banda = BANDA) {
     // a árvore: cartaz a partir do começo da faixa da passagem, modelo até o fim dela, e o modelo
     // só de sombra até onde a sombra do sol alcança (com folga: a vista anda até 1 m sem refazer)
-    const cartazDe = D - BANDA - FOLGA, modeloAte = D + FOLGA, sombraAte = Math.max(modeloAte, sol);
+    const cartazDe = D - banda - FOLGA, modeloAte = D + FOLGA, sombraAte = Math.max(modeloAte, sol);
     for (const g of this.grupos) {
       const d = Math.max(0, g.centro.distanceTo(p) - g.raio);
       // as três regras, cada uma com folga para quem anda na divisa não ficar trocando (sem
@@ -361,7 +367,7 @@ export class LOD {
         g.lado = lado;
         if (!lado !== g.visivel) { g.visivel = !lado; for (const l of g.lotes) this.sujos.add(l); }
         // o grupo inteiro longe de tudo: só cartaz (e, já assim, nada a refazer)
-        const todoLonge = d > sombraAte + 1;
+        const todoLonge = d > (g.projeta ? sombraAte : modeloAte) + 1;
         if (lado || (todoLonge && g.todoLonge)) continue;
         g.todoLonge = todoLonge;
         g.longe = false;
@@ -376,11 +382,25 @@ export class LOD {
         }
         continue;
       }
-      const oculto = g.oculto ? d > g.raioPeca * foco / limiar * 0.9 : d > g.raioPeca * foco / limiar;
-      if (lado === g.lado && oculto === g.oculto) continue;
-      g.lado = lado; g.oculto = oculto;
-      const visivel = !lado && !oculto;
-      if (visivel !== g.visivel) { g.visivel = visivel; for (const l of g.lotes) this.sujos.add(l); }
+      // O DETALHE PEQUENO some CÓPIA POR CÓPIA (19/10/2026): pelo grupo (48 m), a pedrinha a
+      // 60 m sumia junto com a de 100 m. O grupo inteiro além do limite some como antes; o que
+      // está na divisa decide cópia por cópia — cada uma some quando fica com `limiar` px, onde
+      // a troca não se vê
+      const ate = g.raioPeca * foco / limiar;
+      const oculto = g.oculto ? d > ate * 0.9 : d > ate;
+      if (lado !== g.lado || oculto !== g.oculto) {
+        g.lado = lado; g.oculto = oculto;
+        const visivel = !lado && !oculto;
+        if (visivel !== g.visivel) { g.visivel = visivel; for (const l of g.lotes) this.sujos.add(l); }
+      }
+      if (!g.visivel) continue;
+      const divisa = d + 2 * g.raio > ate * 0.9;
+      if (!divisa && !g.divisa) continue;
+      g.divisa = divisa;
+      for (const c of g.copias ?? []) {
+        const oc = divisa && (c.oculta ? c.p.distanceTo(p) > ate * 0.9 : c.p.distanceTo(p) > ate);
+        if (oc !== c.oculta) { c.oculta = oc; this.sujos.add(c.l); }
+      }
     }
     if (this.sujos.size && !this.tudo) { for (const l of this.sujos) reescreverLote(l); this.sujos.clear(); }
   }

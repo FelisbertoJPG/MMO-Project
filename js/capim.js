@@ -9,7 +9,8 @@
  * mesma cor e não aparece. Em vez de sorteio (que deixa buraco aqui e amontoa ali), uma GRADE
  * fina com desvio cobre a célula inteira, cada touceira mais larga que o passo (uma entra na
  * outra). Só em volta do jogador (`RAIO` células); longe dele a grade abre e as touceiras
- * crescem na mesma proporção. O vento é do shader (a ponta anda numa onda que corre pelo
+ * crescem na mesma proporção — SEM DEGRAU desde 19/10/2026 (ver `ventoENormal` e `update`).
+ * O vento é do shader (a ponta anda numa onda que corre pelo
  * mundo; o pé fica parado) e não custa CPU. Sobe o relevo (`alturaChao`); não nasce sobre
  * peça que não é natureza (`podeCapim`) nem nos caminhos de terra (`caminhoEm`).
  *
@@ -25,9 +26,25 @@ const RAIO = 6;   // células em volta do jogador (~36 m)
 const DENSIDADE_MAX = 90;   // o teto do `capim` da qualidade (o Alto usa 40)
 // a grade e as folhas de GEOMETRIA
 const PASSO_MIN = 0.3;            // a grade mais fina do tapete (m), no Alto
-const NIVEIS = [1, 1.5, 2.2];     // longe do jogador, a grade abre (e as touceiras crescem junto)
-const PERTO = [2, 4];             // até quantas células vale cada nível (depois, o último)
 const FOLHAS = 6;                 // folhas por touceira
+/**
+ * O CAPIM SEM DEGRAU (19/10/2026). Eram três grades (perto, meio, longe) trocadas por CÉLULA
+ * de 6 m: a ~13 e a ~25 m a célula inteira trocava de touceiras de uma vez, e na borda (~39 m)
+ * o tapete entrava e saía em quadrados — andando, o capim "pipocava". Agora é UMA grade (a fina),
+ * e cada touceira tem a sua SORTE (0–1). A densidade cai com a distância (`densidade`: 1 até
+ * ¼ do raio, `LONGE` a ¾, zero na borda): no shader, a touceira cuja sorte passa da densidade
+ * dali ENCOLHE até sumir (`FAIXA` de sorte), e as que ficam alargam na mesma proporção (a
+ * cobertura não muda); na borda todas afundam. O JS só escolhe, por célula, as touceiras que
+ * PODEM aparecer (a sorte em ordem: um começo do lote) e remonta o tapete a cada `MEXEU` metros.
+ */
+const LONGE = 1 / (2.2 * 2.2);    // a densidade longe (a grade 2,2× mais aberta de antes)
+const FAIXA = 0.1;                // a faixa de sorte em que a touceira encolhe
+const MEXEU = 2;                  // m andados para remontar o tapete (a folga das contas)
+const suave = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+/** A densidade do tapete a `d` metros do jogador (a MESMA conta do shader), com `fim` = o raio em metros. */
+function densidade(d, fim) {
+  return (1 - (1 - LONGE) * suave(fim * 0.25, fim * 0.75, d)) * (1 - suave(fim * 0.78, fim, d));
+}
 
 /**
  * A TOUCEIRA do tapete: `FOLHAS` folhas de GEOMETRIA (não é imagem recortada) — cada uma é
@@ -61,10 +78,23 @@ function geometriaDaTouceira() {
   return g;
 }
 
-/** O shader do capim: o VENTO e as duas faces com a mesma luz. */
-function ventoENormal(sh, tempo) {
+/** O shader do capim: o VENTO, as duas faces com a mesma luz e a DENSIDADE pela distância. */
+function ventoENormal(sh, tempo, u) {
   sh.uniforms.uTempo = tempo;
-  sh.vertexShader = 'uniform float uTempo;\n' + sh.vertexShader.replace('#include <project_vertex>', `
+  Object.assign(sh.uniforms, u);
+  sh.vertexShader = 'uniform float uTempo;\nuniform vec2 uCentro;\nuniform float uFim;\nuniform float uSuave;\nattribute float aSorte;\n' + sh.vertexShader.replace('#include <project_vertex>', `
+        // a DENSIDADE (a mesma conta de \`densidade\` no JS): a touceira de sorte alta encolhe
+        // longe; as que ficam alargam (a grade "abre"); na borda todas afundam
+        #ifdef USE_INSTANCING
+          float capD = distance( vec2( instanceMatrix[3].x, instanceMatrix[3].z ), uCentro );
+          float capBase = mix( 1.0, ${LONGE.toFixed(4)}, smoothstep( uFim * 0.25, uFim * 0.75, capD ) );
+          float capDens = capBase * ( 1.0 - smoothstep( uFim * 0.78, uFim, capD ) ) * ${(1 + FAIXA).toFixed(2)};
+          // (o carregamento dinâmico desligado, graficos.js: a touceira aparece de uma vez)
+          float capVer = uSuave > 0.5 ? 1.0 - smoothstep( capDens - ${FAIXA.toFixed(2)}, capDens, aSorte ) : step( aSorte, capDens - ${FAIXA.toFixed(2)} );
+          float capEsc = clamp( inversesqrt( capBase ), 1.0, 2.2 );
+          transformed.xz *= capEsc * capVer;
+          transformed.y *= capVer * ( 1.0 + ( capEsc - 1.0 ) * 0.2 );
+        #endif
         vec4 mvPosition = vec4( transformed, 1.0 );
         #ifdef USE_INSTANCING
           mvPosition = instanceMatrix * mvPosition;
@@ -90,10 +120,14 @@ export class Capim {
     this.game = game;
     this.celula = null;
     this.tempo = { value: 0 };
+    this.u = { uCentro: { value: new THREE.Vector2() }, uFim: { value: RAIO * CELL }, uSuave: { value: 1 } };
     const gp = geometriaDaTouceira();
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
-    mat.onBeforeCompile = (sh) => ventoENormal(sh, this.tempo);
-    this.maximo = (2 * RAIO + 1) ** 2 * Math.ceil(CELL / PASSO_MIN) ** 2;
+    mat.onBeforeCompile = (sh) => ventoENormal(sh, this.tempo, this.u);
+    // (uma célula a mais em volta: o jogador anda dentro da dele, e o tapete vai a `raio` METROS·CELL dele)
+    this.maximo = (2 * RAIO + 3) ** 2 * Math.ceil(CELL / PASSO_MIN) ** 2;
+    this.sorte = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo), 1);
+    gp.setAttribute('aSorte', this.sorte);
     this.tapete = new THREE.InstancedMesh(gp, mat, this.maximo);
     this.tapete.name = 'capim (capim.js)';
     this.tapete.count = 0;
@@ -108,16 +142,15 @@ export class Capim {
   get passo() { return Math.max(PASSO_MIN, Math.min(0.9, PASSO_MIN * Math.sqrt(64 / Math.max(1, this.densidade)))); }
 
   /**
-   * O tapete de UMA célula (guardado: andar uma célula só calcula as que entraram). `nivel` é
-   * a distância: longe, a grade é mais aberta e as cartas maiores na mesma proporção — a
-   * cobertura não muda e não aparece buraco, só há menos folhas.
+   * O tapete de UMA célula, na grade fina (guardado: andar só calcula as que entraram), com as
+   * touceiras EM ORDEM DE SORTE: quem pode aparecer a uma distância é sempre um começo do lote.
    */
-  celulaDoTapete(w, r, c, nivel) {
-    const chave = (r * 1024 + c) * 4 + nivel;
+  celulaDoTapete(w, r, c) {
+    const nivel = 0, chave = r * 1024 + c;
     let pronta = this.prontas.get(chave);
     if (pronta) return pronta;
-    const passo = this.passo * NIVEIS[nivel], n = Math.max(1, Math.round(CELL / passo)), real = CELL / n;
-    const mats = new Float32Array(n * n * 16), cores = new Float32Array(n * n * 3);
+    const passo = this.passo, n = Math.max(1, Math.round(CELL / passo)), real = CELL / n;
+    const mats = new Float32Array(n * n * 16), cores = new Float32Array(n * n * 3), sortes = new Float32Array(n * n);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), pos = new THREE.Vector3(), tom = new THREE.Color();
     let sem = (((r * 73856093) ^ (c * 19349663)) + nivel * 7919) >>> 0;
     const rnd = () => ((sem = (sem * 1664525 + 1013904223) >>> 0) / 4294967296);
@@ -129,7 +162,7 @@ export class Capim {
       const mancha = 0.8 + 0.4 * (0.5 + 0.5 * Math.sin(pos.x * 0.31 + Math.sin(pos.z * 0.23) * 1.7) * Math.cos(pos.z * 0.27));
       const alt = (0.3 + rnd() * 0.16) * mancha * (1 + nivel * 0.12);
       e.set(0, rnd() * Math.PI * 2, 0);
-      const v = 0.95 + rnd() * 0.1, sorte = rnd();
+      const v = 0.95 + rnd() * 0.1, sorte = rnd(), vez = rnd();
       if (!w.podeCapim(pos.x, pos.z, 0.15)) continue;
       const caminho = caminhoEm(w, pos.x, pos.z);
       if (caminho > 0.25 && sorte < caminho * 1.6) continue;
@@ -140,10 +173,18 @@ export class Capim {
       m.toArray(mats, i * 16);
       corDoChao(w, pos.x, pos.z, tom).multiplyScalar(v * 1.12);
       cores[i * 3] = tom.r; cores[i * 3 + 1] = tom.g; cores[i * 3 + 2] = tom.b;
+      sortes[i] = vez;
       i++;
     }
-    pronta = { n: i, mats: mats.subarray(0, i * 16), cores: cores.subarray(0, i * 3) };
-    if (this.prontas.size > 900) this.prontas.clear();   // andou muito: recomeça (as de perto voltam já)
+    // em ordem de sorte
+    const ordem = Array.from({ length: i }, (_, k) => k).sort((a, b) => sortes[a] - sortes[b]);
+    pronta = { n: i, mats: new Float32Array(i * 16), cores: new Float32Array(i * 3), sortes: new Float32Array(i) };
+    ordem.forEach((k, j) => {
+      pronta.mats.set(mats.subarray(k * 16, k * 16 + 16), j * 16);
+      pronta.cores.set(cores.subarray(k * 3, k * 3 + 3), j * 3);
+      pronta.sortes[j] = sortes[k];
+    });
+    if (this.prontas.size > 400) this.prontas.clear();   // andou muito: recomeça (as de perto voltam já)
     this.prontas.set(chave, pronta);
     return pronta;
   }
@@ -160,27 +201,41 @@ export class Capim {
   update(dt) {
     this.tempo.value += dt;
     const w = this.game.world, p = this.game.player.pos;
+    const R = this.raio, fim = R * CELL;
+    // o shader segue o jogador TODO quadro (a densidade anda junto, sem degrau)
+    this.u.uCentro.value.set(p.x, p.z);
+    this.u.uFim.value = fim;
+    this.u.uSuave.value = this.game.graficos?.dinamico === false ? 0 : 1;
+    // o tapete (quem PODE aparecer) só a cada `MEXEU` metros — as contas têm essa folga
+    const u = this.celula, chave = `${this.densidade},${R}`;
+    if (u && u.chave === chave && Math.hypot(p.x - u.x, p.z - u.z) < MEXEU) return;
+    this.celula = { chave, x: p.x, z: p.z };
     const [r0, c0] = w.cellOf(p);
-    const R = this.raio, chave = `${r0},${c0},${this.densidade},${R}`;
-    if (chave === this.celula) return;
-    this.celula = chave;
     let j = 0;
     if (this.densidade > 0) {
-      for (let r = r0 - R; r <= r0 + R; r++) {
-        for (let c = c0 - R; c <= c0 + R; c++) {
+      for (let r = r0 - R - 1; r <= r0 + R + 1; r++) {
+        for (let c = c0 - R - 1; c <= c0 + R + 1; c++) {
           if (w.ch(r, c) !== 'f') continue;
-          const dist = Math.hypot(r - r0, c - c0);
-          if (dist > R + 0.5) continue;
-          const t = this.celulaDoTapete(w, r, c, dist <= PERTO[0] ? 0 : dist <= PERTO[1] ? 1 : 2);
-          if (j + t.n > this.maximo) continue;
-          this.tapete.instanceMatrix.array.set(t.mats, j * 16);
-          this.tapete.instanceColor.array.set(t.cores, j * 3);
-          j += t.n;
+          // o ponto da célula mais perto do jogador
+          const dx = Math.max(0, Math.abs(p.x - c * CELL) - CELL / 2), dz = Math.max(0, Math.abs(p.z - r * CELL) - CELL / 2);
+          const dMin = Math.max(0, Math.hypot(dx, dz) - MEXEU);
+          if (dMin >= fim) continue;
+          const t = this.celulaDoTapete(w, r, c);
+          // as que podem aparecer: sorte abaixo da densidade dali (a maior da célula)
+          const ate = densidade(dMin, fim) * (1 + FAIXA);
+          let n = 0, hi = t.n;
+          while (n < hi) { const m = (n + hi) >> 1; if (t.sortes[m] < ate) n = m + 1; else hi = m; }
+          if (!n || j + n > this.maximo) continue;
+          this.tapete.instanceMatrix.array.set(t.mats.subarray(0, n * 16), j * 16);
+          this.tapete.instanceColor.array.set(t.cores.subarray(0, n * 3), j * 3);
+          this.sorte.array.set(t.sortes.subarray(0, n), j);
+          j += n;
         }
       }
     }
     this.tapete.count = j;
     this.tapete.instanceMatrix.needsUpdate = true;
     this.tapete.instanceColor.needsUpdate = true;
+    this.sorte.needsUpdate = true;
   }
 }

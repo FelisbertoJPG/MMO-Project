@@ -235,7 +235,16 @@
         <div id="resolucao-opcao"><span>Resolução</span><button data-res="auto" title="Quando o jogo pesa, desenha com menos pixels (um pouco menos nítido) e volta quando sobra">Automática</button><button data-res="1">100%</button><button data-res="0.85">85%</button><button data-res="0.7">70%</button><button data-res="0.55">55%</button><button data-res="0.4">40%</button></div>
         <!-- as sombras (a do sol e a da tocha): graficos.js -->
         <div id="sombras-opcao"><span>Sombras</span><button data-sombras="sim">Ligadas</button><button data-sombras="nao">Desligadas</button></div>
+        <button class="pausa-largo" data-abre="avancado">Opções avançadas</button>
         <button class="pausa-voltar" data-volta="menu">‹ Voltar</button>
+      </div>
+      <div class="pausa-tela hidden" data-tela="avancado">
+        <!-- as opções avançadas (graficos.js: escolherDistancia, alternarDinamico; quem usa: lod.js e capim.js) -->
+        <div id="distancia-opcao" class="pausa-opcao"><span>Distância de carregamento</span><button data-dist="padrao">Padrão</button><button data-dist="20">20 m</button><button data-dist="30">30 m</button><button data-dist="40">40 m</button><button data-dist="50">50 m</button><button data-dist="60">60 m</button><button data-dist="80">80 m</button></div>
+        <p class="pausa-nota">Até onde árvores, arbustos e plantas aparecem com o modelo completo; mais longe, viram imagem. Menos distância = mais leve.</p>
+        <div id="dinamico-opcao" class="pausa-opcao"><span>Carregamento dinâmico</span><button data-dinamico="sim">Ligado</button><button data-dinamico="nao">Desligado</button></div>
+        <p class="pausa-nota">Ligado: a troca entre modelo e imagem, o capim e as sombras de longe aparecem aos poucos. Desligado: trocam de uma vez (um pouco mais leve, para computador fraco).</p>
+        <button class="pausa-voltar" data-volta="graficos">‹ Voltar</button>
       </div>
       <div class="pausa-tela hidden" data-tela="controles">
         <div class="controls small">

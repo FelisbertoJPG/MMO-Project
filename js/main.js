@@ -328,6 +328,13 @@ class Game {
       b.disabled = !G.q.sombra;
       b.classList.toggle('ativo', (b.dataset.sombras === 'sim') === G.comSombras);
     }
+    // a distância de carregamento: "Padrão" diz a da qualidade
+    for (const b of document.querySelectorAll('#distancia-opcao button')) {
+      const padrao = b.dataset.dist === 'padrao';
+      b.classList.toggle('ativo', padrao ? !G.distancia : G.distancia === Number(b.dataset.dist));
+      if (padrao) b.textContent = `Padrão (${Math.min(80, G.q.impostor ?? 110)} m)`;
+    }
+    for (const b of document.querySelectorAll('#dinamico-opcao button')) b.classList.toggle('ativo', (b.dataset.dinamico === 'sim') === G.dinamico);
   }
 
   /** Grava o progresso (ver `save.js`): `{aoSair}` = a página está fechando; `{nuvem}` = já, na nuvem. */
@@ -456,6 +463,13 @@ class Game {
     for (const b of document.querySelectorAll('#sombras-opcao button')) {
       b.addEventListener('click', () => { this.graficos.alternarSombras(b.dataset.sombras === 'sim'); this.marcarGraficos(); });
     }
+    // as OPÇÕES AVANÇADAS (graficos.js): a distância de carregamento e o carregamento dinâmico
+    for (const b of document.querySelectorAll('#distancia-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.escolherDistancia(b.dataset.dist === 'padrao' ? null : Number(b.dataset.dist)); this.marcarGraficos(); });
+    }
+    for (const b of document.querySelectorAll('#dinamico-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.alternarDinamico(b.dataset.dinamico === 'sim'); this.marcarGraficos(); });
+    }
     // O MENU DE PAUSA EM TELAS (16/10/2026): a principal (Continuar, Qualidade Gráfica, Aparência,
     // Controles, Interface, Sair) e uma tela por opção; "‹ Voltar" e o Esc voltam um passo
     for (const b of document.querySelectorAll('#pause [data-abre]')) b.addEventListener('click', () => this.telaDaPausa(b.dataset.abre));
@@ -499,7 +513,7 @@ class Game {
   telaDaPausa(nome) {
     this.pausaTela = nome;
     for (const t of document.querySelectorAll('#pause .pausa-tela')) t.classList.toggle('hidden', t.dataset.tela !== nome);
-    const TITULOS = { menu: 'Pausado', graficos: 'Qualidade Gráfica', controles: 'Controles', interface: 'Interface', voz: 'Chat de voz' };
+    const TITULOS = { menu: 'Pausado', graficos: 'Qualidade Gráfica', avancado: 'Opções avançadas', controles: 'Controles', interface: 'Interface', voz: 'Chat de voz' };
     document.getElementById('pausa-titulo').textContent = TITULOS[nome] ?? 'Pausado';
     // as coordenadas (e a hora) só na tela principal
     document.getElementById('coordenadas').classList.toggle('hidden', nome !== 'menu');
