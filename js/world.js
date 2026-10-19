@@ -6,7 +6,7 @@ import { corDoChao, texturaDoChao, REPETE_CHAO, montarCaminhos, terreiro } from 
 import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
 import { ITEMS, RARIDADES, raridadeDe } from './items.js';
 import { makeWeapon } from './gear.js';
-import { LOD, reescreverLote } from './lod.js';
+import { LOD, reescreverLote, viraImpostor, vestirTroca, CAMADA_SOMBRA } from './lod.js';
 import { fragmentos } from './fratura.js';
 import { vestirVeu } from './veu.js';
 import { montarExpositores } from './expositor.js';
@@ -1275,7 +1275,7 @@ export class World {
    * decor), essa peça tem de ficar fora dos lotes.
    */
   agruparDecoracao(pecas) {
-    // O LADO da região: 24 m para as ÁRVORES (o cartaz de longe troca por grupo: com grupos
+    // O LADO da região: 24 m para as ÁRVORES e os arbustos (o que vira cartaz: ele troca por grupo; com grupos
     // grandes, a árvore de perto viraria cartaz junto com a de longe) e 48 m para o resto
     // (11/10/2026). Com 24 m para tudo, cada lote tinha ~2 cópias: numa GT 730 no Baixo, sem
     // sombra nenhuma, eram 604 chamadas de desenho e 36 ms de CPU só para montá-las (19
@@ -1293,7 +1293,7 @@ export class World {
       const malhas = [];
       raiz.traverseVisible((o) => { if (o.isMesh) malhas.push(o); });
       if (!malhas.length) continue;
-      const prop = raiz.userData.prop ?? '?', LOTE = /Tree(?!Stump)/.test(prop) ? LOTE_ARVORE : LOTE_RESTO;
+      const prop = raiz.userData.prop ?? '?', LOTE = viraImpostor(prop) ? LOTE_ARVORE : LOTE_RESTO;
       const rx = Math.floor(raiz.position.x / LOTE), rz = Math.floor(raiz.position.z / LOTE);
       // (o lado de DENTRO e o de fora da masmorra em grupos separados: o LOD esconde um ou outro
       // pelo grupo inteiro, e com a região maior a mistura na porta da masmorra crescia)
@@ -1356,8 +1356,10 @@ export class World {
     // passam a dividir UMA cópia, só deles (dividida com uma malha comum, o programa trocaria a
     // cada desenho: instanciado × não). Nada muda na tela.
     const receitas = new Map();
-    const unico = (m) => {
-      const k = receitaDoMaterial(m);
+    // `troca`: lote de ÁRVORE/ARBUSTO, com a passagem modelo ↔ cartaz (lod.js, `vestirTroca`) — num
+    // material SÓ dele (o original é o das fotos do cartaz, e o de outra peça não pode sumir)
+    const unico = (m, troca) => {
+      const k0 = receitaDoMaterial(m), k = k0 === null ? (troca ? `uuid|${m.uuid}` : null) : `${k0}|${troca}`;
       if (k === null) return vestirVeu(m);
       let r = receitas.get(k);
       if (!r) {
@@ -1366,18 +1368,19 @@ export class World {
         r.onBeforeCompile = m.onBeforeCompile; r.customProgramCacheKey = m.customProgramCacheKey;
         // o VÉU da câmera isométrica (veu.js): parado (uVeu = 0) fora dela
         vestirVeu(r);
+        if (troca) vestirTroca(r);
         receitas.set(k, r);
       }
       return r;
     };
     for (const l of lotes.values()) {
-      const { malha, copias } = l;
+      const { malha, copias } = l, troca = viraImpostor(copias[0].g.prop);
       // UMA "CASCA" DE GEOMETRIA POR LOTE (13/10/2026): os lotes da mesma peça dividiam a geometria,
       // e o three.js guarda a ligação dos atributos (o VAO) por geometria + programa — como cada
       // lote tem o SEU `instanceMatrix`, a cada desenho ele via "mudou" e religava todos os atributos
       // (o perfil de CPU com o freio de 4×, a conta de um celular: ~13% do quadro em `setup`,
       // `bindBuffer` e `vertexAttribPointer`, no quadro e de novo em cada vista da sombra)
-      const im = new THREE.InstancedMesh(cascaDaGeometria(malha.geometry), Array.isArray(malha.material) ? malha.material.map(unico) : unico(malha.material), copias.length);
+      const im = new THREE.InstancedMesh(cascaDaGeometria(malha.geometry), Array.isArray(malha.material) ? malha.material.map((x) => unico(x, troca)) : unico(malha.material, troca), copias.length);
       copias.forEach((c, i) => im.setMatrixAt(i, c.m));
       im.castShadow = l.sombra;   // (a regra está acima, na montagem dos lotes)
       im.receiveShadow = malha.receiveShadow;
@@ -1386,6 +1389,18 @@ export class World {
       parados.add(im);
       l.im = im;
       for (const c of copias) c.g.ims.add(im);
+      // A SOMBRA DA ÁRVORE QUE JÁ É CARTAZ (19/10/2026, lod.js): as mesmas cópias, só na camada
+      // que a luz do sol desenha — a câmera não as vê, então nem os vértices são pagos no quadro
+      if (troca && l.sombra) {
+        const s = new THREE.InstancedMesh(cascaDaGeometria(malha.geometry), im.material, copias.length);
+        s.name = 'sombra de cartaz';
+        s.count = 0; s.visible = false;
+        s.castShadow = true; s.receiveShadow = false;
+        s.layers.set(CAMADA_SOMBRA);
+        s.matrixAutoUpdate = false;
+        parados.add(s);
+        l.imSombra = s;
+      }
     }
     this.scene.add(parados);
     parados.updateMatrixWorld(true);

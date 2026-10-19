@@ -38,6 +38,7 @@ import { tokenValido } from './rede/supabase.js';
 import { MUNDO_PADRAO, detectarHospedagem, temSaveEmArquivo, serveOMundo } from './hospedagem.js';
 import { vigiarVersao, notaDaAtualizacao } from './versao.js';
 import { aquecerPintura } from './pintura.js';
+import './relogio.js';   // o relógio de teste (só com ?relogio no endereço)
 
 /** Onde fica guardado o endereço do servidor de mundo escolhido na tela inicial ('' = o deste jogo). */
 const CHAVE_ENDERECO = 'masmorra:mundo';

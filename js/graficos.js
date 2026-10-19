@@ -25,9 +25,11 @@ export const QUALIDADES = {
     sombra: { mapa: 512, aCada: 1 }, tipoSombra: THREE.PCFSoftShadowMap,
     // a sombra do SOL (e da lua) ao ar livre: o lado do mapa (px) e o raio em volta do jogador (m)
     sol: { mapa: 2048, raio: 42 },
-    luzes: 8, luzesFora: 4, filtroDeCor: true, particulas: 1, capim: 64,   // luzes de cenário: na masmorra / ao ar livre (world.distribuirLuzes)
+    luzes: 8, luzesFora: 4, filtroDeCor: true, particulas: 1, capim: 40,   // luzes de cenário: na masmorra / ao ar livre (world.distribuirLuzes)
     nuvens: 5, reflexoS: 4, clarao: true,   // o céu (ceu.js): oitavas das nuvens, segundos entre um reflexo e outro, o reflexo de lente do sol e da lua
-    impostor: 120, limiarPx: 1.5,   // o LOD (lod.js): a partir de quantos metros a árvore vira cartaz; peça com menos pixels de raio que isto some
+    // o LOD (lod.js): a partir de quantos metros a árvore e o arbusto viram cartaz; peça com menos pixels de raio que isto some.
+    // 40 m desde 19/10/2026 (era 120/90/65): nítido o acampamento inteiro — da fogueira à saída são ~33 m —, além disso a foto
+    impostor: 40, limiarPx: 1.5,
   },
   medio: {
     nome: 'Médio', pixelRatio: 1.25, antialias: true,
@@ -43,14 +45,14 @@ export const QUALIDADES = {
     sol: null,
     luzes: 5, luzesFora: 3, filtroDeCor: true, particulas: 0.7, capim: 34,
     nuvens: 4, reflexoS: 8, clarao: true,
-    impostor: 90, limiarPx: 2.5,
+    impostor: 40, limiarPx: 2.5,
   },
   baixo: {
     nome: 'Baixo', pixelRatio: 1, antialias: false,
     sombra: null, tipoSombra: THREE.BasicShadowMap, sol: null,
     luzes: 3, luzesFora: 2, filtroDeCor: false, particulas: 0.45, capim: 0,
     nuvens: 2, reflexoS: 20, clarao: false,
-    impostor: 65, limiarPx: 3.5,
+    impostor: 40, limiarPx: 3.5,
   },
   // O CELULAR FRACO (15/10/2026; relatório de um PowerVR GE8320 com 2 GB: 12–16 quadros/s no
   // Baixo, a CPU no limite). Ali o que pesa é a CPU, e o que o Baixo tira para poupá-la (o capim,
@@ -64,7 +66,7 @@ export const QUALIDADES = {
     sombra: null, tipoSombra: THREE.BasicShadowMap, sol: null,
     luzes: 3, luzesFora: 2, filtroDeCor: true, particulas: 0.6, capim: 20,
     nuvens: 3, reflexoS: 20, clarao: true,
-    impostor: 65, limiarPx: 3.5,
+    impostor: 40, limiarPx: 3.5,
   },
   // SEM PLACA DE VÍDEO (18/10/2026; relatório de um Windows com o "Microsoft Basic Render Driver":
   // o navegador desenha com a CPU — 4 núcleos, 4 GB —, 1–2 quadros/s no Alto e 6 no Celular a 40%

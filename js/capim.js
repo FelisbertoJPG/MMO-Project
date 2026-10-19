@@ -22,7 +22,7 @@ import { CELL } from './world.js';
 import { corDoChao, caminhoEm } from './campo.js';
 
 const RAIO = 6;   // células em volta do jogador (~36 m)
-const DENSIDADE_MAX = 90;   // o teto do `capim` da qualidade (o Alto usa 64)
+const DENSIDADE_MAX = 90;   // o teto do `capim` da qualidade (o Alto usa 40)
 // a grade e as folhas de GEOMETRIA
 const PASSO_MIN = 0.3;            // a grade mais fina do tapete (m), no Alto
 const NIVEIS = [1, 1.5, 2.2];     // longe do jogador, a grade abre (e as touceiras crescem junto)

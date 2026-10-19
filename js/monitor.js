@@ -332,7 +332,7 @@ export class Monitor {
       ['metade da resolução (¼ dos pixels)', () => r.setPixelRatio(pr / 2), () => r.setPixelRatio(pr), 'menos resolução (resolução automática, ou `pixelRatio` da qualidade)', 'imagem menos nítida'],
       ['sem a decoração inteira', () => camadas(lotes, 31), () => camadas(lotes, 0), null, null],
       ['sem as árvores de perto', () => camadas(arvores, 31), () => camadas(arvores, 0), null, null],
-      [`cartaz a partir de 45 m (hoje ${impostorAntes})`, () => { q.impostor = 45; }, () => { q.impostor = impostorAntes; }, `\`impostor\` da qualidade ${q.nome}: 45 m`, 'árvores a partir de 45 m viram cartaz (de perto um pouco menos detalhe)'],
+      [`cartaz a partir de ${Math.round(impostorAntes / 2)} m (hoje ${impostorAntes})`, () => { q.impostor = Math.round(impostorAntes / 2); }, () => { q.impostor = impostorAntes; }, `\`impostor\` da qualidade ${q.nome}: ${Math.round(impostorAntes / 2)} m`, `árvores e arbustos a partir de ${Math.round(impostorAntes / 2)} m viram cartaz (de perto um pouco menos detalhe)`],
       ['sem os cartazes de árvore', () => camadas(cartazes, 31), () => camadas(cartazes, 0), null, null],
       ['sem os personagens (inimigos, animais)', () => personagens(true), () => personagens(false), 'personagens: cortar mais perto (`PERSONAGEM_LONGE`, lod.js) ou modelos mais leves', 'bichos/inimigos somem mais cedo ao longe'],
       ['sem as luzes de cenário', () => { w.luzesNoOrcamento = 0; w.luzesForaNoOrcamento = 0; w.distribuirLuzes(); }, () => { [w.luzesNoOrcamento, w.luzesForaNoOrcamento] = luzes; w.distribuirLuzes(); }, `menos luzes de cenário (\`luzes\`/\`luzesFora\` da qualidade ${q.nome}: hoje ${luzes[0]}/${luzes[1]})`, 'menos tochas/fogueiras iluminando ao mesmo tempo', true],
