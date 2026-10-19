@@ -62,6 +62,7 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { temFeminino, ORELHA, BUSTO } from './raca.js';
 import { pertoNoTriangulo } from './ima.js';
+import { naPele } from './aparencia.js';
 
 // o que cada pedaço da malha fundida é (o código de cada vértice em `ctx.origem`)
 export const ORIGENS = ['corpo', 'armadura', 'cabelo', 'barba', 'sobrancelhas', 'presas', 'busto', 'olhos'];
@@ -458,20 +459,42 @@ function cortadosPor(cortes, ctx, geo) {
   return fora;
 }
 
-// ---- as CORES (`cores: [{ de, em, uv }]` no corpo, a ferramenta "colorir" do editor): o triângulo
-// achado pelo meio no MODELO (como os cortes) fica todo com o `uv` (um ponto da paleta do corpo)
+// ---- as CORES (`cores: [{ de, em, uv, tom? }]` no corpo, a ferramenta "colorir" do editor): o triângulo
+// achado pelo meio no MODELO (como os cortes) fica todo com o `uv` (um ponto da paleta do corpo) e o
+// `tom` (a cor de vértice — o couro do top é um texel claro vezes o tom dele; sem `tom`, `tomDaCor`)
 const uvValido = (uv) => Array.isArray(uv) && uv.length === 2 && uv.every(Number.isFinite);
 function pintarTriangulos(geo, cores, ctx) {
-  const uv = geo.attributes.uv;
+  const uv = geo.attributes.uv, cor = geo.attributes.color;
   if (!uv || !ctx.antes) return;
   const l = cores.filter((c) => uvValido(c?.uv));
   const achados = cortadosPor(l, ctx, geo), m = new THREE.Vector3();
   for (const t of achados) {
     meioNoModelo(t, ctx, m);
     const c = corNoMeio(l, ORIGENS[ctx.origem[t * 3]], m);
-    if (c) for (let k = 0; k < 3; k++) uv.setXY(t * 3 + k, c.uv[0], c.uv[1]);
+    if (!c) continue;
+    const tom = tomDaCor(geo, ctx, c.uv, c.tom);
+    for (let k = 0; k < 3; k++) { uv.setXY(t * 3 + k, c.uv[0], c.uv[1]); if (tom) cor.setXYZ(t * 3 + k, tom[0], tom[1], tom[2]); }
   }
-  if (achados.size) uv.needsUpdate = true;
+  if (achados.size) { uv.needsUpdate = true; if (cor) cor.needsUpdate = true; }
+}
+/**
+ * O TOM (a cor de vértice) de um ponto `uv` da paleta: a pele é tingida pela cor de vértice
+ * (aparencia.js `tingir`), então o ponto na faixa da pele leva o tom da pele de quem veste (o de
+ * um vértice de pele do corpo); o resto, nenhum (branco). O triângulo pintado guardava o tom do
+ * vértice de onde saiu, e a cor escolhida saía multiplicada por ele (escura). Sem cor de vértice: null
+ */
+export function tomDaCor(geo, ctx, uv, tom = null) {
+  const cor = geo.attributes.color, U = geo.attributes.uv;
+  if (!cor) return null;
+  if (Array.isArray(tom) && tom.length === 3 && tom.every(Number.isFinite)) return tom;
+  if (!naPele(uv[0], uv[1])) return [1, 1, 1];
+  if (!ctx.tomDaPele) {
+    const corpo = ORIGENS.indexOf('corpo'), busto = ORIGENS.indexOf('busto');
+    let i = 0;
+    for (; i < cor.count; i++) if ((ctx.origem[i] === corpo || ctx.origem[i] === busto) && naPele(U.getX(i), U.getY(i))) break;
+    ctx.tomDaPele = i < cor.count ? [cor.getX(i), cor.getY(i), cor.getZ(i)] : [1, 1, 1];
+  }
+  return ctx.tomDaPele;
 }
 // a cor gravada para o triângulo de meio `m` (no modelo) e origem `de` — ou null
 function corNoMeio(cores, de, m) {
@@ -575,8 +598,13 @@ function resolverNovos(geo, novos, ctx, P, cores = null) {
       // os pesos do triângulo cortado, e o canto que colou num vértice dele andava com o osso errado ao animar)
       const copia = fonte.length === 3 ? Object.fromEntries(Object.entries(geo.attributes).map(([nome, at]) => [nome, fonte.map((f) => at.array.slice(f * at.itemSize, (f + 1) * at.itemSize))])) : null;
       // (a COR: o criado pintado leva o `uv` dele; o pedaço de um vértice criado, o das `cores` pelo meio)
-      const uv = !copia?.uv ? null : uvValido(x.uv) ? x.uv : n < 0 && cores?.length ? corNoMeio(cores, ORIGENS[ctx.origem[fonte[0]]], meio.set((antes[0] + antes[3] + antes[6]) / 3, (antes[1] + antes[4] + antes[7]) / 3, (antes[2] + antes[5] + antes[8]) / 3))?.uv : null;
-      if (uv) copia.uv = copia.uv.map((u) => u.map((_, k) => uv[k]));
+      const c = !copia?.uv ? null : uvValido(x.uv) ? x : n < 0 && cores?.length ? corNoMeio(cores, ORIGENS[ctx.origem[fonte[0]]], meio.set((antes[0] + antes[3] + antes[6]) / 3, (antes[1] + antes[4] + antes[7]) / 3, (antes[2] + antes[5] + antes[8]) / 3)) : null;
+      if (c) {
+        const uv = c.uv;
+        copia.uv = copia.uv.map((u) => u.map((_, k) => uv[k]));
+        const tom = copia.color && tomDaCor(geo, ctx, uv, c.tom);
+        if (tom) copia.color = copia.color.map((c) => c.map((_, k) => tom[k] ?? 1));
+      }
       if (fonte.length === 3) lista.push({ n, lado, fonte, pos, antes, umLado, copia });
     }
   });

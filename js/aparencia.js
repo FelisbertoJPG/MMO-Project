@@ -66,7 +66,7 @@ export function codigoDaAparencia(a) {
 export const aparenciaValida = (c) => CODIGO.test(c ?? '');
 
 // ------------------------------------------------------------ a textura
-const FAIXA_PELE = { u: [0.33, 0.46], v: [0.28, 0.34] };
+export const FAIXA_PELE = { u: [0.33, 0.46], v: [0.28, 0.34] };
 const PECAS_DE_PELE = ['head', 'neck', 'Face', 'Trapezius', 'Shoulder', 'Upper_Torso', 'Lower_Torso', 'arm', 'Forearm', 'Hand', 'thigh', 'shin', 'Feet', 'hips'];
 let pixels = null;
 function lerTextura(mapa) {
