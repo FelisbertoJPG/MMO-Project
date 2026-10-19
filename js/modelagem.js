@@ -106,7 +106,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -385,13 +385,16 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   // vértice voltava para cima da pele dele — e antes dos CRIADOS: o canto grudado num vértice do top
   // ficava onde o top estava antes de seguir, a 0,2–0,4 cm dele, e o buraco não fechava)
   if (ctx.segue && mexeu.includes(1)) seguirAPele(P, idx, nt, ctx, mexeu);
+  // ---- 2a. as CORES: o triângulo do corpo pintado no editor pega um ponto da paleta (antes dos
+  // vértices criados: os pedaços de um triângulo pintado herdam a cor dele)
+  if (edicoes.cores?.length && !idx) pintarTriangulos(geo, edicoes.cores, ctx);
   // ---- 2b. os VÉRTICES CRIADOS entram na malha: o triângulo em que cada um cai vira 3 (numa aresta,
   // os dois daquela aresta viram 2 cada) — o de antes é cortado e os pedaços entram como criados de UM
   // lado, na volta dele. Assim o triângulo criado que cola no vértice divide a ARESTA com o corpo
   const div = edicoes.vertices?.length && !idx ? dividirNosVertices(geo, edicoes.vertices, edicoes.cortes ?? [], ctx) : null;
   // ---- 2c. os TRIÂNGULOS CRIADOS: onde cada canto está agora (antes dos cortes, que achatam o de baixo)
   const criados = [...(div?.novos ?? []), ...(edicoes.novos ?? []).map((x, n) => ({ ...x, n }))];
-  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P) : null;
+  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P, edicoes.cores) : null;
   // (malha que JÁ os tem — a vista da aba Modelo, refeita a partir da base: eles voltam ao lugar
   // achado agora, em vez de levar as partes e os puxões de novo)
   const o = ctx.ordensNovos;
@@ -453,6 +456,26 @@ function cortadosPor(cortes, ctx, geo) {
     if (l?.some((c) => c.o === ctx.origem[t * 3] && Math.abs(c.em[0] - m.x) < PERTO_DO_CORTE && Math.abs(c.em[1] - m.y) < PERTO_DO_CORTE && Math.abs(c.em[2] - m.z) < PERTO_DO_CORTE)) fora.add(t);
   }
   return fora;
+}
+
+// ---- as CORES (`cores: [{ de, em, uv }]` no corpo, a ferramenta "colorir" do editor): o triângulo
+// achado pelo meio no MODELO (como os cortes) fica todo com o `uv` (um ponto da paleta do corpo)
+const uvValido = (uv) => Array.isArray(uv) && uv.length === 2 && uv.every(Number.isFinite);
+function pintarTriangulos(geo, cores, ctx) {
+  const uv = geo.attributes.uv;
+  if (!uv || !ctx.antes) return;
+  const l = cores.filter((c) => uvValido(c?.uv));
+  const achados = cortadosPor(l, ctx, geo), m = new THREE.Vector3();
+  for (const t of achados) {
+    meioNoModelo(t, ctx, m);
+    const c = corNoMeio(l, ORIGENS[ctx.origem[t * 3]], m);
+    if (c) for (let k = 0; k < 3; k++) uv.setXY(t * 3 + k, c.uv[0], c.uv[1]);
+  }
+  if (achados.size) uv.needsUpdate = true;
+}
+// a cor gravada para o triângulo de meio `m` (no modelo) e origem `de` — ou null
+function corNoMeio(cores, de, m) {
+  return cores.find((c) => c.de === de && Array.isArray(c.em) && Math.abs(c.em[0] - m.x) < PERTO_DO_CORTE && Math.abs(c.em[1] - m.y) < PERTO_DO_CORTE && Math.abs(c.em[2] - m.z) < PERTO_DO_CORTE && uvValido(c.uv)) ?? null;
 }
 
 // ---- os VÉRTICES CRIADOS dentro da malha (no MODELO, `antes`): { novos: os pedaços (criados de um
@@ -520,8 +543,8 @@ const SOLDA = 0.1;
 // `em` — encostado na pele, o canto do meio de um criado (um vértice criado nele) afundava no corpo. Os
 // triângulos CORTADOS valem (ainda inteiros aqui): o canto grudado num vértice de um pedaço cortado (a
 // cúpula do busto da Humana, quase toda cortada) ia se prender a um vivo a 46 cm e era arrastado
-function resolverNovos(geo, novos, ctx, P) {
-  const A = ctx.antes;
+function resolverNovos(geo, novos, ctx, P, cores = null) {
+  const A = ctx.antes, meio = new THREE.Vector3();
   const lista = [], soldados = [];
   // o ponto já visto (da mesma origem) a menos da SOLDA, ou este mesmo — e passa a ser visto
   const soldar = (de, em) => {
@@ -551,6 +574,9 @@ function resolverNovos(geo, novos, ctx, P) {
       // (os atributos dos vértices de onde sai — pesos, cor, UV — copiados JÁ: os cortes, logo depois, trocam
       // os pesos do triângulo cortado, e o canto que colou num vértice dele andava com o osso errado ao animar)
       const copia = fonte.length === 3 ? Object.fromEntries(Object.entries(geo.attributes).map(([nome, at]) => [nome, fonte.map((f) => at.array.slice(f * at.itemSize, (f + 1) * at.itemSize))])) : null;
+      // (a COR: o criado pintado leva o `uv` dele; o pedaço de um vértice criado, o das `cores` pelo meio)
+      const uv = !copia?.uv ? null : uvValido(x.uv) ? x.uv : n < 0 && cores?.length ? corNoMeio(cores, ORIGENS[ctx.origem[fonte[0]]], meio.set((antes[0] + antes[3] + antes[6]) / 3, (antes[1] + antes[4] + antes[7]) / 3, (antes[2] + antes[5] + antes[8]) / 3))?.uv : null;
+      if (uv) copia.uv = copia.uv.map((u) => u.map((_, k) => uv[k]));
       if (fonte.length === 3) lista.push({ n, lado, fonte, pos, antes, umLado, copia });
     }
   });
