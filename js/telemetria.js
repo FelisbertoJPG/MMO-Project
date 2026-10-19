@@ -51,10 +51,15 @@ export class Telemetria {
     });
   }
 
+  /** O nome da placa, lido UMA vez: o `getParameter` espera a placa terminar o que tem na fila
+   *  (num relatório, o `marcarVivo` de 15 em 15 s dava trancos de 40–57 ms jogando). */
   get gpu() {
+    if (this._gpu) return this._gpu;
     const gl = this.game.renderer?.getContext();
     const ext = gl?.getExtension('WEBGL_debug_renderer_info');
-    return (ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || gl?.getParameter(gl.RENDERER) || '?';
+    const nome = (ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || gl?.getParameter(gl.RENDERER);
+    if (nome) this._gpu = nome;
+    return nome || '?';
   }
 
   /** O resumo do último minuto (para as colunas da tabela e o rastro de quem cair). */
