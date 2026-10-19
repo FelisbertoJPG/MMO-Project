@@ -189,9 +189,8 @@ export function centroDoPuxao(x, geo, ctx, espelho = false, P = geo.attributes.p
   return new THREE.Vector3(P[i * 3] * u + P[j * 3] * v + P[k * 3] * s, P[i * 3 + 1] * u + P[j * 3 + 1] * v + P[k * 3 + 1] * s, P[i * 3 + 2] * u + P[j * 3 + 2] * v + P[k * 3 + 2] * s);
 }
 // o lugar da malha que `x.em` marca (no MODELO, na origem `x.de`): [i, j, k, u, v, s] — os vértices do
-// triângulo mais perto e o ponto nele (baricêntricas) — ou null. Os triângulos CRIADOS não contam, nem
-// os de `fora` (um Set de triângulos: os cortados)
-function lugarNoModelo(x, geo, ctx, espelho = false, w = null, fora = null) {
+// triângulo mais perto e o ponto nele (baricêntricas) — ou null. Os triângulos CRIADOS não contam
+function lugarNoModelo(x, geo, ctx, espelho = false, w = null) {
   const idx = geo.index, nt = ctx.novosDe != null ? ctx.novosDe / 3 : (idx ? idx.count : geo.attributes.position.count) / 3, A = ctx.antes, o = ORIGENS.indexOf(x.de);
   const q = new THREE.Vector3(espelho ? -x.em[0] : x.em[0], x.em[1], x.em[2]);
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), bar = new THREE.Vector3(), perto = new THREE.Vector3();
@@ -200,7 +199,6 @@ function lugarNoModelo(x, geo, ctx, espelho = false, w = null, fora = null) {
     const i = verticeDe(idx, t, 0), j = verticeDe(idx, t, 1), k = verticeDe(idx, t, 2);
     if (o >= 0 && ctx.origem[i] !== o) continue;
     if (w && !(w[i] + w[j] + w[k] > 0)) continue;
-    if (fora?.has(t)) continue;
     a.fromArray(A, i * 3); b.fromArray(A, j * 3); c.fromArray(A, k * 3);
     // (de longe, nem a conta do triângulo)
     if (a.distanceToSquared(q) > melhor + 900 && b.distanceToSquared(q) > melhor + 900 && c.distanceToSquared(q) > melhor + 900) continue;
@@ -389,7 +387,7 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   const div = edicoes.vertices?.length && !idx ? dividirNosVertices(geo, edicoes.vertices, edicoes.cortes ?? [], ctx) : null;
   // ---- 2c. os TRIÂNGULOS CRIADOS: onde cada canto está agora (antes dos cortes, que achatam o de baixo)
   const criados = [...(div?.novos ?? []), ...(edicoes.novos ?? []).map((x, n) => ({ ...x, n }))];
-  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P, cortadosPor(edicoes.cortes ?? [], ctx, geo)) : null;
+  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P) : null;
   // (malha que JÁ os tem — a vista da aba Modelo, refeita a partir da base: eles voltam ao lugar
   // achado agora, em vez de levar as partes e os puxões de novo)
   const o = ctx.ordensNovos;
@@ -517,10 +515,11 @@ function dividirNosVertices(geo, vertices, cortesDoDono, ctx) {
 // cantos de criados a menos disto (cm, no modelo) um do outro são o MESMO ponto (a SOLDA): dois
 // triângulos colados à mão num vértice quase igual (84,35 × 84,37) ficavam com um vão finíssimo
 const SOLDA = 0.1;
-// Cada canto fica no lugar MARCADO (`em`): preso ao ponto da pele mais perto (fora os triângulos que o
-// dono cortou), e o que falta até o `em` vai somado. Encostado na pele, o canto do meio de um criado
-// (um vértice criado nele) afundava — no peito, ia parar na malha de dentro, cortada
-function resolverNovos(geo, novos, ctx, P, cortados = null) {
+// Cada canto fica no lugar MARCADO (`em`): preso ao ponto da pele mais perto e somado o que falta até o
+// `em` — encostado na pele, o canto do meio de um criado (um vértice criado nele) afundava no corpo. Os
+// triângulos CORTADOS valem (ainda inteiros aqui): o canto grudado num vértice de um pedaço cortado (a
+// cúpula do busto da Humana, quase toda cortada) ia se prender a um vivo a 46 cm e era arrastado
+function resolverNovos(geo, novos, ctx, P) {
   const A = ctx.antes;
   const lista = [], soldados = [];
   // o ponto já visto (da mesma origem) a menos da SOLDA, ou este mesmo — e passa a ser visto
@@ -539,7 +538,7 @@ function resolverNovos(geo, novos, ctx, P, cortados = null) {
         // (o pedaço de um vértice criado já sabe o vértice, ou o lugar, de cada canto)
         // (o canto onde está de fato — do lado espelhado, o x ao contrário — e soldado aos já vistos)
         const em = c.i != null || c.lugar ? c.em : soldar(c.de, lado ? [-c.em[0], c.em[1], c.em[2]] : c.em);
-        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : c.lugar ?? lugarNoModelo({ de: c.de, em }, geo, ctx, false, null, cortados);
+        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : c.lugar ?? lugarNoModelo({ de: c.de, em }, geo, ctx);
         if (!l) break;
         const [i, j, k, u, v, s] = l;
         fonte.push(u >= v && u >= s ? i : v >= s ? j : k);
