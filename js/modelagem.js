@@ -583,8 +583,10 @@ function resolverNovos(geo, novos, ctx, P, cores = null) {
       const fonte = [], pos = [], antes = [];
       for (const c of x.cantos) {
         // (o pedaço de um vértice criado já sabe o vértice, ou o lugar, de cada canto)
-        // (o canto onde está de fato — do lado espelhado, o x ao contrário — e soldado aos já vistos)
-        const em = c.i != null || c.lugar ? c.em : soldar(c.de, lado ? [-c.em[0], c.em[1], c.em[2]] : c.em);
+        // (o canto onde está de fato — do lado espelhado, o x ao contrário — e soldado aos já vistos;
+        // o canto a menos da SOLDA do meio É do meio: o espelho o mantém — colado num vértice do corpo
+        // em x = −0,05, o outro lado ia para +0,05, a 0,1 cm, e as duas metades nunca se juntavam)
+        const em = c.i != null || c.lugar ? c.em : soldar(c.de, lado && Math.abs(c.em[0]) >= SOLDA ? [-c.em[0], c.em[1], c.em[2]] : c.em);
         const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : c.lugar ?? lugarNoModelo({ de: c.de, em }, geo, ctx);
         if (!l) break;
         const [i, j, k, u, v, s] = l;
