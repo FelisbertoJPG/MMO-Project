@@ -381,6 +381,10 @@ export function aplicarModelagem(geo, edicoes, ctx) {
       mexeu[i] = 1;
     }
   }
+  // (o couro do top segue a pele ANTES dos cortes — depois, ele reabria o triângulo cortado do top: cada
+  // vértice voltava para cima da pele dele — e antes dos CRIADOS: o canto grudado num vértice do top
+  // ficava onde o top estava antes de seguir, a 0,2–0,4 cm dele, e o buraco não fechava)
+  if (ctx.segue && mexeu.includes(1)) seguirAPele(P, idx, nt, ctx, mexeu);
   // ---- 2b. os VÉRTICES CRIADOS entram na malha: o triângulo em que cada um cai vira 3 (numa aresta,
   // os dois daquela aresta viram 2 cada) — o de antes é cortado e os pedaços entram como criados de UM
   // lado, na volta dele. Assim o triângulo criado que cola no vértice divide a ARESTA com o corpo
@@ -397,9 +401,6 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   }
   // ---- 3. os CORTES: o triângulo some (os do dono e os divididos pelos vértices criados)
   const cortes = [...(edicoes.cortes ?? []), ...(div?.cortes ?? [])];
-  // (o couro do top segue a pele ANTES dos cortes: depois, ele reabria o triângulo cortado do top —
-  // cada vértice voltava para cima da pele dele, e cortar ali não fazia nada)
-  if (ctx.segue && mexeu.includes(1)) seguirAPele(P, idx, nt, ctx, mexeu);
   if (cortes.length) cortarTriangulos(geo, cortes, ctx, mexeu);
   if (!mexeu.includes(1)) return false;
   pos.needsUpdate = true;
