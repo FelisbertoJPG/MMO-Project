@@ -29,11 +29,12 @@ import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES, OLHOS, naPele } from './aparencia.js';
-import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe } from './raca.js';
+import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, cascaDoOlho, CORES_DO_MODELO } from './pintura.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
+import { folhaDaBoca } from './boca.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -42,9 +43,9 @@ import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 // armadura vem do EQUIPAMENTO; antes vinha do provador, inteira).
 // Depois de ':' vem a APARÊNCIA (aparencia.js: pele, cabelo, barba, olhos — 5 dígitos):
 // '0100:21310'. Sem ela, a do modelo. Um 6º dígito na aparência é a RAÇA (raca.js), um 7º, a
-// SOBRANCELHA (penteado.js), e um 8º, o SEXO (raca.js `racaDe`).
+// SOBRANCELHA (penteado.js), um 8º, o SEXO (raca.js `racaDe`), e um 9º, o BATOM (boca.js).
 export const NU = '0000';
-const CODIGO = /^[0-9]{4}(:[0-9]{5,8})?$/;
+const CODIGO = /^[0-9]{4}(:[0-9]{5,9})?$/;
 /** O corpo que veio da rede é válido? (os nomes de antes — 'nu', 'A1'… — ainda valem) */
 export const corpoValido = (c) => c === 'antigo' || CODIGO.test(c) || ['nu', 'A1', 'A2', 'A3'].includes(c);
 /** corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo; senão o código) */
@@ -115,7 +116,8 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Qua
 const fundidas = new Map();
 /** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
 export function esquecerFundidas() { for (const g of fundidas.values()) { g?.dispose(); for (const f of g?.userData.pinturas ?? []) f.geometry.dispose(); for (const p of g?.userData.palpebras ?? []) p.dispose(); } fundidas.clear(); }
-function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null) {
+// (`boca`: a folha dos lábios com batom — boca.js —, pintada como as da modelagem, mesmo no corpo sem edição)
+function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, boca = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
   const geos = pecas.map((p) => {
@@ -144,8 +146,9 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   let geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
   // A MODELAGEM (modelagem.js), só quando o corpo tem edição (ou a aba Modelo do editor está
   // aberta): de onde veio cada vértice (`origem`) e onde ele estava no MODELO, antes da raça
-  // (`antes`: é onde o pincel guarda o centro), e as juntas no espaço da malha (os pivôs)
-  const comModelo = geo && (edicoes || modelagemAberta()) ? { ordem } : null;
+  // (`antes`: é onde o pincel guarda o centro), e as juntas no espaço da malha (os pivôs). A BOCA
+  // pintada também precisa disso (sem edição, a malha continua bit a bit a de sempre)
+  const comModelo = geo && (edicoes || modelagemAberta() || boca) ? { ordem } : null;
   if (comModelo) {
     const n = geo.attributes.position.count, origem = new Uint8Array(n), antes = new Float32Array(n * 3);
     let k = 0;
@@ -177,7 +180,9 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     // (os triângulos CRIADOS entram no fim: outra geometria, com o ctx crescido junto)
     geo = acrescentarTriangulos(geo, comModelo);
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
-    if (edicoes?.pinturas?.length) geo.userData.pinturas = edicoes.pinturas.map((folha) => ({ folha, geometry: geometriaDaFolha(folha, geo, comModelo) })).filter((f) => f.geometry);
+    // (a da BOCA por último: os lábios por cima de qualquer pintura do rosto)
+    const folhas = [...(edicoes?.pinturas ?? []), ...(boca ? [boca] : [])];
+    if (folhas.length) geo.userData.pinturas = folhas.map((folha) => ({ folha, geometry: geometriaDaFolha(folha, geo, comModelo) })).filter((f) => f.geometry);
   }
   // AS PÁLPEBRAS (piscada.js), sobre o olho como ele ficou (a raça, a modelagem): a tampa da frente
   // da peça dos olhos, na cor de um ponto de pele da cabeça
@@ -416,7 +421,9 @@ export class CorpoGuerreiro {
     const comCor = usadas.some((o) => o.geometry.attributes.color);
     const material = (comCor && this.materiais.find((m) => m.vertexColors)) || (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
-    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes) : null;
+    // (o BATOM — boca.js: os lábios, uma folha pintada no rosto; 0 = sem, nada muda)
+    const boca = aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
+    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, boca) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; if (this.palpebras) this.palpebras.visible = false; return; }
     if (!this.fundida) {

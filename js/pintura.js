@@ -31,6 +31,9 @@
  * NO ARQUIVO: as `pinturas` de um corpo em assets/modelagem.json — { id, nome, parte, de, em,
  * dir, cima, largura, altura, prof, px: [w, h], espelho, apagaOlhos, arquivo } — e a imagem em
  * assets/pintura/<arquivo>.png (2w × h: a cor à esquerda, o tipo à direita).
+ *
+ * FOLHA FEITA EM CÓDIGO (a boca com batom, boca.js): traz a imagem em `imagem`, é projetada no MODELO
+ * (`noModelo`) e só pinta uma origem (`so`).
  */
 import * as THREE from 'three';
 import { ORIGENS, pesosDaParte, centroDoPuxao } from './modelagem.js';
@@ -122,9 +125,12 @@ export function comporFolha(img, cores, destino) {
 const texturas = new Map();
 /** Esquece as texturas das folhas (o editor, depois de pintar). */
 export function esquecerTexturasDaPintura() { for (const t of texturas.values()) t.dispose(); texturas.clear(); }
-/** A textura de uma folha nas cores de um personagem — ou null (a imagem não foi lida). `imagens`: Map arquivo → imagem. */
+/**
+ * A textura de uma folha nas cores de um personagem — ou null (a imagem não foi lida). `imagens`: Map
+ * arquivo → imagem; a folha feita em código (a boca, boca.js) traz a dela em `imagem`.
+ */
 export function texturaDaFolha(folha, cores, imagens) {
-  const img = imagens?.get(folha.arquivo);
+  const img = folha.imagem ?? imagens?.get(folha.arquivo);
   if (!img) return null;
   const chave = `${folha.arquivo}|${cores.pele}|${cores.olhos}|${cores.cabelo}`;
   if (!texturas.has(chave)) {
@@ -182,8 +188,13 @@ function recortar(poli, eixo, limite, dentro) {
  */
 export function geometriaDaFolha(folha, geo, ctx) {
   // a projeção é feita na malha de ANTES das edições da modelagem (`ctx.base`) e cada ponto vai para onde
-  // o lugar dele foi parar: a tinta GRUDA na malha (o olho reposicionado leva o desenho junto)
-  const P = geo.attributes.position.array, Q = ctx.base?.length === P.length ? ctx.base : P, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index;
+  // o lugar dele foi parar: a tinta GRUDA na malha (o olho reposicionado leva o desenho junto).
+  // `noModelo` (a boca, boca.js): a projeção é no MODELO (`ctx.antes`, antes também da raça) — o desenho
+  // tem o tamanho certo no rosto do modelo e cresce, estreita e anda com a raça e a modelagem
+  const P = geo.attributes.position.array, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index;
+  const Q = folha.noModelo && ctx.antes?.length === P.length ? ctx.antes : ctx.base?.length === P.length ? ctx.base : P;
+  // `so`: só a pele dessa origem (a boca: o 'corpo' — as presas não levam batom)
+  const so = folha.so ? ORIGENS.indexOf(folha.so) : -1;
   const nt = (idx ? idx.count : P.length / 3) / 3, vi = (t, k) => (idx ? idx.getX(t * 3 + k) : t * 3 + k);
   const centro = centroDaFolha(folha, geo, ctx, Q);
   if (!centro || !si || !sw) return null;
@@ -197,7 +208,7 @@ export function geometriaDaFolha(folha, geo, ctx) {
     const E = eixosDaFolha(folha, centro, espelho);
     for (let t = 0; t < nt; t++) {
       const i = vi(t, 0), j = vi(t, 1), k = vi(t, 2);
-      if (FORA.has(ctx.origem[i]) || (w && w[i] + w[j] + w[k] < 1.5)) continue;
+      if (FORA.has(ctx.origem[i]) || (so >= 0 && ctx.origem[i] !== so) || (w && w[i] + w[j] + w[k] < 1.5)) continue;
       A.fromArray(Q, i * 3); B.fromArray(Q, j * 3); C.fromArray(Q, k * 3);
       fn.subVectors(B, A).cross(e1.subVectors(C, A));
       if (fn.lengthSq() < 1e-12) continue;
