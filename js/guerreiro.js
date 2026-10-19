@@ -369,8 +369,9 @@ export class CorpoGuerreiro {
     const desenho = (lugar, conj) => desenhoDe(Assets.armaduras, lugar, conj);
     const usadas = this.pecas.filter((o) => {
       // (o cabelo solto do modelo saiu do jogo, e a barba e as sobrancelhas dele são só a
-      // matéria das do jogo: o PENTEADO, a BARBA e as SOBRANCELHAS desenhados, abaixo)
-      if (o.name === 'Hair' || o.name === 'Beard' || o.name === 'Eye_Brows') return false;
+      // matéria das do jogo: o PENTEADO, a BARBA e as SOBRANCELHAS desenhados, abaixo; o COLAR
+      // — `Chain`, a corrente de plaquinha de soldado, 170 triângulos — saiu de todos os corpos, 19/10/2026)
+      if (o.name === 'Hair' || o.name === 'Beard' || o.name === 'Eye_Brows' || o.name === 'Chain') return false;
       const a = o.name.match(ARMADURA);
       if (!a) return true;
       const lugar = lugarDaPeca(o.name);
