@@ -40,7 +40,7 @@ export const PELES = [
 ];
 // (a ORDEM é o número no save, o 3º dígito: cor nova entra no FIM — no máximo 10)
 export const CABELOS = [
-  ['Original', null], ['Preto', '#1e1712'], ['Castanho', '#4b2f1b'], ['Castanho claro', '#7b4c27'], ['Loiro', '#c99f5c'], ['Ruivo', '#a3431f'], ['Grisalho', '#8c8a86'], ['Branco', '#e6e0d2'], ['Vinho', '#74202a'],
+  ['Original', null], ['Preto', '#1e1712'], ['Castanho', '#4b2f1b'], ['Castanho claro', '#7b4c27'], ['Loiro', '#c99f5c'], ['Ruivo', '#a3431f'], ['Grisalho', '#8c8a86'], ['Branco', '#e6e0d2'], ['Vinho', '#74202a'], ['Vermelho', '#c0262c'],
 ];
 export const OLHOS = [
   ['Original', null], ['Azuis', '#3f6fb8'], ['Verdes', '#4a8c4c'], ['Castanhos', '#6a4528'], ['Cinzentos', '#8a8f9c'],

@@ -95,6 +95,24 @@ export const PENTEADOS = {
   moicano: { nome: 'Moicano', formas: [['crina', { de: 1.5, ate: 42, altura: 9, largura: 3.1, topo: 0.3, dente: 2.4, inclina: 0.2 }]] },
   espinhos: { nome: 'Espinhos', formas: [['espinhos', { de: 3.5, ate: 39, n: 8, altura: 11.5, largura: 2.6, base: 3.6 }]] },
   cristaTranca: { nome: 'Crista e trança', formas: [CRISTA(31), TRANCA()] },
+  // O REPICADO (19/10/2026): curto e bagunçado, as mechas pontudas saindo do alto da cabeça — a
+  // franja em pontas na testa (uma cai entre os olhos), as laterais na frente da orelha até o
+  // maxilar, a nuca curta — e a ANTENA (o fio que sobe do cocuruto e cai para a frente)
+  repicado: { nome: 'Repicado', formas: [
+    ['touca', { de: 34, ate: 214, lado: 86, linhas: 9, colunas: 13, folga: 1.7, onda: 0.4, recua: 4 }],
+    ['mechas', { folga: 2.5, passos: 3, lista: [
+      // [volta, lado] da raiz e da ponta, a meia largura, quanto a ponta cai além do crânio e abre para fora
+      // a franja: larga, em pontas, uma caindo entre os olhos
+      [97, 2, 7, 4, 3.1, 0.5, 0.3], [95, 11, 15, 13, 3.0], [93, 21, 20, 25, 2.9, 0, 0.3], [91, 31, 17, 37, 2.8, 0.3, 0.4], [89, 41, 13, 50, 2.6, 0.6, 0.6],
+      // as laterais (na frente da orelha e por cima dela, até o maxilar, abrindo na ponta)
+      [84, 52, -18, 70, 2.5, 1.5, 0.9], [76, 63, -26, 84, 2.7, 2.5, 1.3], [118, 60, 202, 76, 2.6, 2.5, 1.3],
+      // a nuca, curta
+      [132, 0, 218, 0, 2.8, 2.2, 0.5], [130, 19, 216, 24, 2.7, 2.4, 0.7], [126, 38, 211, 46, 2.6, 2.4, 1],
+    ] }],
+    // (pontas espetadas no alto: o contorno bagunçado)
+    ['tufos', { deita: 38, largura: 1.7, base: 2.6, pontas: [[102, -30, 3.6], [102, 30, 3.6], [122, -52, 3.2], [122, 52, 3.2], [140, -20, 3], [140, 20, 3]] }],
+    ['antena', { em: [104, 3], altura: 6.5, frente: 6.5, largura: 1.15 }],
+  ] },
   guerreira: { nome: 'Tranças de guerra', formas: [
     ['touca', { de: 36, ate: 204, lado: 62, linhas: 9, colunas: 9, folga: 1.1, onda: 0.7, recua: 10 }],
     ['tufos', { deita: 62, largura: 2, base: 3.4, pontas: [[74, 0, 6.5], [80, -26, 5.5], [80, 26, 5.5], [104, -13, 7.5], [104, 13, 7.5], [110, -38, 6], [110, 38, 6], [134, 0, 8.5], [138, -26, 7], [138, 26, 7]] }],
@@ -107,7 +125,7 @@ export const PENTEADOS = {
  * personagem: não reordene nem tire do meio — penteado novo entra no FIM. (O primeiro é o
  * de quem tinha o cabelo solto do modelo: o save dele diz "1".)
  */
-export const PENTEADOS_PADRAO = ['rabo', 'tranca', 'trancas', 'coque', 'crista', 'moicano', 'espinhos', 'cristaTranca'];
+export const PENTEADOS_PADRAO = ['rabo', 'tranca', 'trancas', 'coque', 'crista', 'moicano', 'espinhos', 'cristaTranca', 'repicado'];
 
 /** Os penteados de uma raça (null = humano), na ordem em que valem: o número no save é o lugar aqui, mais 1. */
 export function penteadosDe(raca) {
@@ -406,6 +424,64 @@ const FORMAS = {
           { c: h.q.clone().addScaledVector(eixo, altura), a: ZERO, b: ZERO, cor: c.tom(i % 2 ? 1.3 : 1.2), w: c.CABECA },
         ], LOSANGO);
       });
+    });
+  },
+
+  // AS MECHAS: lâminas de cabelo pontudas que saem do alto da cabeça e DEITAM sobre o crânio
+  // até passar da linha do cabelo (o repicado: a franja na testa, as laterais, a nuca). Cada
+  // uma da `lista`: [volta, lado] da raiz e da ponta (graus no crânio, ver `direcao`; com lado,
+  // a do outro lado também), a meia `largura` (cm), quanto a ponta CAI além do crânio (cm, para
+  // baixo) e ABRE para fora. O caminho é o do couro (raios do meio da cabeça) a `folga` dele —
+  // por cima da touca, descendo até `rente` na ponta (a franja assenta na testa); a seção é um
+  // losango achatado (`grossura`), largo no meio e afinando até a ponta.
+  mechas(m, c, { lista, folga = 1.9, rente = 0.8, grossura = 0.42, passos = 4 }) {
+    if (c.elmo) return;
+    const todas = lista.flatMap((x) => (x[1] || x[3] ? [x, [x[0], -x[1], x[2], -x[3], ...x.slice(4)]] : [x]));
+    for (const [v0, l0, v1, l1, largura = 2.2, cai = 0, abre = 0] of todas) {
+      const d0 = direcao(v0, l0), d1 = direcao(v1, l1), pts = [];
+      for (let i = 0; i <= passos; i++) {
+        const f = i / passos, h = c.noCranio(d0.clone().lerp(d1, f).normalize());
+        if (!h) break;
+        // (a raiz dentro da touca; depois por cima dela, e assentando na ponta)
+        const fo = i === 0 ? 0.4 : folga + (rente - folga) * entre((f - 0.35) / 0.65);
+        pts.push({ p: h.p(fo), n: h.n });
+      }
+      if (pts.length < 2) continue;
+      // a ponta: além do último ponto do couro, cai e abre (do tamanho da cabeça)
+      const ult = pts[pts.length - 1], seg = ult.p.clone().sub(pts[pts.length - 2].p);
+      const ponta = ult.p.clone().addScaledVector(seg.normalize(), 1.2 * c.k).add(new THREE.Vector3(0, -cai * c.k, 0)).addScaledVector(ult.n, abre * c.k);
+      pts.push({ p: ponta, n: ult.n });
+      const n = pts.length, est = pts.map((q, i) => {
+        const t = (pts[Math.min(n - 1, i + 1)].p.clone().sub(pts[Math.max(0, i - 1)].p)).normalize();
+        const u = new THREE.Vector3().crossVectors(q.n, t).normalize(), v = new THREE.Vector3().crossVectors(t, u);
+        const f = i / (n - 1), larg = i === n - 1 ? 0 : largura * (f < 0.3 ? 0.75 + f / 1.2 : f < 0.75 ? 1 : 1 - 0.35 * ((f - 0.75) / 0.25)) * c.k;
+        return { c: q.p, a: u.multiplyScalar(larg), b: v.multiplyScalar(i === n - 1 ? 0 : grossura * c.k * (1 - 0.4 * f)), cor: c.tom(0.78 + 0.45 * f), w: c.CABECA };
+      });
+      tubo(m, est, LOSANGO, [true, false]);
+    }
+  },
+
+  // A ANTENA: o fio solto que sobe do cocuruto (`em`: [volta, lado] no crânio), faz a curva e cai
+  // para a frente — `altura` e `frente` (cm), a meia `largura` no pé, afinando até a ponta.
+  antena(m, c, { em, altura = 4.5, frente = 5.5, largura = 0.85 }) {
+    if (c.elmo) return;
+    const h = c.noCranio(direcao(em[0], em[1]));
+    if (!h) return;
+    naCabeca(m, c, (r) => {
+      const pe = h.q.clone(), F = new THREE.Vector3(0, 0, 1), Y = new THREE.Vector3(0, 1, 0);
+      const linha = [
+        pe.clone().addScaledVector(h.n, -AFUNDA), pe.clone().addScaledVector(h.n, 1.2),
+        pe.clone().addScaledVector(Y, altura * 0.7).addScaledVector(F, frente * 0.15),
+        pe.clone().addScaledVector(Y, altura).addScaledVector(F, frente * 0.5),
+        pe.clone().addScaledVector(Y, altura * 0.85).addScaledVector(F, frente * 0.85),
+        pe.clone().addScaledVector(Y, altura * 0.45).addScaledVector(F, frente),
+      ];
+      const n = linha.length;
+      tubo(r, linha.map((p, i) => {
+        const t = linha[Math.min(n - 1, i + 1)].clone().sub(linha[Math.max(0, i - 1)]).normalize(), u = X.clone(), v = new THREE.Vector3().crossVectors(t, u).normalize();
+        const q = i === n - 1 ? 0 : largura * (1 - 0.75 * (i / (n - 1)));
+        return { c: p, a: u.multiplyScalar(q), b: v.multiplyScalar(q * 0.55), cor: c.tom(0.85 + 0.4 * (i / (n - 1))), w: c.CABECA };
+      }), LOSANGO, [true, false]);
     });
   },
 
