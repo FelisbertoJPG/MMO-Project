@@ -580,7 +580,7 @@ function resolverNovos(geo, novos, ctx, P, cores = null) {
     const n = x.n, umLado = !!x.umLado;
     if (!Array.isArray(x?.cantos) || x.cantos.length !== 3 || !x.cantos.every((c) => Array.isArray(c?.em) && c.em.length === 3)) return;
     for (const lado of x.espelho ? [false, true] : [false]) {
-      const fonte = [], pos = [], antes = [];
+      const fonte = [], pos = [], antes = [], sobes = [];
       for (const c of x.cantos) {
         // (o pedaço de um vértice criado já sabe o vértice, ou o lugar, de cada canto)
         // (o canto onde está de fato — do lado espelhado, o x ao contrário — e soldado aos já vistos;
@@ -594,6 +594,15 @@ function resolverNovos(geo, novos, ctx, P, cores = null) {
         // (o pedaço de um vértice criado está NO vértice: nada a somar)
         const marcado = c.i == null && !c.lugar;
         for (let e = 0; e < 3; e++) pos.push(P[i * 3 + e] * u + P[j * 3 + e] * v + P[k * 3 + e] * s + (marcado ? em[e] - (A[i * 3 + e] * u + A[j * 3 + e] * v + A[k * 3 + e] * s) : 0));
+        // (o canto AFASTADO da pele: `sobe` cm pela normal da face onde ele se prende, como ela está
+        // AGORA — o sutiã criado fica por cima da pele e a acompanha quando ela muda; um afastamento
+        // somado no `em` ia pela normal do modelo e, no busto muito puxado, prendia em outro triângulo)
+        const sobe = marcado && Number.isFinite(c.sobe) && c.sobe > 0 ? Math.min(c.sobe, 20) : 0;
+        if (sobe) {
+          const pa = meio.fromArray(P, i * 3), ab = new THREE.Vector3().fromArray(P, j * 3).sub(pa), ac = new THREE.Vector3().fromArray(P, k * 3).sub(pa), nf = ab.cross(ac).normalize();
+          for (let e = 0; e < 3; e++) pos[pos.length - 3 + e] += nf.getComponent(e) * sobe;
+        }
+        sobes.push(sobe);
         antes.push(c.i != null || c.lugar ? (lado ? -c.em[0] : c.em[0]) : em[0], em[1], em[2]);
       }
       // (os atributos dos vértices de onde sai — pesos, cor, UV — copiados JÁ: os cortes, logo depois, trocam
@@ -607,7 +616,7 @@ function resolverNovos(geo, novos, ctx, P, cores = null) {
         const tom = copia.color && tomDaCor(geo, ctx, uv, c.tom);
         if (tom) copia.color = copia.color.map((c) => c.map((_, k) => tom[k] ?? 1));
       }
-      if (fonte.length === 3) lista.push({ n, lado, fonte, pos, antes, umLado, copia });
+      if (fonte.length === 3) lista.push({ n, lado, fonte, pos, antes, umLado, copia, sobes });
     }
   });
   return lista.length ? lista : null;
@@ -639,6 +648,9 @@ export function acrescentarTriangulos(geo, ctx) {
   // (1 = criado pelo dono, 2 = pedaço de um triângulo dividido por um vértice criado)
   const criado = new Uint8Array(n0 + k);
   l.forEach((t, q) => criado.fill(t.n < 0 ? 2 : 1, n0 + q * 3, n0 + q * 3 + 3));
+  // (o `sobe` de cada canto: a aba cola um canto novo num canto afastado e precisa dele)
+  const sobe = new Float32Array(n0 + k);
+  l.forEach((t, q) => ordens[q].forEach((o, e) => { sobe[n0 + q * 3 + e] = t.sobes?.[o] ?? 0; }));
   l.forEach((t, q) => {
     ordens[q].forEach((o, e) => {
       const v = n0 + q * 3 + e;
@@ -651,7 +663,7 @@ export function acrescentarTriangulos(geo, ctx) {
     b.cross(c).normalize();
     if (N) for (let e = 0; e < 3; e++) N.set([b.x, b.y, b.z], v + e * 3);
   });
-  Object.assign(ctx, { origem, antes, ...(base ? { base } : {}), novosDe: n0, novosQuem: l.map((t) => t.n), ordensNovos: ordens, novosDoTri: dq, criado });
+  Object.assign(ctx, { origem, antes, ...(base ? { base } : {}), novosDe: n0, novosQuem: l.map((t) => t.n), ordensNovos: ordens, novosDoTri: dq, criado, sobe });
   g.userData = geo.userData;
   geo.dispose();
   return g;
