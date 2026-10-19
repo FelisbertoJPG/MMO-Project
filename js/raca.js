@@ -50,8 +50,9 @@
  *
  * O BUSTO (`pecasDoBusto`, `BUSTO`, `TOP`): o peito do modelo é o de um homem, e são poucos
  * triângulos — não há o que esticar. `busto` (0 = sem, o padrão) ACRESCENTA os dois seios,
- * cúpulas de pele presas aos ossos do peito, e o TOP de couro que os veste: os bojos, a faixa
- * por baixo e as alças. Os seios são COSTURADOS no peito (`costuraDoBusto`, `torsoCosturado`):
+ * cúpulas de pele presas aos ossos do peito (o TOP de couro que os vestia — os bojos, a faixa
+ * por baixo e as alças — não entra mais no corpo desde 19/10/2026: o busto se veste com
+ * pintura ou armadura). Os seios são COSTURADOS no peito (`costuraDoBusto`, `torsoCosturado`):
  * a pele do peito debaixo de cada um sai e o buraco é fechado do pé da cúpula até a beira
  * dele — uma superfície só, que estica em vez de abrir fresta quando a malha é mexida (a
  * modelagem). Só no peito NU: com armadura no peito, não entram (ela os cobre).
@@ -285,7 +286,9 @@ function pecasDoBusto(raca, pecas) {
   const [pele, couro, costura] = bustos.get(chave), base = { skeleton: tronco.skeleton, material: tronco.material, bindMatrix: tronco.bindMatrix };
   // (`pele`: a aparência tinge a peça como o resto da pele — aparencia.js `tingir`; `costura`: quem
   // monta o corpo troca o Upper_Torso pelo costurado — `torsoCosturado`)
-  return [{ name: `busto_${chave}`, geometry: pele, pele: true, costura, ...base }, { name: `top_${chave}`, geometry: couro, ...base }];
+  // (o TOP de couro saiu do corpo — 19/10/2026, pedido do dono: o busto se veste com pintura ou
+  // armadura. O couro ainda é feito (`TOP`); para voltar, `{ name: `top_${chave}`, geometry: couro, ...base }`)
+  return [{ name: `busto_${chave}`, geometry: pele, pele: true, costura, ...base }];
 }
 function geometriasDoBusto(b, pecas, tronco) {
   const o = BUSTO, T = TOP, tam = Math.sqrt(b), fundo = o.fundo * b;
