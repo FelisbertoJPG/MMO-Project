@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-10-20.5",
-  "nota": "cabelo Comprido (solto e ondulado) para a humana"
+  "versao": "2026-10-20.6",
+  "nota": "olhos da humana: globo branco e íris verde"
 }
