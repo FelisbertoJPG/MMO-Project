@@ -213,7 +213,9 @@ export function geometriaDaFolha(folha, geo, ctx) {
       fn.subVectors(B, A).cross(e1.subVectors(C, A));
       if (fn.lengthSq() < 1e-12) continue;
       fn.normalize();
-      if (fn.dot(E.n) < VIRADA) continue;
+      // (`virada`: a folha pode pedir outro limite — a dos olhos com o delineado preto grosso pinta também
+      // a beira de cima do olho, que de outro jeito ficava um fio de pele clara entre o traço e o olho)
+      if (fn.dot(E.n) < (folha.virada ?? VIRADA)) continue;
       const q = [A, B, C].map((p) => { const [a, b, d] = naFolha(folha, E, p); return [(a - 0.5) * folha.largura, (b - 0.5) * folha.altura, d]; });
       // (longe da folha, nem recorta)
       if (q.every((x) => x[0] < -L) || q.every((x) => x[0] > L) || q.every((x) => x[1] < -H) || q.every((x) => x[1] > H) || q.every((x) => x[2] < -D) || q.every((x) => x[2] > D)) continue;

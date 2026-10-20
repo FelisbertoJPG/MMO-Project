@@ -191,13 +191,15 @@ export const SOBRANCELHAS = {
   caidas: { nome: 'Caídas', formas: [['sobrancelha', { inclina: -13 }]] },
   curtas: { nome: 'Curtas', formas: [['sobrancelha', { longa: 0.6 }]] },
   unidas: { nome: 'Unidas', formas: [['sobrancelha', { alta: 1.15, ponte: true }]] },
+  // (20/10/2026: o rosto estilizado da referência do dono — fina e brava, a ponta de fora subindo)
+  afiadas: { nome: 'Afiadas', formas: [['sobrancelha', { alta: 0.45, inclina: 14 }]] },
 };
 /**
  * As do HUMANO (e da raça sem lista própria). A ORDEM é o número da sobrancelha no save
  * do personagem (o 7º dígito da aparência): não reordene nem tire do meio — a nova entra no
  * FIM. (A primeira é a do modelo: código sem o 7º dígito vale ela.)
  */
-export const SOBRANCELHAS_PADRAO = ['modelo', 'grossas', 'finas', 'bravas', 'caidas', 'curtas', 'unidas'];
+export const SOBRANCELHAS_PADRAO = ['modelo', 'grossas', 'finas', 'bravas', 'caidas', 'curtas', 'unidas', 'afiadas'];
 /** As sobrancelhas de uma raça (null = humano), na ordem em que valem ([] = a raça não tem). */
 export const sobrancelhasDe = (raca) => (Array.isArray(raca?.sobrancelhas) ? raca.sobrancelhas : SOBRANCELHAS_PADRAO);
 /** A sobrancelha de número `n` (0 = sem) de uma raça: o id, ou null. Além da lista, a última. */

@@ -391,7 +391,7 @@
         {"parte":"cabeca","de":"corpo","em":[-0.6,165.33,17.45],"raio":4,"mover":[0.93,0.15,-0.07],"espelho":true}
       ],
       "pinturas": [
-        {"id":"olhos","nome":"Olhos","parte":"cabeca","de":"corpo","em":[0,171.75,16],"dir":[0,0,-1],"cima":[0,1,0],"largura":17,"altura":6.5,"prof":6,"px":[850,325],"espelho":true,"apagaOlhos":true,"arquivo":"humano-feminino-olhos"}
+        {"id":"olhos","nome":"Olhos","parte":"cabeca","de":"corpo","em":[0,171.75,16],"dir":[0,0,-1],"cima":[0,1,0],"largura":17,"altura":6.5,"prof":6,"px":[850,325],"espelho":true,"apagaOlhos":true,"virada":0.12,"arquivo":"humano-feminino-olhos"}
       ],
       "cortes": [
         {"de":"corpo","em":[7.43,81.8,-10.41]},
