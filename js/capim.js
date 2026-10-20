@@ -201,13 +201,14 @@ export class Capim {
   update(dt) {
     this.tempo.value += dt;
     const w = this.game.world, p = this.game.player.pos;
-    const R = this.raio, fim = R * CELL;
+    // (a distância da GRAMA escolhida nas opções avançadas, modo "por tipo", encurta o tapete)
+    const R = this.raio, fim = Math.min(R * CELL, this.game.graficos?.distanciaTipo?.('grama') ?? Infinity);
     // o shader segue o jogador TODO quadro (a densidade anda junto, sem degrau)
     this.u.uCentro.value.set(p.x, p.z);
     this.u.uFim.value = fim;
-    this.u.uSuave.value = this.game.graficos?.dinamico === false ? 0 : 1;
+    this.u.uSuave.value = (this.game.graficos?.suaveDe?.('grama') ?? this.game.graficos?.dinamico !== false) ? 1 : 0;
     // o tapete (quem PODE aparecer) só a cada `MEXEU` metros — as contas têm essa folga
-    const u = this.celula, chave = `${this.densidade},${R}`;
+    const u = this.celula, chave = `${this.densidade},${R},${fim}`;
     if (u && u.chave === chave && Math.hypot(p.x - u.x, p.z - u.z) < MEXEU) return;
     this.celula = { chave, x: p.x, z: p.z };
     const [r0, c0] = w.cellOf(p);

@@ -30,7 +30,7 @@ import { aquecerEsculpidos } from './esculpido.js';
 import { Telemetria, enviarDesempenho, aparelho } from './telemetria.js';
 import { tirarDoExpositor, derrubarItens } from './expositor.js';
 import { tela } from './tela.js';
-import { Graficos, qualidadeSalva, placaDeSoftware } from './graficos.js';
+import { Graficos, qualidadeSalva, placaDeSoftware, TIPOS_LOD, DISTANCIAS_TIPO } from './graficos.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
@@ -38,6 +38,7 @@ import { tokenValido } from './rede/supabase.js';
 import { MUNDO_PADRAO, detectarHospedagem, temSaveEmArquivo, serveOMundo } from './hospedagem.js';
 import { vigiarVersao, notaDaAtualizacao } from './versao.js';
 import { aquecerPintura } from './pintura.js';
+import { CAMADA_SOMBRA, carregarFotosGuardadas, gravarFotosNovas, apagarFotosGuardadas } from './lod.js';
 import './relogio.js';   // o relógio de teste (só com ?relogio no endereço)
 
 /** Onde fica guardado o endereço do servidor de mundo escolhido na tela inicial ('' = o deste jogo). */
@@ -113,7 +114,15 @@ class Game {
     this.ceu = new Ceu(this);
     initGear(this.renderer, this.ceu.reflexo);
     assarRefeicoes();   // as animações de comer e beber (refeicao.js), antes de qualquer boneco
+    // PRÉ-CARREGAR TUDO (opção avançada, graficos.js): as fotos dos cartazes guardadas no navegador
+    // (lod.js) são lidas ANTES do mundo, que as usa ao montar o LOD; as novas são gravadas depois
+    if (this.graficos.preCarregar) {
+      await dizer('Lendo as imagens guardadas…');
+      const n = await carregarFotosGuardadas(true);
+      globalThis.__etapa?.(`fotos dos cartazes guardadas: ${n}`);
+    } else await carregarFotosGuardadas(false);
     this.world = new World(this);
+    gravarFotosNovas();   // (sem esperar: o IndexedDB grava enquanto o resto carrega)
     this.capim = new Capim(this);   // as graminhas que balançam com o vento (capim.js)
     this.agua = new Agua(this);     // a lagoa e as vitórias-régias (agua.js)
     this.effects = new Effects(this);
@@ -330,11 +339,32 @@ class Game {
     }
     // a distância de carregamento: "Padrão" diz a da qualidade
     for (const b of document.querySelectorAll('#distancia-opcao button')) {
-      const padrao = b.dataset.dist === 'padrao';
-      b.classList.toggle('ativo', padrao ? !G.distancia : G.distancia === Number(b.dataset.dist));
+      const padrao = b.dataset.dist === 'padrao', tipo = b.dataset.dist === 'tipo';
+      b.classList.toggle('ativo', tipo ? G.distModo === 'tipo' : G.distModo !== 'tipo' && (padrao ? !G.distancia : G.distancia === Number(b.dataset.dist)));
       if (padrao) b.textContent = `Padrão (${Math.min(80, G.q.impostor ?? 110)} m)`;
     }
-    for (const b of document.querySelectorAll('#dinamico-opcao button')) b.classList.toggle('ativo', (b.dataset.dinamico === 'sim') === G.dinamico);
+    for (const b of document.querySelectorAll('#dinamico-opcao button')) {
+      const tipo = b.dataset.dinamico === 'tipo';
+      b.classList.toggle('ativo', tipo ? G.passModo === 'tipo' : G.passModo !== 'tipo' && (b.dataset.dinamico === 'sim') === G.dinamico);
+    }
+    // (20/10/2026) POR TIPO: as linhas só aparecem no modo "Por tipo"
+    document.getElementById('dist-tipos')?.classList.toggle('hidden', G.distModo !== 'tipo');
+    document.getElementById('pass-tipos')?.classList.toggle('hidden', G.passModo !== 'tipo');
+    for (const b of document.querySelectorAll('#dist-tipos button')) {
+      const t = b.dataset.tipo, padrao = b.dataset.dt === 'padrao';
+      b.classList.toggle('ativo', padrao ? !G.distTipos[t] : G.distTipos[t] === Number(b.dataset.dt));
+      if (padrao) b.textContent = t === 'grama' || t === 'arvores' ? `Padrão (${G.distanciaDeCarga} m)` : 'Padrão (pelo tamanho)';
+    }
+    for (const b of document.querySelectorAll('#pass-tipos button')) b.classList.toggle('ativo', (b.dataset.pt === 'sim') === (G.passTipos[b.dataset.tipo] !== false));
+    // a distância das sombras (só quem tem a sombra do sol: o Alto) e a passagem suave delas
+    for (const b of document.querySelectorAll('#sombra-dist-opcao button')) {
+      const padrao = b.dataset.sdist === 'padrao';
+      b.disabled = !G.q.sol || !G.comSombras;
+      b.classList.toggle('ativo', padrao ? !G.distanciaSombra : G.distanciaSombra === Number(b.dataset.sdist));
+      if (padrao) b.textContent = G.q.sol ? `Padrão (${G.q.sol.raio} m)` : 'Padrão';
+    }
+    for (const b of document.querySelectorAll('#sombra-suave-opcao button')) { b.disabled = !G.comSombras; b.classList.toggle('ativo', (b.dataset.suave === 'sim') === G.sombraSuave); }
+    for (const b of document.querySelectorAll('#precarregar-opcao button[data-pre]')) b.classList.toggle('ativo', (b.dataset.pre === 'sim') === G.preCarregar);
   }
 
   /** Grava o progresso (ver `save.js`): `{aoSair}` = a página está fechando; `{nuvem}` = já, na nuvem. */
@@ -465,11 +495,51 @@ class Game {
     }
     // as OPÇÕES AVANÇADAS (graficos.js): a distância de carregamento e o carregamento dinâmico
     for (const b of document.querySelectorAll('#distancia-opcao button')) {
-      b.addEventListener('click', () => { this.graficos.escolherDistancia(b.dataset.dist === 'padrao' ? null : Number(b.dataset.dist)); this.marcarGraficos(); });
+      b.addEventListener('click', () => {
+        if (b.dataset.dist === 'tipo') this.graficos.escolherModoDistancia('tipo');
+        else { this.graficos.escolherModoDistancia('junto'); this.graficos.escolherDistancia(b.dataset.dist === 'padrao' ? null : Number(b.dataset.dist)); }
+        this.marcarGraficos();
+      });
     }
     for (const b of document.querySelectorAll('#dinamico-opcao button')) {
-      b.addEventListener('click', () => { this.graficos.alternarDinamico(b.dataset.dinamico === 'sim'); this.marcarGraficos(); });
+      b.addEventListener('click', () => {
+        if (b.dataset.dinamico === 'tipo') this.graficos.escolherModoPassagem('tipo');
+        else { this.graficos.escolherModoPassagem('todos'); this.graficos.alternarDinamico(b.dataset.dinamico === 'sim'); }
+        this.marcarGraficos();
+      });
     }
+    // (20/10/2026) AS LINHAS POR TIPO (grama, pedras, árvores, cenário): montadas aqui, da lista do graficos.js
+    const linha = (id, rotulo, botoes) => {
+      const d = document.createElement('div');
+      d.className = 'pausa-opcao';
+      const s = document.createElement('span'); s.textContent = rotulo; d.append(s);
+      for (const [dados, texto] of botoes) { const b = document.createElement('button'); Object.assign(b.dataset, dados); b.textContent = texto; d.append(b); }
+      document.getElementById(id)?.append(d);
+    };
+    for (const { id, nome } of TIPOS_LOD) {
+      linha('dist-tipos', nome, [[{ tipo: id, dt: 'padrao' }, 'Padrão'], ...DISTANCIAS_TIPO[id].map((v) => [{ tipo: id, dt: String(v) }, `${v} m`])]);
+      linha('pass-tipos', nome, [[{ tipo: id, pt: 'sim' }, 'Suave'], [{ tipo: id, pt: 'nao' }, 'De uma vez']]);
+    }
+    for (const b of document.querySelectorAll('#dist-tipos button')) {
+      b.addEventListener('click', () => { this.graficos.escolherDistanciaTipo(b.dataset.tipo, b.dataset.dt === 'padrao' ? null : Number(b.dataset.dt)); this.marcarGraficos(); });
+    }
+    for (const b of document.querySelectorAll('#pass-tipos button')) {
+      b.addEventListener('click', () => { this.graficos.alternarPassagemTipo(b.dataset.tipo, b.dataset.pt === 'sim'); this.marcarGraficos(); });
+    }
+    // (20/10/2026) a distância e a passagem suave das sombras, e o pré-carregar tudo
+    for (const b of document.querySelectorAll('#sombra-dist-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.escolherDistanciaSombra(b.dataset.sdist === 'padrao' ? null : Number(b.dataset.sdist)); this.marcarGraficos(); });
+    }
+    for (const b of document.querySelectorAll('#sombra-suave-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.alternarSombraSuave(b.dataset.suave === 'sim'); this.marcarGraficos(); });
+    }
+    for (const b of document.querySelectorAll('#precarregar-opcao button[data-pre]')) {
+      b.addEventListener('click', () => { this.graficos.alternarPreCarregar(b.dataset.pre === 'sim'); this.marcarGraficos(); this.ui.toast('Vale na próxima vez que o jogo abrir.'); });
+    }
+    document.getElementById('apagar-fotos-btn')?.addEventListener('click', async () => {
+      const ok = await apagarFotosGuardadas();
+      this.ui.toast(ok ? 'Imagens guardadas apagadas: na próxima abertura são feitas de novo.' : 'Não consegui apagar agora (feche outras abas do jogo e tente de novo).');
+    });
     // O MENU DE PAUSA EM TELAS (16/10/2026): a principal (Continuar, Qualidade Gráfica, Aparência,
     // Controles, Interface, Sair) e uma tela por opção; "‹ Voltar" e o Esc voltam um passo
     for (const b of document.querySelectorAll('#pause [data-abre]')) b.addEventListener('click', () => this.telaDaPausa(b.dataset.abre));
@@ -691,6 +761,11 @@ class Game {
   entrarNoJogo() {
     document.activeElement?.blur(); // o Espaço não pode "clicar" o botão de novo
     this.sfx.init();
+    // o jogador já com a aparência e o equipamento do save: os shaders DELE (o corpo, a armadura
+    // fundida — e os de PROFUNDIDADE, da sombra do sol e da tocha) desenhados agora, ainda com a
+    // tela de título, e não no primeiro segundo de jogo (relatórios de 20/10/2026: 1 shader
+    // MeshDepthMaterial compilado nele, 62–67 ms)
+    this.aquecerEmVolta();
     document.getElementById('title-screen').classList.add('hidden');
     this.ui.show();
     this.state = 'playing';
@@ -765,6 +840,8 @@ class Game {
    */
   preaquecer() {
     const w = this.world, r = this.renderer, larg = w.cols * CELL, prof = w.rows * CELL;
+    // (as PEÇAS SOLTAS ganham o pontilhado da distância antes de desenhar: lod.js, uma vez só)
+    w.lod?.vestirSoltas();
     // (a PINTURA, pintura.js: o shader dela — transparente, com ossos — compila aqui, e não quando chega alguém pintado)
     const tirarPintura = aquecerPintura(this.player?.model?.guerreiro);
     // (os ESCULPIDOS, esculpido.js: o shader de quem joga com a raça dele, e não quando ele chega)
@@ -774,6 +851,9 @@ class Game {
     cam.up.set(0, 0, -1);
     cam.lookAt(larg / 2, 0, prof / 2);
     cam.updateMatrixWorld();
+    // (a peça solta que o LOD escondeu pela distância está na camada 31: no 2º aquecimento — trocar
+    // de qualidade, ligar as sombras — o shader novo dela também tem de ser desenhado aqui)
+    cam.layers.enable(31);
     const cartazes = [...(w.lod?.cartazes?.values() ?? [])];
     for (const c of cartazes) if (c.malha.count === 0 && c.grupos[0]) { c.malha.setMatrixAt(0, c.grupos[0].matrizes[0]); c.malha.count = 1; c.malha.instanceMatrix.needsUpdate = true; }
     const tocha = this.player?.torchLight;
@@ -793,6 +873,15 @@ class Game {
       sol.target.position.set(larg / 2, 0, prof / 2); sol.position.set(larg / 2 + 100, 600, prof / 2 + 60);
       sol.target.updateMatrixWorld(); sol.updateMatrixWorld();
     }
+    // (o lote SÓ DE SOMBRA das árvores que já são cartaz — `imSombra`, world.js — está na camada que
+    // só a luz do sol desenha, e tem o seu material de profundidade: o LOD liga a camada no primeiro
+    // quadro de jogo, tarde para o aquecimento)
+    sol?.shadow.camera.layers.enable(CAMADA_SOMBRA);
+    // PRÉ-CARREGAR TUDO (opção avançada): TODAS as peças do jogo (as que só aparecem depois — item
+    // caído, equipamento, peça solta) entram de passagem debaixo do chão: as texturas e as malhas
+    // sobem para a placa e os shaders delas são desenhados aqui. Peça com luz ou ossos fica de fora
+    // (mudaria a conta de luzes; os ossos não se clonam assim). Nada é descartado depois.
+    const extras = this.graficos.preCarregar ? this.pecasDePassagem(larg / 2, prof / 2) : [];
     for (const fora of [true, false]) {
       w.distribuirLuzes(fora);
       if (caixaDoSol) sol.shadow.needsUpdate = true;
@@ -806,10 +895,74 @@ class Game {
       sol.position.copy(caixaDoSol.pos); sol.target.position.copy(caixaDoSol.alvo);
     }
     w.lod?.mostrarTudo(false);
+    for (const o of extras) o.removeFromParent();
     for (const c of cartazes) if (c.malha.count === 1) { c.malha.count = 0; c.sujo = true; }
     w.distribuirLuzes();
     tirarPintura();
     tirarEsculpidos();
+  }
+
+  /**
+   * As peças de `Assets.props` de passagem na cena (`preaquecer` com o pré-carregar tudo), em
+   * (x, -40, z): debaixo do chão, dentro da câmera do aquecimento. Antes, as texturas delas vão
+   * para a placa (`initTexture`). Devolve as cópias, que o `preaquecer` tira depois.
+   */
+  pecasDePassagem(x, z) {
+    const r = this.renderer, feitas = new Set(), extras = [];
+    for (const [nome, fonte] of Object.entries(Assets.props ?? {})) {
+      if (!fonte?.isObject3D) continue;
+      let pula = false;
+      fonte.traverse((o) => {
+        if (o.isLight || o.isSkinnedMesh) pula = true;
+        if (!o.isMesh) return;
+        for (const m of [].concat(o.material)) for (const v of Object.values(m ?? {})) {
+          if (v?.isTexture && !feitas.has(v)) { feitas.add(v); try { r.initTexture(v); } catch { } }
+        }
+      });
+      if (pula) continue;
+      const c = fonte.clone(true);
+      c.name = `aquecimento:${nome}`;
+      c.position.set(x, -40, z);
+      c.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      this.scene.add(c);
+      extras.push(c);
+    }
+    return extras;
+  }
+
+  /**
+   * O AQUECIMENTO EM VOLTA DO JOGADOR (20/10/2026): um quadro pequeno (uma câmera ortográfica de
+   * 24 m em cima dele), com a sombra do sol centrada nele e a da tocha, com os dois orçamentos de
+   * luzes — barato (pouca coisa à vista) — que desenha os shaders do que mudou depois do
+   * `preaquecer` (a aparência, a armadura fundida). Chamado ao entrar no jogo, com a tela de título.
+   */
+  aquecerEmVolta() {
+    const w = this.world, r = this.renderer, p = this.player?.pos;
+    if (!w || !p) return;
+    try {
+      const cam = new THREE.OrthographicCamera(-12, 12, 12, -12, 1, 1200);
+      cam.position.set(p.x, p.y + 600, p.z);
+      cam.up.set(0, 0, -1);
+      cam.lookAt(p.x, p.y, p.z);
+      cam.updateMatrixWorld();
+      const sol = w.ambience?.lua, tocha = this.player?.torchLight;
+      const antes = sol?.castShadow ? { pos: sol.position.clone(), alvo: sol.target.position.clone() } : null;
+      if (antes) {
+        sol.shadow.camera.layers.enable(CAMADA_SOMBRA);
+        sol.target.position.copy(p); sol.position.set(p.x + 100, p.y + 600, p.z + 60);
+        sol.target.updateMatrixWorld(); sol.updateMatrixWorld();
+      }
+      for (const fora of [true, false]) {
+        w.distribuirLuzes(fora);
+        if (antes) sol.shadow.needsUpdate = true;
+        if (tocha?.castShadow) tocha.shadow.needsUpdate = true;
+        r.render(this.scene, cam);
+      }
+      if (antes) { sol.position.copy(antes.pos); sol.target.position.copy(antes.alvo); sol.target.updateMatrixWorld(); sol.updateMatrixWorld(); }
+      w.distribuirLuzes();
+      // e o quadro de sempre por cima (a tela não mostra, nem por um instante, a vista de cima)
+      r.render(this.scene, this.camera);
+    } catch (e) { console.warn('aquecerEmVolta:', e?.message ?? e); }
   }
 
   // ---------- Menus ----------

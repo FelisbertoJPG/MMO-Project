@@ -49,45 +49,260 @@ const PERSONAGEM_LONGE = 110;   // personagem (inimigo, animal) mais longe que i
  * `CAMADA_SOMBRA`, que a câmera não desenha e a luz do sol desenha.
  */
 const BANDA = 8, FOLGA = 2;
+/** A faixa do pontilhado do OUTRO LADO (m) e o passo do limite dele ao trocar de lado (×/s). */
+const LADO_FAIXA = 10, LADO_PASSO = 1.2;
+/** O limite do outro lado andando até o alvo, multiplicando (o longe anda mais rápido que o perto). */
+const andarLimite = (v, alvo, dt) => v < alvo ? Math.min(alvo, v * (1 + LADO_PASSO * dt)) : Math.max(alvo, v / (1 + LADO_PASSO * dt));
 export const CAMADA_SOMBRA = 30;
+/**
+ * OS TIPOS DE PEÇA (20/10/2026; as opções avançadas "por tipo", graficos.js): GRAMA (a vegetação
+ * miúda e o capim), PEDRAS, ÁRVORES (árvores, arbustos, tocos e troncos) e CENÁRIO (o resto).
+ * A ORDEM é o número do tipo no shader (`aLod.w`, `uPassagem[ ]`): tipo novo entra no FIM.
+ */
+export const TIPOS = ['grama', 'pedras', 'arvores', 'cenario'];
+export const tipoDaPeca = (prop) => /Tree|Bush|WoodLog/.test(prop) ? 'arvores'
+  : /^gi-|(^|-)Grass|Flower|Plant|Fern/.test(prop) ? 'grama'
+  : /(^|-)Rock|^rubble|Seixos/.test(prop) ? 'pedras' : 'cenario';
+/** "Sem limite" para o outro lado (m): um número, não `Infinity` — vai para o shader. */
+const LADO_LONGE = 3000;
+// (os valores de partida — antes do primeiro `update`, no pré-aquecimento: nada some)
+const v4 = (x, y, z, w) => [0, 1, 2, 3].map(() => new THREE.Vector4(x, y, z, w));
 export const TROCA = {
   uTrocaVista: { value: new THREE.Vector3() },
-  uTrocaPerto: { value: 32 },
-  uTrocaLonge: { value: 40 },
+  // POR TIPO (20/10/2026): x, y = a faixa modelo → cartaz (perto, longe); z = metros de distância
+  // por metro de raio até o detalhe ficar com `limiarPx` (foco/limiar); w = a fração final dessa
+  // distância em que ele some (0 = corte seco, a passagem suave desligada)
+  uPassagem: { value: v4(1e6 - 1, 1e6, 1e6, 0.25) },
+  // x = o teto do detalhe escolhido à mão (m por metro de raio, no mínimo 1 m; 1e6 = sem teto);
+  // y = a faixa do OUTRO LADO (m; ~0 = seca)
+  uCorte: { value: v4(1e6, 10, 0, 0) },
+  // O OUTRO LADO (20/10/2026): até onde se vê o que é de DENTRO da masmorra (x) e o de FORA (y) —
+  // 40 m e "sem limite" ao ar livre, "sem limite" e 60 m dentro; na troca, anda aos poucos (`update`)
+  uOutroLado: { value: new THREE.Vector2(LADO_LONGE, LADO_LONGE) },
+  // A SOMBRA ACOMPANHANDO A PASSAGEM (opção avançada "sombra com passagem suave"): 1 = o material
+  // de profundidade das cópias (a sombra do sol) usa o mesmo pontilhado; e a sombra da árvore que
+  // já é cartaz (o lote `imSombra`) some aos poucos até `uSombraAte` m
+  uSombraSuave: { value: 1 },
+  uSombraAte: { value: 1e6 },
+  uSombraFaixa: { value: 10 },
+  // A PEÇA SOLTA (fogueira, barril, tocha: fora dos lotes) some em pontilhado até `uSoltaAte` m
+  // (o JS a esconde logo depois, `soltas`); `uSoltaLado` = a faixa do outro lado dela. Quem diz se
+  // ela é de dentro é o MAPA (`uMapaDentro`: 1 byte por célula, `World.ehDeDentro`; `uMapaTam` =
+  // colunas, linhas, o lado da célula), no lugar da origem da malha — a mesma conta do JS
+  uSoltaAte: { value: 1e6 },
+  uSoltaFaixa: { value: 12 },
+  uSoltaLado: { value: 10 },
+  uMapaDentro: { value: null },
+  uMapaTam: { value: new THREE.Vector3(1, 1, 6) },
 };
-const TROCA_DECL = 'uniform vec3 uTrocaVista;\nuniform float uTrocaPerto;\nuniform float uTrocaLonge;\nvarying float vTroca;';
 const TROCA_RUIDO = 'fract( 52.9829189 * fract( dot( gl_FragCoord.xy, vec2( 0.06711056, 0.00583715 ) ) ) )';
-const trocaDe = (pos) => `vTroca = smoothstep( uTrocaPerto, uTrocaLonge, distance( ${pos}, uTrocaVista ) );`;
+/**
+ * O PONTILHADO DA DISTÂNCIA NUM SHADER SÓ (20/10/2026). Era um por tipo de passagem ('troca',
+ * 'sumir', 'solta'): cada material ganhava um programa a mais por tipo. Agora a conta é UMA, e
+ * quem escolhe é o dado — nos lotes (instanciados), o atributo por cópia `aLod`: xyz = o lugar da
+ * RAIZ da peça (a mesma distância do JS e do cartaz), e w = o CÓDIGO da cópia (`codigoDaCopia`):
+ *   0 = nada; |w| = 1 + tipo·1000 + (de dentro ? 500 : 0) + o raio do detalhe (0 = não some);
+ *   w < 0 = a cópia vira CARTAZ (a passagem modelo → cartaz), w > 0 = o detalhe que some.
+ * Em cima disso, o OUTRO LADO (o de dentro da masmorra visto de fora, e o contrário) some na
+ * faixa antes do limite. Na malha comum (a peça solta), a distância é a da origem dela. O
+ * material de profundidade das sombras (`profundidadeDaPassagem`) usa a mesma conta (com
+ * `uLodSombra` = 1: a sombra da árvore que já é cartaz, que some no fim do alcance).
+ */
+const LOD_DECL = `uniform vec3 uTrocaVista;
+uniform vec4 uPassagem[ 4 ], uCorte[ 4 ];
+uniform vec2 uOutroLado;
+uniform float uSombraSuave, uSombraAte, uSombraFaixa, uSoltaAte, uSoltaFaixa, uSoltaLado, uLodSombra;
+uniform sampler2D uMapaDentro;
+uniform vec3 uMapaTam;
+varying float vPassagem;
+#ifdef USE_INSTANCING
+  attribute vec4 aLod;
+#endif`;
+const LOD_GLSL = (fator) => `#ifdef USE_INSTANCING
+    vPassagem = 0.0;
+    if ( aLod.w != 0.0 ) {
+      float lodDist = distance( ( modelMatrix * vec4( aLod.xyz, 1.0 ) ).xyz, uTrocaVista );
+      float lodW = abs( aLod.w ) - 1.0, lodTf = floor( lodW / 1000.0 + 1e-4 );
+      float lodR = lodW - lodTf * 1000.0, lodDentro = step( 499.5, lodR );
+      lodR -= lodDentro * 500.0;
+      int lodT = int( lodTf + 0.5 );
+      vec4 lodP = uPassagem[ lodT ], lodC = uCorte[ lodT ];
+      if ( uLodSombra > 0.5 ) vPassagem = smoothstep( uSombraAte - uSombraFaixa, uSombraAte, lodDist );
+      else if ( aLod.w < 0.0 ) vPassagem = smoothstep( lodP.x, lodP.y, lodDist );
+      else if ( lodR > 0.0 ) {
+        float lodAte = min( lodR * lodP.z, lodC.x * max( 1.0, lodR ) );
+        vPassagem = clamp( ( lodDist - lodAte * ( 1.0 - lodP.w ) ) / max( lodAte * lodP.w, 1e-3 ), 0.0, 1.0 );
+      }
+      float lodLim = mix( uOutroLado.y, uOutroLado.x, lodDentro );
+      vPassagem = max( vPassagem, clamp( ( lodDist - lodLim + lodC.y ) / max( lodC.y, 1e-3 ), 0.0, 1.0 ) ) * ${fator};
+    }
+  #else
+    vec3 soltaO = modelMatrix[ 3 ].xyz;
+    float soltaD = distance( soltaO, uTrocaVista );
+    float soltaDentro = step( 0.5, texture( uMapaDentro, ( soltaO.xz / uMapaTam.z + 0.5 ) / uMapaTam.xy ).r );
+    float soltaLim = mix( uOutroLado.y, uOutroLado.x, soltaDentro );
+    vPassagem = max( smoothstep( uSoltaAte - uSoltaFaixa, uSoltaAte, soltaD ),
+      clamp( ( soltaD - soltaLim + uSoltaLado ) / max( uSoltaLado, 1e-3 ), 0.0, 1.0 ) ) * ${fator};
+  #endif`;
+/** Põe o pontilhado num shader (o da cor ou o da profundidade): some onde o ruído < `vPassagem`. */
+function pontilhar(sh, fator = '1.0') {
+  // (shader sem os pontos de encaixe — um gancho que reescreveu o vértice: fica como está)
+  if (!sh.vertexShader.includes('#include <common>') || !sh.vertexShader.includes('#include <project_vertex>')
+    || !sh.fragmentShader.includes('#include <common>') || !sh.fragmentShader.includes('#include <clipping_planes_fragment>')) return false;
+  Object.assign(sh.uniforms, TROCA);
+  sh.uniforms.uLodSombra ??= { value: 0 };
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', `#include <common>\n${LOD_DECL}`)
+    .replace('#include <project_vertex>', `#include <project_vertex>\n  ${LOD_GLSL(fator)}`);
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <common>', '#include <common>\nvarying float vPassagem;')
+    .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+  if ( ${TROCA_RUIDO} < vPassagem ) discard;`);
+  return true;
+}
 
-/** O lado MODELO da passagem num material dos lotes de árvore/arbusto (por cima do gancho que ele já tenha). */
-export function vestirTroca(m) {
-  if (m.userData.troca) return m;
-  m.userData.troca = true;
+/**
+ * O pontilhado da distância num material (por cima do gancho que ele já tenha): os materiais SÓ
+ * dos lotes (world.js, `unico`) e os das peças soltas (`LOD.vestirSoltas`). Um programa só para
+ * tudo (a chave `|lod`): o que muda de uma peça para outra é o dado (`aLod`) e os uniformes.
+ */
+export function vestirPassagem(m) {
+  if (m.userData.passagem) return m;
+  m.userData.passagem = 'lod';
   const antes = m.onBeforeCompile, chave = m.customProgramCacheKey;
   m.onBeforeCompile = function (sh, r) {
     antes?.call(this, sh, r);
-    Object.assign(sh.uniforms, TROCA);
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', `#include <common>\n${TROCA_DECL}`)
-      .replace('#include <project_vertex>', `#include <project_vertex>
-  #ifdef USE_INSTANCING
-    ${trocaDe('( modelMatrix * instanceMatrix[3] ).xyz')}
-  #else
-    vTroca = 0.0;
-  #endif`);
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying float vTroca;')
-      .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-  if ( ${TROCA_RUIDO} < vTroca ) discard;`);
+    pontilhar(sh);
   };
-  m.customProgramCacheKey = function () { return `${chave.call(this)}|troca`; };
+  m.customProgramCacheKey = function () { return `${chave.call(this)}|lod`; };
   return m;
+}
+export const vestirTroca = (m) => vestirPassagem(m);
+
+/** O código da cópia no `aLod.w` (ver `LOD_DECL`): o tipo, o lado da masmorra, cartaz ou o raio do detalhe. */
+export function codigoDaCopia(g) {
+  const base = 1 + Math.max(0, TIPOS.indexOf(tipoDaPeca(g.prop ?? ''))) * 1000 + (g.dentro ? 500 : 0);
+  return g.cartaz ? -base : base + Math.min(499, Math.max(0, g.raioPeca ?? 0));
+}
+
+/**
+ * A SOMBRA COM O MESMO PONTILHADO (20/10/2026): o material de PROFUNDIDADE (o que desenha a
+ * peça no mapa de sombra do sol) de um lote, com a passagem dele — sem isto a sombra ficava
+ * inteira até o JS tirar a cópia do lote, e saltava. Um por material do lote (o three.js copia
+ * nele, a cada desenho, o `map`/`alphaTest`/lado do material: o recorte das folhas continua).
+ * `longe` = o do lote só de sombra da árvore que já é cartaz (`uLodSombra` 1: some no fim do
+ * alcance). Os dois dividem UM programa (a diferença é um uniforme do material). Lote de vários
+ * materiais diferentes nisso: `null` (fica a sombra de sempre). Liga e desliga pelo
+ * `uSombraSuave` (uniforme: não recompila). Nunca descartados (`dispose`): são do jogo todo.
+ */
+const PROFUNDIDADES = new Map();
+export function profundidadeDaPassagem(material, tipo) {
+  const mats = [].concat(material), m0 = mats[0];
+  if (mats.some((x) => x.map !== m0.map || x.alphaMap !== m0.alphaMap || x.alphaTest !== m0.alphaTest || x.side !== m0.side || x.shadowSide !== m0.shadowSide)) return null;
+  const k = `${m0.uuid}|${tipo}`;
+  let d = PROFUNDIDADES.get(k);
+  if (!d) {
+    d = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+    d.name = `sombra|${tipo}`;
+    const modo = tipo === 'longe' ? 1 : 0;
+    d.onBeforeCompile = (sh) => { sh.uniforms.uLodSombra = { value: modo }; pontilhar(sh, 'uSombraSuave'); };
+    d.customProgramCacheKey = () => 'sombra-lod';
+    PROFUNDIDADES.set(k, d);
+  }
+  return d;
 }
 
 /** As peças que viram impostor ao longe: as árvores (o toco não), os arbustos `lp-Bush_*` e,
  *  desde 19/10/2026 (mesmo dia), a vegetação miúda — flores, juncos, trigo (`gi-`), os tufos
  *  `Grass_*`, plantas e samambaias: ~2.700 cópias que trocavam de uma vez por região de 48 m. */
 export const viraImpostor = (prop) => /Tree(?!Stump)|Bush|^gi-|(^|-)Grass|Flower|Plant|Fern/.test(prop);
+
+/**
+ * AS FOTOS DOS CARTAZES GUARDADAS NO NAVEGADOR (20/10/2026; opção avançada "pré-carregar tudo").
+ * A cada abertura o jogo fotografava os 51 tipos (`VISTAS` fotos de cor e de normais cada);
+ * com a opção ligada, as fotos ficam no IndexedDB do navegador (os pixels crus, como saíram da
+ * placa: a cor já multiplicada pelo alfa) e na abertura seguinte vêm de lá. A CHAVE muda com o
+ * que muda a foto: `FOTO_VERSAO` (suba ao mexer em `assarImpostor`), `RES`, `VISTAS`, a revisão
+ * do three.js e a digital do modelo (vértices, malhas, caixa, as texturas). Tudo em try/catch:
+ * falhou = fotografa como antes. Ler os pixels (`readRenderTargetPixels`) só no carregamento.
+ */
+const FOTO_VERSAO = 1;
+const BANCO = 'masmorra-cartazes', GAVETA = 'fotos';
+const FOTOS = { ligado: false, lidas: new Map(), novas: [], usadas: new Set() };
+
+function abrirBanco() {
+  return new Promise((ok, falha) => {
+    const p = indexedDB.open(BANCO, 1);
+    p.onupgradeneeded = () => { if (!p.result.objectStoreNames.contains(GAVETA)) p.result.createObjectStore(GAVETA); };
+    p.onsuccess = () => ok(p.result);
+    p.onerror = () => falha(p.error);
+    p.onblocked = () => falha(new Error('banco bloqueado'));
+  });
+}
+
+/** A chave das fotos de uma peça: muda quando o modelo, a resolução, as vistas ou o código da foto mudam. */
+function chaveDaFoto(prop, fonte, lado, base, res) {
+  let vertices = 0, malhas = 0;
+  const tex = [];
+  fonte.traverse((o) => {
+    if (!o.isMesh) return;
+    malhas++;
+    vertices += o.geometry?.attributes?.position?.count ?? 0;
+    for (const m of [].concat(o.material)) { const i = m?.map?.image; tex.push(i ? `${i.width}x${i.height}` : '-'); }
+  });
+  return [prop, FOTO_VERSAO, RES, VISTAS, res, THREE.REVISION, malhas, vertices, lado.toFixed(3), base.toFixed(3), tex.join(',')].join('|');
+}
+
+/** Lê as fotos guardadas (main.js, ANTES de montar o mundo). Sem a opção ou com erro: nada. */
+export async function carregarFotosGuardadas(ligado) {
+  FOTOS.ligado = !!ligado;
+  FOTOS.lidas.clear(); FOTOS.novas = []; FOTOS.usadas.clear();
+  if (!FOTOS.ligado) return 0;
+  try {
+    const db = await abrirBanco();
+    await new Promise((ok, falha) => {
+      const t = db.transaction(GAVETA, 'readonly'), g = t.objectStore(GAVETA), c = g.openCursor();
+      c.onsuccess = () => {
+        const cur = c.result;
+        if (!cur) return;
+        const v = cur.value;
+        if (v?.cor instanceof Uint8Array && v?.normal instanceof Uint8Array) FOTOS.lidas.set(String(cur.key), v);
+        cur.continue();
+      };
+      t.oncomplete = ok; t.onerror = () => falha(t.error); t.onabort = () => falha(t.error);
+    });
+    db.close();
+  } catch (e) { console.warn('[cartaz] não consegui ler as fotos guardadas:', e?.message ?? e); FOTOS.lidas.clear(); }
+  return FOTOS.lidas.size;
+}
+
+/** Grava as fotos novas e apaga as que não servem mais (chave velha). Sem esperar: o jogo segue. */
+export async function gravarFotosNovas() {
+  if (!FOTOS.ligado) return;
+  const novas = FOTOS.novas, velhas = [...FOTOS.lidas.keys()].filter((k) => !FOTOS.usadas.has(k));
+  FOTOS.novas = []; FOTOS.lidas.clear();   // (a memória das lidas: as texturas já têm os pixels)
+  if (!novas.length && !velhas.length) return;
+  try {
+    const db = await abrirBanco();
+    await new Promise((ok, falha) => {
+      const t = db.transaction(GAVETA, 'readwrite'), g = t.objectStore(GAVETA);
+      for (const f of novas) g.put({ cor: f.cor, normal: f.normal }, f.chave);
+      for (const k of velhas) g.delete(k);
+      t.oncomplete = ok; t.onerror = () => falha(t.error); t.onabort = () => falha(t.error);
+    });
+    db.close();
+  } catch (e) { console.warn('[cartaz] não consegui guardar as fotos:', e?.message ?? e); }
+}
+
+/** O botão "apagar o guardado" das opções avançadas: some com o banco inteiro. */
+export function apagarFotosGuardadas() {
+  return new Promise((ok) => {
+    try {
+      const p = indexedDB.deleteDatabase(BANCO);
+      p.onsuccess = () => ok(true); p.onerror = () => ok(false); p.onblocked = () => ok(false);
+    } catch { ok(false); }
+  });
+}
 
 /**
  * As fotos de uma árvore: `VISTAS` vistas em volta, de lado, numa câmera ortográfica que
@@ -103,6 +318,24 @@ function assarImpostor(renderer, prop) {
   const raioH = Math.max(-caixa.min.x, caixa.max.x, -caixa.min.z, caixa.max.z);
   const lado = Math.max(2 * raioH, caixa.max.y - caixa.min.y) * 1.02;
   const base = caixa.min.y, res = resDaFoto(lado);
+  // AS FOTOS GUARDADAS NO NAVEGADOR (opção "pré-carregar tudo"): a mesma chave = as mesmas fotos
+  const chave = FOTOS.ligado ? chaveDaFoto(prop, fonte, lado, base, res) : null;
+  const guardada = chave && FOTOS.lidas.get(chave);
+  if (guardada && guardada.cor?.length === res * VISTAS * res * 4 && guardada.normal?.length === guardada.cor.length) {
+    try {
+      FOTOS.usadas.add(chave);
+      const tex = (px, colorSpace) => {
+        const t = new THREE.DataTexture(px, res * VISTAS, res, THREE.RGBAFormat, THREE.UnsignedByteType);
+        t.colorSpace = colorSpace; t.generateMipmaps = true; t.flipY = false;
+        t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+        t.needsUpdate = true;
+        t.onUpdate = () => { t.image.data = null; };   // subiu para a placa: a cópia na memória do JS não faz falta
+
+        return t;
+      };
+      return { textura: tex(guardada.cor, THREE.SRGBColorSpace), normais: tex(guardada.normal, THREE.NoColorSpace), lado, base };
+    } catch (e) { console.warn('[cartaz] a foto guardada falhou — fotografando de novo:', e?.message ?? e); }
+  }
   // a cena da COR: luz ambiente pura de força π — o material de pé (MeshStandard) devolve a própria cor
   const cenaCor = new THREE.Scene();
   cenaCor.add(fonte.clone(true));
@@ -155,6 +388,16 @@ function assarImpostor(renderer, prop) {
   renderer.setRenderTarget(null);
   renderer.setClearColor(corAntes, alfaAntes);
   for (const n of trocados.values()) n.dispose();   // só serviam para a foto
+  // (no CARREGAMENTO ler os pixels da placa é aceitável — no meio do jogo, nunca)
+  if (chave) {
+    try {
+      const w = res * VISTAS, cor = new Uint8Array(w * res * 4), normal = new Uint8Array(w * res * 4);
+      renderer.readRenderTargetPixels(alvoCor, 0, 0, w, res, cor);
+      renderer.readRenderTargetPixels(alvoNormal, 0, 0, w, res, normal);
+      FOTOS.novas.push({ chave, cor, normal });
+      FOTOS.usadas.add(chave);
+    } catch (e) { console.warn('[cartaz] não consegui guardar a foto:', e?.message ?? e); }
+  }
   return { textura: alvoCor.texture, normais: alvoNormal.texture, lado, base };
 }
 
@@ -164,13 +407,17 @@ function assarImpostor(renderer, prop) {
  * coordenada da textura escolhe a foto do ângulo. A normal de cada pixel vem da foto das
  * normais, levada do espaço da vista (direita, cima, para a câmera) para o mundo.
  */
-function materialDoCartaz({ textura, normais, lado, base }) {
+function materialDoCartaz({ textura, normais, lado, base }, tipo = 2) {
   const m = new THREE.MeshLambertMaterial({ map: textura, alphaTest: 0.5 });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uLado = { value: lado };
     sh.uniforms.uBase = { value: base };
     sh.uniforms.uNormais = { value: normais };
     Object.assign(sh.uniforms, TROCA);
+    // a faixa da passagem e a do OUTRO LADO do TIPO dele (grama ou árvores: o mesmo vetor do
+    // `uPassagem`/`uCorte`, por referência — um uniforme do material, o programa é um só)
+    sh.uniforms.uPassT = { value: TROCA.uPassagem.value[tipo] };
+    sh.uniforms.uCorteT = { value: TROCA.uCorte.value[tipo] };
     // AS DUAS FOTOS VIZINHAS (19/10/2026): com uma só (a mais perto do ângulo), girar a câmera
     // trocava a foto de uma vez a cada 45° — de perto (40 m) a árvore "pulava". Agora mistura a
     // de antes e a de depois pela fração do ângulo. As fotos têm a cor já multiplicada pelo alfa
@@ -180,9 +427,10 @@ function materialDoCartaz({ textura, normais, lado, base }) {
         uniform sampler2D uNormais;
         varying vec3 vImpDir, vImpD;
         varying vec2 vImpUv2;
-        varying float vImpT, vTroca;`)
+        varying float vImpT, vTroca, vImpLado;`)
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-        if ( ${TROCA_RUIDO} >= vTroca ) discard;`)
+        float impRuido = ${TROCA_RUIDO};
+        if ( impRuido >= vTroca || impRuido < vImpLado ) discard;`)
       .replace('#include <map_fragment>', `#ifdef USE_MAP
           vec4 impC0 = texture2D( map, vMapUv ), impC1 = texture2D( map, vImpUv2 );
           float impA = mix( impC0.a, impC1.a, vImpT );
@@ -197,11 +445,12 @@ function materialDoCartaz({ textura, normais, lado, base }) {
       .replace('#include <common>', `#include <common>
         uniform float uLado, uBase;
         uniform vec3 uTrocaVista;
-        uniform float uTrocaPerto;
-        uniform float uTrocaLonge;
+        uniform vec4 uPassT, uCorteT;
+        uniform vec2 uOutroLado;
+        attribute float aDentro;
         varying vec3 vImpDir, vImpD;
         varying vec2 vImpUv2;
-        varying float vImpT, vTroca;`)
+        varying float vImpT, vTroca, vImpLado;`)
       .replace('#include <uv_vertex>', `#include <uv_vertex>
         vec3 impP = vec3(instanceMatrix[3]);
         float impS = length(vec3(instanceMatrix[1]));
@@ -220,7 +469,10 @@ function materialDoCartaz({ textura, normais, lado, base }) {
           vMapUv = vec2((impFoto + position.x + 0.5) / ${VISTAS}.0, position.y + 0.5);
         #endif
         vImpUv2 = vec2((impFoto2 + position.x + 0.5) / ${VISTAS}.0, position.y + 0.5);
-        ${trocaDe('impP')}
+        float impVista = distance( impP, uTrocaVista );
+        vTroca = smoothstep( uPassT.x, uPassT.y, impVista );
+        // (o OUTRO LADO: o cartaz some na mesma faixa do modelo — ver LOD_GLSL)
+        vImpLado = clamp( ( impVista - mix( uOutroLado.y, uOutroLado.x, aDentro ) + uCorteT.y ) / max( uCorteT.y, 1e-3 ), 0.0, 1.0 );
         vImpDir = impDir; vImpD = impD;`)
       .replace('#include <defaultnormal_vertex>', `#include <defaultnormal_vertex>
         transformedNormal = normalize(mat3(viewMatrix) * impD);`)
@@ -244,8 +496,9 @@ function materialDoCartaz({ textura, normais, lado, base }) {
 export function reescreverLote(l, tudo = false) {
   const im = l.im;
   if (!im) return;
-  let n = 0;
-  for (const c of l.copias) if (tudo || (c.g.visivel && !c.cortada && !c.longe && !c.oculta)) im.setMatrixAt(n++, c.m);
+  let n = 0, a = im.geometry.attributes.aLod;
+  for (const c of l.copias) if (tudo || (c.g.visivel && !c.cortada && !c.longe && !c.oculta)) { a?.setXYZW(n, c.p.x, c.p.y, c.p.z, c.cod); im.setMatrixAt(n++, c.m); }
+  if (a) a.needsUpdate = true;
   im.count = n;
   im.visible = n > 0;
   im.instanceMatrix.needsUpdate = true;
@@ -253,8 +506,10 @@ export function reescreverLote(l, tudo = false) {
   // a árvore que já é cartaz, mas cuja sombra ainda se vê
   const s = l.imSombra;
   if (!s) return;
-  n = 0;
-  if (!tudo) for (const c of l.copias) if (c.g.visivel && !c.cortada && c.longe && c.comSombra) s.setMatrixAt(n++, c.m);
+  // (no pré-aquecimento, TODAS: o material de profundidade dele — o da sombra que some longe — é outro)
+  n = 0; a = s.geometry.attributes.aLod;
+  for (const c of l.copias) if (tudo || (c.g.visivel && !c.cortada && c.longe && c.comSombra)) { a?.setXYZW(n, c.p.x, c.p.y, c.p.z, c.cod); s.setMatrixAt(n++, c.m); }
+  if (a) a.needsUpdate = true;
   s.count = n;
   s.visible = n > 0;
   s.instanceMatrix.needsUpdate = true;
@@ -277,15 +532,26 @@ export class LOD {
     this.cartazes = new Map();   // peça → { malha (InstancedMesh), grupos, sujo }
     const r = world.game.renderer;
     const plano = new THREE.PlaneGeometry(1, 1);
+    // O MAPA DE DENTRO (20/10/2026): 1 byte por célula (`World.ehDeDentro`), para o shader da peça
+    // solta saber de que lado da masmorra ela está (`uMapaDentro`; o JS usa a mesma conta)
+    const cols = world.cols, rows = world.rows, dentro = new Uint8Array(cols * rows);
+    for (let rr = 0; rr < rows; rr++) for (let cc = 0; cc < cols; cc++) dentro[rr * cols + cc] = world.ehDeDentro(rr, cc) ? 255 : 0;
+    const mapa = new THREE.DataTexture(dentro, cols, rows, THREE.RedFormat, THREE.UnsignedByteType);
+    mapa.minFilter = mapa.magFilter = THREE.NearestFilter; mapa.generateMipmaps = false; mapa.unpackAlignment = 1; mapa.needsUpdate = true;
+    TROCA.uMapaDentro.value = mapa;
+    TROCA.uMapaTam.value.set(cols, rows, world.center(0, 1).x);   // (o lado da célula: `CELL`)
     for (const g of grupos) {
       g.longe = false; g.oculto = false; g.lado = false;
+      g.t = Math.max(0, TIPOS.indexOf(tipoDaPeca(g.prop)));   // o tipo (grama, pedras, árvores, cenário)
       if (!viraImpostor(g.prop)) continue;
       let c = this.cartazes.get(g.prop);
       if (!c) {
         const fotos = assarImpostor(r, g.prop);
         const total = grupos.filter((x) => x.prop === g.prop).reduce((s, x) => s + x.matrizes.length, 0);
         // (um plano por tipo: dividindo a geometria, o three.js religava os atributos a cada cartaz — world.js, `cascaDaGeometria`)
-        const malha = new THREE.InstancedMesh(plano.clone(), materialDoCartaz(fotos), total);
+        const geo = plano.clone();
+        geo.setAttribute('aDentro', new THREE.InstancedBufferAttribute(new Float32Array(total), 1));   // o lado da masmorra (o outro lado)
+        const malha = new THREE.InstancedMesh(geo, materialDoCartaz(fotos, g.t), total);
         malha.count = 0;
         malha.frustumCulled = false;   // os cartazes estão espalhados pelo mapa inteiro
         malha.name = `cartaz:${g.prop}`;
@@ -301,74 +567,134 @@ export class LOD {
       g.copias = [];
     }
     for (const l of lotes) for (const c of l.copias) {
-      c.l = l; c.p = new THREE.Vector3().setFromMatrixPosition(c.m);
+      // (`c.p`: o lugar da RAIZ da peça — o mesmo do cartaz e do `aLod` no shader; `c.cod`: o código da cópia, `codigoDaCopia`)
+      c.l = l; c.p = c.raiz ?? new THREE.Vector3().setFromMatrixPosition(c.m);
+      c.cod = codigoDaCopia(c.g);   // (o `aLod.w` dela: tipo, lado, cartaz ou o raio do detalhe)
       c.longe = false; c.comSombra = false; c.oculta = false;
       (c.g.copias ??= []).push(c);
       if (l.sombra) c.g.projeta = true;
+    }
+    // o `aLod` das cópias, na ordem em que o mundo as pôs no lote (todas à vista)
+    for (const l of lotes) {
+      const a = l.im?.geometry.attributes.aLod;
+      if (!a) continue;
+      l.copias.forEach((c, i) => a.setXYZW(i, c.p.x, c.p.y, c.p.z, c.cod));
+      a.needsUpdate = true;
     }
   }
 
   /** Todo quadro: o que está longe vira cartaz; o detalhe pequeno longe some. */
   update(camera) {
     const q = this.world.game.graficos?.q ?? {};
-    // a distância e o "dinâmico" das OPÇÕES AVANÇADAS (graficos.js); desligado, a troca é seca
-    // (sem a faixa da passagem) e a árvore que é cartaz não projeta sombra
-    const G = this.world.game.graficos, D = G?.distanciaDeCarga ?? q.impostor ?? 110, dinamico = G?.dinamico !== false;
-    const limiar = q.limiarPx ?? 2, A = q.alcance ?? Infinity, banda = dinamico ? BANDA : 0;
-    // até onde a árvore que virou cartaz ainda projeta a sombra do sol: a caixa dela é um
-    // quadrado de `raio` em volta do jogador (o canto a √2·raio), e a câmera fica atrás dele
-    const sol = dinamico && q.sol && G?.sombras !== false ? q.sol.raio * 1.45 + 6 : 0;
+    // as distâncias e a passagem suave das OPÇÕES AVANÇADAS (graficos.js), POR TIPO de peça
+    // (20/10/2026: grama, pedras, árvores, cenário — no modo "tudo junto" os quatro são iguais);
+    // a passagem desligada = a troca seca (sem a faixa) e a árvore que é cartaz sem sombra
+    const G = this.world.game.graficos;
+    const limiar = q.limiarPx ?? 2, A = q.alcance ?? Infinity;
     const H = this.world.game.renderer.domElement.clientHeight || innerHeight;
     // (a câmera isométrica — player.js — vê de longe com lente estreita; ela diz de onde uma
     // câmera comum veria, e com que lente: as distâncias e os pixels saem iguais)
-    const foco = (H / 2) / Math.tan((camera.userData.lodFov ?? camera.fov) * Math.PI / 360);
+    const foco = (H / 2) / Math.tan((camera.userData.lodFov ?? camera.fov) * Math.PI / 360), K = foco / limiar;
     const p = camera.userData.vistaDe ?? camera.position;
     const fora = (this.world.ambience?.k ?? 0) > 0.5;
     TROCA.uTrocaVista.value.copy(p);
-    TROCA.uTrocaPerto.value = D - Math.max(banda, 0.01);
-    TROCA.uTrocaLonge.value = D;
+    // O OUTRO LADO ANDA AOS POUCOS (20/10/2026): ao passar pela porta da masmorra, o limite de
+    // quem ficou do outro lado ia de "sem limite" a 40/60 m de uma vez — tudo além disso sumia (ou
+    // aparecia) num quadro. Agora ele anda (`andarLimite`: ×1,2 por segundo, de 40 m ao "sem
+    // limite" em ~3,5 s) e o pontilhado acompanha; o JS só esconde o grupo que já sumiu de todo
+    const agora = performance.now(), dt = Math.min(0.1, Math.max(0, (agora - (this.tAntes ?? agora)) / 1000));
+    this.tAntes = agora;
+    const alvoD = fora ? VER_DENTRO_DE_FORA : LADO_LONGE, alvoF = fora ? LADO_LONGE : VER_FORA_DE_DENTRO;
+    if (this.limDentro === undefined) { this.limDentro = alvoD; this.limFora = alvoF; }
+    this.limDentro = andarLimite(this.limDentro, alvoD, dt);
+    this.limFora = andarLimite(this.limFora, alvoF, dt);
+    // (o ALCANCE do Mínimo também: nem o lote nem o cartaz além dele — a névoa já fechou ali)
+    const limD = Math.min(this.limDentro, A), limF = Math.min(this.limFora, A);
+    TROCA.uOutroLado.value.set(limD, limF);
+    // OS NÚMEROS DE CADA TIPO: no shader (`uPassagem`, `uCorte`) e no JS (`this.par`), os mesmos
+    const P = this.par ??= { cartazDe: [0, 0, 0, 0], modeloAte: [0, 0, 0, 0], sombraAte: [0, 0, 0, 0], teto: [0, 0, 0, 0] };
+    const comSol = !!q.sol && G?.sombras !== false;
+    let mudou = false;
+    for (let t = 0; t < TIPOS.length; t++) {
+      const tipo = TIPOS[t], suave = G ? G.suaveDe(tipo) : true, banda = suave ? BANDA : 0;
+      // (só a grama e as árvores viram cartaz; nas pedras e no cenário a faixa do cartaz não é usada)
+      const Dt = G ? (G.distanciaDe(tipo === 'grama' ? 'grama' : 'arvores') ?? 40) : (q.impostor ?? 110);
+      const teto = (tipo === 'pedras' || tipo === 'cenario') ? (G?.distanciaDe(tipo) ?? Infinity) : Infinity;
+      // até onde a árvore que virou cartaz ainda projeta a sombra do sol: a caixa dela é um
+      // quadrado de `raio` em volta do jogador (o canto a √2·raio), e a câmera fica atrás dele
+      // (o raio é o da opção avançada "distância das sombras", ou o da qualidade)
+      const sol = suave && comSol ? (G?.raioDaSombra ?? q.sol.raio) * 1.45 + 6 : 0;
+      const cartazDe = Dt - banda - FOLGA, modeloAte = Dt + FOLGA, sombraAte = Math.max(modeloAte, sol);
+      if (P.cartazDe[t] !== cartazDe || P.modeloAte[t] !== modeloAte || P.sombraAte[t] !== sombraAte || P.teto[t] !== teto) mudou = true;
+      P.cartazDe[t] = cartazDe; P.modeloAte[t] = modeloAte; P.sombraAte[t] = sombraAte; P.teto[t] = teto;
+      // (o detalhe: metros de distância por metro de raio até ficar com `limiar` px; some no último quarto)
+      TROCA.uPassagem.value[t].set(Dt - Math.max(banda, 0.01), Dt, K, suave ? 0.25 : 0);
+      TROCA.uCorte.value[t].set(Number.isFinite(teto) ? teto : 1e6, suave ? LADO_FAIXA : 0.01, 0, 0);
+    }
+    // a sombra da árvore que já é cartaz (só as árvores projetam sombra de longe): some 1,5 m antes
+    // do fim do lote dela (a vista anda 1 m sem refazer) e começa só depois do fim do modelo (a
+    // sombra do modelo, no lote dele, é inteira)
+    const tA = TIPOS.indexOf('arvores'), sombraAte = P.sombraAte[tA] - 1.5;
+    TROCA.uSombraSuave.value = G?.sombraSuave === false ? 0 : 1;
+    TROCA.uSombraAte.value = sombraAte;
+    TROCA.uSombraFaixa.value = Math.max(0.01, Math.min(10, sombraAte - P.modeloAte[tA]));
+    // A PEÇA SOLTA (o cenário): some de todo em `soltaFim` pela ORIGEM de cada malha, e o JS a
+    // esconde quando todas as malhas dela passaram disso + 3 m (`soltas`, a mesma conta)
+    const tC = TIPOS.indexOf('cenario'), suaveC = G ? G.suaveDe('cenario') : true;
+    this.soltaFim = Math.min(SOLTA_LONGE, A + 5, P.teto[tC]);
+    TROCA.uSoltaAte.value = this.soltaFim;
+    TROCA.uSoltaFaixa.value = suaveC ? Math.min(12, this.soltaFim * 0.3) : 0.01;
+    TROCA.uSoltaLado.value = suaveC ? LADO_FAIXA : 0.01;
     this.world.ambience?.lua?.shadow.camera.layers.enable(CAMADA_SOMBRA);
     // SÓ QUANDO A CÂMERA ANDOU 1 m (15/10/2026): as ~1.300 contas de distância eram 2–3 ms por
     // quadro com a CPU freada 8× (um celular fraco), parado ou só girando a câmera. As trocas
-    // têm folga de 5–10 m: 1 m de atraso não se vê
-    const u = this.ultimo;
-    if (!u || u.p.distanceToSquared(p) > 1 || u.fora !== fora || u.D !== D || u.limiar !== limiar || u.foco !== foco || u.A !== A || u.sol !== sol || u.banda !== banda) {
-      this.ultimo = { p: p.clone(), fora, D, limiar, foco, A, sol, banda };
-      this.grupos_(p, fora, D, limiar, foco, A, sol, banda);
+    // têm folga de 5–10 m: 1 m de atraso não se vê (e todo quadro enquanto o outro lado anda)
+    const u = this.ultimo, ladoMudou = !u || u.limD !== limD || u.limF !== limF;
+    if (!u || mudou || ladoMudou || u.p.distanceToSquared(p) > 1 || u.K !== K) {
+      if (u) { u.p.copy(p); u.K = K; u.limD = limD; u.limF = limF; } else this.ultimo = { p: p.clone(), K, limD, limF };
+      this.grupos_(p, K, limD, limF, mudou);
     }
     // (fora do "andou 1 m": o pré-aquecimento suja os cartazes com a câmera parada)
     for (const c of this.cartazes.values()) {
       if (!c.sujo) continue;
       c.sujo = false;
       let n = 0;
-      for (const g of c.grupos) if (!g.lado) for (let i = 0; i < g.matrizes.length; i++) if (g.ehCartaz[i]) c.malha.setMatrixAt(n++, g.matrizes[i]);
+      const ad = c.malha.geometry.attributes.aDentro;
+      for (const g of c.grupos) if (!g.lado) for (let i = 0; i < g.matrizes.length; i++) if (g.ehCartaz[i]) { ad?.setX(n, g.dentro ? 1 : 0); c.malha.setMatrixAt(n++, g.matrizes[i]); }
+      if (ad) ad.needsUpdate = true;
       c.malha.count = n;
       c.malha.instanceMatrix.needsUpdate = true;
     }
     this.tPersonagens = (this.tPersonagens ?? 0) + 1;
     if (this.tPersonagens % 8 === 0) this.personagens(camera, fora);
-    if (this.tPersonagens % 8 === 4) this.soltas(camera, fora);
+    // (as soltas: de 8 em 8 quadros, e todo quadro enquanto o outro lado anda)
+    if (this.tPersonagens % 8 === 4 || ladoMudou) this.soltas(camera);
   }
 
   /** As três regras de cada grupo da decoração (o cartaz, o outro lado, o detalhe pequeno). */
-  grupos_(p, fora, D, limiar, foco, A = Infinity, sol = 0, banda = BANDA) {
+  grupos_(p, K, limD, limF, mudou = false) {
     // a árvore: cartaz a partir do começo da faixa da passagem, modelo até o fim dela, e o modelo
     // só de sombra até onde a sombra do sol alcança (com folga: a vista anda até 1 m sem refazer)
-    const cartazDe = D - banda - FOLGA, modeloAte = D + FOLGA, sombraAte = Math.max(modeloAte, sol);
+    // — os números do TIPO do grupo (`this.par`, de `update`)
+    const P = this.par;
     for (const g of this.grupos) {
-      const d = Math.max(0, g.centro.distanceTo(p) - g.raio);
+      const d = Math.max(0, g.centro.distanceTo(p) - g.raio), t = g.t;
       // as três regras, cada uma com folga para quem anda na divisa não ficar trocando (sem
       // função criada por grupo: eram ~1.300 por quadro, lixo para o coletor)
-      const lim = fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO;
-      // (além do ALCANCE do Mínimo também: nem o lote nem o cartaz — a névoa já fechou ali)
-      const lado = (g.dentro === fora && d > (g.lado ? lim - 5 : lim)) || d > (g.lado ? A - 5 : A);
+      // O OUTRO LADO EM PONTILHADO (20/10/2026): o shader apaga a cópia na faixa antes de `lim`
+      // (pela distância DELA, que é ≥ `d`); o grupo sai do lote além de `lim` + 2 e volta a `lim` + 1
+      // — ainda invisível. Antes, o grupo inteiro sumia de uma vez em `lim`
+      const lim = g.dentro ? limD : limF;
+      const lado = d > (g.lado ? lim + 1 : lim + 2);
       if (g.cartaz) {
+        const cartazDe = P.cartazDe[t], modeloAte = P.modeloAte[t], sombraAte = P.sombraAte[t];
         if (lado !== g.lado) g.cartaz.sujo = true;
         g.lado = lado;
         if (!lado !== g.visivel) { g.visivel = !lado; for (const l of g.lotes) this.sujos.add(l); }
-        // o grupo inteiro longe de tudo: só cartaz (e, já assim, nada a refazer)
+        // o grupo inteiro longe de tudo: só cartaz (e, já assim, nada a refazer — a não ser que
+        // as distâncias tenham mudado: as opções avançadas)
         const todoLonge = d > (g.projeta ? sombraAte : modeloAte) + 1;
-        if (lado || (todoLonge && g.todoLonge)) continue;
+        if (lado || (todoLonge && g.todoLonge && !mudou)) continue;
         g.todoLonge = todoLonge;
         g.longe = false;
         for (let i = 0; i < g.pos.length; i++) {
@@ -384,21 +710,24 @@ export class LOD {
       }
       // O DETALHE PEQUENO some CÓPIA POR CÓPIA (19/10/2026): pelo grupo (48 m), a pedrinha a
       // 60 m sumia junto com a de 100 m. O grupo inteiro além do limite some como antes; o que
-      // está na divisa decide cópia por cópia — cada uma some quando fica com `limiar` px, onde
-      // a troca não se vê
-      const ate = g.raioPeca * foco / limiar;
-      const oculto = g.oculto ? d > ate * 0.9 : d > ate;
+      // está na divisa decide cópia por cópia.
+      // EM PONTILHADO (20/10/2026): quem some na tela é o SHADER (LOD_GLSL: do último quarto até
+      // `ate`, onde a cópia fica com `limiar` px — ou no teto do tipo, escolhido à mão); o JS só tira
+      // do lote o que já sumiu de todo — além de `ate` + 3 m, e põe de volta a `ate` + 1,5 m (a vista
+      // anda 1 m sem refazer: a cópia que entra ainda está invisível). Antes era um corte seco em `ate`
+      const ate = Math.min(g.raioPeca * K, P.teto[t] * Math.max(1, g.raioPeca));
+      const oculto = g.oculto ? d > ate + 1.5 : d > ate + 3;
       if (lado !== g.lado || oculto !== g.oculto) {
         g.lado = lado; g.oculto = oculto;
         const visivel = !lado && !oculto;
         if (visivel !== g.visivel) { g.visivel = visivel; for (const l of g.lotes) this.sujos.add(l); }
       }
       if (!g.visivel) continue;
-      const divisa = d + 2 * g.raio > ate * 0.9;
+      const divisa = d + 2 * g.raio > ate + 1.5;
       if (!divisa && !g.divisa) continue;
       g.divisa = divisa;
       for (const c of g.copias ?? []) {
-        const oc = divisa && (c.oculta ? c.p.distanceTo(p) > ate * 0.9 : c.p.distanceTo(p) > ate);
+        const oc = divisa && (c.oculta ? c.p.distanceTo(p) > ate + 1.5 : c.p.distanceTo(p) > ate + 3);
         if (oc !== c.oculta) { c.oculta = oc; this.sujos.add(c.l); }
       }
     }
@@ -425,10 +754,44 @@ export class LOD {
    * lote, partícula, personagem, céu, chão, capim nem água (o que entra depois — item caído,
    * projétil — fica de fora, sempre desenhado). A luz de dentro delas não muda (`distribuirLuzes`).
    */
-  soltas(camera, fora) {
+  /**
+   * O PONTILHADO DAS PEÇAS SOLTAS (20/10/2026): os materiais delas ganham a passagem da distância
+   * (`vestirPassagem`, o ramo da malha comum: some aos poucos até `uSoltaAte`, e o outro lado pelo
+   * mapa de dentro), no CARREGAMENTO — o `preaquecer` (main.js) chama isto antes de desenhar, então
+   * nada compila no meio do jogo. Mesmo filtro de `soltas` (a peça com ossos fica de fora: os
+   * personagens). O material é o original, dividido com quem mais o use: perto não muda nada, e
+   * longe assim nada mais é desenhado. Material dividido com algo que NÃO é solta (o chão, um
+   * personagem) fica sem o pontilhado — essa malha ainda some de uma vez (`soltas`: `semPassagem`).
+   * Peça que entra depois (item caído, mensagem do chão) não passa por aqui.
+   */
+  vestirSoltas() {
+    if (this.soltasVestidas) return;
+    this.soltasVestidas = true;
+    const w = this.world, g = w.game, lotes = new Set(), caixa = new THREE.Box3(), esfera = new THREE.Sphere();
+    for (const gr of this.grupos) for (const im of gr.ims) lotes.add(im);
+    const fora_ = new Set();
+    for (const e of [g.player, ...(g.all ?? []), ...(w.cadaveres ?? [])]) { const r = e?.model?.root ?? e?.model?.scene ?? e?.root; if (r) fora_.add(r); }
+    // as candidatas (o filtro de `soltas`) e os materiais de TODO o resto da cena: material
+    // dividido com o chão, a água, um personagem… não ganha o pontilhado (sumiria junto)
+    const candidatas = [], proibidos = new Set();
+    for (const o of w.scene.children) {
+      let ok = !(o.isLight || o.isInstancedMesh || o.isPoints || o.isSprite || o.isCamera || lotes.has(o) || fora_.has(o));
+      ok &&= !(o.frustumCulled === false || /^(ceu|água|capim|respingos|vitórias|cartaz|lotes)/.test(o.name ?? ''));
+      if (ok) o.traverse((m) => { if (m.isSkinnedMesh) ok = false; });
+      // (o grande — o chão, o leito da lagoa — não some pela distância: a origem dele pode estar longe)
+      if (ok) { caixa.setFromObject(o).getBoundingSphere(esfera); ok = esfera.radius > 0 && esfera.radius <= 20; }
+      if (ok) { candidatas.push(o); continue; }
+      o.traverse((m) => { if (m.material) for (const mat of [].concat(m.material)) proibidos.add(mat); });
+    }
+    for (const o of candidatas) o.traverse((m) => {
+      if (!m.isMesh || m.isInstancedMesh) return;
+      for (const mat of [].concat(m.material)) if (mat && !mat.isShaderMaterial && !mat.userData.passagem && !proibidos.has(mat)) { vestirPassagem(mat); mat.needsUpdate = true; }
+    });
+  }
+
+  soltas(camera) {
     const w = this.world, g = w.game, p = camera.userData.vistaDe ?? camera.position;
     if (g.state === 'title') return;
-    const alcance = (g.graficos?.q.alcance ?? Infinity) + 5;   // o longe do Mínimo (graficos.js)
     if (!this.listaDeSoltas) {
       const fora_ = new Set();
       for (const e of [g.player, ...(g.all ?? []), ...(w.cadaveres ?? []), ...(g.sessao?.outros ?? [])]) { const r = e?.model?.root ?? e?.model?.scene ?? e?.root; if (r) fora_.add(r); }
@@ -445,12 +808,34 @@ export class LOD {
         if (ossos || !malhas.length) continue;
         caixa.setFromObject(o).getBoundingSphere(esfera);
         if (!(esfera.radius > 0) || esfera.radius > 20) continue;      // o chão, o leito da lagoa: grandes demais para sumir pela distância
-        this.listaDeSoltas.push({ malhas, centro: esfera.center.clone(), raio: esfera.radius, dentro: w.ehDeDentro(...w.cellOf(esfera.center)), oculto: false });
+        // AS MALHAS QUE SOMEM EM PONTILHADO (20/10/2026): a origem de cada uma (a distância do shader)
+        // e o lado da masmorra dela (o mesmo mapa do shader, `uMapaDentro`). A solta só é escondida
+        // quando TODAS já sumiram de todo — pela distância ou pelo outro lado. Sem nenhuma (só chama,
+        // ou material sem o pontilhado), a regra de antes, pela esfera
+        const origens = [], dentros = [];
+        for (const m of malhas) {
+          if (m.isSprite || ![].concat(m.material).every((x) => x?.userData.passagem)) continue;
+          const o_ = m.getWorldPosition(new THREE.Vector3());
+          origens.push(o_); dentros.push(w.ehDeDentro(...w.cellOf(o_)));
+        }
+        this.listaDeSoltas.push({ malhas, centro: esfera.center.clone(), raio: esfera.radius, dentro: w.ehDeDentro(...w.cellOf(esfera.center)), oculto: false, origens, dentros, semPassagem: origens.length < malhas.length });
       }
     }
+    const fim = this.soltaFim ?? SOLTA_LONGE, limD = this.ultimo?.limD ?? LADO_LONGE, limF = this.ultimo?.limF ?? LADO_LONGE;
     for (const s of this.listaDeSoltas) {
-      const d = Math.max(0, s.centro.distanceTo(p) - s.raio), folga = s.oculto ? -5 : 0;
-      const oculto = d > Math.min(SOLTA_LONGE, alcance) + folga || (s.dentro === fora && d > (fora ? VER_DENTRO_DE_FORA : VER_FORA_DE_DENTRO) + folga);
+      let oculto;
+      if (s.origens.length) {
+        // (folga: sai além do fim + 3 m / do limite + 2, volta a + 1,5 / + 1 — ainda invisível no shader)
+        const fF = s.oculto ? 1.5 : 3, fL = s.oculto ? 1 : 2;
+        oculto = true;
+        for (let i = 0; i < s.origens.length && oculto; i++) {
+          const di = s.origens[i].distanceTo(p);
+          if (!(di > fim + fF || di > (s.dentros[i] ? limD : limF) + fL)) oculto = false;
+        }
+      } else {
+        const d = Math.max(0, s.centro.distanceTo(p) - s.raio), folga = s.oculto ? -5 : 0;
+        oculto = d > fim + folga || d > (s.dentro ? limD : limF) + folga;
+      }
       if (oculto === s.oculto) continue;
       s.oculto = oculto;
       for (const m of s.malhas) m.layers.set(oculto ? 31 : 0);

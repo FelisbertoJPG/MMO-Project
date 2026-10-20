@@ -110,6 +110,13 @@ const CHAVE_FIXA = 'masmorra:resolucao';      // a resolução escolhida à mão
 const CHAVE_SOMBRAS = 'masmorra:sombras';
 const CHAVE_DISTANCIA = 'masmorra:distancia';   // a distância de carregamento escolhida à mão (m)
 const CHAVE_DINAMICO = 'masmorra:dinamico';     // o carregamento dinâmico ligado ou não
+const CHAVE_SOMBRA_DIST = 'masmorra:sombra-distancia';   // a distância das sombras (o raio da caixa do sol, m)
+const CHAVE_SOMBRA_SUAVE = 'masmorra:sombra-suave';      // a sombra com passagem suave ligada ou não
+const CHAVE_PRECARREGAR = 'masmorra:precarregar';        // pré-carregar tudo (e guardar as fotos dos cartazes)
+const CHAVE_DIST_MODO = 'masmorra:distancia-modo';       // 'tipo' = uma distância por tipo de peça
+const CHAVE_DIST_TIPOS = 'masmorra:distancia-tipos';     // {grama, pedras, arvores, cenario}: m (ausente = padrão)
+const CHAVE_PASS_MODO = 'masmorra:passagem-modo';        // 'tipo' = a passagem suave escolhida por tipo
+const CHAVE_PASS_TIPOS = 'masmorra:passagem-tipos';      // {grama, pedras, arvores, cenario}: true/false
 /**
  * AS OPÇÕES AVANÇADAS (19/10/2026; menu de pausa → Qualidade Gráfica → Opções avançadas).
  * A DISTÂNCIA DE CARREGAMENTO: até onde árvores, arbustos e plantas são o modelo de verdade
@@ -121,6 +128,35 @@ const CHAVE_DINAMICO = 'masmorra:dinamico';     // o carregamento dinâmico liga
  */
 export const DISTANCIAS = [20, 30, 40, 50, 60, 80];
 const DIST_MAX = 80;
+/**
+ * MAIS TRÊS (20/10/2026). A DISTÂNCIA DAS SOMBRAS: o raio da caixa da sombra do sol em volta do
+ * jogador (o `sol.raio` da qualidade, ou um destes; o mapa de sombra continua do mesmo tamanho —
+ * mais longe = sombra mais borrada; não recompila nada). A SOMBRA COM PASSAGEM SUAVE: a sombra
+ * acompanha o pontilhado do que some ou vira cartaz (lod.js, `profundidadeDaPassagem`; um
+ * uniforme, não recompila). PRÉ-CARREGAR TUDO (vale ao reabrir o jogo): no carregamento sobem para
+ * a placa as texturas e as malhas de TODAS as peças (main.js, `preaquecer`), e as fotos dos
+ * cartazes ficam guardadas no navegador (lod.js) — a abertura seguinte não as tira de novo.
+ */
+export const DISTANCIAS_SOMBRA = [20, 30, 50, 60, 80];
+/**
+ * POR TIPO DE PEÇA (20/10/2026, pedido do dono). Os tipos são os do LOD (`tipoDaPeca`, lod.js):
+ * GRAMA (o capim e a vegetação miúda `gi-`/Grass/Flower/Plant/Fern), PEDRAS, ÁRVORES (árvores e
+ * arbustos) e CENÁRIO (o resto: peças soltas, construções, objetos). A DISTÂNCIA de cada um: na
+ * grama e nas árvores, onde o modelo vira cartaz (e, na grama, até onde vai o capim); nas pedras
+ * e no cenário, que não viram cartaz, até onde aparecem — a peça de até 1 m de raio some a X m, a
+ * maior vai mais longe na proporção do raio (a casa de 6 m a 6·X), e nunca além da regra dos pixels
+ * (`limiarPx`), que é o Padrão. A PASSAGEM SUAVE (o pontilhado) também pode ser escolhida por tipo:
+ * desligada, o corte seco de antes (um pouco mais leve). Tudo por uniforme: nada recompila.
+ */
+export const TIPOS_LOD = [
+  { id: 'grama', nome: 'Grama' }, { id: 'pedras', nome: 'Pedras' },
+  { id: 'arvores', nome: 'Árvores' }, { id: 'cenario', nome: 'Cenário' },
+];
+export const DISTANCIAS_TIPO = {
+  grama: DISTANCIAS, arvores: DISTANCIAS,
+  pedras: [30, 40, 60, 80, 120], cenario: [30, 40, 60, 80, 120],
+};
+const lerJson = (k) => { try { const v = JSON.parse(localStorage.getItem(k) ?? 'null'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } };
 /** As resoluções que o menu de pausa oferece (fração da resolução da qualidade). */
 export const RESOLUCOES = [1, 0.85, 0.7, 0.55, 0.4];
 
@@ -211,6 +247,19 @@ export class Graficos {
     this.distancia = null;   // null = a da qualidade
     try { const d = Number(localStorage.getItem(CHAVE_DISTANCIA)); if (DISTANCIAS.includes(d)) this.distancia = d; } catch { }
     try { this.dinamico = localStorage.getItem(CHAVE_DINAMICO) !== 'nao'; } catch { this.dinamico = true; }
+    this.distanciaSombra = null;   // null = a da qualidade
+    try { const d = Number(localStorage.getItem(CHAVE_SOMBRA_DIST)); if (DISTANCIAS_SOMBRA.includes(d)) this.distanciaSombra = d; } catch { }
+    try { this.sombraSuave = localStorage.getItem(CHAVE_SOMBRA_SUAVE) !== 'nao'; } catch { this.sombraSuave = true; }
+    try { this.preCarregar = localStorage.getItem(CHAVE_PRECARREGAR) === 'sim'; } catch { this.preCarregar = false; }
+    // (por tipo: o modo e os valores; valor fora da lista = o padrão)
+    try { this.distModo = localStorage.getItem(CHAVE_DIST_MODO) === 'tipo' ? 'tipo' : 'junto'; } catch { this.distModo = 'junto'; }
+    try { this.passModo = localStorage.getItem(CHAVE_PASS_MODO) === 'tipo' ? 'tipo' : 'todos'; } catch { this.passModo = 'todos'; }
+    this.distTipos = {}; this.passTipos = {};
+    const dt = lerJson(CHAVE_DIST_TIPOS), pt = lerJson(CHAVE_PASS_TIPOS);
+    for (const { id } of TIPOS_LOD) {
+      if (DISTANCIAS_TIPO[id].includes(dt[id])) this.distTipos[id] = dt[id];
+      this.passTipos[id] = pt[id] !== false;
+    }
     this.res = { ini: 0, quadros: 0, baixos: 0, altos: 0, esperaAte: 0 };
   }
 
@@ -242,6 +291,101 @@ export class Graficos {
     this.distancia = DISTANCIAS.includes(v) ? v : null;
     try { if (this.distancia) localStorage.setItem(CHAVE_DISTANCIA, String(this.distancia)); else localStorage.removeItem(CHAVE_DISTANCIA); } catch { }
     this.game.monitor?.evento(`distância de carregamento ${this.distanciaDeCarga} m${this.distancia ? '' : ' (a da qualidade)'}`);
+  }
+
+  /**
+   * A distância ESCOLHIDA para um tipo (m) no modo "Por tipo"; `null` = o padrão dele (no modo
+   * "tudo junto", sempre `null`). Quem usa: o capim (grama).
+   */
+  distanciaTipo(tipo) { return this.distModo === 'tipo' ? (this.distTipos[tipo] ?? null) : null; }
+
+  /**
+   * A distância de um tipo para o LOD (lod.js, a cada quadro): grama e árvores = onde vira cartaz
+   * (a escolhida, ou a de carregamento); pedras e cenário = o teto de até onde aparecem (`null` =
+   * só a regra dos pixels).
+   */
+  distanciaDe(tipo) {
+    const v = this.distanciaTipo(tipo);
+    if (tipo === 'grama' || tipo === 'arvores') return Math.min(DIST_MAX, v ?? this.distanciaDeCarga);
+    return v;
+  }
+
+  /** A passagem suave (o pontilhado) de um tipo está ligada? ("todos" = o carregamento dinâmico). */
+  suaveDe(tipo) { return this.passModo === 'tipo' ? this.passTipos[tipo] !== false : this.dinamico !== false; }
+
+  /** "Padrão (tudo junto)" ou "Por tipo" na distância de carregamento. */
+  escolherModoDistancia(modo) {
+    modo = modo === 'tipo' ? 'tipo' : 'junto';
+    if (modo === this.distModo) return;
+    this.distModo = modo;
+    try { modo === 'tipo' ? localStorage.setItem(CHAVE_DIST_MODO, 'tipo') : localStorage.removeItem(CHAVE_DIST_MODO); } catch { }
+    this.game.monitor?.evento(`distância de carregamento ${modo === 'tipo' ? `por tipo (${this.resumoDistancias()})` : `tudo junto (${this.distanciaDeCarga} m)`}`);
+  }
+
+  /** A distância de um tipo à mão (`null` = o padrão dele); só vale no modo "Por tipo". */
+  escolherDistanciaTipo(tipo, v) {
+    if (!DISTANCIAS_TIPO[tipo]) return;
+    if (DISTANCIAS_TIPO[tipo].includes(v)) this.distTipos[tipo] = v; else delete this.distTipos[tipo];
+    try { localStorage.setItem(CHAVE_DIST_TIPOS, JSON.stringify(this.distTipos)); } catch { }
+    this.game.monitor?.evento(`distância por tipo: ${this.resumoDistancias()}`);
+  }
+
+  /** "Todos" (o carregamento dinâmico Ligado/Desligado) ou "Por tipo" na passagem suave. */
+  escolherModoPassagem(modo) {
+    modo = modo === 'tipo' ? 'tipo' : 'todos';
+    if (modo === this.passModo) return;
+    this.passModo = modo;
+    try { modo === 'tipo' ? localStorage.setItem(CHAVE_PASS_MODO, 'tipo') : localStorage.removeItem(CHAVE_PASS_MODO); } catch { }
+    this.game.monitor?.evento(`passagem suave ${modo === 'tipo' ? `por tipo (${this.resumoPassagens()})` : `para todos (${this.dinamico ? 'ligada' : 'desligada'})`}`);
+  }
+
+  /** Liga ou desliga a passagem suave de um tipo (modo "Por tipo"). */
+  alternarPassagemTipo(tipo, ligar = !this.passTipos[tipo]) {
+    if (!DISTANCIAS_TIPO[tipo] || ligar === this.passTipos[tipo]) return;
+    this.passTipos[tipo] = ligar;
+    try { localStorage.setItem(CHAVE_PASS_TIPOS, JSON.stringify(this.passTipos)); } catch { }
+    this.game.monitor?.evento(`passagem suave por tipo: ${this.resumoPassagens()}`);
+  }
+
+  /** "grama 40 m, pedras padrão…" (eventos e o relatório do monitor). */
+  resumoDistancias() { return TIPOS_LOD.map(({ id, nome }) => `${nome.toLowerCase()} ${this.distTipos[id] ? `${this.distTipos[id]} m` : 'padrão'}`).join(', '); }
+  resumoPassagens() { return TIPOS_LOD.map(({ id, nome }) => `${nome.toLowerCase()} ${this.passTipos[id] !== false ? 'suave' : 'seca'}`).join(', '); }
+
+  /** O raio da caixa da sombra do sol (m): o escolhido à mão ou o da qualidade; `null` sem sombra do sol. */
+  get raioDaSombra() { return this.q.sol ? (this.distanciaSombra ?? this.q.sol.raio) : null; }
+
+  /** A distância das sombras à mão (`null` = a da qualidade): muda só a caixa do sol (nada recompila). */
+  escolherDistanciaSombra(v) {
+    this.distanciaSombra = DISTANCIAS_SOMBRA.includes(v) ? v : null;
+    try { if (this.distanciaSombra) localStorage.setItem(CHAVE_SOMBRA_DIST, String(this.distanciaSombra)); else localStorage.removeItem(CHAVE_SOMBRA_DIST); } catch { }
+    this.caixaDoSol();
+    this.game.monitor?.evento(`distância das sombras ${this.raioDaSombra ?? '—'} m${this.distanciaSombra ? '' : ' (a da qualidade)'}`);
+  }
+
+  /** A sombra com passagem suave ligada ou não (lod.js lê a cada quadro: um uniforme). */
+  alternarSombraSuave(ligar = !this.sombraSuave) {
+    if (ligar === this.sombraSuave) return;
+    this.sombraSuave = ligar;
+    try { localStorage.setItem(CHAVE_SOMBRA_SUAVE, ligar ? 'sim' : 'nao'); } catch { }
+    this.game.monitor?.evento(`sombra com passagem suave ${ligar ? 'ligada' : 'desligada'}`);
+  }
+
+  /** Pré-carregar tudo (vale na próxima abertura do jogo: é o carregamento que muda). */
+  alternarPreCarregar(ligar = !this.preCarregar) {
+    if (ligar === this.preCarregar) return;
+    this.preCarregar = ligar;
+    try { localStorage.setItem(CHAVE_PRECARREGAR, ligar ? 'sim' : 'nao'); } catch { }
+    this.game.monitor?.evento(`pré-carregar tudo ${ligar ? 'ligado' : 'desligado'} (vale ao reabrir)`);
+  }
+
+  /** A caixa da sombra do sol no raio de agora (a qualidade ou a distância das sombras). */
+  caixaDoSol() {
+    const sol = this.game.world?.ambience?.lua, R = this.raioDaSombra;
+    if (!sol?.castShadow || !R) return;
+    const c = sol.shadow.camera;
+    c.left = -R; c.right = R; c.top = R; c.bottom = -R; c.near = 1; c.far = 260;
+    c.updateProjectionMatrix();
+    sol.shadow.bias = -0.0004; sol.shadow.normalBias = 1.5 * (2 * R / this.q.sol.mapa);   // ~1,5 texel
   }
 
   /** O carregamento dinâmico ligado ou não (lod.js e capim.js o leem a cada quadro). */
@@ -363,10 +507,7 @@ export class Graficos {
     if (sol) {
       sol.castShadow = sombras && !!q.sol;
       if (sol.castShadow) {
-        const c = sol.shadow.camera, R = q.sol.raio;
-        c.left = -R; c.right = R; c.top = R; c.bottom = -R; c.near = 1; c.far = 260;
-        c.updateProjectionMatrix();
-        sol.shadow.bias = -0.0004; sol.shadow.normalBias = 1.5 * (2 * R / q.sol.mapa);   // ~1,5 texel
+        this.caixaDoSol();
         if (sol.shadow.mapSize.x !== q.sol.mapa) {
           sol.shadow.mapSize.set(q.sol.mapa, q.sol.mapa);
           sol.shadow.map?.dispose(); sol.shadow.map = null;

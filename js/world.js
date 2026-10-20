@@ -6,7 +6,7 @@ import { corDoChao, texturaDoChao, REPETE_CHAO, montarCaminhos, terreiro } from 
 import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
 import { ITEMS, RARIDADES, raridadeDe } from './items.js';
 import { makeWeapon } from './gear.js';
-import { LOD, reescreverLote, viraImpostor, vestirTroca, CAMADA_SOMBRA } from './lod.js';
+import { LOD, reescreverLote, viraImpostor, vestirPassagem, profundidadeDaPassagem, CAMADA_SOMBRA } from './lod.js';
 import { fragmentos } from './fratura.js';
 import { vestirVeu } from './veu.js';
 import { montarExpositores } from './expositor.js';
@@ -1305,7 +1305,9 @@ export class World {
       if (deDentro) g.nDentro++;   // peça da masmorra (lod.js: o outro lado)
       g.posicoes.push(raiz.position.clone());
       if (Assets.props[prop]) g.raioPeca = Math.max(g.raioPeca, this.caixaDoProp(prop).getSize(new THREE.Vector3()).length() / 2 * raiz.scale.x);
-      for (const m of malhas) entradas.push({ malha: m, g, m: m.matrixWorld.clone(), x: raiz.position.x, z: raiz.position.z, q: raiz.userData.quebravel });
+      // (`raiz`: o lugar da RAIZ da peça — a distância do LOD é dela, igual para todas as malhas da peça)
+      const lugar = new THREE.Vector3().setFromMatrixPosition(raiz.matrixWorld);
+      for (const m of malhas) entradas.push({ malha: m, g, m: m.matrixWorld.clone(), raiz: lugar, x: raiz.position.x, z: raiz.position.z, q: raiz.userData.quebravel });
       raiz.removeFromParent();
     }
     // OS LOTES DE DESENHO ≠ OS GRUPOS DO LOD (15/10/2026). Eram a mesma coisa (peça × região de
@@ -1335,7 +1337,7 @@ export class World {
       const chave = `${malha.geometry.uuid}|${mats.map((x) => x.uuid).join(',')}|${sombra}|${malha.receiveShadow}|${regiao}`;
       let l = lotes.get(chave);
       if (!l) lotes.set(chave, (l = { malha, sombra, copias: [] }));
-      const c = { m: e.m, g, cortada: false };
+      const c = { m: e.m, g, cortada: false, raiz: e.raiz };
       l.copias.push(c);
       g.lotes.add(l);
       // um quebrável dentro do lote (a vegetação): ele precisa saber qual cópia é a dele
@@ -1356,10 +1358,15 @@ export class World {
     // passam a dividir UMA cópia, só deles (dividida com uma malha comum, o programa trocaria a
     // cada desenho: instanciado × não). Nada muda na tela.
     const receitas = new Map();
-    // `troca`: lote de ÁRVORE/ARBUSTO, com a passagem modelo ↔ cartaz (lod.js, `vestirTroca`) — num
-    // material SÓ dele (o original é o das fotos do cartaz, e o de outra peça não pode sumir)
-    const unico = (m, troca) => {
-      const k0 = receitaDoMaterial(m), k = k0 === null ? (troca ? `uuid|${m.uuid}` : null) : `${k0}|${troca}`;
+    // `troca`: lote de ÁRVORE/ARBUSTO, com a passagem modelo ↔ cartaz (lod.js, `vestirPassagem`) — num
+    // material SÓ dele (o original é o das fotos do cartaz, e o de outra peça não pode sumir).
+    // O RESTO (20/10/2026) também ganha um só dos lotes: o detalhe pequeno some em pontilhado.
+    // UM SHADER SÓ para as duas passagens (lod.js, o código por cópia no `aLod`): o lote de árvore
+    // e o de pedra com a mesma receita dividem o material (eram dois, e dois programas). O material
+    // SEM receita também vira uma cópia só dos lotes (por uuid, como já era o das árvores): era o
+    // original, e o detalhe dele ainda sumia de uma vez (menos o ShaderMaterial, sem os encaixes)
+    const unico = (m) => {
+      const k0 = receitaDoMaterial(m), k = k0 === null ? (m.isShaderMaterial ? null : `uuid|${m.uuid}`) : k0;
       if (k === null) return vestirVeu(m);
       let r = receitas.get(k);
       if (!r) {
@@ -1368,7 +1375,7 @@ export class World {
         r.onBeforeCompile = m.onBeforeCompile; r.customProgramCacheKey = m.customProgramCacheKey;
         // o VÉU da câmera isométrica (veu.js): parado (uVeu = 0) fora dela
         vestirVeu(r);
-        if (troca) vestirTroca(r);
+        vestirPassagem(r);
         receitas.set(k, r);
       }
       return r;
@@ -1380,9 +1387,13 @@ export class World {
       // lote tem o SEU `instanceMatrix`, a cada desenho ele via "mudou" e religava todos os atributos
       // (o perfil de CPU com o freio de 4×, a conta de um celular: ~13% do quadro em `setup`,
       // `bindBuffer` e `vertexAttribPointer`, no quadro e de novo em cada vista da sombra)
-      const im = new THREE.InstancedMesh(cascaDaGeometria(malha.geometry), Array.isArray(malha.material) ? malha.material.map((x) => unico(x, troca)) : unico(malha.material, troca), copias.length);
+      const im = new THREE.InstancedMesh(cascaDaGeometria(malha.geometry), Array.isArray(malha.material) ? malha.material.map((x) => unico(x)) : unico(malha.material), copias.length);
       copias.forEach((c, i) => im.setMatrixAt(i, c.m));
       im.castShadow = l.sombra;   // (a regra está acima, na montagem dos lotes)
+      // o LUGAR DA RAIZ e o raio de cada cópia (lod.js, `aLod`: escrito pelo LOD com as matrizes)
+      im.geometry.setAttribute('aLod', new THREE.InstancedBufferAttribute(new Float32Array(copias.length * 4), 4));
+      // a SOMBRA do detalhe que some acompanha o pontilhado dele (lod.js, `profundidadeDaPassagem`)
+      if (l.sombra && !troca && [].concat(im.material).every((x) => x.userData.passagem)) { const d = profundidadeDaPassagem(im.material, 'sumir'); if (d) im.customDepthMaterial = d; }
       im.receiveShadow = malha.receiveShadow;
       im.computeBoundingSphere();
       im.matrixAutoUpdate = false;
@@ -1397,6 +1408,10 @@ export class World {
         s.count = 0; s.visible = false;
         s.castShadow = true; s.receiveShadow = false;
         s.layers.set(CAMADA_SOMBRA);
+        s.geometry.setAttribute('aLod', new THREE.InstancedBufferAttribute(new Float32Array(copias.length * 4), 4));
+        // a sombra dela some aos poucos no fim do alcance (`uSombraAte`, lod.js), em vez de saltar
+        const d = profundidadeDaPassagem(im.material, 'longe');
+        if (d) s.customDepthMaterial = d;
         s.matrixAutoUpdate = false;
         parados.add(s);
         l.imSombra = s;
