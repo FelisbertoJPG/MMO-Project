@@ -85,7 +85,10 @@ const CRISTA = (ate) => ['crina', { de: 2.5, ate, altura: 2.7, largura: 3.5, top
 const TRANCA = (x = 0, o = {}) => ['mecha', { raiz: 33.5, x, solta: [[179.4, -18.6], [175, -20.6], [169.5, -20.2], [165, -18.6]], ate: 120, raio: 2.7, elo: 4.6, argola: true, ...o }];
 // as TRANÇAS DE GUERRA: a mecha de cada lado (nasce atrás da orelha e cai pela frente do ombro) e o fiapo da têmpora
 const CAIDA = (lado) => ['caida', { lado, raiz: [198, 47], solta: [[11.8, 164.2, -7.2], [13.4, 160.2, -2.8]], x: 12.8, abre: -2.2, de: 151, ate: 120, raio: 4.1, gomos: 4 }];
-const FIAPO = (lado) => ['fiapo', { lado, pontos: [[9.3, 176.6, 4.8], [10.8, 172.4, 4.4], [11.2, 167.4, 4.8], [10.9, 162.6, 5.6], [10.4, 158.8, 6.2]] }];
+// o COMPRIDO: as mechas soltas das costas (nascem no alto de trás, `l` graus para o lado, e caem em `x`) e a da frente do ombro
+const COSTAS = (lado, l, x, o = {}) => ['solto', { lado, raiz: [150, l], sai: [200, l * 0.9], x, ate: 118, raio: 4.2, larg: 1.65, achata: 0.5, ...o }];
+const SOLTA_NA_FRENTE = (lado) => ['solto', { lado, frente: true, raiz: [120, 60], sai: [175, 72], solta: [[12, 162.5, -6.5], [13.6, 158.5, -2.4]], x: 12.6, abre: -1, de: 151, ate: 126, raio: 3.9, larg: 1.5, onda: 1.1, passo: 11, fase: 0.6 }];
+const FIAPO = (lado) => ['fiapo',{ lado, pontos: [[9.3, 176.6, 4.8], [10.8, 172.4, 4.4], [11.2, 167.4, 4.8], [10.9, 162.6, 5.6], [10.4, 158.8, 6.2]] }];
 export const PENTEADOS = {
   rabo: { nome: 'Rabo de cavalo', formas: [['mecha', { raiz: 29.5, solta: [[187, -16.8], [186.2, -21.4], [181, -24.6], [174, -25], [167.5, -22.6]], ate: 134, raio: 3.7 }]] },
   tranca: { nome: 'Trança', formas: [TRANCA()] },
@@ -117,6 +120,18 @@ export const PENTEADOS = {
     ['touca', { de: 36, ate: 204, lado: 62, linhas: 9, colunas: 9, folga: 1.1, onda: 0.7, recua: 10 }],
     ['tufos', { deita: 62, largura: 2, base: 3.4, pontas: [[74, 0, 6.5], [80, -26, 5.5], [80, 26, 5.5], [104, -13, 7.5], [104, 13, 7.5], [110, -38, 6], [110, 38, 6], [134, 0, 8.5], [138, -26, 7], [138, 26, 7]] }],
     CAIDA(1), CAIDA(-1), FIAPO(1), FIAPO(-1),
+  ] },
+  // O COMPRIDO (20/10/2026, o da referência do dono): solto e ondulado até o meio das costas — a touca
+  // cheia, repartida no meio com as mechas caindo nas têmporas e por cima das orelhas, uma mecha solta
+  // pela frente de cada ombro e sete pelas costas, cada uma ondulando no seu tempo, as pontas virando
+  longo: { nome: 'Comprido', formas: [
+    ['touca', { de: 30, ate: 214, lado: 86, linhas: 9, colunas: 13, folga: 2, onda: 0.7, recua: 6 }],
+    ['mechas', { folga: 2.6, rente: 1.2, grossura: 0.5, lista: [[104, 5, 62, 58, 3.6, 3.5, 1.2], [112, 14, 78, 76, 3.4, 5.5, 1.6], [126, 24, 128, 80, 3.2, 6, 1.6]] }],
+    COSTAS(1, 0, 0, { ate: 115 }),
+    COSTAS(1, 24, 5, { fase: 2.1, abre: 1, ate: 118, raio: 4.1 }), COSTAS(-1, 24, 5, { fase: 3.3, abre: 1, ate: 117, raio: 4.1 }),
+    COSTAS(1, 46, 9, { fase: 4.2, abre: 2.5, ate: 120, raio: 4 }), COSTAS(-1, 46, 9, { fase: 5.1, abre: 2.5, ate: 121, raio: 4 }),
+    COSTAS(1, 66, 12.5, { fase: 1, abre: 4, ate: 124, raio: 3.8 }), COSTAS(-1, 66, 12.5, { fase: 0.2, abre: 4, ate: 123, raio: 3.8 }),
+    SOLTA_NA_FRENTE(1), SOLTA_NA_FRENTE(-1),
   ] },
 };
 
@@ -510,6 +525,40 @@ const FORMAS = {
       linha.push({ p: s.p.setZ(frente), w: s.w });
     }
     cauda(m, c, linha, { raio, gomos, ferro, achata });
+  },
+
+  // O SOLTO (20/10/2026, o comprido da referência do dono): a mecha ONDULADA que cai solta, sem
+  // amarra. Nasce no crânio (`raiz`: [volta, lado]) dentro da touca, passa por cima dela (`folga`
+  // cm do couro) até sair dele em `sai`, segue os pontos `solta` ([x, y, z] do lado +x, presos à
+  // cabeça) e, de `de` para baixo, POUSA no corpo — nas costas, ou pela FRENTE do ombro (`frente`,
+  // caindo a prumo debaixo do busto como a caída) — em `x` (+ `abre` na ponta), até `ate`. Ondula
+  // para os lados (`onda` cm, uma volta a cada `passo` cm, `fase`) e um pouco para fora, afina, e a
+  // ponta VIRA para fora (`vira` cm). Com elmo, só o que cai (sai de baixo dele).
+  solto(m, c, { lado = 1, raiz, sai, solta = [], frente = false, x, abre = 0, de = NUCA, ate, raio, onda = 1.4, passo = 13, fase = 0, folga = 2.2, vira = 2, achata = 0.6, larg = 1.3, prumo = 0.12 }) {
+    const R = raio * c.k, linha = [];
+    if (!c.elmo) {
+      const d0 = direcao(raiz[0], raiz[1] * lado), d1 = direcao(sai[0], sai[1] * lado);
+      for (let i = 0; i <= 4; i++) {
+        const h = c.noCranio(d0.clone().lerp(d1, i / 4).normalize());
+        if (h) linha.push({ p: h.p(i ? folga : -AFUNDA), w: h.w });
+      }
+      for (const [sx, sy, sz] of solta) linha.push({ p: c.firme(new THREE.Vector3(sx * lado, sy, sz)), w: c.CABECA });
+    }
+    const fora = frente ? 1 : -1;
+    let z = fora * -Infinity, antes = null, ult = null;
+    for (let y = de; y > ate - 1; y -= 3) {
+      const f = (de - y) / (de - ate), volta = (2 * Math.PI * (de - y)) / passo + fase;
+      const s = c.pousar((x + abre * f + onda * Math.sin(volta)) * lado, y, frente);
+      if (!s) continue;
+      // (afastada da pele pela grossura, e um pouco mais na barriga de cada onda: o volume)
+      let pz = s.p.z + (fora * (R * achata + FOLGA + onda * 0.35 * (1 + Math.cos(volta)) * c.k)) / Math.max(0.55, fora * s.n.z);
+      if (frente && antes !== null) pz = Math.max(pz, z - prumo * Math.max(0, antes - s.p.y));
+      z = pz; antes = s.p.y;
+      linha.push(ult = { p: s.p.setZ(pz), w: s.w });
+    }
+    // a ponta vira para fora (e sobe um pouco): o cacho
+    if (ult) linha.push({ p: ult.p.clone().add(new THREE.Vector3(0.4 * vira * lado * c.k, 0.9 * vira * c.k, fora * vira * c.k)), w: ult.w });
+    fio(m, c, linha, { raio, achata, larg });
   },
 
   // O FIAPO: um fio fino solto à frente da orelha, da têmpora ao maxilar — `pontos`: [x, y,
