@@ -11,6 +11,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Marque como recomendada a que cabe (dúvida ou ajuste pequeno → ler a base; tarefa pontual → leve; grande/delicada → forte). Não pergunte se é AJUSTE PEQUENO OU PONTUAL (aí faça direto lendo a base — regra do dono, 18/10/2026; só pergunte em tarefa grande ou delicada), se o pedido já veio por um `/agent_…`, se o usuário já disse nesta conversa como prefere, ou se é pergunta que se responde sem mexer em código. Documentação nova vai na base da área (área nova = a base + os dois agentes + os dois comandos em `.claude/commands/` + linha na tabela).
 
+**GASTO PROPORCIONAL AO PEDIDO** (regra do dono, 20/10/2026 — um batom custou ~300 mil tokens e 20 min de agente forte, e o rosto, que era a queixa principal, ficou para depois):
+- **Pedido com várias partes: entregue TODAS.** Não adie a parte principal (a queixa que abriu o pedido) para "depois" nem recomende fatiar; só divida se o dono pedir.
+- **O forte é exceção**, não a recomendação padrão: só para o que mexe em save/rede/malha de muita gente ou bug que o leve não achou. Coisa visual pontual (uma cor, uma peça, um desenho, uma régua) = ler a base e fazer, ou o leve.
+- **Todo agente vai com TETO no prompt**: o que entregar, e a validação MÍNIMA — uma prancha de fotos do caso pedido (não todas as raças × cores × elmos × distâncias), sem medir o que não mudou. Teste a mais só se o dono pedir.
+- **No fim, diga o custo** (tokens e tempo do agente). Se passou de ~100 mil tokens numa tarefa pequena, diga por quê.
+
 ## Projeto
 
 "Lubelion Online - MMO Project" (antes "Masmorra do Carrasco"; o código, o servidor e o Supabase seguem com "masmorra" nos nomes — não renomear, é protocolo e banco) — um RPG de ação souls-like em Three.js puro (navegador, módulos ES). Sem build, sem dependências npm, sem linter; os únicos testes são os do servidor de mundo (`npm test`). Three.js e os addons estão em `vendor/` (import map no `index.html`). **Todo texto do jogo, da interface e dos comentários é em português do Brasil.**
