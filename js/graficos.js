@@ -117,6 +117,47 @@ export const QUALIDADES = {
   } else console.warn('graficos.js: o getShadow do three.js mudou — a sombra do sol não some aos poucos na borda');
 }
 
+/**
+ * A SOMBRA EM CASCATA ("Sempre carregadas", 21/10/2026; o dono: "a sombra das árvores e objetos só
+ * aparece depois de uma certa distância"). Uma caixa só de sombra do sol tem um fim: além dela, nada.
+ * Com "Sempre carregadas", uma SEGUNDA luz direcional (world.js, `luaLonge`: sem luz nenhuma, só a
+ * sombra) cobre uma caixa bem maior (`LONGE`), num mapa menos nítido e redesenhado a cada poucos
+ * quadros; aqui, no laço das luzes direcionais do three.js, a sombra de perto (a luz 0) PASSA para a
+ * de longe (a luz 1) na mesma faixa em que ela clareia na borda (os mesmos 72%–97% do `getShadow`
+ * acima) — em vez de sumir. A luz 1 não ilumina (o corpo do laço é pulado para ela). Só há duas
+ * luzes direcionais com sombra quando a cascata está ligada: `NUM_DIR_LIGHT_SHADOWS > 1` é o sinal.
+ * (Se o three.js mudar o texto, sai um aviso no console e a cascata não junta — nada quebra.)
+ */
+{
+  const ch = THREE.ShaderChunk.lights_fragment_begin;
+  const ini = '\t\tdirectionalLight = directionalLights[ i ];', fimS = '\t\tRE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );\n\t}\n\t#pragma unroll_loop_end';
+  const sombra = '\t\t#endif\n\t\tRE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );\n\t}\n\t#pragma unroll_loop_end';
+  // (o laço das DIRECIONAIS: o das pontuais e o dos holofotes vêm antes e acabam igual — procurar depois de `ini`)
+  const a = ch.indexOf(ini), b = a >= 0 ? ch.indexOf(sombra, a) : -1;
+  if (a >= 0 && b > a && ch.indexOf(fimS, a) === b + '\t\t#endif\n'.length) {
+    const longe = `\t\t#if defined( USE_SHADOWMAP ) && ( NUM_DIR_LIGHT_SHADOWS > 1 ) && ( UNROLLED_LOOP_INDEX == 0 )
+		{
+			vec4 cPerto = vDirectionalShadowCoord[ 0 ];
+			cPerto.xyz /= cPerto.w;
+			vec2 bPerto = abs( cPerto.xy * 2.0 - 1.0 );
+			float tLonge = smoothstep( 0.72, 0.97, max( bPerto.x, bPerto.y ) );
+			if ( cPerto.z > 1.0 || max( bPerto.x, bPerto.y ) > 1.0 ) tLonge = 1.0;
+			if ( tLonge > 0.0 && directLight.visible && receiveShadow ) {
+				DirectionalLightShadow sombraLonge = directionalLightShadows[ 1 ];
+				float sLonge = getShadow( directionalShadowMap[ 1 ], sombraLonge.shadowMapSize, sombraLonge.shadowIntensity, sombraLonge.shadowBias, sombraLonge.shadowRadius, vDirectionalShadowCoord[ 1 ] );
+				directLight.color *= mix( 1.0, sLonge, tLonge );
+			}
+		}
+		#endif
+`;
+    THREE.ShaderChunk.lights_fragment_begin = ch.slice(0, a)
+      + '\t\t#if !( defined( USE_SHADOWMAP ) && ( NUM_DIR_LIGHT_SHADOWS > 1 ) && ( UNROLLED_LOOP_INDEX == 1 ) )\n'
+      + ch.slice(a, b) + '\t\t#endif\n' + longe
+      + '\t\tRE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );\n\t\t#endif\n\t}\n\t#pragma unroll_loop_end'
+      + ch.slice(b + sombra.length);
+  } else console.warn('graficos.js: o laço das luzes do three.js mudou — a sombra em cascata ("Sempre carregadas") não junta');
+}
+
 const CHAVE = 'masmorra:graficos';
 const CHAVE_AUTO = 'masmorra:resolucao-auto';
 const CHAVE_FIXA = 'masmorra:resolucao';      // a resolução escolhida à mão (fração de 0 a 1)
@@ -125,6 +166,8 @@ const CHAVE_DISTANCIA = 'masmorra:distancia';   // a distância de carregamento 
 const CHAVE_DINAMICO = 'masmorra:dinamico';     // o carregamento dinâmico ligado ou não
 const CHAVE_SOMBRA_DIST = 'masmorra:sombra-distancia';   // a distância das sombras (o raio da caixa do sol, m)
 const CHAVE_SOMBRA_SUAVE = 'masmorra:sombra-suave';      // a sombra com passagem suave ligada ou não
+const CHAVE_SOMBRA_DETALHE = 'masmorra:sombra-detalhe';  // 'alto' | 'medio' | 'baixo' (ausente = o da qualidade)
+const CHAVE_SOMBRA_SEMPRE = 'masmorra:sombra-sempre';    // 'sim' = "Sempre carregadas" (a cascata)
 const CHAVE_PRECARREGAR = 'masmorra:precarregar';        // pré-carregar tudo (e guardar as fotos dos cartazes)
 const CHAVE_DIST_MODO = 'masmorra:distancia-modo';       // 'tipo' = uma distância por tipo de peça
 const CHAVE_DIST_TIPOS = 'masmorra:distancia-tipos';     // {grama, pedras, arvores, cenario}: m (ausente = padrão)
@@ -151,7 +194,20 @@ const DIST_MAX = 80;
  * a placa as texturas e as malhas de TODAS as peças (main.js, `preaquecer`), e as fotos dos
  * cartazes ficam guardadas no navegador (lod.js) — a abertura seguinte não as tira de novo.
  */
-export const DISTANCIAS_SOMBRA = [20, 30, 50, 60, 80];
+export const DISTANCIAS_SOMBRA = [20, 30, 50, 60, 80, 120];
+/**
+ * O DETALHE DAS SOMBRAS (21/10/2026; opções avançadas → Sombras): o mapa da sombra do sol (px) e o
+ * filtro (o tipo vale para a da tocha também; trocar o tipo recompila: o menu aquece de novo).
+ * "Desligado" é o mesmo que desligar as sombras. Ausente = o da qualidade.
+ */
+export const DETALHES_SOMBRA = {
+  alto: { mapa: 4096, tipo: THREE.PCFSoftShadowMap },
+  medio: { mapa: 2048, tipo: THREE.PCFSoftShadowMap },
+  baixo: { mapa: 1024, tipo: THREE.PCFShadowMap },
+};
+/** A CASCATA ("Sempre carregadas"): o raio da caixa de longe (m), o quanto ela vai à frente e de quantos em quantos quadros é redesenhada. */
+export const LONGE = { raio: 150, avanco: 0.6, aCada: 3 };
+const CAMADA_SOMBRA_SOL = 30;   // (= `CAMADA_SOMBRA` do lod.js: a sombra da árvore que já é cartaz)
 /**
  * POR TIPO DE PEÇA (20/10/2026, pedido do dono). Os tipos são os do LOD (`tipoDaPeca`, lod.js):
  * GRAMA (o capim e a vegetação miúda `gi-`/Grass/Flower/Plant/Fern), PEDRAS, ÁRVORES (árvores e
@@ -331,6 +387,9 @@ export class Graficos {
     this.distanciaSombra = null;   // null = a da qualidade
     try { const d = Number(localStorage.getItem(CHAVE_SOMBRA_DIST)); if (DISTANCIAS_SOMBRA.includes(d)) this.distanciaSombra = d; } catch { }
     try { this.sombraSuave = localStorage.getItem(CHAVE_SOMBRA_SUAVE) !== 'nao'; } catch { this.sombraSuave = true; }
+    this.sombraDetalhe = null;   // null = o da qualidade
+    try { const d = localStorage.getItem(CHAVE_SOMBRA_DETALHE); if (DETALHES_SOMBRA[d]) this.sombraDetalhe = d; } catch { }
+    try { this.sombraSempre = localStorage.getItem(CHAVE_SOMBRA_SEMPRE) === 'sim'; } catch { this.sombraSempre = false; }
     try { this.preCarregar = localStorage.getItem(CHAVE_PRECARREGAR) === 'sim'; } catch { this.preCarregar = false; }
     // (por tipo: o modo e os valores; valor fora da lista = o padrão)
     try { this.distModo = localStorage.getItem(CHAVE_DIST_MODO) === 'tipo' ? 'tipo' : 'junto'; } catch { this.distModo = 'junto'; }
@@ -437,12 +496,52 @@ export class Graficos {
   /** O raio da caixa da sombra do sol (m): o escolhido à mão ou o da qualidade; `null` sem sombra do sol. */
   get raioDaSombra() { return this.q.sol ? (this.distanciaSombra ?? this.q.sol.raio) : null; }
 
-  /** A distância das sombras à mão (`null` = a da qualidade): muda só a caixa do sol (nada recompila). */
+  /** O mapa da sombra do sol (px): o do detalhe escolhido, ou o da qualidade. */
+  get mapaDoSol() { return DETALHES_SOMBRA[this.sombraDetalhe]?.mapa ?? this.q.sol?.mapa ?? 2048; }
+
+  /** O filtro das sombras: o do detalhe escolhido, ou o da qualidade. */
+  get tipoDaSombra() { return (this.comSombras && DETALHES_SOMBRA[this.sombraDetalhe]?.tipo) || this.q.tipoSombra; }
+
+  /** Os números da caixa de longe (lod.js os lê sem importar este módulo). */
+  get longe() { return LONGE; }
+
+  /** A cascata ("Sempre carregadas") vale agora? (só com a sombra do sol: o Alto e o Ultra) */
+  get cascata() { return this.sombraSempre && this.comSombras && !!this.q.sol; }
+
+  /**
+   * A distância das sombras à mão (`null` = a da qualidade; `'sempre'` = "Sempre carregadas", a
+   * cascata). Um número muda só a caixa do sol (nada recompila); ligar/desligar a cascata põe ou
+   * tira uma luz com sombra — os shaders mudam: aplica e aquece de novo, como ligar as sombras.
+   */
   escolherDistanciaSombra(v) {
-    this.distanciaSombra = DISTANCIAS_SOMBRA.includes(v) ? v : null;
-    try { if (this.distanciaSombra) localStorage.setItem(CHAVE_SOMBRA_DIST, String(this.distanciaSombra)); else localStorage.removeItem(CHAVE_SOMBRA_DIST); } catch { }
-    this.caixaDoSol();
-    this.game.monitor?.evento(`distância das sombras ${this.raioDaSombra ?? '—'} m${this.distanciaSombra ? '' : ' (a da qualidade)'}`);
+    const sempre = v === 'sempre';
+    if (!sempre) {
+      this.distanciaSombra = DISTANCIAS_SOMBRA.includes(v) ? v : null;
+      try { if (this.distanciaSombra) localStorage.setItem(CHAVE_SOMBRA_DIST, String(this.distanciaSombra)); else localStorage.removeItem(CHAVE_SOMBRA_DIST); } catch { }
+    }
+    const mudouCascata = sempre !== this.sombraSempre;
+    this.sombraSempre = sempre;
+    try { sempre ? localStorage.setItem(CHAVE_SOMBRA_SEMPRE, 'sim') : localStorage.removeItem(CHAVE_SOMBRA_SEMPRE); } catch { }
+    if (mudouCascata) this.reaplicarSombras(); else this.caixaDoSol();
+    this.game.monitor?.evento(sempre ? `distância das sombras: sempre carregadas (perto ${this.raioDaSombra ?? '—'} m + longe ${LONGE.raio} m)` : `distância das sombras ${this.raioDaSombra ?? '—'} m${this.distanciaSombra ? '' : ' (a da qualidade)'}`);
+  }
+
+  /** O detalhe das sombras (`null` = o da qualidade; `'desligado'` = sem sombras). */
+  escolherDetalheSombra(v) {
+    if (v === 'desligado') { this.alternarSombras(false); return; }
+    this.sombraDetalhe = DETALHES_SOMBRA[v] ? v : null;
+    try { this.sombraDetalhe ? localStorage.setItem(CHAVE_SOMBRA_DETALHE, this.sombraDetalhe) : localStorage.removeItem(CHAVE_SOMBRA_DETALHE); } catch { }
+    if (!this.sombras) this.alternarSombras(true);
+    else this.reaplicarSombras();
+    this.game.monitor?.evento(`detalhe das sombras ${this.sombraDetalhe ?? 'da qualidade'} (sol ${this.mapaDoSol} px)`);
+  }
+
+  /** Aplica de novo o que muda os shaders das sombras (sem perder a escala da resolução) e aquece. */
+  reaplicarSombras() {
+    const escala = this.escala;
+    this.aplicar();
+    if (escala !== this.escala) { this.escala = escala; this.game.renderer.setPixelRatio(this.resolucaoBase * escala); }
+    this.game.preaquecer?.();
   }
 
   /** A sombra com passagem suave ligada ou não (lod.js lê a cada quadro: um uniforme). */
@@ -461,14 +560,21 @@ export class Graficos {
     this.game.monitor?.evento(`pré-carregar tudo ${ligar ? 'ligado' : 'desligado'} (vale ao reabrir)`);
   }
 
-  /** A caixa da sombra do sol no raio de agora (a qualidade ou a distância das sombras). */
+  /** A caixa da sombra do sol no raio de agora (a qualidade ou a distância das sombras); e a de longe. */
   caixaDoSol() {
-    const sol = this.game.world?.ambience?.lua, R = this.raioDaSombra;
+    const amb = this.game.world?.ambience, sol = amb?.lua, R = this.raioDaSombra;
     if (!sol?.castShadow || !R) return;
     const c = sol.shadow.camera;
     c.left = -R; c.right = R; c.top = R; c.bottom = -R; c.near = 1; c.far = 260;
     c.updateProjectionMatrix();
-    sol.shadow.bias = -0.0004; sol.shadow.normalBias = 1.5 * (2 * R / this.q.sol.mapa);   // ~1,5 texel
+    sol.shadow.bias = -0.0004; sol.shadow.normalBias = 1.5 * (2 * R / this.mapaDoSol);   // ~1,5 texel
+    const longe = amb.luaLonge;
+    if (longe?.castShadow) {
+      const L = LONGE.raio, cl = longe.shadow.camera;
+      cl.left = -L; cl.right = L; cl.top = L; cl.bottom = -L; cl.near = 1; cl.far = 600;
+      cl.updateProjectionMatrix();
+      longe.shadow.bias = -0.0008; longe.shadow.normalBias = 1.5 * (2 * L / longe.shadow.mapSize.x);
+    }
   }
 
   /** O carregamento dinâmico ligado ou não (lod.js e capim.js o leem a cada quadro). */
@@ -618,7 +724,7 @@ export class Graficos {
     r.setSize(tela.w, tela.h);
     const sombras = this.comSombras;
     r.shadowMap.enabled = sombras;
-    r.shadowMap.type = q.tipoSombra;
+    r.shadowMap.type = this.tipoDaSombra;
     r.shadowMap.needsUpdate = true;
     const luz = g.player?.torchLight;
     if (luz) {
@@ -635,12 +741,26 @@ export class Graficos {
     if (sol) {
       sol.castShadow = sombras && !!q.sol;
       if (sol.castShadow) {
-        this.caixaDoSol();
-        if (sol.shadow.mapSize.x !== q.sol.mapa) {
-          sol.shadow.mapSize.set(q.sol.mapa, q.sol.mapa);
+        const m = this.mapaDoSol;
+        if (sol.shadow.mapSize.x !== m) {
+          sol.shadow.mapSize.set(m, m);
           sol.shadow.map?.dispose(); sol.shadow.map = null;
         }
       }
+      // A CASCATA ("Sempre carregadas"): a luz de longe só existe na cena com ela ligada (posta e
+      // tirada SÓ aqui, que já recompila tudo; quem chama aquece de novo — `reaplicarSombras`)
+      const longe = g.world.ambience.luaLonge;
+      if (longe) {
+        const quer = this.cascata;
+        longe.visible = quer; longe.castShadow = quer;
+        if (quer) {
+          const m = Math.max(1024, this.mapaDoSol / 2);
+          if (longe.shadow.mapSize.x !== m) { longe.shadow.mapSize.set(m, m); longe.shadow.map?.dispose(); longe.shadow.map = null; }
+          longe.shadow.camera.layers.enable(CAMADA_SOMBRA_SOL);
+          longe.shadow.autoUpdate = false; longe.shadow.needsUpdate = true;
+        }
+      }
+      if (sol.castShadow) this.caixaDoSol();
     }
     if (g.effects) g.effects.fator = q.particulas;
     document.body.classList.toggle('sem-filtro', !q.filtroDeCor);
@@ -751,6 +871,13 @@ export class Graficos {
       sol.shadow.intensity = forca;
       sol.shadow.autoUpdate = false;
       if (forca > 0 && amb.k > 0.02 && sol.intensity > 0 && !this.solParado) sol.shadow.needsUpdate = true;   // `solParado`: o teste do lugar do monitor
+      // a de LONGE (a cascata): a mesma força, redesenhada de `LONGE.aCada` em `LONGE.aCada` quadros
+      const longe = amb.luaLonge;
+      if (longe?.castShadow) {
+        longe.shadow.intensity = forca;
+        this.quadroLonge = ((this.quadroLonge ?? 0) + 1) % LONGE.aCada;
+        if (forca > 0 && amb.k > 0.02 && sol.intensity > 0 && !this.solParado && this.quadroLonge === 0) longe.shadow.needsUpdate = true;
+      }
     }
     const luz = this.game.player?.torchLight, s = this.comSombras && this.q.sombra;
     if (!luz || !s) return;

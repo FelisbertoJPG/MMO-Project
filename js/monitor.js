@@ -557,7 +557,9 @@ export class Monitor {
     const sol = w.ambience?.lua, comSol = !!sol?.castShadow, sc = sol?.shadow?.camera;
     const planosCam = this.planosDoFrustum(cam.projectionMatrix.clone().multiply(cam.matrixWorldInverse));
     const planosSol = comSol ? this.planosDoFrustum(sc.projectionMatrix.clone().multiply(sc.matrixWorldInverse)) : null;
-    const tela = {}, sombra = {};
+    const tela = {}, sombra = {}, sombraLonge = {};
+    const longe = w.ambience?.luaLonge, comLonge = !!longe?.castShadow, lc = longe?.shadow?.camera;
+    const planosLonge = comLonge ? this.planosDoFrustum(lc.projectionMatrix.clone().multiply(lc.matrixWorldInverse)) : null;
     const somar = (T, k, tri, n) => { const a = T[k] ??= { tri: 0, ch: 0, n: 0 }; a.tri += tri * n; a.ch++; a.n += n; };
     const visivelPara = (o, layers) => { if (!o.layers.test(layers)) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
     const dentro = (o, planos) => {
@@ -574,10 +576,12 @@ export class Monitor {
       const geo = o.geometry, tri = (geo.index ? geo.index.count : geo.attributes.position.count) / 3, k = deQuem(o);
       if (visivelPara(o, cam.layers) && dentro(o, planosCam)) somar(tela, k, tri, n);
       if (comSol && o.castShadow && visivelPara(o, sc.layers) && dentro(o, planosSol)) somar(sombra, k, tri, n);
+      if (comLonge && o.castShadow && visivelPara(o, lc.layers) && dentro(o, planosLonge)) somar(sombraLonge, k, tri, n);
     });
     const R = comSol ? sc.right : null;
     return {
-      sit, tela, sombra,
+      sit, tela, sombra, sombraLonge: comLonge ? sombraLonge : null,
+      longe: comLonge ? { raio: lc.right, mapa: longe.shadow.mapSize.x, cmPorPx: Math.round(2 * lc.right / longe.shadow.mapSize.x * 1000) / 10 } : null,
       sol: comSol ? { raio: R, avanco: Math.round(R * (lod.avancoDoSol ?? 0)), mapa: sol.shadow.mapSize.x, cmPorPx: Math.round(2 * R / sol.shadow.mapSize.x * 1000) / 10, triQuadro: this.sombraTriDoQuadro ?? null, chamadasQuadro: this.sombraDoQuadro ?? null } : null,
     };
   }
@@ -595,6 +599,10 @@ export class Monitor {
       const av = sol.avanco;
       L.push(`sombra do sol: caixa de ${sol.raio} m adiantada ${av} m para onde a câmera olha (inteira até ~${Math.round(av + sol.raio * 0.72)} m à frente, some aos poucos até ~${Math.round(av + sol.raio * 0.97)} m; atrás ~${Math.round(sol.raio - av)} m) · mapa ${sol.mapa} px (${fmt(sol.cmPorPx)} cm por pixel) · no quadro: ${sol.chamadasQuadro ?? '—'} chamadas e ${mil(sol.triQuadro ?? 0)} triâng. de sombra (tocha junto)`);
     } else L.push('sombra do sol: desligada (nesta qualidade, ou no menu)');
+    if (c.longe) {
+      const t = Object.values(c.sombraLonge ?? {}).reduce((a, x) => ({ tri: a.tri + x.tri, ch: a.ch + x.ch, n: a.n + x.n }), { tri: 0, ch: 0, n: 0 });
+      L.push(`sombra de LONGE (sempre carregadas): caixa de ${c.longe.raio} m, mapa ${c.longe.mapa} px (${fmt(c.longe.cmPorPx)} cm por pixel), redesenhada a cada 3 quadros · nela: ${mil(t.tri)} triâng., ${t.ch} chamadas, ${t.n} cópias`);
+    }
     L.push('peças por estado    modelo  passagem   cartaz  (c/ sombra)  sumindo   oculto  outro lado');
     const n = (v) => String(v ?? 0).padStart(8);
     for (const [t, s] of Object.entries(sit.tipos)) {
@@ -619,7 +627,7 @@ export class Monitor {
       const c = this.cargas();
       if (!c) return null;
       const r = (T) => Object.fromEntries(Object.entries(T).map(([k, a]) => [k, [Math.round(a.tri), a.ch, a.n]]));
-      return { estados: c.sit.tipos, soltas: c.sit.soltas, tela: r(c.tela), sombra: r(c.sombra), sol: c.sol };
+      return { estados: c.sit.tipos, soltas: c.sit.soltas, tela: r(c.tela), sombra: r(c.sombra), sombraLonge: c.sombraLonge ? r(c.sombraLonge) : null, sol: c.sol, longe: c.longe };
     } catch { return null; }
   }
 

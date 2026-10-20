@@ -8,6 +8,7 @@ import { ITEMS, RARIDADES, raridadeDe } from './items.js';
 import { makeWeapon } from './gear.js';
 import { LOD, reescreverLote, viraImpostor, vestirPassagem, profundidadeDaPassagem, CAMADA_SOMBRA, AVANCO_DO_SOL } from './lod.js';
 import { fragmentos } from './fratura.js';
+import { LONGE } from './graficos.js';
 import { vestirVeu } from './veu.js';
 import { montarExpositores } from './expositor.js';
 
@@ -584,8 +585,15 @@ export class World {
     const lua = new THREE.DirectionalLight(0x9db4e8, 0);   // o SOL de dia, a LUA de noite
     lua.position.set(60, 70, 20);
     s.add(hemi, amb, lua, lua.target);
+    // A SOMBRA DE LONGE ("Sempre carregadas", graficos.js: a cascata): uma luz SEM LUZ, só a sombra
+    // numa caixa maior; fora da cena até a opção ligar (`Graficos.aplicar` a põe e tira, e aquece).
+    // Depois da `lua` na cena: o three.js a numera 1 (o shader da cascata conta com isso)
+    const luaLonge = new THREE.DirectionalLight(0xffffff, 0);
+    luaLonge.name = 'sombra de longe';
+    luaLonge.visible = false;
+    s.add(luaLonge, luaLonge.target);
     const base = { ceu: hemi.color.clone(), chao: hemi.groundColor.clone(), amb: amb.color.clone() };
-    this.ambience = { dentro, base, hemi, amb, lua, k: 0, kc: 0, ceu: cicloDoDia(0) };
+    this.ambience = { dentro, base, hemi, amb, lua, luaLonge, k: 0, kc: 0, ceu: cicloDoDia(0) };
   }
 
   /** O jogador está na área do relevo (os campos)? */
@@ -648,6 +656,16 @@ export class World {
     const ax = passo ? Math.round(cx / passo) * passo : cx, az = passo ? Math.round(cz / passo) * passo : cz;
     a.lua.position.set(ax + dir.x * 120, p.y + dir.y * 120, az + dir.z * 120);
     a.lua.target.position.set(ax, p.y, az);
+    // a de LONGE (a cascata, graficos.js): a mesma direção, a caixa maior e mais à frente
+    const L = a.luaLonge;
+    if (L?.castShadow) {
+      const passoL = (L.shadow.camera.right - L.shadow.camera.left) / L.shadow.mapSize.x * 4;
+      let lx = p.x, lz = p.z;
+      if (cam && _frente.lengthSq() > 0.04) { const n = _frente.length(), av = L.shadow.camera.right * LONGE.avanco / n; lx += _frente.x * av; lz += _frente.z * av; }
+      lx = Math.round(lx / passoL) * passoL; lz = Math.round(lz / passoL) * passoL;
+      L.position.set(lx + dir.x * 300, p.y + dir.y * 300, lz + dir.z * 300);
+      L.target.position.set(lx, p.y, lz);
+    }
     // a EXPOSIÇÃO: ao ar livre um pouco menor (o céu claro deixava o cenário lavado); na
     // masmorra a de sempre (1,2). Só um número do renderizador: não recompila nada
     this.game.renderer.toneMappingExposure = 1.2 - 0.17 * a.k;

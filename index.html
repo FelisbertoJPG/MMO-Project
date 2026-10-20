@@ -252,17 +252,24 @@
         <div id="dinamico-opcao" class="pausa-opcao"><span>Passagem suave</span><button data-dinamico="sim">Ligada</button><button data-dinamico="nao">Desligada</button><button data-dinamico="tipo">Por tipo</button></div>
         <div id="pass-tipos" class="hidden"></div>
         <p class="pausa-nota">Ligada: o que muda pela distância (o modelo virando imagem, a pedra e o objeto que somem, o capim, o outro lado da masmorra e as sombras de longe) passa aos poucos, em pontilhado. Desligada: troca de uma vez (um pouco mais leve, para computador fraco). Por tipo: escolha para a grama, as pedras, as árvores e o cenário.</p>
-        <!-- (20/10/2026) graficos.js: escolherDistanciaSombra, alternarSombraSuave, alternarPreCarregar; quem usa: lod.js e main.js -->
-        <div id="sombra-dist-opcao" class="pausa-opcao"><span>Distância das sombras</span><button data-sdist="padrao">Padrão</button><button data-sdist="20">20 m</button><button data-sdist="30">30 m</button><button data-sdist="50">50 m</button><button data-sdist="60">60 m</button><button data-sdist="80">80 m</button></div>
-        <p class="pausa-nota">O tamanho da área em que o sol faz sombra (só no Alto e no Ultra); ela vai à frente, para onde a câmera olha — a sombra chega a uns 1,5× essa distância. Mais longe = sombras mais borradas e um pouco mais pesado.</p>
-        <div id="sombra-suave-opcao" class="pausa-opcao"><span>Sombra com passagem suave</span><button data-suave="sim">Ligada</button><button data-suave="nao">Desligada</button></div>
-        <p class="pausa-nota">Ligada: a sombra do que some ou vira imagem ao longe some aos poucos, junto com a peça. Desligada: some de uma vez.</p>
+        <!-- (21/10/2026) as sombras numa tela só delas (data-tela="sombras", logo abaixo) -->
+        <button class="pausa-largo" data-abre="sombras">Sombras ›</button>
         <!-- (20/10/2026) o Automático (graficos.js: escolherPerfil; a medição é js/medidor.js, no carregamento) -->
         <div id="medir-opcao" class="pausa-opcao"><span>Automático</span><button id="medir-btn" title="Esquece a medição deste computador: o jogo mede de novo ao abrir">Medir de novo</button></div>
         <p class="pausa-nota">Com a qualidade em "Automático", o jogo mede este computador ao abrir (só na primeira vez, ou quando a placa, o navegador ou a tela mudam) e escolhe: Ultra, se sobra; Equilíbrio (Alto com FXAA), se dá 45 quadros/s; Melhor desempenho, se não dá — primeiro sem antisserrilhado, depois com menos gráfico.</p>
         <div id="precarregar-opcao" class="pausa-opcao"><span>Pré-carregar tudo</span><button data-pre="sim">Ligado</button><button data-pre="nao">Desligado</button><button id="apagar-fotos-btn" title="Apaga as imagens das árvores e plantas guardadas neste navegador">Apagar o guardado</button></div>
         <p class="pausa-nota">Ligado (vale ao reabrir o jogo): o carregamento manda todas as peças para a placa de vídeo e guarda no navegador as imagens das árvores e plantas de longe — a próxima abertura não as refaz. Para testar se tira os trancos do começo.</p>
         <button class="pausa-voltar" data-volta="graficos">‹ Voltar</button>
+      </div>
+      <div class="pausa-tela hidden" data-tela="sombras">
+        <!-- (21/10/2026) as SOMBRAS (graficos.js: escolherDetalheSombra, escolherDistanciaSombra — "Sempre carregadas" é a cascata —, alternarSombraSuave; quem usa: lod.js, world.js) -->
+        <div id="sombra-detalhe-opcao" class="pausa-opcao"><span>Detalhe das sombras</span><button data-sdet="padrao">Padrão</button><button data-sdet="alto">Alto</button><button data-sdet="medio">Médio</button><button data-sdet="baixo">Baixo</button><button data-sdet="desligado">Desligado</button></div>
+        <p class="pausa-nota">A nitidez da sombra do sol (o mapa dela: Alto 4096, Médio 2048, Baixo 1024 pixels; o Baixo também tem a borda mais dura). Desligado: sem sombras (o mais leve).</p>
+        <div id="sombra-dist-opcao" class="pausa-opcao"><span>Distância das sombras</span><button data-sdist="padrao">Padrão</button><button data-sdist="20">20 m</button><button data-sdist="30">30 m</button><button data-sdist="50">50 m</button><button data-sdist="60">60 m</button><button data-sdist="80">80 m</button><button data-sdist="120">120 m</button><button data-sdist="sempre" title="Uma segunda sombra, maior e menos nítida, cobre até o horizonte: a de perto passa para ela aos poucos">Sempre carregadas</button></div>
+        <p class="pausa-nota">O tamanho da área em que o sol faz sombra (só no Alto e no Ultra); ela vai à frente, para onde a câmera olha — a sombra chega a uns 1,5× essa distância. Mais longe = sombras mais borradas e um pouco mais pesado. Sempre carregadas: a de perto continua nítida e, além dela, uma sombra de longe (menos nítida, redesenhada a cada 3 quadros) vai até o horizonte — nada aparece de repente; é a mais pesada.</p>
+        <div id="sombra-suave-opcao" class="pausa-opcao"><span>Sombra com passagem suave</span><button data-suave="sim">Ligada</button><button data-suave="nao">Desligada</button></div>
+        <p class="pausa-nota">Ligada: a sombra do que some ou vira imagem ao longe some aos poucos, junto com a peça. Desligada: some de uma vez.</p>
+        <button class="pausa-voltar" data-volta="avancado">‹ Voltar</button>
       </div>
       <div class="pausa-tela hidden" data-tela="controles">
         <div class="controls small">

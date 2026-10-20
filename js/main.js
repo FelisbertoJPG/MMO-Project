@@ -390,10 +390,17 @@ class Game {
     for (const b of document.querySelectorAll('#pass-tipos button')) b.classList.toggle('ativo', (b.dataset.pt === 'sim') === (G.passTipos[b.dataset.tipo] !== false));
     // a distância das sombras (só quem tem a sombra do sol: o Alto) e a passagem suave delas
     for (const b of document.querySelectorAll('#sombra-dist-opcao button')) {
-      const padrao = b.dataset.sdist === 'padrao';
+      const padrao = b.dataset.sdist === 'padrao', sempre = b.dataset.sdist === 'sempre';
       b.disabled = !G.q.sol || !G.comSombras;
-      b.classList.toggle('ativo', padrao ? !G.distanciaSombra : G.distanciaSombra === Number(b.dataset.sdist));
+      b.classList.toggle('ativo', sempre ? G.sombraSempre : !G.sombraSempre && (padrao ? !G.distanciaSombra : G.distanciaSombra === Number(b.dataset.sdist)));
       if (padrao) b.textContent = G.q.sol ? `Padrão (${G.q.sol.raio} m)` : 'Padrão';
+    }
+    // (21/10/2026) o detalhe das sombras: "Desligado" = sem sombras; "Padrão" diz o mapa da qualidade
+    for (const b of document.querySelectorAll('#sombra-detalhe-opcao button')) {
+      const d = b.dataset.sdet;
+      b.disabled = d !== 'desligado' && d !== 'padrao' && !G.q.sombra;
+      b.classList.toggle('ativo', d === 'desligado' ? !G.comSombras : G.comSombras && (d === 'padrao' ? !G.sombraDetalhe : G.sombraDetalhe === d));
+      if (d === 'padrao') b.textContent = G.q.sol ? `Padrão (${G.q.sol.mapa})` : 'Padrão';
     }
     for (const b of document.querySelectorAll('#sombra-suave-opcao button')) { b.disabled = !G.comSombras; b.classList.toggle('ativo', (b.dataset.suave === 'sim') === G.sombraSuave); }
     for (const b of document.querySelectorAll('#precarregar-opcao button[data-pre]')) b.classList.toggle('ativo', (b.dataset.pre === 'sim') === G.preCarregar);
@@ -579,10 +586,13 @@ class Game {
     }
     // (20/10/2026) a distância e a passagem suave das sombras, e o pré-carregar tudo
     for (const b of document.querySelectorAll('#sombra-dist-opcao button')) {
-      b.addEventListener('click', () => { this.graficos.escolherDistanciaSombra(b.dataset.sdist === 'padrao' ? null : Number(b.dataset.sdist)); this.marcarGraficos(); });
+      b.addEventListener('click', () => { const v = b.dataset.sdist; this.graficos.escolherDistanciaSombra(v === 'padrao' ? null : v === 'sempre' ? 'sempre' : Number(v)); this.marcarGraficos(); });
     }
     for (const b of document.querySelectorAll('#sombra-suave-opcao button')) {
       b.addEventListener('click', () => { this.graficos.alternarSombraSuave(b.dataset.suave === 'sim'); this.marcarGraficos(); });
+    }
+    for (const b of document.querySelectorAll('#sombra-detalhe-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.escolherDetalheSombra(b.dataset.sdet === 'padrao' ? null : b.dataset.sdet); this.marcarGraficos(); });
     }
     for (const b of document.querySelectorAll('#aa-opcao button')) {
       b.addEventListener('click', () => { this.graficos.escolherAntisserrilhado(b.dataset.aa === 'padrao' ? null : b.dataset.aa); this.marcarGraficos(); });
@@ -643,7 +653,7 @@ class Game {
   telaDaPausa(nome) {
     this.pausaTela = nome;
     for (const t of document.querySelectorAll('#pause .pausa-tela')) t.classList.toggle('hidden', t.dataset.tela !== nome);
-    const TITULOS = { menu: 'Pausado', graficos: 'Qualidade Gráfica', avancado: 'Opções avançadas', controles: 'Controles', interface: 'Interface', voz: 'Chat de voz' };
+    const TITULOS = { menu: 'Pausado', graficos: 'Qualidade Gráfica', avancado: 'Opções avançadas', sombras: 'Sombras', controles: 'Controles', interface: 'Interface', voz: 'Chat de voz' };
     document.getElementById('pausa-titulo').textContent = TITULOS[nome] ?? 'Pausado';
     // as coordenadas (e a hora) só na tela principal
     document.getElementById('coordenadas').classList.toggle('hidden', nome !== 'menu');
@@ -945,6 +955,7 @@ class Game {
     for (const fora of [true, false]) {
       w.distribuirLuzes(fora);
       if (caixaDoSol) sol.shadow.needsUpdate = true;
+      if (w.ambience?.luaLonge?.castShadow) w.ambience.luaLonge.shadow.needsUpdate = true;   // (a cascata: graficos.js)
       if (tocha?.castShadow) tocha.shadow.needsUpdate = true;
       r.render(this.scene, cam);
       if (sombra) { tocha.distance = sombra.dist; tocha.position.copy(sombra.pos); }
@@ -1405,7 +1416,7 @@ class Game {
     const inp = this.input;
     if (this.menu === 'inventory' && (inp.pressed('KeyI') || inp.pressed('Tab') || inp.pressed('Escape'))) this.closeMenu();
     // (no menu de pausa, numa tela de dentro o Esc volta um passo: a voz volta à Interface, o resto à principal)
-    else if (this.menu === 'pause' && this.pausaTela && this.pausaTela !== 'menu' && inp.pressed('Escape')) this.telaDaPausa(this.pausaTela === 'voz' ? 'interface' : 'menu');
+    else if (this.menu === 'pause' && this.pausaTela && this.pausaTela !== 'menu' && inp.pressed('Escape')) this.telaDaPausa(this.pausaTela === 'voz' ? 'interface' : this.pausaTela === 'sombras' ? 'avancado' : 'menu');
     else if ((this.menu === 'bonfire' || this.menu === 'pause' || this.menu === 'escrever' || this.menu === 'sala' || this.menu === 'aparencia') && inp.pressed('Escape')) this.closeMenu();
     else if (this.menu === 'sala' && inp.pressed('KeyO')) this.closeMenu();
   }

@@ -636,7 +636,8 @@ export class LOD {
       // até onde a árvore que virou cartaz ainda projeta a sombra do sol: a caixa dela é um
       // quadrado de `raio` em volta do jogador (o canto a √2·raio), e a câmera fica atrás dele
       // (o raio é o da opção avançada "distância das sombras", ou o da qualidade)
-      const sol = suave && comSol ? (G?.raioDaSombra ?? q.sol.raio) * CANTO_DO_SOL + 6 : 0;
+      // (com a cascata — "Sempre carregadas" —, até onde a caixa de LONGE chega: graficos.js, `LONGE`)
+      const sol = suave && comSol ? (G?.cascata ? (G.longe?.raio ?? 150) * Math.hypot(1 + (G.longe?.avanco ?? 0.6), 1) + 6 : (G?.raioDaSombra ?? q.sol.raio) * CANTO_DO_SOL + 6) : 0;
       const cartazDe = Dt - banda - FOLGA, modeloAte = Dt + FOLGA, sombraAte = Math.max(modeloAte, sol);
       if (P.cartazDe[t] !== cartazDe || P.modeloAte[t] !== modeloAte || P.sombraAte[t] !== sombraAte || P.teto[t] !== teto) mudou = true;
       P.cartazDe[t] = cartazDe; P.modeloAte[t] = modeloAte; P.sombraAte[t] = sombraAte; P.teto[t] = teto;
