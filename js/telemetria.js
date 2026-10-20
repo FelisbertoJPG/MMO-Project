@@ -96,6 +96,15 @@ export class Telemetria {
     this.desdeOUltimo = 0;
     let relatorio = '';
     try { relatorio = this.game.monitor.relatorio(); } catch (e) { relatorio = `(o relatório falhou: ${e?.message ?? e})`; }
-    enviarDesempenho('jogo', { ...this.resumo(), aparelho: aparelho(), dados: { jogado: Math.round(this.jogado), relatorio: relatorio.slice(0, 30000) } });
+    // (o servidor recusa o registro acima de 40 mil BYTES — `registrar_desempenho`, supabase/migrations/0004 —, e o
+    // acento e o desenho das tabelas valem 2–3 bytes: o relatório vai cortado em ~30 mil bytes, não letras)
+    const bytes = (t) => new TextEncoder().encode(t).length;
+    relatorio = relatorio.slice(0, 30000);
+    while (relatorio.length > 1000 && bytes(relatorio) > 30000) relatorio = relatorio.slice(0, Math.floor(relatorio.length * 0.9));
+    // (20/10/2026) as peças por estado e o peso por tipo (monitor.js, `cargas`), e o perfil do Automático
+    let cargas = null;
+    try { cargas = this.game.monitor.cargasCompactas?.() ?? null; } catch { }
+    const auto = this.game.graficos?.autoQ ? (this.game.graficos.perfil?.perfil ?? 'sem medir') : null;
+    enviarDesempenho('jogo', { ...this.resumo(), aparelho: aparelho(), dados: { jogado: Math.round(this.jogado), relatorio, cargas, auto } });
   }
 }

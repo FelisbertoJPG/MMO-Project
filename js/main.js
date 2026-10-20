@@ -30,7 +30,8 @@ import { aquecerEsculpidos } from './esculpido.js';
 import { Telemetria, enviarDesempenho, aparelho } from './telemetria.js';
 import { tirarDoExpositor, derrubarItens } from './expositor.js';
 import { tela } from './tela.js';
-import { Graficos, qualidadeSalva, placaDeSoftware, TIPOS_LOD, DISTANCIAS_TIPO } from './graficos.js';
+import { Graficos, qualidadeSalva, placaDeSoftware, TIPOS_LOD, DISTANCIAS_TIPO, escolherPerfil } from './graficos.js';
+import { medirDesempenho } from './medidor.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
 import { Mundo, CHEFES } from './rede/mundo.js';
@@ -51,7 +52,7 @@ class Game {
     // A qualidade gráfica (js/graficos.js) vem antes do renderizador: o
     // antisserrilhado só se escolhe ao criar o contexto WebGL.
     this.graficos = new Graficos(this, qualidadeSalva(ehToque()), ehToque());
-    this.renderer = new THREE.WebGLRenderer({ antialias: Graficos.antialias(this.graficos.nome), powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ antialias: this.graficos.antialiasInicial, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setSize(tela.w, tela.h);
     this.renderer.shadowMap.enabled = true;
@@ -168,6 +169,11 @@ class Game {
     this.marcarGraficos();
     this.monitor = new Monitor(this);   // o monitor de desempenho (F3; monitor.js)
     this.preaquecer();
+    // o AUTOMÁTICO (graficos.js): sem o perfil desta máquina, mede agora e aplica o melhor
+    if (this.graficos.autoQ && !this.graficos.perfil) {
+      await dizer('Medindo o desempenho deste computador… (só na primeira vez)');
+      await this.medirEAplicar();
+    }
     text.textContent = 'Entrando…'; globalThis.__etapa?.('Entrando…');
     // A conta guardada reabre sozinha; sem rede em 6 s, segue offline.
     await Promise.race([this.online.iniciar(), new Promise((ok) => setTimeout(ok, 6000))]);
@@ -322,9 +328,35 @@ class Game {
     return { receita, nova };
   }
 
+  /**
+   * Mede este computador (medidor.js) e guarda o perfil; no Automático, aplica. Devolve o perfil
+   * (ou `null` se a medição falhou: fica o que estava). SÓ NO CARREGAMENTO: a medição põe o
+   * jogador no acampamento por ~2 s, e ali ainda não há laço, rede (o Mundo online liga depois)
+   * nem save (`state` ainda não é 'playing') para levar essa posição para algum lugar.
+   */
+  async medirEAplicar() {
+    const G = this.graficos;
+    try {
+      const m = await medirDesempenho(this);
+      const p = G.guardarPerfil(escolherPerfil(m), m);
+      G.aplicarPerfil(p);
+      globalThis.__etapa?.(`medição: ${G.nomePerfil} (${m.tela}; Ultra ${m.ultra?.gpu?.toFixed(1)} ms, Alto+FXAA ${m.fxaa?.gpu?.toFixed(1)} ms, Alto ${m.alto?.gpu?.toFixed(1)} ms)`);
+      this.marcarGraficos?.();
+      return p;
+    } catch (e) {
+      console.warn('medição do desempenho:', e?.message ?? e);
+      return null;
+    }
+  }
+
   /** Destaca, no menu de pausa, a qualidade gráfica em uso. */
   marcarGraficos() {
-    for (const b of document.querySelectorAll('#graficos-opcoes button')) b.classList.toggle('ativo', b.dataset.q === this.graficos.nome);
+    for (const b of document.querySelectorAll('#graficos-opcoes button')) {
+      const auto = b.dataset.q === 'auto';
+      b.classList.toggle('ativo', auto ? this.graficos.autoQ : !this.graficos.autoQ && b.dataset.q === this.graficos.nome);
+      // (o Automático só no computador; o texto diz o perfil escolhido)
+      if (auto) { b.classList.toggle('hidden', !!this.graficos.toque); b.textContent = this.graficos.autoQ && this.graficos.nomePerfil ? `Automático (${this.graficos.nomePerfil})` : 'Automático'; }
+    }
     // a resolução: a automática (com a fração em que ela está) ou a escolhida à mão
     const G = this.graficos;
     for (const b of document.querySelectorAll('#resolucao-opcao button')) {
@@ -365,6 +397,19 @@ class Game {
     }
     for (const b of document.querySelectorAll('#sombra-suave-opcao button')) { b.disabled = !G.comSombras; b.classList.toggle('ativo', (b.dataset.suave === 'sim') === G.sombraSuave); }
     for (const b of document.querySelectorAll('#precarregar-opcao button[data-pre]')) b.classList.toggle('ativo', (b.dataset.pre === 'sim') === G.preCarregar);
+    // (20/10/2026) o antisserrilhado: "Padrão" diz o da qualidade; o aviso, se o MSAA pede reabrir
+    for (const b of document.querySelectorAll('#aa-opcao button')) {
+      const padrao = b.dataset.aa === 'padrao';
+      b.classList.toggle('ativo', padrao ? !G.aa : G.aa === b.dataset.aa);
+      if (padrao) b.textContent = `Padrão (${G.nomeAA(G.q.antialias ? 'msaa' : 'nao')})`;
+    }
+    const aviso = document.getElementById('aa-aviso');
+    if (aviso) {
+      aviso.classList.toggle('hidden', !G.aaReabrir);
+      aviso.textContent = !G.aaReabrir ? '' : G.msaaDoContexto
+        ? `Agora: MSAA — ele sai ao reabrir o jogo${G.tipoAA === 'fxaa' ? ' (aí entra o FXAA)' : ''}.`
+        : 'Agora: FXAA — o MSAA liga ao reabrir o jogo.';
+    }
   }
 
   /** Grava o progresso (ver `save.js`): `{aoSair}` = a página está fechando; `{nuvem}` = já, na nuvem. */
@@ -485,7 +530,13 @@ class Game {
     });
     $('sair-mundo-btn').addEventListener('click', () => this.voltarAoInicio());
     for (const b of document.querySelectorAll('#graficos-opcoes button')) {
-      b.addEventListener('click', () => { this.graficos.trocar(b.dataset.q); this.marcarGraficos(); });
+      b.addEventListener('click', async () => {
+        if (b.dataset.q !== 'auto') { this.graficos.trocar(b.dataset.q); this.marcarGraficos(); return; }
+        // o AUTOMÁTICO: com o perfil desta máquina aplica na hora; sem ele, mede na próxima abertura
+        const ja = this.graficos.escolherAutomatico();
+        this.marcarGraficos();
+        this.ui.toast(ja ? `Automático: ${this.graficos.nomePerfil}.` : 'Automático: o jogo mede este computador na próxima vez que abrir.');
+      });
     }
     for (const b of document.querySelectorAll('#resolucao-opcao button')) {
       b.addEventListener('click', () => { this.graficos.escolherResolucao(b.dataset.res === 'auto' ? 'auto' : Number(b.dataset.res)); this.marcarGraficos(); });
@@ -533,9 +584,18 @@ class Game {
     for (const b of document.querySelectorAll('#sombra-suave-opcao button')) {
       b.addEventListener('click', () => { this.graficos.alternarSombraSuave(b.dataset.suave === 'sim'); this.marcarGraficos(); });
     }
+    for (const b of document.querySelectorAll('#aa-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.escolherAntisserrilhado(b.dataset.aa === 'padrao' ? null : b.dataset.aa); this.marcarGraficos(); });
+    }
     for (const b of document.querySelectorAll('#precarregar-opcao button[data-pre]')) {
       b.addEventListener('click', () => { this.graficos.alternarPreCarregar(b.dataset.pre === 'sim'); this.marcarGraficos(); this.ui.toast('Vale na próxima vez que o jogo abrir.'); });
     }
+    // (20/10/2026) MEDIR DE NOVO: esquece o perfil; a próxima abertura mede (só no carregamento: `medirEAplicar`)
+    document.getElementById('medir-btn')?.addEventListener('click', () => {
+      this.graficos.esquecerPerfil();
+      this.marcarGraficos();
+      this.ui.toast('O jogo mede este computador de novo na próxima vez que abrir.');
+    });
     document.getElementById('apagar-fotos-btn')?.addEventListener('click', async () => {
       const ok = await apagarFotosGuardadas();
       this.ui.toast(ok ? 'Imagens guardadas apagadas: na próxima abertura são feitas de novo.' : 'Não consegui apagar agora (feche outras abas do jogo e tente de novo).');
@@ -1364,6 +1424,7 @@ class Game {
       this.effects.update(dt);
       this.toque?.update();
       this.renderer.render(this.scene, this.camera);
+      this.graficos.apresentar();   // (o FXAA, se ligado: js/fxaa.js)
       this.input.endFrame();
       return;
     }
@@ -1435,6 +1496,8 @@ class Game {
     M?.depoisDoRender();
     this.ceu?.depoisDoQuadro(dt);   // o reflexo de lente do sol e da lua (por cima do quadro)
     M?.fase('clarão');
+    this.graficos.apresentar();   // o FXAA, se ligado (js/fxaa.js): a passada que põe o quadro na tela
+    M?.fase('fxaa');
     M?.fim();
   }
 }

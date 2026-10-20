@@ -17,8 +17,21 @@
  */
 import * as THREE from 'three';
 import { tela } from './tela.js';
+import { Fxaa } from './fxaa.js';
 
 export const QUALIDADES = {
+  // O ULTRA (20/10/2026; o "gráficos no máximo" do Automático): o Alto com o longe nítido — a árvore
+  // vira cartaz a 80 m (o teto seguro, `DIST_MAX`), o detalhe pequeno só some com 1 px, e a sombra
+  // do sol vai a 60 m num mapa de 4096 (mais nítida que a do Alto, 2048 em 42 m). Os MESMOS
+  // programas do Alto (mesmo tipo de sombra, mesmas luzes): trocar entre os dois não compila nada.
+  ultra: {
+    nome: 'Ultra', pixelRatio: 2, antialias: true,
+    sombra: { mapa: 512, aCada: 1 }, tipoSombra: THREE.PCFSoftShadowMap,
+    sol: { mapa: 4096, raio: 60 },
+    luzes: 8, luzesFora: 4, filtroDeCor: true, particulas: 1, capim: 40,
+    nuvens: 5, reflexoS: 4, clarao: true,
+    impostor: 80, limiarPx: 1,
+  },
   alto: {
     nome: 'Alto', pixelRatio: 2, antialias: true,
     // a luz da tocha na mão: um cubo de sombras (seis vistas do cenário)
@@ -117,6 +130,7 @@ const CHAVE_DIST_MODO = 'masmorra:distancia-modo';       // 'tipo' = uma distân
 const CHAVE_DIST_TIPOS = 'masmorra:distancia-tipos';     // {grama, pedras, arvores, cenario}: m (ausente = padrão)
 const CHAVE_PASS_MODO = 'masmorra:passagem-modo';        // 'tipo' = a passagem suave escolhida por tipo
 const CHAVE_PASS_TIPOS = 'masmorra:passagem-tipos';      // {grama, pedras, arvores, cenario}: true/false
+const CHAVE_AA = 'masmorra:antisserrilhado';             // 'nao' | 'msaa' | 'fxaa' (ausente = o da qualidade)
 /**
  * AS OPÇÕES AVANÇADAS (19/10/2026; menu de pausa → Qualidade Gráfica → Opções avançadas).
  * A DISTÂNCIA DE CARREGAMENTO: até onde árvores, arbustos e plantas são o modelo de verdade
@@ -157,8 +171,20 @@ export const DISTANCIAS_TIPO = {
   pedras: [30, 40, 60, 80, 120], cenario: [30, 40, 60, 80, 120],
 };
 const lerJson = (k) => { try { const v = JSON.parse(localStorage.getItem(k) ?? 'null'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } };
-/** As resoluções que o menu de pausa oferece (fração da resolução da qualidade). */
-export const RESOLUCOES = [1, 0.85, 0.7, 0.55, 0.4];
+/**
+ * As resoluções que o menu de pausa oferece (fração da resolução da qualidade; opções avançadas
+ * desde 20/10/2026). As de antes (0,85, 0,7, 0,55, 0,4) continuam na lista: a escolha guardada vale.
+ */
+export const RESOLUCOES = [1, 0.9, 0.85, 0.8, 0.7, 0.6, 0.55, 0.5, 0.4];
+
+/**
+ * O ANTISSERRILHADO (20/10/2026; opções avançadas): `nao`, `msaa` (o da placa: só se escolhe ao
+ * criar o contexto WebGL — vale ao reabrir o jogo) ou `fxaa` (pós-processo leve, js/fxaa.js — na
+ * hora). Ausente = o da qualidade (MSAA no Alto e no Médio). Numa Radeon 740M a 1920×945 o MSAA
+ * custava ~26% dos quadros (07/10/2026); o FXAA é uma passada só na tela.
+ */
+export const ANTISSERRILHADOS = ['nao', 'msaa', 'fxaa'];
+const lerAA = () => { try { const v = localStorage.getItem(CHAVE_AA); return ANTISSERRILHADOS.includes(v) ? v : null; } catch { return null; } };
 
 /**
  * A RESOLUÇÃO AUTOMÁTICA (06/10/2026): quando os quadros não dão conta, o jogo desenha com
@@ -188,8 +214,58 @@ export function qualidadeSalva(toque = false) {
     try { visto = localStorage.getItem(CHAVE_SEM_PLACA) === 'sim'; localStorage.setItem(CHAVE_SEM_PLACA, 'sim'); } catch { }
     if (!visto || !QUALIDADES[q]) return 'minimo';
   }
+  // o AUTOMÁTICO (sem escolha guardada, ou "auto"; só no computador): a qualidade do perfil medido
+  // nesta máquina, ou o Alto até medir (main.js, no fim do carregamento)
+  if (!toque && (!q || q === 'auto')) return perfilGuardado()?.q ?? 'alto';
   if (QUALIDADES[q]) return q;
   return !toque ? 'alto' : ehCelularFraco() ? 'celular' : 'medio';
+}
+
+/**
+ * O AUTOMÁTICO (20/10/2026): no fim do carregamento o jogo mede esta máquina (medidor.js) e
+ * escolhe um PERFIL pela taxa de quadros — o alvo é `ALVO_FPS` (o dono: 45, "agradável aos
+ * olhos"). Mede na primeira abertura e de novo quando muda a ASSINATURA (a placa, o navegador, a
+ * tela ou `PERFIL_VERSAO` — suba-a quando as qualidades mudarem de custo); o botão "Medir de novo"
+ * das opções avançadas refaz. O perfil guardado vale enquanto a qualidade estiver em
+ * "Automático"; escolher uma qualidade à mão desliga o Automático até voltar a ele.
+ *   • ULTRA: o Ultra com MSAA, se ele cabe com folga (15%) no alvo;
+ *   • EQUILÍBRIO: o Alto com FXAA, se cabe no alvo;
+ *   • MELHOR DESEMPENHO: o PRIMEIRO corte é o antisserrilhado (o dono, 20/10/2026: "desligar o
+ *     antisserrilhado deixa o jogo bem leve") — o Alto sem ele; se ainda não der, o Médio e
+ *     depois o Baixo, sem ele (estimados pelo Alto: eles mudam os shaders, e medi-los no
+ *     carregamento custaria compilar tudo de novo). A resolução automática ajusta o resto.
+ */
+export const ALVO_FPS = 45;
+export const PERFIL_VERSAO = 1;
+const CHAVE_PERFIL = 'masmorra:perfil-auto';
+export const PERFIS = { ultra: 'Ultra', equilibrio: 'Equilíbrio', desempenho: 'Melhor desempenho' };
+
+/** O quadro estimado (ms) de uma medida: a placa ou a CPU (o `render` + ~3 ms do resto do laço). */
+const quadroDe = (m) => Math.max(m?.gpu ?? Infinity, (m?.cpu ?? Infinity) + 3);
+
+/** O perfil para as medidas do medidor.js: `{ perfil, q, aa }`. */
+export function escolherPerfil(m) {
+  const alvo = 1000 / ALVO_FPS;
+  if (quadroDe(m.ultra) <= alvo * 0.85) return { perfil: 'ultra', q: 'ultra', aa: 'msaa' };
+  if (quadroDe(m.fxaa) <= alvo) return { perfil: 'equilibrio', q: 'alto', aa: 'fxaa' };
+  const e = quadroDe(m.alto);
+  if (e <= alvo * 1.1) return { perfil: 'desempenho', q: 'alto', aa: 'nao' };
+  if (e <= alvo * 1.6) return { perfil: 'desempenho', q: 'medio', aa: 'nao' };
+  return { perfil: 'desempenho', q: 'baixo', aa: 'nao' };
+}
+
+/** A assinatura desta máquina: medida em outra, o perfil não vale. */
+export function assinaturaDaMaquina() {
+  const nav = navigator.userAgent.match(/(Edg|OPR|Chrome|Firefox|Version)\/(\d+)/);
+  return `${nomeDaPlaca()}|${nav ? `${nav[1]} ${nav[2]}` : navigator.userAgent}|${screen.width}×${screen.height}@${devicePixelRatio}|v${PERFIL_VERSAO}`;
+}
+
+/** O perfil medido nesta máquina (`null` = medir). */
+export function perfilGuardado() {
+  try {
+    const p = JSON.parse(localStorage.getItem(CHAVE_PERFIL) ?? 'null');
+    return p && p.assinatura === assinaturaDaMaquina() && QUALIDADES[p.q] && PERFIS[p.perfil] ? p : null;
+  } catch { return null; }
 }
 
 /** O nome da placa, lido de um contexto WebGL de passagem (o do jogo ainda não existe). Uma vez só. */
@@ -230,6 +306,11 @@ export class Graficos {
     this.game = game;
     this.toque = toque;
     this.nome = QUALIDADES[nome] ? nome : 'alto';
+    // o AUTOMÁTICO (só no computador): sem qualidade escolhida à mão, ou "auto"
+    let qGuardada = null;
+    try { qGuardada = localStorage.getItem(CHAVE); } catch { }
+    this.autoQ = !toque && !placaDeSoftware() && (!qGuardada || qGuardada === 'auto');
+    this.perfil = this.autoQ ? perfilGuardado() : null;
     this.quadro = 0;
     this.escala = 1;   // fração da resolução da qualidade (a resolução automática mexe nela)
     try { this.auto = localStorage.getItem(CHAVE_AUTO) !== 'nao'; } catch { this.auto = true; }
@@ -260,6 +341,8 @@ export class Graficos {
       if (DISTANCIAS_TIPO[id].includes(dt[id])) this.distTipos[id] = dt[id];
       this.passTipos[id] = pt[id] !== false;
     }
+    this.aa = lerAA();   // null = o da qualidade
+    this.fxaa = null;    // o pós-processo, quando ligado (js/fxaa.js)
     this.res = { ini: 0, quadros: 0, baixos: 0, altos: 0, esperaAte: 0 };
   }
 
@@ -478,7 +561,52 @@ export class Graficos {
   get q() { return QUALIDADES[this.nome]; }
 
   /** O antisserrilhado é decidido ANTES de existir o renderizador. */
-  static antialias(nome) { return (QUALIDADES[nome] ?? QUALIDADES.alto).antialias; }
+  static antialias(nome) { const aa = lerAA(); return aa ? aa === 'msaa' : (QUALIDADES[nome] ?? QUALIDADES.alto).antialias; }
+
+  /**
+   * O MSAA do contexto WebGL (main.js, ANTES de existir o renderizador): o escolhido; no
+   * Automático, o do perfil (antes de medir, nenhum: o Equilíbrio e o Desempenho não o usam, e o
+   * Ultra o liga na abertura seguinte); senão o da qualidade.
+   */
+  get antialiasInicial() {
+    if (this.aa) return this.aa === 'msaa';
+    if (this.autoQ) return this.perfil?.aa === 'msaa';
+    return this.q.antialias;
+  }
+
+  /** O antisserrilhado que vale: o escolhido, o do perfil (Automático) ou o da qualidade. */
+  get tipoAA() { return this.aa ?? (this.autoQ ? (this.perfil?.aa ?? 'nao') : (this.q.antialias ? 'msaa' : 'nao')); }
+
+  /** O MSAA do contexto (o que a página tem agora; muda só ao reabrir). */
+  get msaaDoContexto() { return !!this.game.renderer?.getContextAttributes()?.antialias; }
+
+  /** A escolha precisa reabrir o jogo para valer? (o MSAA pedido ≠ o do contexto) */
+  get aaReabrir() { return (this.tipoAA === 'msaa') !== this.msaaDoContexto; }
+
+  /** Escolhe o antisserrilhado (`null` = o da qualidade). O FXAA liga e desliga na hora. */
+  escolherAntisserrilhado(v) {
+    this.aa = ANTISSERRILHADOS.includes(v) ? v : null;
+    try { if (this.aa) localStorage.setItem(CHAVE_AA, this.aa); else localStorage.removeItem(CHAVE_AA); } catch { }
+    this.aplicarFxaa();
+    this.game.monitor?.evento(`antisserrilhado ${this.nomeAA()}${this.aa ? '' : ' (o da qualidade)'}${this.aaReabrir ? ' (o MSAA só muda ao reabrir o jogo)' : ''}`);
+  }
+
+  /** O nome do antisserrilhado que vale (o monitor e o menu). */
+  nomeAA(t = this.tipoAA) { return t === 'fxaa' ? 'FXAA' : t === 'msaa' ? 'MSAA' : 'desligado'; }
+
+  /**
+   * Liga ou desliga o FXAA conforme a escolha (troca de qualidade e menu). Nunca junto do MSAA do
+   * contexto (pagaria os dois: ele espera reabrir); e o MSAA pedido que ainda não veio (só ao
+   * reabrir) usa o FXAA até lá.
+   */
+  aplicarFxaa() {
+    const t = this.tipoAA, quer = !this.msaaDoContexto && (t === 'fxaa' || t === 'msaa'), r = this.game.renderer;
+    if (quer && !this.fxaa && r) { this.fxaa = new Fxaa(r); this.fxaa.ligar(); }
+    else if (!quer && this.fxaa) { this.fxaa.desligar(); this.fxaa = null; }
+  }
+
+  /** No fim do quadro (main.js): com o FXAA, a passada que põe o quadro na tela. */
+  apresentar() { this.fxaa?.apresentar(); }
 
   /** Aplica a qualidade no que já existe (renderizador, tocha, luzes, partículas). */
   aplicar() {
@@ -525,12 +653,20 @@ export class Graficos {
       else r.compile(g.scene, g.camera);
     }
     g.world?.distribuirLuzes();
+    this.aplicarFxaa();
   }
 
   /** Troca de qualidade (menu de pausa) e guarda a escolha. */
   trocar(nome) {
-    if (!QUALIDADES[nome] || nome === this.nome) return;
+    if (!QUALIDADES[nome] || (nome === this.nome && !this.autoQ)) return;
     const antes = this.q.nome;
+    this.autoQ = false;   // escolhida à mão: o Automático para até voltar a ele
+    if (nome === this.nome) {   // (a mesma do perfil: só deixa de ser automática)
+      try { localStorage.setItem(CHAVE, nome); } catch { }
+      this.aplicarFxaa();
+      this.game.monitor?.evento(`qualidade ${this.q.nome} à mão (era o Automático)`);
+      return;
+    }
     this.nome = nome;
     try { localStorage.setItem(CHAVE, nome); } catch { }
     this.aplicar();
@@ -538,7 +674,56 @@ export class Graficos {
     // desenho; sem isso, girar a câmera depois de trocar travava): main.js
     this.game.preaquecer?.();
     // no relatório do monitor (monitor.js): sem isto, os números de antes e de depois se misturavam
-    this.game.monitor?.evento(`qualidade ${antes} → ${this.q.nome}${this.q.antialias !== this.game.renderer.getContextAttributes().antialias ? ' (o antisserrilhado só muda ao reabrir o jogo)' : ''}`);
+    this.game.monitor?.evento(`qualidade ${antes} → ${this.q.nome}${this.aaReabrir ? ' (o antisserrilhado só muda ao reabrir o jogo)' : ''}`);
+  }
+
+  /** O nome do perfil do Automático (o menu e o monitor). */
+  get nomePerfil() { return this.perfil ? PERFIS[this.perfil.perfil] : null; }
+
+  /** Volta ao Automático. `false` = não há perfil desta máquina: o main.js mede (`medirEAplicar`). */
+  escolherAutomatico() {
+    if (this.toque) return true;
+    this.autoQ = true;
+    try { localStorage.setItem(CHAVE, 'auto'); } catch { }
+    this.perfil = perfilGuardado();
+    if (!this.perfil) return false;
+    this.aplicarPerfil(this.perfil);
+    return true;
+  }
+
+  /** Esquece o perfil medido ("Medir de novo"): a próxima abertura mede. O de agora continua valendo até lá. */
+  esquecerPerfil() {
+    try { localStorage.removeItem(CHAVE_PERFIL); } catch { }
+    this.game.monitor?.evento('Automático: medir de novo na próxima abertura');
+  }
+
+  /** Guarda o perfil medido (com as medidas, para o relatório do monitor). */
+  guardarPerfil(p, medidas) {
+    const r = (m) => (m ? { gpu: Math.round(m.gpu * 10) / 10, cpu: Math.round(m.cpu * 10) / 10 } : null);
+    const g = { ...p, assinatura: assinaturaDaMaquina(), quando: Date.now(), medidas: { ultra: r(medidas.ultra), fxaa: r(medidas.fxaa), alto: r(medidas.alto), tela: medidas.tela, metodo: medidas.metodo } };
+    try { localStorage.setItem(CHAVE_PERFIL, JSON.stringify(g)); } catch { }
+    return g;
+  }
+
+  /** Aplica o perfil (só no Automático): a qualidade dele e o antisserrilhado dele. */
+  aplicarPerfil(p) {
+    this.perfil = p;
+    if (!this.autoQ) return;
+    const antes = this.q.nome, nova = QUALIDADES[p.q];
+    if (p.q !== this.nome) {
+      const recompila = this.q.tipoSombra !== nova.tipoSombra || !this.q.sol !== !nova.sol || !this.q.sombra !== !nova.sombra || this.q.luzes !== nova.luzes || this.q.luzesFora !== nova.luzesFora;
+      this.nome = p.q;
+      this.aplicar();
+      if (recompila) this.game.preaquecer?.();
+    } else this.aplicarFxaa();
+    this.game.monitor?.evento(`Automático: ${PERFIS[p.perfil]} (${this.q.nome}, antisserrilhado ${this.nomeAA()})${antes !== this.q.nome ? ` — era ${antes}` : ''}${this.aaReabrir ? ' (o MSAA liga ao reabrir o jogo; até lá, o FXAA)' : ''}`);
+  }
+
+  /** O resumo do Automático para o relatório do monitor. */
+  resumoAutomatico() {
+    const p = this.perfil, m = p?.medidas, f = (x) => (x ? `${x.gpu} ms na placa, ${x.cpu} ms de CPU` : '—');
+    if (!p) return `Automático ${this.autoQ ? 'ligado (ainda não mediu)' : 'desligado'}`;
+    return `Automático ${this.autoQ ? 'ligado' : 'desligado (qualidade à mão)'}: ${PERFIS[p.perfil]} (${QUALIDADES[p.q].nome}, antisserrilhado ${this.nomeAA(p.aa)}) · medido em ${new Date(p.quando).toLocaleDateString('pt-BR')} a ${m?.tela ?? '?'} (${m?.metodo ?? '?'}), alvo ${ALVO_FPS} quadros/s: Ultra+MSAA ${f(m?.ultra)} · Alto+FXAA ${f(m?.fxaa)} · Alto ${f(m?.alto)}`;
   }
 
   /**

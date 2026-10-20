@@ -230,7 +230,7 @@ export class Monitor {
     const i = this.game.renderer.info.render;
     // com as da passagem de sombra (que o `info` já tinha zerado): o número de verdade
     this.chamadasDoQuadro = i.calls + this.sombraQuadro; this.triDoQuadro = i.triangles + this.sombraTriQuadro;
-    this.sombraDoQuadro = this.sombraQuadro;
+    this.sombraDoQuadro = this.sombraQuadro; this.sombraTriDoQuadro = this.sombraTriQuadro;
   }
 
   /**
@@ -406,8 +406,10 @@ export class Monitor {
     L.push('## Máquina e configuração');
     L.push(`GPU: ${gpuNome}`);
     L.push(`navegador: ${navigator.userAgent.match(/(Chrome|Firefox|Edg|Safari)\/[\d.]+/g)?.join(' ') ?? navigator.userAgent} · núcleos ${navigator.hardwareConcurrency ?? '?'} · memória ${navigator.deviceMemory ?? '?'} GB · ${navigator.platform}`);
-    L.push(`tela: ${innerWidth}×${innerHeight} (devicePixelRatio ${devicePixelRatio}) → desenhando ${gl.drawingBufferWidth}×${gl.drawingBufferHeight} (pixelRatio ${fmt(r.getPixelRatio(), 2)}) · antisserrilhado ${gl.getContextAttributes().antialias ? 'sim' : 'não'} · escala de resolução ${Math.round((g.graficos.escala ?? 1) * 100)}% (automática ${g.graficos.auto ? 'ligada' : 'desligada'})`);
+    L.push(`tela: ${innerWidth}×${innerHeight} (devicePixelRatio ${devicePixelRatio}) → desenhando ${gl.drawingBufferWidth}×${gl.drawingBufferHeight} (pixelRatio ${fmt(r.getPixelRatio(), 2)}) · antisserrilhado ${g.graficos?.tipoAA === 'fxaa' ? `FXAA${gl.getContextAttributes().antialias ? ' (+ o MSAA do contexto, até reabrir)' : ''}` : gl.getContextAttributes().antialias ? 'MSAA' : 'não'} · escala de resolução ${Math.round((g.graficos.escala ?? 1) * 100)}% (automática ${g.graficos.auto ? 'ligada' : 'desligada'})`);
     L.push(`qualidade: ${q.nome} — pixelRatio até ${q.pixelRatio}, sombra da tocha ${q.sombra ? `${q.sombra.mapa}px a cada ${q.sombra.aCada}${this.game.graficos?.sombras === false ? ' (sombras DESLIGADAS no menu)' : ''}` : 'não'}, luzes ${q.luzes} (ar livre ${q.luzesFora}), capim ${q.capim}, nuvens ${q.nuvens}, clarão ${q.clarao ? 'sim' : 'não'}, cartaz a partir de ${this.game.graficos?.distanciaDeCarga ?? q.impostor} m${this.game.graficos?.distancia ? ' (à mão)' : ''}${this.game.graficos?.distModo === 'tipo' ? `, distância POR TIPO (${this.game.graficos.resumoDistancias()})` : ''}${this.game.graficos?.passModo === 'tipo' ? `, passagem suave POR TIPO (${this.game.graficos.resumoPassagens()})` : this.game.graficos?.dinamico === false ? ', passagem suave (carregamento dinâmico) DESLIGADA' : ''}${q.sol ? `, sombra do sol até ${this.game.graficos?.raioDaSombra ?? q.sol.raio} m${this.game.graficos?.distanciaSombra ? ' (à mão)' : ''}` : ''}${this.game.graficos?.sombraSuave === false ? ', sombra SEM passagem suave' : ''}${this.game.graficos?.preCarregar ? ', pré-carregar tudo LIGADO' : ''}, detalhe some abaixo de ${q.limiarPx} px${q.alcance ? `, NADA além de ${q.alcance} m (névoa fechando nele), capim só a ${q.capimRaio} células` : ''}`);
+    // (20/10/2026) o Automático: o perfil medido no carregamento (graficos.js, medidor.js)
+    if (this.game.graficos?.resumoAutomatico) L.push(this.game.graficos.resumoAutomatico());
     // o antisserrilhado (MSAA) é escolhido ao criar a página: só dá para medir reabrindo o jogo
     if (gl.getContextAttributes().antialias) L.push(`antisserrilhado ligado: o teste do lugar não o mede (só reabrindo o jogo). Referência: numa Radeon 740M a 1920×945, no Médio com a tocha acesa, ele custava ~26% (29,1 → 36,7 quadros/s, 07/10/2026).`);
     L.push(`cronômetro da GPU: ${this.ext ? 'sim' : 'NÃO (sem o tempo da placa; o gargalo é deduzido)'} · quadros longos do navegador: ${this.tipoLongo ?? 'não'}`);
@@ -444,6 +446,7 @@ export class Monitor {
     L.push('');
     this.secaoPicos(L);
     this.secaoCena(L);
+    this.secaoCarga(L);
     L.push('## Linha do tempo (blocos de 10 s, últimos 5 min)');
     L.push('quando  FPS   máx   CPU   GPU  chamadas  triâng.  lentos  tocha  qualidade  região');
     const segs = [...this.segundos, ...(this.seg ? [this.seg] : [])].filter((s) => s.s >= sess - 300);
@@ -526,6 +529,98 @@ export class Monitor {
     L.push('mais pesados no campo de visão agora (triângulos × cópias):');
     for (const l of this.maisPesados(12)) L.push(`  ${l}`);
     L.push('');
+  }
+
+  /**
+   * COMO AS PEÇAS ESTÃO CARREGADAS (20/10/2026; o dono: "como cada objeto está sendo carregado, o
+   * impacto/peso"): por tipo, quantas peças estão em cada estado do LOD (lod.js, `situacao`) e
+   * quanto pesam — NA TELA (o que está no campo de visão da câmera) e NA SOMBRA DO SOL (o que
+   * projeta sombra dentro da caixa dele): triângulos, chamadas de desenho e cópias. Só quando o
+   * relatório é pedido (e a telemetria, de 10 em 10 min, que leva o relatório e estes números).
+   */
+  cargas() {
+    const g = this.game, cam = g.camera, w = g.world, lod = w?.lod;
+    if (!lod || !cam) return null;
+    const sit = lod.situacao(cam), nomes = Object.keys(sit.tipos);
+    const NOME = { grama: 'grama', pedras: 'pedras', arvores: 'árvores', cenario: 'cenário' };
+    // de que tipo é cada malha (a decoração em lotes, os cartazes, as soltas, o capim, os bonecos)
+    const classe = new Map();
+    for (const gr of lod.grupos) {
+      const t = NOME[nomes[gr.t]] ?? 'cenário';
+      for (const im of gr.ims) classe.set(im, t);
+      for (const l of gr.lotes ?? []) if (l.imSombra) classe.set(l.imSombra, `${t} (sombra do cartaz)`);
+    }
+    for (const c of lod.cartazes?.values() ?? []) classe.set(c.malha, `${NOME[nomes[c.grupos[0]?.t]] ?? 'árvores'} (cartaz)`);
+    for (const s of lod.listaDeSoltas ?? []) for (const m of s.malhas) classe.set(m, 'cenário (peças soltas)');
+    if (g.capim?.tapete) classe.set(g.capim.tapete, 'capim');
+    const deQuem = (o) => classe.get(o) ?? (o.isSkinnedMesh ? 'personagens e bichos' : o.isPoints || o.isSprite ? 'efeitos e chamas' : 'outros (chão, paredes, água, céu…)');
+    const sol = w.ambience?.lua, comSol = !!sol?.castShadow, sc = sol?.shadow?.camera;
+    const planosCam = this.planosDoFrustum(cam.projectionMatrix.clone().multiply(cam.matrixWorldInverse));
+    const planosSol = comSol ? this.planosDoFrustum(sc.projectionMatrix.clone().multiply(sc.matrixWorldInverse)) : null;
+    const tela = {}, sombra = {};
+    const somar = (T, k, tri, n) => { const a = T[k] ??= { tri: 0, ch: 0, n: 0 }; a.tri += tri * n; a.ch++; a.n += n; };
+    const visivelPara = (o, layers) => { if (!o.layers.test(layers)) return false; for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+    const dentro = (o, planos) => {
+      if (o.frustumCulled === false) return true;
+      const geo = o.geometry, esf = o.isInstancedMesh ? (o.boundingSphere ?? (o.computeBoundingSphere(), o.boundingSphere)) : (geo.boundingSphere ?? (geo.computeBoundingSphere(), geo.boundingSphere));
+      if (!esf) return false;
+      const c = esf.center.clone().applyMatrix4(o.matrixWorld), rad = esf.radius * o.matrixWorld.getMaxScaleOnAxis();
+      return !planos.some(([a, b, cc, d]) => a * c.x + b * c.y + cc * c.z + d < -rad);
+    };
+    g.scene.traverse((o) => {
+      if (!(o.isMesh || o.isPoints) || !o.geometry?.attributes?.position) return;
+      const n = o.isInstancedMesh ? o.count : 1;
+      if (!n) return;
+      const geo = o.geometry, tri = (geo.index ? geo.index.count : geo.attributes.position.count) / 3, k = deQuem(o);
+      if (visivelPara(o, cam.layers) && dentro(o, planosCam)) somar(tela, k, tri, n);
+      if (comSol && o.castShadow && visivelPara(o, sc.layers) && dentro(o, planosSol)) somar(sombra, k, tri, n);
+    });
+    const R = comSol ? sc.right : null;
+    return {
+      sit, tela, sombra,
+      sol: comSol ? { raio: R, avanco: Math.round(R * (lod.avancoDoSol ?? 0)), mapa: sol.shadow.mapSize.x, cmPorPx: Math.round(2 * R / sol.shadow.mapSize.x * 1000) / 10, triQuadro: this.sombraTriDoQuadro ?? null, chamadasQuadro: this.sombraDoQuadro ?? null } : null,
+    };
+  }
+
+  /** O relatório de `cargas()`: os estados por tipo, os limites e o peso na tela e na sombra. */
+  secaoCarga(L) {
+    let c = null;
+    try { c = this.cargas(); } catch (e) { L.push(`## Como as peças estão carregadas agora
+(falhou: ${e?.message ?? e})
+`); return; }
+    if (!c) return;
+    const { sit, sol } = c, NOME = { grama: 'grama', pedras: 'pedras', arvores: 'árvores', cenario: 'cenário' };
+    L.push('## Como as peças estão carregadas agora');
+    if (sol) {
+      const av = sol.avanco;
+      L.push(`sombra do sol: caixa de ${sol.raio} m adiantada ${av} m para onde a câmera olha (inteira até ~${Math.round(av + sol.raio * 0.72)} m à frente, some aos poucos até ~${Math.round(av + sol.raio * 0.97)} m; atrás ~${Math.round(sol.raio - av)} m) · mapa ${sol.mapa} px (${fmt(sol.cmPorPx)} cm por pixel) · no quadro: ${sol.chamadasQuadro ?? '—'} chamadas e ${mil(sol.triQuadro ?? 0)} triâng. de sombra (tocha junto)`);
+    } else L.push('sombra do sol: desligada (nesta qualidade, ou no menu)');
+    L.push('peças por estado    modelo  passagem   cartaz  (c/ sombra)  sumindo   oculto  outro lado');
+    const n = (v) => String(v ?? 0).padStart(8);
+    for (const [t, s] of Object.entries(sit.tipos)) {
+      const viraCartaz = t === 'grama' || t === 'arvores';
+      L.push(`${NOME[t].padEnd(16)}${n(s.modelo)}${viraCartaz ? n(s.passagem) : '       —'} ${viraCartaz ? n(s.cartaz) : '       —'}  ${viraCartaz ? `(${s.sombraDeCartaz})`.padStart(10) : '         —'}${viraCartaz ? '       —' : n(s.sumindo)} ${viraCartaz ? '       —' : n(s.oculto)}  ${n(s.outroLado)}`);
+    }
+    L.push(`peças soltas (cenário): ${sit.soltas.visiveis} visíveis · ${sit.soltas.escondidas} escondidas${sit.soltaFim ? ` (somem até ${Math.round(sit.soltaFim)} m)` : ''}`);
+    const lim = Object.entries(sit.limites).map(([t, l]) => (t === 'grama' || t === 'arvores')
+      ? `${NOME[t]}: cartaz a partir de ${Math.round(l.cartazDe)} m, modelo até ${Math.round(l.modeloAte)} m${t === 'arvores' ? `, sombra do cartaz até ${Math.round(l.sombraAte)} m` : ''}`
+      : `${NOME[t]}: ${l.teto ? `até ${Math.round(l.teto)} m` : 'pelos pixels'}`);
+    if (lim.length) L.push(`limites: ${lim.join(' · ')}`);
+    L.push('peso (o que está à vista)           na tela: triâng.  chamadas   cópias │ na sombra do sol: triâng.  chamadas   cópias');
+    const chaves = [...new Set([...Object.keys(c.tela), ...Object.keys(c.sombra)])].sort((a, b) => ((c.tela[b]?.tri ?? 0) + (c.sombra[b]?.tri ?? 0)) - ((c.tela[a]?.tri ?? 0) + (c.sombra[a]?.tri ?? 0)));
+    const linha = (a) => (a ? `${mil(a.tri).padStart(15)} ${String(a.ch).padStart(9)} ${String(a.n).padStart(8)}` : `${'—'.padStart(15)} ${'—'.padStart(9)} ${'—'.padStart(8)}`);
+    for (const k of chaves) L.push(`  ${k.slice(0, 34).padEnd(34)}${linha(c.tela[k])} │${linha(c.sombra[k])}`);
+    L.push('');
+  }
+
+  /** Os números de `cargas()` compactos, para a telemetria (telemetria.js). */
+  cargasCompactas() {
+    try {
+      const c = this.cargas();
+      if (!c) return null;
+      const r = (T) => Object.fromEntries(Object.entries(T).map(([k, a]) => [k, [Math.round(a.tri), a.ch, a.n]]));
+      return { estados: c.sit.tipos, soltas: c.sit.soltas, tela: r(c.tela), sombra: r(c.sombra), sol: c.sol };
+    } catch { return null; }
   }
 
   maisPesados(k) {

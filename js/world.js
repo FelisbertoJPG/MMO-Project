@@ -6,7 +6,7 @@ import { corDoChao, texturaDoChao, REPETE_CHAO, montarCaminhos, terreiro } from 
 import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
 import { ITEMS, RARIDADES, raridadeDe } from './items.js';
 import { makeWeapon } from './gear.js';
-import { LOD, reescreverLote, viraImpostor, vestirPassagem, profundidadeDaPassagem, CAMADA_SOMBRA } from './lod.js';
+import { LOD, reescreverLote, viraImpostor, vestirPassagem, profundidadeDaPassagem, CAMADA_SOMBRA, AVANCO_DO_SOL } from './lod.js';
 import { fragmentos } from './fratura.js';
 import { vestirVeu } from './veu.js';
 import { montarExpositores } from './expositor.js';
@@ -272,6 +272,7 @@ export function cicloDoDia(h, alvo = null) {
   return o;
 }
 const _verdeCampos = new THREE.Color(0x3d5a2a);
+const _frente = new THREE.Vector3();   // (a caixa da sombra do sol adiantada: `updateAmbience`)
 // as peças que ganham colisão do próprio tamanho quando o decor.json não diz o raio
 const RAIO_AUTOMATICO = /(^|-)Rock_|^rubble_|^barrier_column/;
 
@@ -634,7 +635,17 @@ export class World {
     // (com sombra, o alvo anda de texel em texel do mapa dela: seguindo o jogador contínuo, a
     // borda de toda sombra tremia a cada passo)
     const passo = a.lua.castShadow ? (a.lua.shadow.camera.right - a.lua.shadow.camera.left) / a.lua.shadow.mapSize.x * 4 : 0;
-    const ax = passo ? Math.round(p.x / passo) * passo : p.x, az = passo ? Math.round(p.z / passo) * passo : p.z;
+    // A CAIXA ADIANTADA (20/10/2026; lod.js, `AVANCO_DO_SOL`): o centro dela vai à frente da câmera,
+    // no chão (olhando quase reto para baixo, a isométrica de cima, fica no jogador)
+    let cx = p.x, cz = p.z;
+    const cam = this.game.camera;
+    if (passo && cam) {
+      cam.getWorldDirection(_frente);
+      _frente.y = 0;
+      const n = _frente.length();
+      if (n > 0.2) { const avanco = a.lua.shadow.camera.right * AVANCO_DO_SOL / n; cx += _frente.x * avanco; cz += _frente.z * avanco; }
+    }
+    const ax = passo ? Math.round(cx / passo) * passo : cx, az = passo ? Math.round(cz / passo) * passo : cz;
     a.lua.position.set(ax + dir.x * 120, p.y + dir.y * 120, az + dir.z * 120);
     a.lua.target.position.set(ax, p.y, az);
     // a EXPOSIÇÃO: ao ar livre um pouco menor (o céu claro deixava o cenário lavado); na

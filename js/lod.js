@@ -49,6 +49,18 @@ const PERSONAGEM_LONGE = 110;   // personagem (inimigo, animal) mais longe que i
  * `CAMADA_SOMBRA`, que a câmera não desenha e a luz do sol desenha.
  */
 const BANDA = 8, FOLGA = 2;
+/**
+ * A CAIXA DA SOMBRA DO SOL ADIANTADA (20/10/2026; o dono: "a sombra só aparece no chão perto do
+ * personagem, no Alto"). A caixa era um quadrado de `raio` CENTRADO no jogador: metade dela ficava
+ * atrás, onde a câmera quase não olha, e à frente a sombra sumia a ~30 m (começava a clarear em 72%
+ * da caixa). Agora o centro vai `AVANCO_DO_SOL`·raio à frente da câmera (world.js,
+ * `updateAmbience`): no Alto (42 m) a sombra vai inteira até ~53 m à frente e some aos poucos até
+ * ~64 m; atrás ficam ~19 m (a câmera está atrás do jogador). O MESMO mapa e o mesmo custo de placa.
+ * O canto mais longe da caixa fica a `CANTO_DO_SOL`·raio da vista: até ali a árvore que já é cartaz
+ * ainda projeta sombra (o `imSombra`).
+ */
+export const AVANCO_DO_SOL = 0.55;
+const CANTO_DO_SOL = Math.hypot(1 + AVANCO_DO_SOL, 1);
 /** A faixa do pontilhado do OUTRO LADO (m) e o passo do limite dele ao trocar de lado (×/s). */
 const LADO_FAIXA = 10, LADO_PASSO = 1.2;
 /** O limite do outro lado andando até o alvo, multiplicando (o longe anda mais rápido que o perto). */
@@ -369,6 +381,7 @@ function assarImpostor(renderer, prop) {
   const alvoCor = novoAlvo(THREE.SRGBColorSpace), alvoNormal = novoAlvo(THREE.NoColorSpace);
   const meio = lado / 2, cam = new THREE.OrthographicCamera(-meio, meio, meio, -meio, 0.01, lado * 4);
   const corAntes = renderer.getClearColor(new THREE.Color()), alfaAntes = renderer.getClearAlpha();
+  const alvoAntes = renderer.getRenderTarget();   // (o do FXAA, se ligado: js/fxaa.js)
   for (const [alvo, cena, fundo] of [[alvoCor, cenaCor, 0x000000], [alvoNormal, cenaNormal, 0x8080ff]]) {
     renderer.setClearColor(fundo, 0);
     alvo.scissorTest = true;
@@ -385,7 +398,7 @@ function assarImpostor(renderer, prop) {
       renderer.render(cena, cam);
     }
   }
-  renderer.setRenderTarget(null);
+  renderer.setRenderTarget(alvoAntes);
   renderer.setClearColor(corAntes, alfaAntes);
   for (const n of trocados.values()) n.dispose();   // só serviam para a foto
   // (no CARREGAMENTO ler os pixels da placa é aceitável — no meio do jogo, nunca)
@@ -623,7 +636,7 @@ export class LOD {
       // até onde a árvore que virou cartaz ainda projeta a sombra do sol: a caixa dela é um
       // quadrado de `raio` em volta do jogador (o canto a √2·raio), e a câmera fica atrás dele
       // (o raio é o da opção avançada "distância das sombras", ou o da qualidade)
-      const sol = suave && comSol ? (G?.raioDaSombra ?? q.sol.raio) * 1.45 + 6 : 0;
+      const sol = suave && comSol ? (G?.raioDaSombra ?? q.sol.raio) * CANTO_DO_SOL + 6 : 0;
       const cartazDe = Dt - banda - FOLGA, modeloAte = Dt + FOLGA, sombraAte = Math.max(modeloAte, sol);
       if (P.cartazDe[t] !== cartazDe || P.modeloAte[t] !== modeloAte || P.sombraAte[t] !== sombraAte || P.teto[t] !== teto) mudou = true;
       P.cartazDe[t] = cartazDe; P.modeloAte[t] = modeloAte; P.sombraAte[t] = sombraAte; P.teto[t] = teto;
@@ -913,6 +926,53 @@ export class LOD {
       raiz.traverse((o) => { if (o.isMesh && !e.__lodMalhas.includes(o)) e.__lodMalhas.push(o); });
       for (const o of e.__lodMalhas) o.layers.set(oculto ? 31 : 0);
     }
+  }
+
+  /**
+   * COMO AS PEÇAS ESTÃO CARREGADAS AGORA (20/10/2026; o relatório do monitor e a telemetria): cada
+   * peça da decoração, por tipo, no estado em que a vista de agora a põe — as mesmas contas do
+   * `grupos_`, refeitas aqui só quando o relatório pede (nada por quadro):
+   *   • árvores e grama (as que viram cartaz): `modelo` (inteiro), `passagem` (na faixa em
+   *     pontilhado), `cartaz` (a foto; `sombraDeCartaz` = destas, as que ainda projetam sombra);
+   *   • pedras e cenário (o detalhe que some): `modelo`, `sumindo` (no último quarto, em
+   *     pontilhado), `oculto` (fora do lote);
+   *   • `outroLado`: do outro lado da masmorra (o grupo fora do lote).
+   * E as peças soltas (visíveis / escondidas) e os limites de cada tipo (m).
+   */
+  /** O quanto a caixa da sombra do sol vai à frente (fração do raio; world.js e o monitor). */
+  get avancoDoSol() { return AVANCO_DO_SOL; }
+
+  situacao(camera) {
+    const p = camera.userData.vistaDe ?? camera.position, P = this.par, K = this.ultimo?.K ?? Infinity;
+    const tipos = {};
+    for (const t of TIPOS) tipos[t] = { modelo: 0, passagem: 0, cartaz: 0, sombraDeCartaz: 0, sumindo: 0, oculto: 0, outroLado: 0 };
+    const limites = {};
+    if (P) for (let t = 0; t < TIPOS.length; t++) limites[TIPOS[t]] = { cartazDe: P.cartazDe[t], modeloAte: P.modeloAte[t], sombraAte: P.sombraAte[t], teto: Number.isFinite(P.teto[t]) ? P.teto[t] : null };
+    for (const g of this.grupos) {
+      // (a peça, não a malha: no detalhe as cópias de uma peça dividem o lugar da raiz, `c.p`)
+      const s = tipos[TIPOS[g.t]], pos = g.cartaz ? g.pos : g.copias ? [...new Set(g.copias.map((c) => c.p))] : (g.posicoes ?? []);
+      if (g.lado) { s.outroLado += pos.length; continue; }
+      if (!P) continue;
+      if (g.cartaz) {
+        for (const q of pos) {
+          const d = q.distanceTo(p);
+          if (d <= P.cartazDe[g.t]) s.modelo++;
+          else if (d <= P.modeloAte[g.t]) s.passagem++;
+          else { s.cartaz++; if (g.projeta && d < P.sombraAte[g.t]) s.sombraDeCartaz++; }
+        }
+        continue;
+      }
+      const ate = Math.min(g.raioPeca * K, P.teto[g.t] * Math.max(1, g.raioPeca));
+      for (const q of pos) {
+        const d = q.distanceTo(p);
+        if (g.oculto || d > ate) s.oculto++;
+        else if (d > ate * 0.75) s.sumindo++;
+        else s.modelo++;
+      }
+    }
+    let visiveis = 0, escondidas = 0;
+    for (const s of this.listaDeSoltas ?? []) if (s.oculto) escondidas++; else visiveis++;
+    return { tipos, soltas: { visiveis, escondidas }, limites, soltaFim: this.soltaFim ?? null };
   }
 
   /** Números para conferir (o console: `game.world.lod.resumo()`). */
