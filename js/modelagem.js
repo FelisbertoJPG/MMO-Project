@@ -395,7 +395,9 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   const div = edicoes.vertices?.length && !idx ? dividirNosVertices(geo, edicoes.vertices, edicoes.cortes ?? [], ctx) : null;
   // ---- 2c. os TRIÂNGULOS CRIADOS: onde cada canto está agora (antes dos cortes, que achatam o de baixo)
   const criados = [...(div?.novos ?? []), ...(edicoes.novos ?? []).map((x, n) => ({ ...x, n }))];
-  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P, edicoes.cores) : null;
+  const cortes = [...(edicoes.cortes ?? []), ...(div?.cortes ?? [])];
+  // (os que VÃO ser cortados: o canto que gruda num vértice prefere a cópia dele que fica)
+  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P, edicoes.cores, cortes.length ? cortadosPor(cortes, ctx, geo) : null) : null;
   // (malha que JÁ os tem — a vista da aba Modelo, refeita a partir da base: eles voltam ao lugar
   // achado agora, em vez de levar as partes e os puxões de novo)
   const o = ctx.ordensNovos;
@@ -404,7 +406,6 @@ export function aplicarModelagem(geo, edicoes, ctx) {
     o.forEach((ord, q) => ord.forEach((c, e) => { const v = ctx.novosDe + q * 3 + e, t = ctx.novos[dq[q]]; for (let x = 0; x < 3; x++) P[v * 3 + x] = t.pos[c * 3 + x]; mexeu[v] = 1; }));
   }
   // ---- 3. os CORTES: o triângulo some (os do dono e os divididos pelos vértices criados)
-  const cortes = [...(edicoes.cortes ?? []), ...(div?.cortes ?? [])];
   if (cortes.length) cortarTriangulos(geo, cortes, ctx, mexeu);
   if (!mexeu.includes(1)) return false;
   pos.needsUpdate = true;
@@ -566,9 +567,28 @@ const SOLDA = 0.1;
 // `em` — encostado na pele, o canto do meio de um criado (um vértice criado nele) afundava no corpo. Os
 // triângulos CORTADOS valem (ainda inteiros aqui): o canto grudado num vértice de um pedaço cortado (a
 // cúpula do busto da Humana, quase toda cortada) ia se prender a um vivo a 46 cm e era arrastado
-function resolverNovos(geo, novos, ctx, P, cores = null) {
+function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null) {
   const A = ctx.antes, meio = new THREE.Vector3();
   const lista = [], soldados = [];
+  // o canto que MARCA um vértice do corpo (o `em` é o `antes` dele, até o arredondamento de 2 casas)
+  // gruda NELE (20/10/2026): o triângulo mais perto podia ser outra superfície quase no mesmo ponto do
+  // modelo — a dobra do lábio, no queixo da Humana — que os puxões levam para outro lugar (vãos de 0,3 cm).
+  // O ponto tem uma CÓPIA por triângulo, e as dos triângulos cortados podem ter ido para outro lugar (os
+  // pesos de outra peça, nos puxões): vale a de um triângulo que FICA
+  const grade = new Map(), nc = ctx.novosDe ?? A.length / 3, cel = (x) => Math.round(x * 100);
+  for (let v = 0; v < nc; v++) { const k = `${cel(A[v * 3])},${cel(A[v * 3 + 1])},${cel(A[v * 3 + 2])}`; if (!grade.has(k)) grade.set(k, []); grade.get(k).push(v); }
+  const noVertice = (de, em) => {
+    const o = ORIGENS.indexOf(de), [x, y, z] = em.map(cel);
+    let achado = -1;
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) {
+      for (const v of grade.get(`${x + a},${y + b},${z + c}`) ?? []) {
+        if (ctx.origem[v] !== o || Math.hypot(A[v * 3] - em[0], A[v * 3 + 1] - em[1], A[v * 3 + 2] - em[2]) >= 0.009) continue;
+        if (!cortados?.has(Math.floor(v / 3))) return v;
+        if (achado < 0) achado = v;
+      }
+    }
+    return achado;
+  };
   // o ponto já visto (da mesma origem) a menos da SOLDA, ou este mesmo — e passa a ser visto
   const soldar = (de, em) => {
     const j = soldados.find((s) => s.de === de && Math.abs(s.em[0] - em[0]) < SOLDA && Math.abs(s.em[1] - em[1]) < SOLDA && Math.abs(s.em[2] - em[2]) < SOLDA);
@@ -587,12 +607,13 @@ function resolverNovos(geo, novos, ctx, P, cores = null) {
         // o canto a menos da SOLDA do meio É do meio: o espelho o mantém — colado num vértice do corpo
         // em x = −0,05, o outro lado ia para +0,05, a 0,1 cm, e as duas metades nunca se juntavam)
         const em = c.i != null || c.lugar ? c.em : soldar(c.de, lado && Math.abs(c.em[0]) >= SOLDA ? [-c.em[0], c.em[1], c.em[2]] : c.em);
-        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : c.lugar ?? lugarNoModelo({ de: c.de, em }, geo, ctx);
+        const vi = c.i == null && !c.lugar && !(c.sobe > 0) ? noVertice(c.de, em) : -1;   // (o afastado precisa do triângulo: a normal dele)
+        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : vi >= 0 ? [vi, vi, vi, 1, 0, 0] : c.lugar ?? lugarNoModelo({ de: c.de, em }, geo, ctx);
         if (!l) break;
         const [i, j, k, u, v, s] = l;
         fonte.push(u >= v && u >= s ? i : v >= s ? j : k);
-        // (o pedaço de um vértice criado está NO vértice: nada a somar)
-        const marcado = c.i == null && !c.lugar;
+        // (o pedaço de um vértice criado está NO vértice — e o canto que gruda num: nada a somar)
+        const marcado = c.i == null && !c.lugar && vi < 0;
         for (let e = 0; e < 3; e++) pos.push(P[i * 3 + e] * u + P[j * 3 + e] * v + P[k * 3 + e] * s + (marcado ? em[e] - (A[i * 3 + e] * u + A[j * 3 + e] * v + A[k * 3 + e] * s) : 0));
         // (o canto AFASTADO da pele: `sobe` cm pela normal da face onde ele se prende, como ela está
         // AGORA — o sutiã criado fica por cima da pele e a acompanha quando ela muda; um afastamento
