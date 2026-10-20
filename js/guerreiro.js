@@ -116,7 +116,64 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Qua
 const fundidas = new Map();
 /** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
 export function esquecerFundidas() { for (const g of fundidas.values()) { g?.dispose(); for (const f of g?.userData.pinturas ?? []) f.geometry.dispose(); for (const p of g?.userData.palpebras ?? []) p.dispose(); } fundidas.clear(); }
-// (`boca`: a folha dos lábios com batom — boca.js —, pintada como as da modelagem, mesmo no corpo sem edição)
+
+// OS PLANOS DO ROSTO (20/10/2026): o rosto do modelo tem a normal POR FACE — cada triângulo na sua
+// luz, e os vizinhos quase no mesmo plano saíam cada um num tom (o "quadriculado"; os puxões da
+// modelagem pioram). Os vizinhos que cabem num plano (até `PLANO` graus do primeiro do grupo e da
+// média dele) ganham UMA normal, a média pela área: o rosto lê como poucas faces grandes, e nenhum
+// ponto se mexe (raça, modelagem, cortes e criados valem igual). Grupos crescem a partir dos maiores
+// triângulos. `faixas`: os vértices das peças do rosto; `extrasDe`: os triângulos CRIADOS (do fim da
+// malha) entram quando dois cantos deles são pontos do rosto. (O pescoço vai junto.)
+export const PLANO = 20;
+export function planosDoRosto(geo, faixas, extrasDe = null, graus = PLANO) {
+  const P = geo.attributes.position.array, nor = geo.attributes.normal;
+  if (!nor || geo.index || !faixas?.length) return;
+  const chave = (v) => `${Math.round(P[v * 3] * 500)},${Math.round(P[v * 3 + 1] * 500)},${Math.round(P[v * 3 + 2] * 500)}`;
+  const tris = [], doRosto = new Set();
+  for (const [de, ate] of faixas) for (let v = de; v + 2 < ate; v += 3) { tris.push(v); for (let e = 0; e < 3; e++) doRosto.add(chave(v + e)); }
+  if (extrasDe != null) for (let v = extrasDe; v + 2 < P.length / 3; v += 3) if ([0, 1, 2].filter((e) => doRosto.has(chave(v + e))).length >= 2) tris.push(v);
+  const n = tris.length, N = new Float32Array(n * 3), area = new Float32Array(n);
+  for (let t = 0; t < n; t++) {
+    const v = tris[t] * 3, ux = P[v + 3] - P[v], uy = P[v + 4] - P[v + 1], uz = P[v + 5] - P[v + 2], wx = P[v + 6] - P[v], wy = P[v + 7] - P[v + 1], wz = P[v + 8] - P[v + 2];
+    const x = uy * wz - uz * wy, y = uz * wx - ux * wz, z = ux * wy - uy * wx, l = Math.hypot(x, y, z);
+    if (l < 1e-9) continue;   // (o triângulo cortado — os cantos no mesmo ponto — fica como está)
+    area[t] = l / 2; N[t * 3] = x / l; N[t * 3 + 1] = y / l; N[t * 3 + 2] = z / l;
+  }
+  // os vizinhos: os triângulos que dividem uma aresta (pelos pontos, que se repetem a cada triângulo)
+  const arestas = new Map(), viz = Array.from({ length: n }, () => []);
+  for (let t = 0; t < n; t++) {
+    const k = [0, 1, 2].map((e) => chave(tris[t] + e));
+    for (let e = 0; e < 3; e++) {
+      const a = k[e], b = k[(e + 1) % 3], ab = a < b ? `${a}|${b}` : `${b}|${a}`, l = arestas.get(ab);
+      if (!l) { arestas.set(ab, [t]); continue; }
+      for (const o of l) { viz[t].push(o); viz[o].push(t); }
+      l.push(t);
+    }
+  }
+  const lim = Math.cos((graus * Math.PI) / 180), grupo = new Uint8Array(n), fila = [];
+  const cos = (o, x, y, z) => N[o * 3] * x + N[o * 3 + 1] * y + N[o * 3 + 2] * z;
+  for (const s of [...tris.keys()].sort((a, b) => area[b] - area[a])) {
+    if (grupo[s] || !area[s]) continue;
+    grupo[s] = 1;
+    const membros = [s];
+    let sx = N[s * 3] * area[s], sy = N[s * 3 + 1] * area[s], sz = N[s * 3 + 2] * area[s];
+    fila.push(s);
+    while (fila.length) {
+      for (const o of viz[fila.pop()]) {
+        if (grupo[o] || !area[o]) continue;
+        const l = Math.hypot(sx, sy, sz);
+        if (cos(o, N[s * 3], N[s * 3 + 1], N[s * 3 + 2]) < lim || cos(o, sx / l, sy / l, sz / l) < lim) continue;
+        grupo[o] = 1; membros.push(o); fila.push(o);
+        sx += N[o * 3] * area[o]; sy += N[o * 3 + 1] * area[o]; sz += N[o * 3 + 2] * area[o];
+      }
+    }
+    const l = Math.hypot(sx, sy, sz);
+    for (const t of membros) for (let e = 0; e < 3; e++) nor.setXYZ(tris[t] + e, sx / l, sy / l, sz / l);
+  }
+  nor.needsUpdate = true;
+}
+
+// (`boca`:a folha dos lábios com batom — boca.js —, pintada como as da modelagem, mesmo no corpo sem edição)
 function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, boca = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
@@ -179,6 +236,17 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     aplicarModelagem(geo, edicoes, comModelo);
     // (os triângulos CRIADOS entram no fim: outra geometria, com o ctx crescido junto)
     geo = acrescentarTriangulos(geo, comModelo);
+  }
+  // OS PLANOS DO ROSTO (acima), no rosto como ficou — antes das folhas, que tomam a luz da pele de baixo
+  if (geo && !geo.index) {
+    const rosto = [];
+    let de = 0;
+    lista.forEach((g, i) => { const n = g.attributes.position.count; if (/^(Face|head|neck)(_tingido)?$/.test(pecas[i].name)) rosto.push([de, de + n]); de += n; });
+    planosDoRosto(geo, rosto, comModelo?.novosDe);
+    geo.userData.rosto = rosto;
+    if (comModelo) comModelo.rosto = rosto;   // (a aba Modelo do editor refaz os planos na vista)
+  }
+  if (comModelo) {
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
     // (a da BOCA por último: os lábios por cima de qualquer pintura do rosto)
     const folhas = [...(edicoes?.pinturas ?? []), ...(boca ? [boca] : [])];

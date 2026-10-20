@@ -191,7 +191,7 @@ export function geometriaDaFolha(folha, geo, ctx) {
   // o lugar dele foi parar: a tinta GRUDA na malha (o olho reposicionado leva o desenho junto).
   // `noModelo` (a boca, boca.js): a projeção é no MODELO (`ctx.antes`, antes também da raça) — o desenho
   // tem o tamanho certo no rosto do modelo e cresce, estreita e anda com a raça e a modelagem
-  const P = geo.attributes.position.array, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index;
+  const P = geo.attributes.position.array, N = geo.attributes.normal?.array, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index;
   const Q = folha.noModelo && ctx.antes?.length === P.length ? ctx.antes : ctx.base?.length === P.length ? ctx.base : P;
   // `so`: só a pele dessa origem (a boca: o 'corpo' — as presas não levam batom)
   const so = folha.so ? ORIGENS.indexOf(folha.so) : -1;
@@ -223,10 +223,11 @@ export function geometriaDaFolha(folha, geo, ctx) {
       poli = recortar(poli, 2, -D, (x) => x >= -D); poli = recortar(poli, 2, D, (x) => x <= D);
       if (poli.length < 3) continue;
       // (no OLHO a luz é a de uma superfície lisa de frente para a folha: as facetas dele — a de cima,
-      // virada para o céu — clareavam a tinta em riscos; na pele, a luz é a da faceta, como a da pele)
+      // virada para o céu — clareavam a tinta em riscos; na pele, a luz é a da pele de baixo — a normal
+      // dela, que no rosto é a do PLANO, guerreiro.js `planosDoRosto`)
       A1.fromArray(P, i * 3); B1.fromArray(P, j * 3); C1.fromArray(P, k * 3);
       fn1.subVectors(B1, A1).cross(e1.subVectors(C1, A1)).normalize();
-      const luz = ctx.origem[i] === OLHOS ? E.n : fn1;
+      const luz = ctx.origem[i] === OLHOS ? E.n : N ? fn1.fromArray(N, i * 3) : fn1;
       const wi = pesoDe(i), wj = pesoDe(j), wk = pesoDe(k);
       const canto = (c) => {
         const [a, b, d] = c.b;
