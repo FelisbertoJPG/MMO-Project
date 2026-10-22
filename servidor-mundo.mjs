@@ -233,6 +233,11 @@ export function criarMundo(raiz) {
     if (mapa && corpo.mapa !== mapa) return erro(res, 409, `o servidor está no mapa "${mapa}", e este jogo em outro`);
     const quem = await conferirToken(corpo.token, { modoAuth, supabase });
     if (quem.erro) return erro(res, quem.status ?? 401, quem.erro);
+    let personagem = null;
+    if (saves === 'disco') {
+      try { personagem = lerPersonagem(quem.id); }
+      catch { return erro(res, 500, 'não consegui ler o seu personagem'); }
+    }
     const antigo = jogadores.get(quem.id);
     if (!antigo && jogadores.size >= MAX_JOGADORES) return erro(res, 503, 'o mundo está cheio');
     if (antigo) {
@@ -252,7 +257,7 @@ export function criarMundo(raiz) {
     json(res, 200, {
       ok: true, v: VERSAO_MUNDO, bilhete: j.bilhete, id: j.id, nome: j.nome, agora: Date.now(),
       // `saves: 'nuvem'`: o personagem não está aqui — o jogo o busca no Supabase
-      saves, personagem: saves === 'disco' ? lerJson(arquivoDoPersonagem(j.id)) : null, estado,
+      saves, personagem, estado,
     });
   }
 
@@ -294,7 +299,10 @@ export function criarMundo(raiz) {
     // sem disco, um save gravado aqui sumiria no próximo reinício — e sumir calado é o pior jeito
     if (saves !== 'disco') return erro(res, 409, 'neste servidor o personagem fica na conta (Supabase), não aqui');
     const arq = arquivoDoPersonagem(j.id);
-    if (req.method === 'GET') return json(res, 200, { ok: true, personagem: lerJson(arq) });
+    if (req.method === 'GET') {
+      try { return json(res, 200, { ok: true, personagem: lerPersonagem(j.id) }); }
+      catch { return erro(res, 500, 'não consegui ler o seu personagem'); }
+    }
     const d = await lerCorpo(req, MAX_SAVE);
     const motivo = d ? saveTorto(d) : 'save inválido ou grande demais';
     if (motivo) return erro(res, 400, motivo);
@@ -303,6 +311,12 @@ export function criarMundo(raiz) {
   }
 
   const arquivoDoPersonagem = (id) => path.join(pastaPersonagens, `${id.toLowerCase()}.json`);
+
+  /** Só arquivo ausente é personagem novo; erro de disco ou JSON interrompido precisa voltar como falha. */
+  function lerPersonagem(id) {
+    try { return JSON.parse(fs.readFileSync(arquivoDoPersonagem(id), 'utf8')); }
+    catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+  }
 
   /**
    * As rotas de rede do chat de voz (`iceServers`, ver `turnDaVoz`) — só para quem

@@ -264,6 +264,34 @@ await teste('PERSONAGEM: grava, volta igual, e o relógio que vale é o do servi
   assert.equal((await (await fetch(`${BASE}/__mundo/personagem?b=${caio.bilhete}`)).json()).personagem, null);
 });
 
+await teste('PERSONAGEM: falha de leitura não vira personagem novo nem derruba a sessão atual', async () => {
+  const j = await jogador('Leitura'), url = `${BASE}/__mundo/personagem?b=${j.bilhete}`;
+  const arq = path.join(PASTA, 'personagens', `${j.id}.json`);
+  await fetch(url, { method: 'POST', body: JSON.stringify(SAVE()) });
+  const bom = fs.readFileSync(arq, 'utf8');
+  try {
+    for (const tipo of ['json interrompido', 'erro de leitura']) {
+      fs.rmSync(arq, { recursive: true, force: true });
+      if (tipo === 'json interrompido') fs.writeFileSync(arq, '{incompleto');
+      else fs.mkdirSync(arq);   // ler um diretório como arquivo falha também no Windows
+      const leitura = await fetch(url);
+      assert.equal(leitura.status, 500, tipo);
+      assert.equal((await leitura.json()).ok, false);
+      const entrada = await fetch(`${BASE}/__mundo/entrar`, {
+        method: 'POST', body: JSON.stringify({ token: 'teste:Leitura', v: 1, mapa: MAPA }),
+      });
+      assert.equal(entrada.status, 500, `entrou sem conseguir ler: ${tipo}`);
+      assert.equal((await entrada.json()).ok, false);
+      assert.equal((await j.falar('ping', { t: 1 })).status, 204, 'invalidou o bilhete da sessão atual');
+    }
+  } finally {
+    fs.rmSync(arq, { recursive: true, force: true });
+    fs.writeFileSync(arq, bom);
+    j.desligar();
+    await fetch(`${BASE}/__mundo/sair?b=${j.bilhete}`, { method: 'POST' });
+  }
+});
+
 await teste('PERSONAGEM: save torto é RECUSADO e não apaga o bom', async () => {
   const url = `${BASE}/__mundo/personagem?b=${beto.bilhete}`;
   const ruins = [
