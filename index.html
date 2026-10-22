@@ -19,9 +19,15 @@
 
   <!-- HUD -->
   <div id="hud" class="hidden">
+    <!-- O quadro do jogador (estilo MMO): o retrato ao vivo no losango (js/retrato.js desenha
+         o rosto por baixo, no canvas; aqui só a moldura), o nome, o nível e as barras com números -->
     <div id="bars">
-      <div class="bar hp"><div class="trail"></div><div class="fill"></div></div>
-      <div class="bar st"><div class="fill"></div></div>
+      <div id="retrato"><div class="moldura"></div></div>
+      <div id="hud-info">
+        <div id="hud-topo"><span id="hud-nivel">Nv 1</span><span id="hud-nome"></span></div>
+        <div class="bar hp"><div class="trail"></div><div class="fill"></div><span class="num"></span></div>
+        <div class="bar st"><div class="fill"></div><span class="num"></span></div>
+      </div>
     </div>
     <div id="buffs"></div>
     <!-- o chat de voz: "falando" e quem está falando — js/vozui.js -->

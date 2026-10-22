@@ -41,7 +41,28 @@ button:disabled { opacity: .4; cursor: default; }
 
 /* ---------- HUD ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; }
-#bars { position: absolute; left: 40px; top: 36px; display: flex; flex-direction: column; gap: 6px; }
+/* O QUADRO DO JOGADOR (22/10/2026): o retrato em losango (o rosto é desenhado no canvas por
+   js/retrato.js no lugar do #retrato; aqui só a moldura) e, à direita, nome/nível e as barras
+   com os números. O losango é um quadrado girado 45° inscrito no #retrato (lado = S / √2). */
+#bars { position: absolute; left: 24px; top: 20px; display: flex; align-items: center; }
+#retrato { position: relative; width: 96px; height: 96px; flex: none; z-index: 1; }
+#retrato .moldura {
+  position: absolute; left: 50%; top: 50%; width: 67.88px; height: 67.88px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 3px solid var(--gold); outline: 2px solid #000; box-shadow: 0 0 10px rgba(0,0,0,.8), inset 0 0 0 1px rgba(0,0,0,.6);
+}
+#hud-info { display: flex; flex-direction: column; gap: 3px; margin-left: -26px; padding-left: 30px; }
+#hud-topo { display: flex; align-items: baseline; gap: 8px; font-family: var(--serif); text-shadow: 0 1px 2px #000, 0 0 4px #000; }
+#hud-nivel { font-size: 12px; color: #120d08; background: var(--gold); padding: 0 6px; font-weight: bold; letter-spacing: .5px; }
+#hud-nome { font-size: 15px; color: #f1e6cf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+#bars .bar { width: 240px; }
+#bars .bar.hp { height: 18px; }
+#bars .bar.st { height: 12px; }
+.bar .num {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font: bold 11px/1 var(--serif); color: #fff; text-shadow: 0 0 2px #000, 0 1px 1px #000; letter-spacing: .5px;
+}
+#bars .bar.st .num { font-size: 9px; }
 .bar {
   position: relative; height: 12px; background: rgba(0,0,0,.65);
   border: 1px solid #3a3226; box-shadow: 0 0 0 1px #000;
@@ -52,7 +73,7 @@ button:disabled { opacity: .4; cursor: default; }
 .bar.st { height: 9px; }
 .bar.st .fill { background: linear-gradient(var(--st-hi), #2a5a1d); }
 
-#buffs { position: absolute; left: 40px; top: 78px; display: flex; gap: 6px; }
+#buffs { position: absolute; left: 106px; top: 112px; display: flex; gap: 6px; }
 .buff { font-size: 12px; font-family: var(--serif); padding: 2px 8px; border: 1px solid var(--gold-dim); background: rgba(0,0,0,.6); }
 .buff.resin { color: #ff8a5a; } .buff.blossom { color: #9ddc7a; }
 .buff.regen { color: #ffb070; } .buff.fortaleza { color: #a8b8d8; }
@@ -407,7 +428,7 @@ body.sem-chat #chat:not(.escrevendo) { display: none; }
   html:not(.girada) #chat { right: 8px; bottom: 200px; width: calc(calc(100 * var(--vw, 1vw)) - 16px); }
   html:not(.girada) #equip { transform: scale(.75); transform-origin: left bottom; }
   html:not(.girada) #notifications { left: 16px; bottom: 200px; }
-  html:not(.girada) #bars { left: 16px; top: 16px; }
+  html:not(.girada) #bars { left: 10px; top: 10px; }
   html:not(.girada) #equip { left: 8px; bottom: 16px; }
   html:not(.girada) #souls { right: 16px; bottom: 16px; }
   html:not(.girada) .controls { grid-template-columns: 1fr; }
@@ -476,10 +497,17 @@ html.girada body { position: fixed; left: 0; top: 0; width: var(--tela-h); heigh
 html.girada #girar { display: none !important; }
 
 /* o HUD na tela deitada do celular: cada coisa no seu canto, longe dos polegares */
-body.toque #bars { left: 12px; top: 10px; }
-body.toque #bars .bar { max-width: calc(28 * var(--vw, 1vw)); }
-body.toque #buffs { left: 12px; top: 44px; }
-body.toque #equip { left: 8px; top: 64px; bottom: auto; transform: scale(.5); transform-origin: left top; }
+body.toque #bars { left: 8px; top: 6px; }
+body.toque #retrato { width: 64px; height: 64px; }
+body.toque #retrato .moldura { width: 45.25px; height: 45.25px; border-width: 2px; }
+body.toque #hud-info { margin-left: -18px; padding-left: 22px; gap: 2px; }
+body.toque #hud-nome { font-size: 12px; max-width: calc(22 * var(--vw, 1vw)); }
+body.toque #hud-nivel { font-size: 10px; }
+body.toque #bars .bar { width: calc(26 * var(--vw, 1vw)); max-width: 220px; }
+body.toque #bars .bar.hp { height: 13px; }
+body.toque #bars .bar.st { height: 9px; }
+body.toque #buffs { left: 72px; top: 60px; }
+body.toque #equip { left: 8px; top: 80px; bottom: auto; transform: scale(.5); transform-origin: left top; }
 body.toque #equip-nome { display: none; }
 body.toque #souls { right: 10px; top: 8px; bottom: auto; font-size: 16px; min-width: 0; padding: 2px 8px; }
 body.toque #chat { right: 8px; top: 44px; bottom: auto; width: min(300px, calc(36 * var(--vw, 1vw))); }

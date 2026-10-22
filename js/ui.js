@@ -14,6 +14,9 @@ export class UI {
     this.hud = $('#hud');
     this.hpBar = $('#bars .hp'); this.hpFill = $('#bars .hp .fill'); this.hpTrail = $('#bars .hp .trail');
     this.stBar = $('#bars .st'); this.stFill = $('#bars .st .fill');
+    this.hpNum = $('#bars .hp .num'); this.stNum = $('#bars .st .num');
+    this.nomeEl = $('#hud-nome'); this.nivelEl = $('#hud-nivel');
+    this.textos = {};   // (o último texto de cada número: só mexe no DOM quando muda)
     this.buffs = $('#buffs');
     this.soulsEl = $('#souls'); this.soulsVal = $('#souls-value');
     this.prompt = $('#prompt');
@@ -230,13 +233,20 @@ export class UI {
     }));
   }
 
+  /** Troca o texto de `el` só quando muda (`chave` guarda o último). */
+  texto(chave, el, t) {
+    if (this.textos[chave] !== t) { this.textos[chave] = t; el.textContent = t; }
+  }
+
   // ---------- Atualização por frame ----------
   update(dt) {
     const game = this.game, p = game.player;
 
-    // Barras
-    this.hpBar.style.width = `${p.maxHp * 1.35}px`;
-    this.stBar.style.width = `${p.maxStamina * 2.4}px`;
+    // O quadro do jogador (estilo MMO): barras de largura fixa, com os números, o nome e o nível
+    this.texto('hp', this.hpNum, `${Math.max(0, Math.ceil(p.hp))} / ${Math.round(p.maxHp)}`);
+    this.texto('st', this.stNum, `${Math.max(0, Math.floor(p.stamina))} / ${Math.round(p.maxStamina)}`);
+    this.texto('nv', this.nivelEl, `Nv ${p.level ?? 1}`);
+    this.texto('nome', this.nomeEl, (game.sessao?.meuNome || game.online?.nome || 'Aventureiro').split('@')[0]);
     const hpPct = THREE.MathUtils.clamp(p.hp / p.maxHp, 0, 1) * 100;
     this.hpFill.style.width = `${hpPct}%`;
     this.hpTrail.style.width = `${hpPct}%`;

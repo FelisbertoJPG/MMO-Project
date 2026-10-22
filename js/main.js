@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { initGear } from './gear.js';
 import { Ceu } from './ceu.js';
+import { Retrato } from './retrato.js';
 import { EditorDeAparencia } from './aparencia.js';
 import { assarRefeicoes } from './refeicao.js';
 import { Input } from './input.js';
@@ -129,6 +130,7 @@ class Game {
     this.effects = new Effects(this);
     this.projectiles = new Projectiles(this);
     this.ui = new UI(this);
+    this.retrato = new Retrato(this, document.getElementById('retrato'));
     this.provador = new Provador(this);   // Shift+G: os corpos do jogador (guerreiro.js)
     this.editorAparencia = new EditorDeAparencia(this);   // o rosto e o cabelo (pausa → Aparência)
     this.inventory = new Inventory(this);
@@ -1507,6 +1509,8 @@ class Game {
     M?.depoisDoRender();
     this.ceu?.depoisDoQuadro(dt);   // o reflexo de lente do sol e da lua (por cima do quadro)
     M?.fase('clarão');
+    this.retrato?.desenhar(dt);   // o rosto no quadro do jogador (js/retrato.js)
+    M?.fase('retrato');
     this.graficos.apresentar();   // o FXAA, se ligado (js/fxaa.js): a passada que põe o quadro na tela
     M?.fase('fxaa');
     M?.fim();
