@@ -507,14 +507,27 @@ function lerJson(arq) {
   try { return JSON.parse(fs.readFileSync(arq, 'utf8')); } catch { return null; }
 }
 
-/** Grava num temporário e renomeia: um desligamento no meio não corrompe o arquivo. */
-function gravarJson(arq, dados, fim = () => {}) {
-  fs.mkdir(path.dirname(arq), { recursive: true }, (e0) => {
-    if (e0) return fim(e0);
+const gravacoes = new Map();
+
+/** Temporário + rename, em fila POR ARQUIVO: dois saves não disputam o temporário. */
+export function gravarJson(arq, dados, fim = () => {}) {
+  const texto = JSON.stringify(dados);   // guarda o retrato de quando o save foi pedido
+  const anterior = gravacoes.get(arq) ?? Promise.resolve();
+  const gravacao = anterior.catch(() => {}).then(async () => {
     const tmp = `${arq}.${process.pid}.tmp`;
-    fs.writeFile(tmp, JSON.stringify(dados), (e1) => {
-      if (e1) return fim(e1);
-      fs.rename(tmp, arq, fim);
-    });
+    try {
+      await fs.promises.mkdir(path.dirname(arq), { recursive: true });
+      await fs.promises.writeFile(tmp, texto);
+      await fs.promises.rename(tmp, arq);
+    } catch (e) {
+      await fs.promises.rm(tmp, { force: true }).catch(() => {});
+      throw e;
+    }
   });
+  gravacoes.set(arq, gravacao);
+  const terminar = (e) => {
+    if (gravacoes.get(arq) === gravacao) gravacoes.delete(arq);
+    fim(e);
+  };
+  gravacao.then(() => terminar(null), terminar);
 }
