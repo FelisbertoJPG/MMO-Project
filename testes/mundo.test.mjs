@@ -16,6 +16,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
+import { gravarJson } from '../servidor-mundo.mjs';
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORTA = 58731;
@@ -280,6 +282,64 @@ await teste('PERSONAGEM: save torto é RECUSADO e não apaga o bom', async () =>
     assert.equal(r.status, 400, `aceitou: ${corpo.slice(0, 60)}`);
   }
   assert.equal((await (await fetch(url)).json()).personagem.jogador.almas, 420, 'o save bom se perdeu');
+});
+
+await teste('PERSONAGEM: saves simultâneos não disputam o mesmo temporário', async () => {
+  const url = `${BASE}/__mundo/personagem?b=${beto.bilhete}`;
+  try {
+    const respostas = await Promise.all(Array.from({ length: 32 }, (_, i) => fetch(url, {
+      method: 'POST', body: JSON.stringify({ ...SAVE(), jogador: { ...SAVE().jogador, almas: i }, anexo: 'x'.repeat(i * 100) }),
+    })));
+    assert.ok(respostas.every((r) => r.status === 200), `respostas: ${respostas.map((r) => r.status).join(', ')}`);
+    const volta = (await (await fetch(url)).json()).personagem;
+    assert.ok(volta.jogador.almas >= 0 && volta.jogador.almas < 32);
+    assert.equal(volta.anexo, 'x'.repeat(volta.jogador.almas * 100), 'misturou dois saves');
+    assert.equal(fs.readdirSync(path.join(PASTA, 'personagens')).filter((f) => f.endsWith('.tmp')).length, 0);
+  } finally {
+    await fetch(url, { method: 'POST', body: JSON.stringify(SAVE()) });
+  }
+});
+
+await teste('JORNADA: saves simultâneos da mesma conta ficam inteiros', async () => {
+  // Conta descartável: nunca toca no progresso sem conta nem num save de verdade.
+  const conta = randomUUID(), url = `${BASE}/__save?conta=${conta}`;
+  try {
+    const respostas = await Promise.all(Array.from({ length: 32 }, (_, i) => fetch(url, {
+      method: 'POST', body: JSON.stringify({ i, anexo: 'x'.repeat(i * 100) }),
+    })));
+    assert.ok(respostas.every((r) => r.status === 200), `respostas: ${respostas.map((r) => r.status).join(', ')}`);
+    const volta = await (await fetch(url)).json();
+    assert.ok(volta.i >= 0 && volta.i < 32);
+    assert.equal(volta.anexo, 'x'.repeat(volta.i * 100), 'misturou dois saves');
+    assert.equal(fs.existsSync(path.join(RAIZ, 'saves', `conta-${conta}.json.tmp`)), false);
+  } finally {
+    await fetch(url, { method: 'DELETE' });
+  }
+});
+
+await teste('GRAVAÇÃO: a fila mantém a ordem e guarda o retrato de cada pedido', async () => {
+  const arq = path.join(PASTA, 'fila', 'ordem.json');
+  const gravar = (d) => new Promise((ok, falhar) => gravarJson(arq, d, (e) => e ? falhar(e) : ok()));
+  const dados = { i: 1 }, primeira = gravar(dados);
+  dados.i = 99;
+  await primeira;
+  assert.equal(JSON.parse(fs.readFileSync(arq, 'utf8')).i, 1, 'mudou o retrato já pedido');
+  await Promise.all(Array.from({ length: 16 }, (_, i) => gravar({ i })));
+  assert.equal(JSON.parse(fs.readFileSync(arq, 'utf8')).i, 15, 'o save velho passou por cima do novo');
+});
+
+await teste('GRAVAÇÃO: uma falha não prende o próximo save na fila', async () => {
+  const arq = path.join(PASTA, 'fila', 'falha.json');
+  fs.mkdirSync(arq, { recursive: true });   // um diretório no lugar do arquivo: rename precisa falhar
+  const primeira = new Promise((ok) => gravarJson(arq, { i: 1 }, (e) => {
+    fs.rmSync(arq, { recursive: true, force: true });
+    ok(e);
+  }));
+  const segunda = new Promise((ok, falhar) => gravarJson(arq, { i: 2 }, (e) => e ? falhar(e) : ok()));
+  assert.ok(await primeira, 'o erro de disco não voltou ao pedido');
+  await segunda;
+  assert.equal(JSON.parse(fs.readFileSync(arq, 'utf8')).i, 2);
+  assert.equal(fs.readdirSync(path.dirname(arq)).some((f) => f.endsWith('.tmp')), false);
 });
 
 await teste('os DADOS não saem pelo servidor estático (nem disfarçados)', async () => {
