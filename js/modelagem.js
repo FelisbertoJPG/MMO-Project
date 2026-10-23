@@ -547,14 +547,20 @@ function dividirNosVertices(geo, vertices, cortesDoDono, ctx) {
     const o = vizinho(pa, pb);
     if (o) { const qb = o.s[o.k], qa = o.s[(o.k + 1) % 3], pr = o.s[(o.k + 2) % 3]; o.l.splice(o.l.indexOf(o.s), 1, [qb, V, pr], [V, qa, pr]); }
   }
+  // o PEDAÇO que o dono cortou (o meio dele no modelo e a origem, como o corte de um triângulo do
+  // corpo) não entra — 23/10/2026: quem refazia a ponta do nariz marcava um vértice nela e não conseguia
+  // tirar os pedaços em volta dele
+  const doDono = cortesDoDono.filter((c) => Array.isArray(c?.em) && c.em.length === 3);
+  const cortado = (s, de) => doDono.some((c) => c.de === de && [0, 1, 2].every((k) => Math.abs(c.em[k] - (s[0].em[k] + s[1].em[k] + s[2].em[k]) / 3) < PERTO_DO_CORTE));
   const novos = [], cortes = [], m = new THREE.Vector3();
   for (const [t, l] of pedacos) {
     if (l.length < 2) continue;
     meioNoModelo(t, ctx, m);
-    cortes.push({ de: ORIGENS[ctx.origem[t * 3]], em: [m.x, m.y, m.z] });
-    for (const s of l) novos.push({ cantos: s, umLado: true, n: -1 });
+    const de = ORIGENS[ctx.origem[t * 3]];
+    cortes.push({ de, em: [m.x, m.y, m.z] });
+    for (const s of l) if (!cortado(s, de)) novos.push({ cantos: s, umLado: true, n: -1 });
   }
-  return novos.length ? { novos, cortes } : null;
+  return cortes.length ? { novos, cortes } : null;   // (todos os pedaços cortados: o triângulo de baixo continua fora)
 }
 
 // os cantos de cada triângulo criado, na malha de agora (`novos`: cada um com `n`, o número dele na
