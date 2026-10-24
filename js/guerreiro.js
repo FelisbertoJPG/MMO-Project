@@ -463,7 +463,11 @@ export class CorpoGuerreiro {
     }
     // o OLHO DO MODELO apagado debaixo de uma folha pintada (pintura.js: o desenho velho aparecia nas bordas)
     const lida = lerAparencia(aparencia), edicoes = edicoesDoCorpo(lida.raca, lida.sexo);
-    if (edicoes?.pinturas?.some((f) => f.apagaOlhos)) {
+    // (… ou SEM o olho do modelo — `semOlhos` no corpo, 24/10/2026, pedido do dono: era mal feito. A peça sai
+    // inteira (o rosto debaixo dela é fechado) e o olho é a IMAGEM que o dono pôs numa folha; sem a peça não
+    // há pálpebra: esse corpo não pisca)
+    if (edicoes?.semOlhos) { const i = usadas.findIndex((x) => /^Eyes(_tingido)?$/.test(x.name)); if (i >= 0) usadas.splice(i, 1); }
+    else if (edicoes?.pinturas?.some((f) => f.apagaOlhos)) {
       const i = usadas.findIndex((x) => /^Eyes(_tingido)?$/.test(x.name));
       if (i >= 0) usadas.splice(i, 1, ...olhosApagados(usadas[i], usadas.find((x) => /^head(_tingido)?$/.test(x.name))));
     }

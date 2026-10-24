@@ -29,8 +29,9 @@
  * fica sem tinta vira a linha dos cílios.
  *
  * NO ARQUIVO: as `pinturas` de um corpo em assets/modelagem.json — { id, nome, parte, de, em,
- * dir, cima, largura, altura, prof, px: [w, h], espelho, apagaOlhos, arquivo } — e a imagem em
- * assets/pintura/<arquivo>.png (2w × h: a cor à esquerda, o tipo à direita).
+ * dir, cima, largura, altura, prof, px: [w, h], espelho, apagaOlhos, virada, lisa, arquivo } — e a imagem em
+ * assets/pintura/<arquivo>.png (2w × h: a cor à esquerda, o tipo à direita). `lisa`: a luz de uma
+ * superfície lisa de frente para a folha, em toda ela (a imagem dos olhos colada pelo dono).
  *
  * FOLHA FEITA EM CÓDIGO (a boca com batom, boca.js): traz a imagem em `imagem`, é projetada no MODELO
  * (`noModelo`) e só pinta uma origem (`so`).
@@ -226,10 +227,11 @@ export function geometriaDaFolha(folha, geo, ctx) {
       if (poli.length < 3) continue;
       // (no OLHO a luz é a de uma superfície lisa de frente para a folha: as facetas dele — a de cima,
       // virada para o céu — clareavam a tinta em riscos; na pele, a luz é a da pele de baixo — a normal
-      // dela, que no rosto é a do PLANO, guerreiro.js `planosDoRosto`)
+      // dela, que no rosto é a do PLANO, guerreiro.js `planosDoRosto`). A folha `lisa` (a IMAGEM dos olhos do
+      // dono, 24/10/2026) é toda assim: sobre as facetas do rosto, metade do olho saía clara e metade escura
       A1.fromArray(P, i * 3); B1.fromArray(P, j * 3); C1.fromArray(P, k * 3);
       fn1.subVectors(B1, A1).cross(e1.subVectors(C1, A1)).normalize();
-      const luz = ctx.origem[i] === OLHOS ? E.n : N ? fn1.fromArray(N, i * 3) : fn1;
+      const luz = ctx.origem[i] === OLHOS || folha.lisa ? E.n : N ? fn1.fromArray(N, i * 3) : fn1;
       const wi = pesoDe(i), wj = pesoDe(j), wk = pesoDe(k);
       const canto = (c) => {
         const [a, b, d] = c.b;

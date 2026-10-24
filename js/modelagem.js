@@ -28,6 +28,10 @@
  * (`acrescentarTriangulos`, que devolve outra geometria), com os pesos, a cor e a UV do vértice que
  * mais pesa em cada canto, com as DUAS faces (dois triângulos, um de cada lado: tapando um buraco
  * entre peças que apontam para lados opostos não há "para fora" certo, e o lado de trás some).
+ * `movidos`: [{ de, em, mover: [x, y, z], espelho }] — os VÉRTICES MOVIDOS (24/10/2026; a ferramenta
+ * "mover" da aba): o vértice que o `em` marca no MODELO — um do corpo (o `antes` dele), um criado
+ * (`vertices`) ou o canto de um triângulo criado — anda `mover` cm (`moverVertices`, `movidoEm`).
+ * `semOlhos`: a peça dos olhos do modelo sai (guerreiro.js); o olho é uma folha com a imagem do dono.
  *
  * AS PARTES (`PARTES`) são de três tipos:
  *  - por OSSO (a cabeça, o peito, os braços…): o peso de cada vértice nos ossos dela — o
@@ -107,7 +111,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -386,6 +390,9 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   // vértice voltava para cima da pele dele — e antes dos CRIADOS: o canto grudado num vértice do top
   // ficava onde o top estava antes de seguir, a 0,2–0,4 cm dele, e o buraco não fechava)
   if (ctx.segue && mexeu.includes(1)) seguirAPele(P, idx, nt, ctx, mexeu);
+  // ---- 2-. os VÉRTICES MOVIDOS do corpo (depois do top seguir a pele: o vértice do top movido ficava onde a
+  // pele o punha; antes dos vértices e dos triângulos criados, que colam nos do corpo e andam junto)
+  if (edicoes.movidos?.length && !idx) moverVertices(P, ctx, edicoes.movidos, mexeu, ctx.novosDe ?? n);
   // ---- 2a. as CORES: o triângulo do corpo pintado no editor pega um ponto da paleta (antes dos
   // vértices criados: os pedaços de um triângulo pintado herdam a cor dele)
   if (edicoes.cores?.length && !idx) pintarTriangulos(geo, edicoes.cores, ctx);
@@ -397,7 +404,7 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   const criados = [...(div?.novos ?? []), ...(edicoes.novos ?? []).map((x, n) => ({ ...x, n }))];
   const cortes = [...(edicoes.cortes ?? []), ...(div?.cortes ?? [])];
   // (os que VÃO ser cortados: o canto que gruda num vértice prefere a cópia dele que fica)
-  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P, edicoes.cores, cortes.length ? cortadosPor(cortes, ctx, geo) : null) : null;
+  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P, edicoes.cores, cortes.length ? cortadosPor(cortes, ctx, geo) : null, edicoes.movidos) : null;
   // (malha que JÁ os tem — a vista da aba Modelo, refeita a partir da base: eles voltam ao lugar
   // achado agora, em vez de levar as partes e os puxões de novo)
   const o = ctx.ordensNovos;
@@ -502,6 +509,52 @@ function corNoMeio(cores, de, m) {
   return cores.find((c) => c.de === de && Array.isArray(c.em) && Math.abs(c.em[0] - m.x) < PERTO_DO_CORTE && Math.abs(c.em[1] - m.y) < PERTO_DO_CORTE && Math.abs(c.em[2] - m.z) < PERTO_DO_CORTE && uvValido(c.uv)) ?? null;
 }
 
+// ---- os VÉRTICES MOVIDOS (`movidos: [{ de, em, mover: [x, y, z], espelho }]`, 24/10/2026; a ferramenta "mover"
+// da aba): o vértice que o `em` marca no MODELO anda `mover` cm. `espelho`: o do outro lado também, com o x ao
+// contrário (o do meio, uma vez só)
+const NO_MOVIDO = 0.009;   // cm: o `em` gravado (3 casas) e o `antes` do vértice
+const COLADO = 1e-3;       // cm: outro vértice no mesmo ponto (a emenda de duas peças)
+const MEIO = 0.05;         // cm: |x| abaixo disto, o vértice é do meio
+const ladosDoMovido = (m) => (m.espelho && Math.abs(m.em[0]) >= MEIO ? [1, -1] : [1]);
+const movidoValido = (m) => ORIGENS.includes(m?.de) && [m.em, m.mover].every((v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite));
+// os do CORPO (os `nc` primeiros vértices): toda cópia do vértice (a mesma origem e o `antes` = o `em`), o que
+// está COLADO nela agora (a emenda com outra peça, ou outra origem: sem isso abria fresta; a armadura só com
+// a armadura) e o que SEGUE a pele nela (o couro do top). O vértice criado e o canto de um triângulo criado
+// andam no `resolverNovos` (`movidoEm`), e os que colam num do corpo vão com ele
+function moverVertices(P, ctx, movidos, mexeu, nc) {
+  const A = ctx.antes, O = ctx.origem, ARM = ORIGENS.indexOf('armadura'), s = ctx.segue;
+  const perto = (a, b) => Math.abs(P[a * 3] - P[b * 3]) < COLADO && Math.abs(P[a * 3 + 1] - P[b * 3 + 1]) < COLADO && Math.abs(P[a * 3 + 2] - P[b * 3 + 2]) < COLADO;
+  for (const m of movidos) {
+    if (!movidoValido(m)) continue;
+    const o = ORIGENS.indexOf(m.de);
+    for (const lado of ladosDoMovido(m)) {
+      const ex = m.em[0] * lado, ey = m.em[1], ez = m.em[2], vai = new Set(), onde = [];
+      for (let v = 0; v < nc; v++) {
+        if (O[v] !== o || Math.abs(A[v * 3] - ex) >= NO_MOVIDO || Math.hypot(A[v * 3] - ex, A[v * 3 + 1] - ey, A[v * 3 + 2] - ez) >= NO_MOVIDO) continue;
+        vai.add(v);
+        if (!onde.some((q) => perto(q, v))) onde.push(v);
+      }
+      if (!vai.size) continue;
+      for (let v = 0; v < nc; v++) if (!vai.has(v) && (O[v] === ARM) === (o === ARM) && onde.some((q) => perto(q, v))) vai.add(v);
+      if (s) for (let v = 0; v < Math.min(s.length, nc); v++) if (s[v] >= 0 && vai.has(s[v])) vai.add(v);
+      for (const v of vai) { P[v * 3] += m.mover[0] * lado; P[v * 3 + 1] += m.mover[1]; P[v * 3 + 2] += m.mover[2]; mexeu[v] = 1; }
+    }
+  }
+}
+// o quanto o ponto `em` (no modelo) da origem `de` foi movido: [x, y, z] cm (a soma dos que o pegam) — ou null
+function movidoEm(movidos, de, em) {
+  let d = null;
+  for (const m of movidos) {
+    if (m?.de !== de || !movidoValido(m)) continue;
+    for (const lado of ladosDoMovido(m)) {
+      if (Math.hypot(m.em[0] * lado - em[0], m.em[1] - em[1], m.em[2] - em[2]) >= NO_MOVIDO) continue;
+      d ??= [0, 0, 0];
+      d[0] += m.mover[0] * lado; d[1] += m.mover[1]; d[2] += m.mover[2];
+    }
+  }
+  return d;
+}
+
 // ---- os VÉRTICES CRIADOS dentro da malha (no MODELO, `antes`): { novos: os pedaços (criados de um
 // lado só, `umLado`, n = −1), cortes: os triângulos do corpo que eles trocam } — ou null
 const MESMO_PONTO = 1e-3;   // cm: o mesmo vértice (o `em` de um vértice do corpo é o `antes` dele)
@@ -573,7 +626,7 @@ const SOLDA = 0.1;
 // `em` — encostado na pele, o canto do meio de um criado (um vértice criado nele) afundava no corpo. Os
 // triângulos CORTADOS valem (ainda inteiros aqui): o canto grudado num vértice de um pedaço cortado (a
 // cúpula do busto da Humana, quase toda cortada) ia se prender a um vivo a 46 cm e era arrastado
-function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null) {
+function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null, movidos = null) {
   const A = ctx.antes, meio = new THREE.Vector3();
   const lista = [], soldados = [];
   // o canto que MARCA um vértice do corpo (o `em` é o `antes` dele, até o arredondamento de 2 casas)
@@ -613,14 +666,17 @@ function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null) {
         // o canto a menos da SOLDA do meio É do meio: o espelho o mantém — colado num vértice do corpo
         // em x = −0,05, o outro lado ia para +0,05, a 0,1 cm, e as duas metades nunca se juntavam)
         const em = c.i != null || c.lugar ? c.em : soldar(c.de, lado && Math.abs(c.em[0]) >= SOLDA ? [-c.em[0], c.em[1], c.em[2]] : c.em);
-        const vi = c.i == null && !c.lugar && !(c.sobe > 0) ? noVertice(c.de, em) : -1;   // (o afastado precisa do triângulo: a normal dele)
+        const doCorpo = c.i == null && !c.lugar ? noVertice(c.de, em) : -1;
+        const vi = !(c.sobe > 0) ? doCorpo : -1;   // (o afastado precisa do triângulo: a normal dele)
         const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : vi >= 0 ? [vi, vi, vi, 1, 0, 0] : c.lugar ?? lugarNoModelo({ de: c.de, em }, geo, ctx);
         if (!l) break;
         const [i, j, k, u, v, s] = l;
         fonte.push(u >= v && u >= s ? i : v >= s ? j : k);
         // (o pedaço de um vértice criado está NO vértice — e o canto que gruda num: nada a somar)
         const marcado = c.i == null && !c.lugar && vi < 0;
-        for (let e = 0; e < 3; e++) pos.push(P[i * 3 + e] * u + P[j * 3 + e] * v + P[k * 3 + e] * s + (marcado ? em[e] - (A[i * 3 + e] * u + A[j * 3 + e] * v + A[k * 3 + e] * s) : 0));
+        // (o vértice criado e o canto solto MOVIDOS; o do corpo já andou — `moverVertices` — e quem cola nele vai junto)
+        const mv = c.i == null && doCorpo < 0 && movidos?.length ? movidoEm(movidos, c.de, em) : null;
+        for (let e = 0; e < 3; e++) pos.push(P[i * 3 + e] * u + P[j * 3 + e] * v + P[k * 3 + e] * s + (marcado ? em[e] - (A[i * 3 + e] * u + A[j * 3 + e] * v + A[k * 3 + e] * s) : 0) + (mv ? mv[e] : 0));
         // (o canto AFASTADO da pele: `sobe` cm pela normal da face onde ele se prende, como ela está
         // AGORA — o sutiã criado fica por cima da pele e a acompanha quando ela muda; um afastamento
         // somado no `em` ia pela normal do modelo e, no busto muito puxado, prendia em outro triângulo)
