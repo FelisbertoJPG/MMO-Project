@@ -31,7 +31,7 @@ import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES, OLHOS, naPele } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
-import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta } from './modelagem.js';
+import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, cascaDoOlho, CORES_DO_MODELO } from './pintura.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
@@ -246,6 +246,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     geo.userData.rosto = rosto;
     if (comModelo) comModelo.rosto = rosto;   // (a aba Modelo do editor refaz os planos na vista)
   }
+  // … e as LUZES escolhidas no editor (modelagem.js `aplicarLuzes`: o triângulo com a luz de outro), por cima dos planos
+  if (comModelo && edicoes?.luzes?.length) aplicarLuzes(geo, edicoes.luzes, comModelo);
   if (comModelo) {
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
     // (a da BOCA por último: os lábios por cima de qualquer pintura do rosto)

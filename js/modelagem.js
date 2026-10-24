@@ -111,7 +111,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos || e.luzes?.length) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -507,6 +507,32 @@ export function tomDaCor(geo, ctx, uv, tom = null) {
 // a cor gravada para o triângulo de meio `m` (no modelo) e origem `de` — ou null
 function corNoMeio(cores, de, m) {
   return cores.find((c) => c.de === de && Array.isArray(c.em) && Math.abs(c.em[0] - m.x) < PERTO_DO_CORTE && Math.abs(c.em[1] - m.y) < PERTO_DO_CORTE && Math.abs(c.em[2] - m.z) < PERTO_DO_CORTE && uvValido(c.uv)) ?? null;
+}
+
+/**
+ * AS LUZES (24/10/2026; `luzes: [{ de, em, n: [x, y, z] }]` no corpo, a ferramenta "luz" da aba): o triângulo achado
+ * pelo meio no MODELO (como os cortes e as cores — os criados também) é iluminado como se apontasse para `n` (a
+ * normal dos três cantos, no espaço da malha). O queixo refeito da humana, com as faces viradas um pouco para baixo,
+ * saía escuro ao lado da bochecha clara: com a luz da bochecha, sai no mesmo tom. A face de trás de um criado (ele
+ * tem as duas) leva a normal ao contrário. Depois dos planos do rosto (guerreiro.js `planosDoRosto`), que a refariam
+ */
+export function aplicarLuzes(geo, luzes, ctx) {
+  const nor = geo.attributes.normal, P = geo.attributes.position.array;
+  if (!nor || geo.index || !ctx?.antes || !luzes?.length) return;
+  const l = luzes.filter((x) => ORIGENS.includes(x?.de) && [x.em, x.n].every((v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite)))
+    .map((x) => ({ o: ORIGENS.indexOf(x.de), em: x.em, n: new THREE.Vector3(...x.n).normalize() }));
+  const m = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let t = 0; t < P.length / 9; t++) {
+    meioNoModelo(t, ctx, m);
+    const x = l.find((x) => x.o === ctx.origem[t * 3] && Math.abs(x.em[0] - m.x) < PERTO_DO_CORTE && Math.abs(x.em[1] - m.y) < PERTO_DO_CORTE && Math.abs(x.em[2] - m.z) < PERTO_DO_CORTE);
+    if (!x) continue;
+    a.fromArray(P, t * 9); b.fromArray(P, t * 9 + 3).sub(a); c.fromArray(P, t * 9 + 6).sub(a);
+    const f = b.cross(c);
+    if (f.lengthSq() < 1e-12) continue;   // (cortado)
+    const s = f.dot(x.n) < 0 ? -1 : 1;
+    for (let k = 0; k < 3; k++) nor.setXYZ(t * 3 + k, x.n.x * s, x.n.y * s, x.n.z * s);
+  }
+  nor.needsUpdate = true;
 }
 
 // ---- os VÉRTICES MOVIDOS (`movidos: [{ de, em, mover: [x, y, z], espelho }]`, 24/10/2026; a ferramenta "mover"
