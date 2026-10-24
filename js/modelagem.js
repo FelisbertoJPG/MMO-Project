@@ -32,6 +32,7 @@
  * "mover" da aba): o vértice que o `em` marca no MODELO — um do corpo (o `antes` dele), um criado
  * (`vertices`) ou o canto de um triângulo criado — anda `mover` cm (`moverVertices`, `movidoEm`).
  * `semOlhos`: a peça dos olhos do modelo sai (guerreiro.js); o olho é uma folha com a imagem do dono.
+ * `olhosLisos`: a peça dos olhos fica só com a plaquinha da frente, sem textura (pintura.js `olhosLisos`): o dono a molda.
  *
  * AS PARTES (`PARTES`) são de três tipos:
  *  - por OSSO (a cabeça, o peito, os braços…): o peso de cada vértice nos ossos dela — o
@@ -111,7 +112,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos || e.luzes?.length) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos || e.olhosLisos || e.luzes?.length) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)

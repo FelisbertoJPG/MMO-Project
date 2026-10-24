@@ -372,6 +372,47 @@ export function olhosApagados(peca, pele) {
   return casca ? [{ name: peca.name, geometry: olho, ...base }, { name: 'Eyes_casca', geometry: casca, ...base }] : [{ name: peca.name, geometry: olho, ...base }];
 }
 
+// a UV de um texel CLARO e neutro (quase branco, sem cor) no miolo de uma área igual da textura: o maior "mínimo
+// dos três canais" num quadrado de 9 × 9 em que nenhum pixel foge 12 do de meio
+const claros = new WeakMap();
+function uvClara(peca) {
+  const img = peca.material?.map?.image;
+  if (!img?.width) return null;
+  if (claros.has(img)) return claros.get(img);
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(img, 0, 0);
+  const W = c.width, H = c.height, px = g.getImageData(0, 0, W, H).data, k = (x, y) => (y * W + x) * 4;
+  let melhor = -1, achado = null;
+  for (let y = 4; y < H - 4; y += 2) for (let x = 4; x < W - 4; x += 2) {
+    const i = k(x, y), lo = Math.min(px[i], px[i + 1], px[i + 2]);
+    if (lo <= melhor || Math.max(px[i], px[i + 1], px[i + 2]) - lo > 18) continue;
+    let igual = true;
+    for (let dy = -4; dy <= 4 && igual; dy++) for (let dx = -4; dx <= 4; dx++) { const j = k(x + dx, y + dy); if (Math.abs(px[j] - px[i]) > 12 || Math.abs(px[j + 1] - px[i + 1]) > 12 || Math.abs(px[j + 2] - px[i + 2]) > 12) { igual = false; break; } }
+    if (igual) { melhor = lo; achado = [(x + 0.5) / W, (y + 0.5) / H]; }
+  }
+  claros.set(img, achado);
+  return achado;
+}
+const lisos = new Map();
+/**
+ * OS OLHOS LISOS (`olhosLisos` no corpo, 24/10/2026, pedido do dono: "carrega apenas a malha e os polígonos dele, sem
+ * textura nem nada — vou ajustar posição, tamanho e formato; manterei ele como objeto e não apenas desenho na malha"):
+ * só a tampa da FRENTE de cada olho (a plaquinha de 9 pontos; sem a casca de trás nem o aro, que esticariam ao mover os
+ * vértices da frente), toda de um texel claro e neutro, sem o tom da íris. Continua origem `olhos` (a parte Olhos, o
+ * mover, o colorir) e a pálpebra da piscada se faz sobre ela.
+ */
+export function olhosLisos(peca) {
+  const id = peca.geometry.uuid;
+  if (!lisos.has(id)) {
+    const g0 = peca.geometry, casca = g0.index ? new Uint8Array(0) : cascaDoOlho(g0), uv = uvClara(peca);
+    const liso = (g) => { if (uv) for (let i = 0; i < g.attributes.uv.count; i++) g.attributes.uv.setXY(i, uv[0], uv[1]); g.attributes.color?.array.fill(1); };
+    lisos.set(id, casca.includes(1) ? parteDa(g0, casca.map((x) => 1 - x), liso) : (() => { const g = g0.clone(); liso(g); return g; })());
+  }
+  return { name: peca.name, geometry: lisos.get(id), skeleton: peca.skeleton, material: peca.material, bindMatrix: peca.bindMatrix };
+}
+
 /**
  * Para o preaquecer do jogo (main.js): uma folha de um triângulo no corpo do jogador, para o
  * shader da pintura (transparente, com ossos) compilar no carregamento — e não no meio do jogo,

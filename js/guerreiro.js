@@ -32,7 +32,7 @@ import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes } from './modelagem.js';
-import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, cascaDoOlho, CORES_DO_MODELO } from './pintura.js';
+import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, CORES_DO_MODELO } from './pintura.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 
@@ -469,6 +469,8 @@ export class CorpoGuerreiro {
     // inteira (o rosto debaixo dela é fechado) e o olho é a IMAGEM que o dono pôs numa folha; sem a peça não
     // há pálpebra: esse corpo não pisca)
     if (edicoes?.semOlhos) { const i = usadas.findIndex((x) => /^Eyes(_tingido)?$/.test(x.name)); if (i >= 0) usadas.splice(i, 1); }
+    // (… ou LISOS — `olhosLisos`, pintura.js: só a plaquinha da frente de cada olho, sem textura, para o dono moldar)
+    else if (edicoes?.olhosLisos) { const i = usadas.findIndex((x) => /^Eyes(_tingido)?$/.test(x.name)); if (i >= 0) usadas[i] = olhosLisos(usadas[i]); }
     else if (edicoes?.pinturas?.some((f) => f.apagaOlhos)) {
       const i = usadas.findIndex((x) => /^Eyes(_tingido)?$/.test(x.name));
       if (i >= 0) usadas.splice(i, 1, ...olhosApagados(usadas[i], usadas.find((x) => /^head(_tingido)?$/.test(x.name))));
