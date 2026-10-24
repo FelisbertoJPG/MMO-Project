@@ -273,7 +273,7 @@ export function materialDaPintura(doCorpo, map) {
 const apagados = new Map(), escuros = new WeakMap();
 // a UV de um texel PRETO no meio de uma área preta da textura (filtrada, a borda de uma área escura
 // pega a cor do vizinho): o miolo do quadrado de 9 × 9 mais escuro, procurado entre os pixels quase pretos
-function uvEscura(peca) {
+export function uvEscura(peca) {
   const img = peca.material?.map?.image;
   if (!img?.width) return null;
   if (escuros.has(img)) return escuros.get(img);

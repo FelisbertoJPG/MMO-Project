@@ -32,7 +32,8 @@ import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes } from './modelagem.js';
-import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, CORES_DO_MODELO } from './pintura.js';
+import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, CORES_DO_MODELO } from './pintura.js';
+import { geometriaDosCilios } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 
@@ -115,7 +116,7 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Qua
 // e todas vão no material com cor de vértice.
 const fundidas = new Map();
 /** Esquece as malhas fundidas (o editor de armaduras, depois de mudar um desenho). */
-export function esquecerFundidas() { for (const g of fundidas.values()) { g?.dispose(); for (const f of g?.userData.pinturas ?? []) f.geometry.dispose(); for (const p of g?.userData.palpebras ?? []) p.dispose(); } fundidas.clear(); }
+export function esquecerFundidas() { for (const g of fundidas.values()) { g?.dispose(); for (const f of g?.userData.pinturas ?? []) f.geometry.dispose(); for (const p of g?.userData.palpebras ?? []) p.dispose(); g?.userData.cilios?.dispose(); } fundidas.clear(); }
 
 // OS PLANOS DO ROSTO (20/10/2026): o rosto do modelo tem a normal POR FACE — cada triângulo na sua
 // luz, e os vizinhos quase no mesmo plano saíam cada um num tom (o "quadriculado"; os puxões da
@@ -265,6 +266,11 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
       for (let i = cabeca.de; i < cabeca.de + cabeca.n && pele < 0; i++) if (naPele(uv.getX(i), uv.getY(i))) pele = i;
       geo.userData.palpebras = geometriasDasPalpebras(geo, faixa(io), cascaDoOlho(pecas[io].geometry), pele);
     }
+  }
+  // OS CÍLIOS-DELINEADO (cilios.js, `cilios` no corpo): a faixa escura em volta do olho como ele ficou
+  if (geo && !geo.index && edicoes?.cilios && comModelo?.origem) {
+    const io = pecas.findIndex((p) => /^Eyes(_tingido)?$/.test(p.name));
+    if (io >= 0) geo.userData.cilios = geometriaDosCilios(geo, comModelo.origem, edicoes.cilios, uvEscura(pecas[io]));
   }
   fundidas.set(chave, geo);
   return geo;
@@ -501,7 +507,7 @@ export class CorpoGuerreiro {
     const boca = aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
     const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, boca) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
-    if (!geo) { if (this.fundida) this.fundida.visible = false; if (this.palpebras) this.palpebras.visible = false; return; }
+    if (!geo) { if (this.fundida) this.fundida.visible = false; if (this.palpebras) this.palpebras.visible = false; if (this.cilios) this.cilios.visible = false; return; }
     if (!this.fundida) {
       this.fundida = new THREE.SkinnedMesh(geo, material);
       this.fundida.name = 'guerreiro-fundido';
@@ -512,6 +518,22 @@ export class CorpoGuerreiro {
     this.fundida.visible = true;
     this.vestirPinturas(geo, material, ap);
     this.vestirPalpebras(geo, material);
+    this.vestirCilios(geo, material);
+  }
+
+  // OS CÍLIOS-DELINEADO (cilios.js): uma malha a mais, presa ao mesmo esqueleto, com o material do corpo
+  // (a cor é um texel escuro da paleta) — o material de agora vem a cada quadro, no `piscar`
+  vestirCilios(geo, material) {
+    const g = geo.userData.cilios ?? null;
+    if (!g) { if (this.cilios) this.cilios.visible = false; return; }
+    if (!this.cilios) {
+      const m = new THREE.SkinnedMesh(g, material);
+      m.name = 'cilios'; m.frustumCulled = false; m.receiveShadow = true;
+      this.cena.add(m);
+      m.bind(this.esqueleto, this.fundida.bindMatrix);
+      this.cilios = m;
+    } else { this.cilios.geometry = g; this.cilios.material = material; }
+    this.cilios.visible = true;
   }
 
   // AS PÁLPEBRAS (piscada.js): uma malha a mais, presa ao mesmo esqueleto e com o material do
@@ -534,6 +556,8 @@ export class CorpoGuerreiro {
   // do `seguir` (character.js)
   piscar(dt, fechados = false) {
     const m = this.palpebras, etapas = this.etapasDaPiscada, mat = this.fundida?.material;
+    // (os cílios com o material de agora — o do jogador remoto é uma cópia, o do fantasma é translúcido — e só com o corpo)
+    if (this.cilios) { this.cilios.material = mat ?? this.cilios.material; this.cilios.visible = !!this.fundida?.visible && !!this.fundida.geometry.userData.cilios; }
     if (!m) return;
     // (o fantasma, translúcido, não pisca: a pálpebra sairia translúcida por cima do olho)
     if (!etapas || !this.fundida.visible || mat.transparent) { m.visible = false; return; }

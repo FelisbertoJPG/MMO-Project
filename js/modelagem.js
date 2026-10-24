@@ -112,7 +112,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos || e.olhosLisos || e.luzes?.length) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -246,7 +246,7 @@ function seguirAPele(P, idx, nt, ctx, mexeu) {
 
 // A altura (z) da PELE do rosto num ponto (x, y): o triângulo de pele (de frente, perto de `zRef`) mais
 // para fora que cobre o ponto — ou null
-function zDaPele(P, idx, nt, origem, x, y, zRef) {
+export function zDaPele(P, idx, nt, origem, x, y, zRef) {
   let z = null;
   for (let t = 0; t < nt; t++) {
     const i = verticeDe(idx, t, 0), j = verticeDe(idx, t, 1), k = verticeDe(idx, t, 2);
