@@ -375,7 +375,7 @@ export function olhosApagados(peca, pele) {
 // a UV de um texel CLARO e neutro (quase branco, sem cor) no miolo de uma área igual da textura: o maior "mínimo
 // dos três canais" num quadrado de 9 × 9 em que nenhum pixel foge 12 do de meio
 const claros = new WeakMap();
-function uvClara(peca) {
+export function uvClara(peca) {
   const img = peca.material?.map?.image;
   if (!img?.width) return null;
   if (claros.has(img)) return claros.get(img);
@@ -407,7 +407,8 @@ export function olhosLisos(peca) {
   const id = peca.geometry.uuid;
   if (!lisos.has(id)) {
     const g0 = peca.geometry, casca = g0.index ? new Uint8Array(0) : cascaDoOlho(g0), uv = uvClara(peca);
-    const liso = (g) => { if (uv) for (let i = 0; i < g.attributes.uv.count; i++) g.attributes.uv.setXY(i, uv[0], uv[1]); g.attributes.color?.array.fill(1); };
+    // (a cor de vértice um tico acima de 1: o texel mais claro da paleta saía cinza no rosto — o branco do olho)
+    const liso = (g) => { if (uv) for (let i = 0; i < g.attributes.uv.count; i++) g.attributes.uv.setXY(i, uv[0], uv[1]); g.attributes.color?.array.fill(1.22); };
     lisos.set(id, casca.includes(1) ? parteDa(g0, casca.map((x) => 1 - x), liso) : (() => { const g = g0.clone(); liso(g); return g; })());
   }
   return { name: peca.name, geometry: lisos.get(id), skeleton: peca.skeleton, material: peca.material, bindMatrix: peca.bindMatrix };

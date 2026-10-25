@@ -32,8 +32,8 @@ import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes } from './modelagem.js';
-import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, CORES_DO_MODELO } from './pintura.js';
-import { geometriaDosCilios } from './cilios.js';
+import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO } from './pintura.js';
+import { geometriaDosCilios, alisarOlhos } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 
@@ -175,7 +175,7 @@ export function planosDoRosto(geo, faixas, extrasDe = null, graus = PLANO) {
 }
 
 // (`boca`:a folha dos lábios com batom — boca.js —, pintada como as da modelagem, mesmo no corpo sem edição)
-function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, boca = null) {
+function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, boca = null, corOlhos = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
   const geos = pecas.map((p) => {
@@ -249,6 +249,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   }
   // … e as LUZES escolhidas no editor (modelagem.js `aplicarLuzes`: o triângulo com a luz de outro), por cima dos planos
   if (comModelo && edicoes?.luzes?.length) aplicarLuzes(geo, edicoes.luzes, comModelo);
+  // (o olho LISO com uma luz só em cada olho — cilios.js `alisarOlhos`: as facetas dele saíam claras e escuras)
+  if (comModelo?.origem && edicoes?.olhosLisos) alisarOlhos(geo, comModelo.origem);
   if (comModelo) {
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
     // (a da BOCA por último: os lábios por cima de qualquer pintura do rosto)
@@ -267,10 +269,10 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
       geo.userData.palpebras = geometriasDasPalpebras(geo, faixa(io), cascaDoOlho(pecas[io].geometry), pele);
     }
   }
-  // OS CÍLIOS-DELINEADO (cilios.js, `cilios` no corpo): a faixa escura em volta do olho como ele ficou
-  if (geo && !geo.index && edicoes?.cilios && comModelo?.origem) {
+  // OS CÍLIOS-DELINEADO e a ÍRIS (cilios.js, `cilios` e `iris` no corpo): sobre o olho como ele ficou
+  if (geo && !geo.index && (edicoes?.cilios || edicoes?.iris) && comModelo?.origem) {
     const io = pecas.findIndex((p) => /^Eyes(_tingido)?$/.test(p.name));
-    if (io >= 0) geo.userData.cilios = geometriaDosCilios(geo, comModelo.origem, edicoes.cilios, uvEscura(pecas[io]));
+    if (io >= 0) geo.userData.cilios = geometriaDosCilios(geo, comModelo.origem, { cilios: edicoes.cilios, iris: edicoes.iris }, { escuro: uvEscura(pecas[io]), claro: uvClara(pecas[io]) }, corOlhos ?? undefined);
   }
   fundidas.set(chave, geo);
   return geo;
@@ -505,7 +507,9 @@ export class CorpoGuerreiro {
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
     // (o BATOM — boca.js: os lábios, uma folha pintada no rosto; 0 = sem, nada muda)
     const boca = aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
-    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, boca) : null;
+    // (a cor da ÍRIS desenhada em malha — cilios.js: a dos olhos da raça, ou a escolhida)
+    const corOlhos = this.raca?.olhos ?? OLHOS[ap.olhos]?.[1] ?? null;
+    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, boca, corOlhos) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; if (this.palpebras) this.palpebras.visible = false; if (this.cilios) this.cilios.visible = false; return; }
     if (!this.fundida) {
