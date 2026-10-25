@@ -112,7 +112,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris || e.sobrancelha) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -310,6 +310,39 @@ function moverOlhos(P, idx, nt, ctx, o, mexeu) {
   }
 }
 
+/**
+ * O FORMATO DAS SOBRANCELHAS (`edicoes.sobrancelha: { arco, afina }`, 25/10/2026, pedido do dono: "dá uma polida na
+ * sobrancelha"): de cada lado, a sobrancelha (origem `sobrancelhas`) vista de frente, de dentro (t = 0, perto do nariz)
+ * para fora (t = 1). `arco` (cm): o meio sobe em arco, o pico a 60% do caminho (como a sobrancelha desenhada da
+ * referência); `afina` (0 a 1): a ponta de fora afina — a altura em volta da linha do meio vai a (1 − afina) na ponta.
+ * Só o y muda (as duas camadas juntas: a de cima da pele e a de fora); depois disso ela ainda é a PARTE sobrancelhas
+ * (tamanho, posição, giro).
+ */
+function moldarSobrancelhas(P, ctx, o, mexeu) {
+  const SOB = ORIGENS.indexOf('sobrancelhas'), n = P.length / 3, arco = Number.isFinite(o.arco) ? o.arco : 0, afina = Math.min(0.95, Math.max(0, Number.isFinite(o.afina) ? o.afina : 0));
+  if (!arco && !afina) return;
+  for (const lado of [1, -1]) {
+    const vs = [];
+    for (let i = 0; i < n; i++) if (ctx.origem[i] === SOB && P[i * 3] * lado > 0) vs.push(i);
+    if (!vs.length) continue;
+    let x0 = Infinity, x1 = -Infinity;
+    for (const i of vs) { const ax = P[i * 3] * lado; x0 = Math.min(x0, ax); x1 = Math.max(x1, ax); }
+    const larg = x1 - x0 || 1;
+    // a linha do meio dela: o y médio em 8 faixas de t (faixa vazia: a vizinha)
+    const NF = 8, soma = new Float64Array(NF), cont = new Float64Array(NF);
+    for (const i of vs) { const f = Math.min(NF - 1, Math.floor(((P[i * 3] * lado - x0) / larg) * NF)); soma[f] += P[i * 3 + 1]; cont[f]++; }
+    const meio = Array.from(soma, (s, f) => (cont[f] ? s / cont[f] : null));
+    for (let f = 0; f < NF; f++) if (meio[f] === null) meio[f] = meio.slice(0, f).reverse().find((v) => v !== null) ?? meio.find((v) => v !== null);
+    const linha = (t) => { const u = t * NF - 0.5, f = Math.max(0, Math.min(NF - 1, Math.floor(u))), g = Math.min(NF - 1, f + 1), a = Math.max(0, Math.min(1, u - f)); return meio[f] * (1 - a) + meio[g] * a; };
+    for (const i of vs) {
+      const t = Math.max(0, Math.min(1, (P[i * 3] * lado - x0) / larg)), ym = linha(t);
+      const sobe = arco * Math.sin(Math.PI * Math.pow(t, 1.357)), esc = 1 - afina * THREE.MathUtils.smoothstep(t, 0.35, 1);
+      P[i * 3 + 1] = ym + (P[i * 3 + 1] - ym) * esc + sobe;
+      mexeu[i] = 1;
+    }
+  }
+}
+
 // o lugar do puxão é a pele do peito debaixo de um seio? (dentro do pé dele, no modelo)
 function debaixoDoBusto(x, ctx) {
   if (x.de !== 'corpo' || !ctx.sobOBusto?.length) return false;
@@ -344,20 +377,24 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   const pos = geo.attributes.position, P = pos.array, n = pos.count, idx = geo.index, nt = (idx ? idx.count : n) / 3;
   const mexeu = new Uint8Array(n);
   const pesos = new Map(), pesosDe = (id) => pesos.get(id) ?? pesos.set(id, pesosDaParte(id, geo, ctx)).get(id);
-  // ---- 1. as PARTES: crescer em volta do pivô e andar
+  // ---- 0. o FORMATO das sobrancelhas (o arco e a ponta afinada — `edicoes.sobrancelha`), antes de mexer nelas como parte
+  if (edicoes.sobrancelha) moldarSobrancelhas(P, ctx, edicoes.sobrancelha, mexeu);
+  // ---- 1. as PARTES: crescer em volta do pivô, girar (`giro`, graus, no plano do rosto — nas de dois lados, espelhado) e andar
   for (const [id, t] of Object.entries(edicoes.partes ?? {})) {
     const p = PARTE.get(id);
     if (!p || !t) continue;
-    const k = t.tamanho ?? 1, s = [k * (t.largura ?? 1), k * (t.altura ?? 1), k * (t.fundo ?? 1)], m = t.mover ?? [0, 0, 0];
-    if (s.every((v) => Math.abs(v - 1) < 1e-5) && m.every((v) => Math.abs(v) < 1e-5)) continue;
+    const k = t.tamanho ?? 1, s = [k * (t.largura ?? 1), k * (t.altura ?? 1), k * (t.fundo ?? 1)], m = t.mover ?? [0, 0, 0], giro = ((t.giro ?? 0) * Math.PI) / 180;
+    if (s.every((v) => Math.abs(v - 1) < 1e-5) && m.every((v) => Math.abs(v) < 1e-5) && Math.abs(giro) < 1e-6) continue;
     const w = pesosDe(id), piv = pivosDaParte(p, w, P, ctx);
     for (let i = 0; i < n; i++) {
       const f = w[i];
       if (!(f > 0)) continue;
       const lado = p.lados && P[i * 3] < 0 ? 1 : 0, o = piv[lado], sx = lado ? -1 : 1;
       const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
-      P[i * 3] = x + (o.x + (x - o.x) * s[0] + m[0] * sx - x) * f;
-      P[i * 3 + 1] = y + (o.y + (y - o.y) * s[1] + m[1] - y) * f;
+      // (girada em volta do pivô: a ponta de fora sobe com o giro positivo, nos dois lados)
+      const lx = (x - o.x) * s[0], ly = (y - o.y) * s[1], g = giro * sx, cs = Math.cos(g), sn = Math.sin(g);
+      P[i * 3] = x + (o.x + lx * cs - ly * sn + m[0] * sx - x) * f;
+      P[i * 3 + 1] = y + (o.y + lx * sn + ly * cs + m[1] - y) * f;
       P[i * 3 + 2] = z + (o.z + (z - o.z) * s[2] + m[2] - z) * f;
       mexeu[i] = 1;
     }
