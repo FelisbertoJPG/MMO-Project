@@ -162,48 +162,66 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
     // ---- os CÍLIOS-DELINEADO: a faixa em volta da borda
     // a pele na frente? a faixa assenta nela (o osso da sobrancelha costuma estar à frente do plano do olho)
     const naPele = (q) => { const z = zDaPele(P, null, nt, origem, q.x, q.y, q.z); if (z !== null && z + LEVANTA > q.z) q.z = z + LEVANTA; return q; };
-    const m = L.length, dentro = [], fora = [], subida = [], normais = [];
-    for (let i = 0; i < m; i++) {
+    const m = L.length;
+    // os CANTOS — o de dentro (perto do nariz) e o de fora — e as duas metades da borda entre eles: a de cima e a de baixo
+    let ki = 0, ko = 0;
+    for (let i = 1; i < m; i++) { if (L[i].p.x * lado < L[ki].p.x * lado) ki = i; if (L[i].p.x * lado > L[ko].p.x * lado) ko = i; }
+    const cadeia = (passo) => { const l = [ki]; for (let i = ki, k = 0; i !== ko && k < m; k++) { i = (i + passo + m) % m; l.push(i); } return l; };
+    const ca = cadeia(1), cb = cadeia(-1), subida = (l) => l.reduce((s, i) => s + L[i].p.clone().sub(C).dot(U), 0) / l.length;
+    const [deCima, deBaixo] = subida(ca) > subida(cb) ? [ca, cb] : [cb, ca];
+    // (no plano do olho: [a ao lado, b para cima, h para a frente] — e de volta)
+    const em2 = (p) => { const d = p.clone().sub(C); return [d.dot(R), d.dot(U), d.dot(n)]; };
+    const de2 = ([a, b, h]) => C.clone().addScaledVector(R, a).addScaledVector(U, b).addScaledVector(n, h);
+    // ---- a de BAIXO: a faixa fina, pela normal da borda
+    const dentroB = [], foraB = [];
+    for (const i of deBaixo) {
       const p = L[i].p, tg = L[(i + 1) % m].p.clone().sub(L[(i + m - 1) % m].p);
       const d = new THREE.Vector3().crossVectors(tg, n).normalize();
       if (d.dot(p.clone().sub(C)) < 0) d.negate();
-      const u = p.clone().sub(C).addScaledVector(n, -p.clone().sub(C).dot(n)).normalize().dot(U);
-      subida.push(u); normais.push(d);
-      // (grossa no meio de cima, afinando até os cantos; embaixo, a fina)
-      const g = u > 0 ? A.baixo + (A.cima - A.baixo) * Math.pow(u, 0.8) : A.baixo;
-      dentro.push(p.clone().addScaledVector(d, -DENTRO).addScaledVector(n, LEVANTA));
-      fora.push(naPele(p.clone().addScaledVector(d, g).addScaledVector(n, LEVANTA)));
+      dentroB.push(p.clone().addScaledVector(d, -DENTRO).addScaledVector(n, LEVANTA));
+      foraB.push(naPele(p.clone().addScaledVector(d, A.baixo).addScaledVector(n, LEVANTA)));
     }
-    for (let i = 0; i < m; i++) {
-      const j = (i + 1) % m;
-      tri(dentro[i], fora[i], fora[j], L[i].v, L[i].v, L[j].v);
-      tri(dentro[i], fora[j], dentro[j], L[i].v, L[j].v, L[j].v);
+    for (let j = 0; j + 1 < deBaixo.length; j++) {
+      const va = L[deBaixo[j]].v, vb = L[deBaixo[j + 1]].v;
+      tri(dentroB[j], foraB[j], foraB[j + 1], va, va, vb);
+      tri(dentroB[j], foraB[j + 1], dentroB[j + 1], va, vb, vb);
     }
-    // a ASA: do canto de fora (o mais longe do meio do rosto), para fora e um pouco para cima
-    let k = 0;
-    for (let i = 1; i < m; i++) if (L[i].p.x * lado > L[k].p.x * lado) k = i;
-    const lateral = L[k].p.clone().sub(C).addScaledVector(n, -L[k].p.clone().sub(C).dot(n)).normalize();
-    if (A.asa > 0) {
-      const j = subida[(k + 1) % m] > subida[(k + m - 1) % m] ? (k + 1) % m : (k + m - 1) % m;   // (o vizinho de cima)
-      const ponta = naPele(L[k].p.clone().addScaledVector(lateral, A.asa).addScaledVector(U, A.asa * 0.45).addScaledVector(n, LEVANTA));
-      tri(fora[k], ponta, fora[j], L[k].v, L[k].v, L[j].v);
-      tri(dentro[k], fora[k], fora[j], L[k].v, L[k].v, L[j].v);
-    }
-    // os FIOS (os cílios): uma ponta em cada aresta de cima da faixa (do meio do olho para fora), saindo para fora e para
-    // cima, maiores perto do canto de fora
-    if (A.fios > 0) for (let i = 0; i < m; i++) {
-      const j = (i + 1) % m, uMeio = (subida[i] + subida[j]) / 2;
-      if (uMeio < 0.15) continue;
-      const lado2 = (L[i].p.x + L[j].p.x) / 2 * lado > C.x * lado;
-      if (!lado2) continue;   // (só da metade de fora)
-      const dd = normais[i].clone().add(normais[j]).normalize(), quanto = A.fios * (0.7 + 0.6 * (1 - uMeio));
-      const rumo = dd.clone().multiplyScalar(0.55).addScaledVector(lateral, 0.45).addScaledVector(U, 0.35).normalize();
-      // (duas pontas FINAS por trecho — a base de cada uma, 30% do trecho: com o trecho inteiro, virava um serrilhado grosso)
-      for (const f of [0.3, 0.75]) {
-        const a = fora[i].clone().lerp(fora[j], f - 0.15), b = fora[i].clone().lerp(fora[j], f + 0.15), meioBase = a.clone().add(b).multiplyScalar(0.5);
-        const ponta = naPele(meioBase.addScaledVector(rumo, quanto * (f > 0.5 ? 1 : 0.8)).addScaledVector(n, LEVANTA));
-        tri(a, ponta, b, L[i].v, L[i].v, L[j].v);
+    // ---- a de CIMA: um ARCO grosso e liso (24/10: seguindo o octógono da tampa, saía em pedaços retos e fino). A beira
+    // de fora é uma curva — do canto de dentro, sobe sobre o olho (a grossura `cima` a 60% do caminho) e sai na ponta da
+    // ASA, além do canto de fora; a beira de dentro é a borda de cima do olho no mesmo lugar (ou o canto, na asa)
+    const cima2 = deCima.map((i) => em2(L[i].p)), a0 = cima2[0][0], aE = cima2[cima2.length - 1][0], s = Math.sign(aE - a0) || 1;
+    const naBorda = (a) => {   // (o ponto da borda de cima no lado `a`: [a, b, h], e o vértice mais perto)
+      for (let j = 0; j + 1 < cima2.length; j++) {
+        const [x1, y1, h1] = cima2[j], [x2, y2, h2] = cima2[j + 1];
+        if ((a - x1) * (a - x2) <= 0 && x1 !== x2) { const f = (a - x1) / (x2 - x1); return { q: [a, y1 + (y2 - y1) * f, h1 + (h2 - h1) * f], v: L[deCima[f < 0.5 ? j : j + 1]].v }; }
       }
+      const fim = (a - a0) * s <= 0 ? 0 : cima2.length - 1;
+      return { q: cima2[fim], v: L[deCima[fim]].v };
+    };
+    const pA = [a0, cima2[0][1] + A.baixo], pico = a0 + (aE - a0) * 0.6, pB = [pico, naBorda(pico).q[1] + A.cima];
+    const pC = A.asa > 0 ? [aE + s * A.asa, cima2[cima2.length - 1][1] + A.asa * 0.45] : [aE, cima2[cima2.length - 1][1] + A.baixo];
+    const pK = [2 * pB[0] - (pA[0] + pC[0]) / 2, 2 * pB[1] - (pA[1] + pC[1]) / 2];   // (a curva passa por pB no meio)
+    const curva = (t) => [(1 - t) ** 2 * pA[0] + 2 * (1 - t) * t * pK[0] + t * t * pC[0], (1 - t) ** 2 * pA[1] + 2 * (1 - t) * t * pK[1] + t * t * pC[1]];
+    const N = 20, dentroC = [], foraC = [], vC = [];
+    for (let j = 0; j <= N; j++) {
+      const [a, b] = curva(j / N), alem = (a - aE) * s > 0, borda = naBorda(alem ? aE : a);
+      dentroC.push(de2([borda.q[0], borda.q[1] - DENTRO, borda.q[2] + LEVANTA]));
+      foraC.push(naPele(de2([a, b, borda.q[2] + LEVANTA])));
+      vC.push(borda.v);
+    }
+    for (let j = 0; j < N; j++) {
+      tri(dentroC[j], foraC[j], foraC[j + 1], vC[j], vC[j], vC[j + 1]);
+      if (dentroC[j].distanceToSquared(dentroC[j + 1]) > 1e-10) tri(dentroC[j], foraC[j + 1], dentroC[j + 1], vC[j], vC[j + 1], vC[j + 1]);
+    }
+    // os FIOS (os cílios): pontas finas saindo da curva, da metade dela até a asa, mais longas para fora
+    if (A.fios > 0) for (const t of [0.4, 0.52, 0.63, 0.73, 0.82, 0.9]) {
+      const [a, b] = curva(t), [a2, b2] = curva(t + 0.01), tl = Math.hypot(a2 - a, b2 - b) || 1, tg = [(a2 - a) / tl, (b2 - b) / tl];
+      let nr = [-tg[1], tg[0]];
+      if (nr[1] < 0) nr = [-nr[0], -nr[1]];   // (para fora do olho: para cima)
+      const rumo = [nr[0] * 0.65 + s * 0.45, nr[1] * 0.65 + 0.25], rl = Math.hypot(...rumo), quanto = A.fios * (0.55 + 0.75 * t);
+      const h = naBorda(Math.min((a - a0) * s, (aE - a0) * s) * s + a0).q[2] + LEVANTA, larg = 0.045;
+      const ponta = naPele(de2([a + (rumo[0] / rl) * quanto, b + (rumo[1] / rl) * quanto, h]));
+      tri(naPele(de2([a - tg[0] * larg, b - tg[1] * larg, h])), ponta, naPele(de2([a + tg[0] * larg, b + tg[1] * larg, h])), vC[0], vC[0], vC[0]);
     }
   }
   if (!pos.length) return null;
