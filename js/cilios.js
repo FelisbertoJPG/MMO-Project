@@ -7,7 +7,7 @@
  * `geometriaFundida` (guerreiro.js), como as pálpebras da piscada: ajustar o olho leva tudo junto. Uma malha à parte
  * (`CorpoGuerreiro.vestirCilios`), presa aos ossos do olho, com o material do corpo (a cor vem de texels da paleta:
  * o escuro e o claro, pintura.js `uvEscura`/`uvClara`, e, na íris, da cor de vértice).
- *  - os CÍLIOS-DELINEADO (`cilios` no corpo: { cima, baixo, asa, fios } cm): uma faixa escura em volta da tampa da
+ *  - os CÍLIOS-DELINEADO (`cilios` no corpo: { cima, baixo, asa, fios } cm, e `grossos`: o engrossado à mão): uma faixa escura em volta da tampa da
  *    frente de cada olho — grossa no meio de cima (afinando até os cantos), fina embaixo —, a ASA no canto de fora e
  *    os FIOS (os cílios: pontas que saem da beira de cima, mais longas para o canto de fora);
  *  - a ÍRIS (`iris` no corpo: { tamanho, pupila }): um disco na cor dos olhos de quem veste (a da raça, ou a escolhida
@@ -110,7 +110,7 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
   if (!si || !sw || geo.index || !origem || !(o?.cilios || o?.iris)) return null;
   const A = { ...CILIOS_PADRAO, ...(o.cilios ?? {}) }, I = { ...IRIS_PADRAO, ...(o.iris ?? {}) };
   const ci = new THREE.Color(corIris), corDaIris = [ci.r, ci.g, ci.b];
-  const pos = [], nor = [], fonte = [], uv = [], cor = [];
+  const pos = [], nor = [], fonte = [], uv = [], cor = [], trilha = [];
   for (const lado of [1, -1]) {
     const { tris, n } = tampaDoOlho(P, origem, lado);
     const L = tris.length ? bordaDoOlho(P, tris) : [];
@@ -172,15 +172,23 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
     // (no plano do olho: [a ao lado, b para cima, h para a frente] — e de volta)
     const em2 = (p) => { const d = p.clone().sub(C); return [d.dot(R), d.dot(U), d.dot(n)]; };
     const de2 = ([a, b, h]) => C.clone().addScaledVector(R, a).addScaledVector(U, b).addScaledVector(n, h);
+    // (o ENGROSSADO à mão — a ferramenta delineado da aba, `cilios.grossos: [{ lado, faixa: 'cima'|'baixo', t, mais, r }]`:
+    // cada toque soma `mais` cm à grossura em volta de `t`, a posição ao longo do traço de 0 = canto de dentro a 1 = a
+    // ponta, sumindo até `r` de distância)
+    const grossos = (A.grossos ?? []).filter((x) => x?.lado === lado && Number.isFinite(x.t) && Number.isFinite(x.mais));
+    const extra = (faixa, t) => grossos.reduce((sm, x) => { if (x.faixa !== faixa) return sm; const r = x.r > 0 ? x.r : 0.12, q = (t - x.t) / r; return q * q < 1 ? sm + x.mais * (1 - q * q) ** 2 : sm; }, 0);
     // ---- a de BAIXO: a faixa fina, pela normal da borda
-    const dentroB = [], foraB = [];
-    for (const i of deBaixo) {
+    const dentroB = [], foraB = [], tB = [0];
+    for (let j = 1; j < deBaixo.length; j++) tB.push(tB[j - 1] + L[deBaixo[j]].p.distanceTo(L[deBaixo[j - 1]].p));
+    deBaixo.forEach((i, j) => {
       const p = L[i].p, tg = L[(i + 1) % m].p.clone().sub(L[(i + m - 1) % m].p);
       const d = new THREE.Vector3().crossVectors(tg, n).normalize();
       if (d.dot(p.clone().sub(C)) < 0) d.negate();
+      const t = tB[j] / (tB[tB.length - 1] || 1);
       dentroB.push(p.clone().addScaledVector(d, -DENTRO).addScaledVector(n, LEVANTA));
-      foraB.push(naPele(p.clone().addScaledVector(d, A.baixo).addScaledVector(n, LEVANTA)));
-    }
+      foraB.push(naPele(p.clone().addScaledVector(d, Math.max(0.01, A.baixo + extra('baixo', t))).addScaledVector(n, LEVANTA)));
+      trilha.push({ lado, faixa: 'baixo', t, p: dentroB[j].clone().add(foraB[j]).multiplyScalar(0.5).toArray() });
+    });
     for (let j = 0; j + 1 < deBaixo.length; j++) {
       const va = L[deBaixo[j]].v, vb = L[deBaixo[j + 1]].v;
       tri(dentroB[j], foraB[j], foraB[j + 1], va, va, vb);
@@ -201,13 +209,24 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
     const pA = [a0, cima2[0][1] + A.baixo], pico = a0 + (aE - a0) * 0.6, pB = [pico, naBorda(pico).q[1] + A.cima];
     const pC = A.asa > 0 ? [aE + s * A.asa, cima2[cima2.length - 1][1] + A.asa * 0.45] : [aE, cima2[cima2.length - 1][1] + A.baixo];
     const pK = [2 * pB[0] - (pA[0] + pC[0]) / 2, 2 * pB[1] - (pA[1] + pC[1]) / 2];   // (a curva passa por pB no meio)
-    const curva = (t) => [(1 - t) ** 2 * pA[0] + 2 * (1 - t) * t * pK[0] + t * t * pC[0], (1 - t) ** 2 * pA[1] + 2 * (1 - t) * t * pK[1] + t * t * pC[1]];
+    const lisa = (t) => [(1 - t) ** 2 * pA[0] + 2 * (1 - t) * t * pK[0] + t * t * pC[0], (1 - t) ** 2 * pA[1] + 2 * (1 - t) * t * pK[1] + t * t * pC[1]];
+    // (a curva com o ENGROSSADO: empurrada para fora dela — para cima — o quanto os toques pedem; afinada, nunca abaixo
+    // da borda do olho)
+    const curva = (t) => {
+      const [a, b] = lisa(t), da = 2 * (1 - t) * (pK[0] - pA[0]) + 2 * t * (pC[0] - pK[0]), db = 2 * (1 - t) * (pK[1] - pA[1]) + 2 * t * (pC[1] - pK[1]);
+      const l = Math.hypot(da, db) || 1, e = extra('cima', t);
+      let nr = [-db / l, da / l];
+      if (nr[1] < 0) nr = [-nr[0], -nr[1]];
+      const q = [a + nr[0] * e, b + nr[1] * e], bb = naBorda((q[0] - aE) * s > 0 ? aE : q[0]).q[1] + 0.02;
+      return [q[0], Math.max(q[1], bb)];
+    };
     const N = 20, dentroC = [], foraC = [], vC = [];
     for (let j = 0; j <= N; j++) {
       const [a, b] = curva(j / N), alem = (a - aE) * s > 0, borda = naBorda(alem ? aE : a);
       dentroC.push(de2([borda.q[0], borda.q[1] - DENTRO, borda.q[2] + LEVANTA]));
       foraC.push(naPele(de2([a, b, borda.q[2] + LEVANTA])));
       vC.push(borda.v);
+      trilha.push({ lado, faixa: 'cima', t: j / N, p: dentroC[j].clone().add(foraC[j]).multiplyScalar(0.5).toArray() });
     }
     for (let j = 0; j < N; j++) {
       tri(dentroC[j], foraC[j], foraC[j + 1], vC[j], vC[j], vC[j + 1]);
@@ -235,5 +254,7 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
   fonte.forEach((v, i) => { for (let c = 0; c < 4; c++) { ossos[i * 4 + c] = si.getComponent(v, c); pesos[i * 4 + c] = sw.getComponent(v, c); } });
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(ossos, 4));
   g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(pesos, 4));
+  // (por onde passa cada traço — a ferramenta delineado da aba acha nele o lugar do clique: { lado, faixa, t, p })
+  g.userData.trilha = trilha;
   return g;
 }
