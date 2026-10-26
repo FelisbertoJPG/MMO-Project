@@ -1,0 +1,405 @@
+// O CORPO DE ARQUIVO (26/10/2026) — um personagem PRONTO, de um .glb sem esqueleto nem cor (o
+// primeiro: a "feminino2", feita no Meshy), vira um CORPO DO GUERREIRO: a malha dele no lugar das
+// peças do corpo (as armaduras continuam), presa aos 54 ossos do guerreiro — todas as animações
+// servem (o retarget só copia giros). O jogo lê `assets/corpos/<nome>.json` (js/corpo-arquivo.js).
+//
+//   1. REDUZIR (Blender): o que é plano se junta e as arestas colapsam até `triangulos` — as
+//      facetas grandes ficam (o Meshy manda ~180 mil triângulos);
+//   2. JUNTAS (aqui, pelos CORTES da malha — laços fechados por altura): virilha, alto do ombro,
+//      pescoço, a linha do braço (axila → ombro), o pulso (o corte mais fino), joelho e tornozelo
+//      nas frações do guerreiro; a coluna nas frações dele entre a bacia e o pescoço;
+//   3. PESOS (Blender): a armação nessas juntas, na pose A do arquivo, e o "calor" dos ossos (o
+//      automático do Blender). Os dedos ficam de fora: a mão do modelo é um bloco, presa ao osso
+//      da mão (os dedos não fecham na arma);
+//   4. POSE T: os braços (ombro, cotovelo, mão) giram até a DIREÇÃO dos do guerreiro na pose T
+//      (dual quaternion: o ombro não murcha) — o retarget conta com o corpo na pose do guerreiro;
+//   5. ESCALA: os olhos na altura dos do guerreiro (`alturaDosOlhos`, cm); os pés no chão;
+//   6. REGIÕES (cor): pele, cabelo, roupa (top e calcinha) — por regras de lugar (`regioes`);
+//   7. OLHOS e BOCA desenhados (o rosto do modelo é liso): folhas no rosto, presas à cabeça.
+// O arquivo leva a malha (com índice: o jogo a abre em faces planas), a região de cada triângulo,
+// os pesos e onde fica cada osso NESTE corpo (o jogo move os ossos do guerreiro para lá).
+//
+// Uso (da raiz do jogo):
+//   node ferramentas/corpo-de-arquivo/importar.mjs ferramentas/corpo-de-arquivo/feminino2.json [--conferir=<pasta>] [--blender=<blender.exe>]
+// Com --conferir, grava na pasta: juntas-<nome>.png (as juntas na pose A), regioes-<nome>.png (o
+// resultado na pose T, nas cores) e poses-<nome>.png (braços e pernas dobrados: os pesos).
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { prancha } from './foto.mjs';
+
+const AQUI = path.dirname(fileURLToPath(import.meta.url)), RAIZ = path.resolve(AQUI, '../..');
+const THREE = await import(pathToFileURL(path.join(RAIZ, 'vendor/three.module.js')).href);
+const args = process.argv.slice(2), arqCfg = args.find((a) => !a.startsWith('--'));
+const opc = Object.fromEntries(args.filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.join('=') || '1']; }));
+if (!arqCfg) { console.error('uso: node ferramentas/corpo-de-arquivo/importar.mjs <recorte.json> [--conferir=<pasta>]'); process.exit(1); }
+const cfg = JSON.parse(fs.readFileSync(arqCfg, 'utf8'));
+const TRABALHO = path.join(os.tmpdir(), `corpo-de-arquivo-${cfg.nome}`);
+fs.mkdirSync(TRABALHO, { recursive: true });
+
+function acharBlender() {
+  const base = 'C:/Program Files/Blender Foundation';
+  const versoes = fs.existsSync(base) ? fs.readdirSync(base).filter((d) => fs.existsSync(path.join(base, d, 'blender.exe'))).sort() : [];
+  if (!versoes.length) throw new Error('Blender não encontrado: passe --blender=<caminho do blender.exe>');
+  return path.join(base, versoes.at(-1), 'blender.exe');
+}
+const BLENDER = opc.blender ?? acharBlender();
+const blender = (...a) => {
+  const saida = execFileSync(BLENDER, ['--background', '--factory-startup', '--python', path.join(AQUI, 'blender.py'), '--', ...a], { encoding: 'utf8', maxBuffer: 64 << 20 });
+  for (const l of saida.split('\n')) if (l.startsWith('[corpo]')) console.log(l);
+};
+
+// ------------------------------------------------------------ o guerreiro: onde ficam os ossos na pose T (cm)
+function ossosDoGuerreiro() {
+  const b = fs.readFileSync(path.join(RAIZ, 'assets/guerreiro/guerreiro.glb')), len = b.readUInt32LE(12);
+  const j = JSON.parse(b.subarray(20, 20 + len).toString('utf8')), bin = b.subarray(20 + len + 8);
+  const a = j.accessors[j.skins[0].inverseBindMatrices], bv = j.bufferViews[a.bufferView], off = bin.byteOffset + (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
+  const ib = new Float32Array(bin.buffer.slice(off, off + a.count * 64));
+  const G = {}, pai = {};
+  j.nodes.forEach((n, i) => (n.children ?? []).forEach((c) => { pai[j.nodes[c].name] = j.nodes[i].name; }));
+  j.skins[0].joints.forEach((n, k) => { G[j.nodes[n].name] = new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(ib, k * 16).invert()); });
+  return { G, pai };
+}
+const { G, pai: PAI } = ossosDoGuerreiro();
+const LADOS = [['L', 'l', 1], ['R', 'r', -1]];   // (os nomes do pacote misturam maiúsculas; +x é a esquerda dele)
+const nomesDoLado = (L, l) => ({ collar: `Collar${L}`, arm: `Arm${L}`, elbow: `Elbow${L}`, hand: `Hand${L}`, thigh: `Thigh${l}`, shin: `Shin${l}`, foot: `Foot${l}`, toe: `Toe${L}` });
+
+// ------------------------------------------------------------ 1. reduzir
+const baixo = path.join(TRABALHO, 'baixo.json');
+console.log(`[corpo] reduzindo ${cfg.entrada} para ${cfg.triangulos} triângulos…`);
+blender('reduzir', path.resolve(RAIZ, cfg.entrada), baixo, String(cfg.triangulos));
+const malha = JSON.parse(fs.readFileSync(baixo, 'utf8'));
+const P = malha.pos, I = malha.idx, NV = P.length / 3;
+
+// ------------------------------------------------------------ 2. as juntas (pose A, unidades do arquivo)
+// os laços fechados do corte da malha pelo plano n·p = h (cada aresta cortada é um ponto; os dois
+// pontos de um triângulo se ligam)
+function contornos(n, h) {
+  const pt = new Map(), pai = new Map(), f = (x) => { while (pai.get(x) !== x) { pai.set(x, pai.get(pai.get(x))); x = pai.get(x); } return x; };
+  const d = (i) => P[3 * i] * n[0] + P[3 * i + 1] * n[1] + P[3 * i + 2] * n[2] - h;
+  for (let t = 0; t < I.length; t += 3) {
+    const v = [I[t], I[t + 1], I[t + 2]], s = v.map(d), ks = [];
+    for (let k = 0; k < 3; k++) {
+      const a = v[k], b = v[(k + 1) % 3], sa = s[k], sb = s[(k + 1) % 3];
+      if ((sa < 0) === (sb < 0)) continue;
+      const key = a < b ? a * 1e6 + b : b * 1e6 + a;
+      if (!pt.has(key)) { const q = sa / (sa - sb); pt.set(key, [0, 1, 2].map((e) => P[3 * a + e] + (P[3 * b + e] - P[3 * a + e]) * q)); pai.set(key, key); }
+      ks.push(key);
+    }
+    if (ks.length === 2) pai.set(f(ks[0]), f(ks[1]));
+  }
+  const m = new Map();
+  for (const k of pt.keys()) { const r = f(k); if (!m.has(r)) m.set(r, []); m.get(r).push(pt.get(k)); }
+  return [...m.values()].filter((g) => g.length > 3).map((g) => {
+    const min = [0, 1, 2].map((e) => Math.min(...g.map((p) => p[e]))), max = [0, 1, 2].map((e) => Math.max(...g.map((p) => p[e])));
+    return { c: [0, 1, 2].map((e) => g.reduce((s, p) => s + p[e], 0) / g.length), meio: [0, 1, 2].map((e) => (min[e] + max[e]) / 2), min, max, n: g.length };
+  });
+}
+const cortes = (y) => contornos([0, 1, 0], y);
+const doMeio = (y) => cortes(y).filter((g) => g.min[0] < 0 && g.max[0] > 0).sort((a, b) => b.n - a.n)[0] ?? null;
+const meiaLargura = (g) => Math.max(-g.min[0], g.max[0]);
+const cj = cfg.juntas;
+let y0 = Infinity, yt = -Infinity;
+for (let i = 0; i < NV; i++) { y0 = Math.min(y0, P[3 * i + 1]); yt = Math.max(yt, P[3 * i + 1]); }
+let virilha = Infinity, coroa = -Infinity;
+for (let i = 0; i < NV; i++) {
+  if (Math.abs(P[3 * i]) < 0.012 && P[3 * i + 1] > y0 + 0.3) virilha = Math.min(virilha, P[3 * i + 1]);
+  if (Math.abs(P[3 * i]) < 0.05) coroa = Math.max(coroa, P[3 * i + 1]);
+}
+// (o alto do ombro: acima da AXILA — onde o corte do meio já pega os braços — o corte afina de repente para o pescoço)
+let ombroTopo = null, axila = null;
+for (let y = virilha + 0.2; y < yt && ombroTopo === null; y += 0.004) {
+  const g = doMeio(y);
+  if (!g) continue;
+  if (axila === null) { if (meiaLargura(g) > cj.limiteDoOmbro + 0.04) axila = y; } else if (meiaLargura(g) < cj.limiteDoOmbro) ombroTopo = y;
+}
+let pesc = ombroTopo, largPesc = Infinity;
+for (let y = ombroTopo; y < ombroTopo + 0.12; y += 0.004) { const g = doMeio(y); if (g && meiaLargura(g) < largPesc) { largPesc = meiaLargura(g); pesc = y; } }
+const k = cfg.alturaDosOlhos / (cfg.olhos.y - y0);   // cm por unidade do arquivo
+console.log(`[corpo] pés ${y0.toFixed(3)}, virilha ${virilha.toFixed(3)}, alto do ombro ${ombroTopo.toFixed(3)}, pescoço ${pesc.toFixed(3)}, topo ${coroa.toFixed(3)}; ${k.toFixed(1)} cm por unidade`);
+
+const J = {};   // a junta de cada osso (pose A, unidades do arquivo)
+const fy = (nome) => (G[nome].y - G.Hips.y) / (G.Neck.y - G.Hips.y);
+const yNeck = ombroTopo - 0.02, yHips = virilha + 0.003;
+const cintura = doMeio(yHips + 0.4 * (yNeck - yHips)), fundo = cintura.max[2] - cintura.min[2];
+const zColuna = (y) => (doMeio(y)?.min[2] ?? cintura.min[2]) + 0.45 * fundo;
+J.Hips = [0, yHips, zColuna(yHips)];
+for (const nome of ['Spine003', 'Spine002', 'Spine001', 'Spine']) { const y = yHips + fy(nome) * (yNeck - yHips); J[nome] = [0, y, zColuna(y)]; }
+J.Neck = [0, yNeck, zColuna(yNeck)];
+J.Head = [0, pesc + 0.03, doMeio(pesc).c[2]];
+const pontaDaCabeca = [0, coroa, J.Head[2]];
+const pontas = {};   // a ponta dos ossos das pontas (mão, dedo do pé)
+for (const [L, l, s] of LADOS) {
+  const n = nomesDoLado(L, l);
+  J[n.collar] = [0, 1, 2].map((e) => J.Neck[e] + (G[n.collar].getComponent(e) - G.Neck.getComponent(e)) / k);
+  // o BRAÇO: os cortes do lado (o mais de fora), da axila para baixo
+  const fora = (y) => cortes(y).filter((g) => g.min[0] * s > 0).sort((a, b) => b.c[0] * s - a.c[0] * s)[0] ?? null;
+  let ponta = Infinity;
+  for (let i = 0; i < NV; i++) if (P[3 * i] * s > cj.maoX) ponta = Math.min(ponta, P[3 * i + 1]);
+  // a reta do braço (alto dele): x e z em função de y, pelos mínimos quadrados
+  const amostras = [];
+  for (let y = ombroTopo - 0.37; y <= ombroTopo - 0.16; y += 0.01) { const g = fora(y); if (g) amostras.push([y, g.meio[0], g.c[2]]); }
+  const reta = (e) => { const m = amostras.length, sy = amostras.reduce((a, p) => a + p[0], 0), sv = amostras.reduce((a, p) => a + p[e], 0), syy = amostras.reduce((a, p) => a + p[0] * p[0], 0), syv = amostras.reduce((a, p) => a + p[0] * p[e], 0); const b = (m * syv - sy * sv) / (m * syy - sy * sy); return [b, (sv - b * sy) / m]; };
+  const [bx, ax] = reta(1), [bz, az] = reta(2), yOmbro = ombroTopo - cj.ombroAbaixo;
+  J[n.arm] = [ax + bx * yOmbro, yOmbro, az + bz * yOmbro];
+  // o PULSO: o corte mais fino entre a mão e o meio do braço
+  let yPulso = null, fino = Infinity;
+  for (let y = ponta + 0.12; y < ombroTopo - 0.3; y += 0.005) { const g = fora(y); if (g && g.max[0] - g.min[0] < fino) { fino = g.max[0] - g.min[0]; yPulso = y; } }
+  J[n.hand] = fora(yPulso).meio;
+  const lu = G[n.elbow].distanceTo(G[n.arm]), lf = G[n.hand].distanceTo(G[n.elbow]);
+  const yCot = J[n.arm][1] + (lu / (lu + lf)) * (J[n.hand][1] - J[n.arm][1]);
+  J[n.elbow] = fora(yCot).meio;
+  const dedos = []; for (let i = 0; i < NV; i++) if (P[3 * i] * s > cj.maoX && P[3 * i + 1] < ponta + 0.02) dedos.push([P[3 * i], P[3 * i + 1], P[3 * i + 2]]);
+  pontas[n.hand] = [0, 1, 2].map((e) => dedos.reduce((a, p) => a + p[e], 0) / dedos.length);
+  // a PERNA: o corte do lado que não é a mão
+  const perna = (y) => cortes(y).filter((g) => g.min[0] * s > 0 && Math.abs(g.c[0]) < cj.maoX - 0.02).sort((a, b) => b.n - a.n)[0];
+  const coxa = perna(virilha - 0.05);
+  J[n.thigh] = [coxa.meio[0], virilha + 0.03, coxa.c[2]];
+  const yTorn = y0 + cj.tornozelo;
+  J[n.foot] = perna(yTorn).meio;
+  const fk = (G[n.shin].y - G[n.foot].y) / (G[n.thigh].y - G[n.foot].y), yJoelho = J[n.foot][1] + fk * (J[n.thigh][1] - J[n.foot][1]);
+  J[n.shin] = perna(yJoelho).meio;
+  const pe = perna(y0 + 0.012);
+  J[n.toe] = [pe.meio[0], y0 + 0.045, pe.min[2] + 0.7 * (pe.max[2] - pe.min[2])];
+  pontas[n.toe] = [pe.meio[0], y0 + 0.02, pe.max[2]];
+}
+
+// ------------------------------------------------------------ 3. os pesos (Blender, pose A)
+const PONTA = { Hips: 'Spine003', Spine003: 'Spine002', Spine002: 'Spine001', Spine001: 'Spine', Spine: 'Neck', Neck: 'Head' };
+for (const [L, l] of LADOS) { const n = nomesDoLado(L, l); Object.assign(PONTA, { [n.collar]: n.arm, [n.arm]: n.elbow, [n.elbow]: n.hand, [n.thigh]: n.shin, [n.shin]: n.foot, [n.foot]: n.toe }); }
+const ossos = Object.keys(J).map((nome) => ({
+  nome, cabeca: J[nome], ponta: PONTA[nome] ? J[PONTA[nome]] : nome === 'Head' ? pontaDaCabeca : pontas[nome],
+  pai: PAI[nome] in J ? PAI[nome] : null,
+}));
+fs.writeFileSync(path.join(TRABALHO, 'ossos.json'), JSON.stringify(ossos));
+blender('pesar', baixo, path.join(TRABALHO, 'ossos.json'), path.join(TRABALHO, 'pesos.json'));
+const pesosB = JSON.parse(fs.readFileSync(path.join(TRABALHO, 'pesos.json'), 'utf8')).pesos;
+const NOMES = Object.keys(J);
+const pesos = pesosB.map((w, i) => {
+  let lista = w.map(([n, p]) => [NOMES.indexOf(n), p]).filter(([o]) => o >= 0);
+  if (!lista.length) {   // (sem osso: o mais perto)
+    const v = new THREE.Vector3(P[3 * i], P[3 * i + 1], P[3 * i + 2]), seg = new THREE.Line3(), q = new THREE.Vector3();
+    let melhor = 0, d = Infinity;
+    ossos.forEach((o, j) => { seg.set(new THREE.Vector3(...o.cabeca), new THREE.Vector3(...o.ponta)); const dd = seg.closestPointToPoint(v, true, q).distanceTo(v); if (dd < d) { d = dd; melhor = j; } });
+    lista = [[melhor, 1]];
+  }
+  const soma = lista.reduce((a, [, p]) => a + p, 0);
+  return lista.map(([o, p]) => [o, p / soma]);
+});
+
+// ------------------------------------------------------------ 4. os braços para a pose T do guerreiro
+const giros = NOMES.map(() => ({ q: new THREE.Quaternion(), t: new THREE.Vector3() }));   // x' = q·x + t
+const V = (a) => new THREE.Vector3(...a);
+const Jt = Object.fromEntries(NOMES.map((n) => [n, V(J[n])]));   // as juntas depois da pose T
+const pontasT = Object.fromEntries(Object.entries(pontas).map(([n, p]) => [n, V(p)]));
+for (const [L, l] of LADOS) {
+  const n = nomesDoLado(L, l), dedo = `Middle${l}`;
+  const cadeia = [[n.arm, n.elbow], [n.elbow, n.hand], [n.hand, null]];
+  let antes = new THREE.Quaternion();
+  for (const [osso, filho] of cadeia) {
+    const de = (filho ? V(J[filho]) : V(pontas[osso])).sub(V(J[osso])).normalize().applyQuaternion(antes);
+    const para = (filho ? G[filho].clone() : G[dedo].clone()).sub(G[osso]).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(de, para).multiply(antes);
+    const g = giros[NOMES.indexOf(osso)];
+    g.q.copy(q);
+    g.t.copy(Jt[osso]).sub(V(J[osso]).applyQuaternion(q));
+    if (filho) Jt[filho] = V(J[filho]).applyQuaternion(q).add(g.t);
+    else pontasT[osso] = V(pontas[osso]).applyQuaternion(q).add(g.t);
+    antes = q;
+  }
+}
+// a malha: dual quaternion (o ombro e o cotovelo não murcham como na mistura linear)
+const posT = new Float64Array(NV * 3);
+{
+  const dq = giros.map(({ q, t }) => { const d = new THREE.Quaternion(t.x, t.y, t.z, 0).multiply(q); return [q, [d.x * 0.5, d.y * 0.5, d.z * 0.5, d.w * 0.5]]; });
+  for (let i = 0; i < NV; i++) {
+    const r = [0, 0, 0, 0], du = [0, 0, 0, 0];
+    let ref = null;
+    for (const [o, p] of pesos[i]) {
+      const [q, d] = dq[o];
+      if (!ref) ref = q;
+      const s = q.x * ref.x + q.y * ref.y + q.z * ref.z + q.w * ref.w < 0 ? -p : p;
+      r[0] += q.x * s; r[1] += q.y * s; r[2] += q.z * s; r[3] += q.w * s;
+      for (let e = 0; e < 4; e++) du[e] += d[e] * s;
+    }
+    const m = Math.hypot(...r);
+    const qr = new THREE.Quaternion(r[0] / m, r[1] / m, r[2] / m, r[3] / m), qd = new THREE.Quaternion(du[0] / m, du[1] / m, du[2] / m, du[3] / m);
+    const t = qd.multiply(qr.clone().conjugate());
+    const v = new THREE.Vector3(P[3 * i], P[3 * i + 1], P[3 * i + 2]).applyQuaternion(qr).add(new THREE.Vector3(t.x * 2, t.y * 2, t.z * 2));
+    posT[3 * i] = v.x; posT[3 * i + 1] = v.y; posT[3 * i + 2] = v.z;
+  }
+}
+
+// ------------------------------------------------------------ 5. a escala: cm do guerreiro, os pés no chão
+const cm = (v) => [v[0] * k, (v[1] - y0) * k, v[2] * k];
+const ossosCm = {};
+for (const n of NOMES) ossosCm[n] = cm(Jt[n].toArray()).map((x) => +x.toFixed(2));
+// os DEDOS (fora dos pesos): o desenho dos do guerreiro, na escala desta mão, a partir do pulso
+for (const [L, l] of LADOS) {
+  const n = nomesDoLado(L, l), mao = V(ossosCm[n.hand]), ponta = V(cm(pontasT[n.hand].toArray()));
+  const escala = ponta.distanceTo(mao) / G[`Middle${l}002`].distanceTo(G[n.hand]);
+  for (const nome of Object.keys(G)) {
+    const d = /^(Thumb|Index|Middle|Ring|Pinky)([lLrR])(00[12])?$/.exec(nome);
+    if (d && d[2].toUpperCase() === L) ossosCm[nome] = G[nome].clone().sub(G[n.hand]).multiplyScalar(escala).add(mao).toArray().map((x) => +x.toFixed(2));
+  }
+}
+
+// ------------------------------------------------------------ 6. as regiões (a cor de cada triângulo), na pose A
+const REG = { pele: 0, cabelo: 1, roupa: 2, branco: 3, iris: 4, escuro: 5, brilho: 6, boca: 7 };
+const cr = cfg.regioes, NT = I.length / 3, regiao = new Uint8Array(NT);
+// (o que é do braço — preso ao ombro, ao cotovelo e à mão — não é roupa: na pose A ele encosta no tronco)
+const doBraco = NOMES.map((n) => /^(Arm|Elbow|Hand)[LR]$/.test(n));
+const pesoDoBraco = (i) => pesos[i].reduce((a, [o, p]) => a + (doBraco[o] ? p : 0), 0);
+const entre = (v, [a, b]) => v > a && v < b, rampa = (v, a, b) => Math.min(1, Math.max(0, (v - a) / (b - a)));
+for (let t = 0; t < NT; t++) {
+  const c = [0, 1, 2].map((e) => (P[3 * I[3 * t] + e] + P[3 * I[3 * t + 1] + e] + P[3 * I[3 * t + 2] + e]) / 3);
+  const [x, y, z] = c, ax = Math.abs(x);
+  const braco = (pesoDoBraco(I[3 * t]) + pesoDoBraco(I[3 * t + 1]) + pesoDoBraco(I[3 * t + 2])) / 3 > 0.5;
+  let r = REG.pele;
+  // o CABELO: tudo da cabeça acima do pescoço, menos o rosto (a frente, abaixo da franja), o queixo e o lado
+  // dele (abaixo das mechas do lado) e a nuca
+  if (y > cr.pescocoAte) {
+    const rosto = z > cr.rostoFrente && y < cr.franja && ax < cr.rostoLargura;
+    const queixo = z > cr.queixo.frente && y < cr.queixo.ate;
+    const nuca = z < cr.rostoFrente && y < cr.nuca && ax < cr.rostoLargura;
+    if (!rosto && !queixo && !nuca) r = REG.cabelo;
+  }
+  // o TOP: o bojo na frente (a borda de cima sobe para os lados), a faixa das costas e as alças por cima do ombro
+  const tp = cr.top;
+  if (!braco && y < ombroTopo + 0.02) {
+    if (z > 0 && ax < tp.largura && y > tp.de && y < tp.ate + tp.sobe * rampa(ax, 0, tp.alca[0])) r = REG.roupa;
+    if (z <= 0 && ax < tp.largura + 0.02 && y > tp.costasDe && y < tp.costasAte) r = REG.roupa;
+    if (entre(ax, tp.alca) && y > tp.ate - 0.02) r = REG.roupa;
+  }
+  // a CALCINHA (em V): abaixo da cintura (mais alta dos lados) e acima da cava das pernas (da virilha ao quadril)
+  const cc = cr.calcinha;
+  if (!braco && ax < cc.quadril[0] + 0.02) {
+    const frente = z > cc.meioZ;
+    const cintura = frente ? cc.cintura[0] + (cc.cintura[1] - cc.cintura[0]) * rampa(ax, 0, cc.quadril[0]) : cc.cintura[2];
+    const cava = frente ? virilha + 0.015 + (cc.quadril[1] - virilha) * rampa(ax, 0.02, cc.quadril[0]) : virilha + (cc.costasCava - virilha) * rampa(ax, 0.02, cc.quadril[0] + 0.01);
+    if (y < cintura && y > cava) r = REG.roupa;
+  }
+  regiao[t] = r;
+}
+
+// ------------------------------------------------------------ 7. os olhos e a boca (folhas no rosto, na pose A)
+// a altura do rosto num (x, y): o ponto mais à frente da pele ali (um raio de frente)
+function frenteDaPele(x, y) {
+  let melhor = -Infinity;
+  for (let t = 0; t < NT; t++) {
+    if (regiao[t] !== REG.pele) continue;
+    const a = I[3 * t], b = I[3 * t + 1], c = I[3 * t + 2];
+    const ax = P[3 * a], ay = P[3 * a + 1], bx = P[3 * b], by = P[3 * b + 1], cx = P[3 * c], cy = P[3 * c + 1];
+    const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    if (Math.abs(den) < 1e-12) continue;
+    const w0 = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / den, w1 = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / den, w2 = 1 - w0 - w1;
+    if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+    const z = w0 * P[3 * a + 2] + w1 * P[3 * b + 2] + w2 * P[3 * c + 2];
+    if (z > melhor) melhor = z;
+  }
+  return melhor;
+}
+const extra = { pos: [], idx: [], reg: [] };   // os triângulos desenhados (pose A, unidades do arquivo)
+// uma folha: o contorno (pontos 2D em x, y) em leque, cada ponto pousado na pele + `folga`
+function folha(contorno, folga, reg) {
+  const meio = contorno.reduce((a, p) => [a[0] + p[0] / contorno.length, a[1] + p[1] / contorno.length], [0, 0]);
+  const pts = [meio, ...contorno], base = extra.pos.length / 3;
+  for (const [x, y] of pts) extra.pos.push(x, y, frenteDaPele(x, y) + folga);
+  for (let i = 1; i <= contorno.length; i++) { extra.idx.push(base, base + i, base + 1 + (i % contorno.length)); extra.reg.push(reg); }
+}
+const elipse = (cx, cy, rx, ry, giro = 0, n = 12, de = 0, ate = Math.PI * 2) => Array.from({ length: n }, (_, i) => {
+  const a = de + (ate - de) * (i / n), x = Math.cos(a) * rx, y = Math.sin(a) * ry, c = Math.cos(giro), s = Math.sin(giro);
+  return [cx + x * c - y * s, cy + x * s + y * c];
+});
+const ol = cfg.olhos;
+for (const s of [1, -1]) {
+  const cx = ol.x * s, cy = ol.y, w = ol.largura / 2, h = ol.altura / 2, g = (ol.giro * Math.PI / 180) * s;
+  // o branco: amêndoa (mais reta embaixo)
+  const amendoa = Array.from({ length: 16 }, (_, i) => { const a = (i / 16) * Math.PI * 2, x = Math.cos(a) * w, y = Math.sin(a) * h * (Math.sin(a) > 0 ? 1 : 0.7); return [cx + x * Math.cos(g) - y * Math.sin(g), cy + x * Math.sin(g) + y * Math.cos(g)]; });
+  folha(amendoa, 0.0015, REG.branco);
+  folha(elipse(cx - s * w * 0.08, cy, w * 0.52, h * 0.95, 0, 12), 0.0025, REG.iris);
+  folha(elipse(cx - s * w * 0.08, cy - h * 0.05, w * 0.24, h * 0.5, 0, 10), 0.0033, REG.escuro);
+  folha(elipse(cx - s * w * 0.08 - w * 0.2, cy + h * 0.38, w * 0.13, h * 0.2, 0, 8), 0.004, REG.brilho);
+  // o traço de cima (cílios): uma faixa grossa pela borda de cima da amêndoa, com a ponta para fora
+  // (no desenho do olho, +x é o canto de FORA; `aoOlho` gira pelo `giro` e espelha o olho direito)
+  const th = ol.giro * Math.PI / 180, aoOlho = ([x, y]) => [cx + s * (x * Math.cos(th) - y * Math.sin(th)), cy + x * Math.sin(th) + y * Math.cos(th)];
+  const arco = Array.from({ length: 9 }, (_, i) => { const a = Math.PI * (0.02 + 0.96 * i / 8); return [Math.cos(a) * w * 1.08, Math.sin(a) * h * 1.12]; });
+  const fora = [[w * 1.32, h * 0.55], ...arco].map(aoOlho), dentro = [[w * 1.15, h * 0.35], ...arco.map(([x, y]) => [x * 0.93, y * 0.72 - h * 0.08])].map(aoOlho);
+  // (a faixa não é convexa: vai em tiras)
+  const base = extra.pos.length / 3, m = fora.length;
+  for (const [x, y] of [...fora, ...dentro]) extra.pos.push(x, y, frenteDaPele(x, y) + 0.0042);
+  for (let i = 0; i < m - 1; i++) {
+    const a = base + i, b = base + i + 1, c = base + m + i, d = base + m + i + 1;
+    if (s > 0) extra.idx.push(a, b, c, b, d, c); else extra.idx.push(a, c, b, b, c, d);
+    extra.reg.push(REG.escuro, REG.escuro);
+  }
+}
+const bo = cfg.boca;
+folha(elipse(0, bo.y, bo.largura / 2, bo.altura / 2, 0, 10), 0.0015, REG.boca);
+// os desenhados: presos à cabeça; e pela pose A dos braços não passam (a cabeça não gira)
+const iHead = NOMES.indexOf('Head');
+
+// ------------------------------------------------------------ o arquivo do jogo
+const NE = extra.pos.length / 3, todosPos = new Float32Array((NV + NE) * 3);
+for (let i = 0; i < NV; i++) todosPos.set(cm([posT[3 * i], posT[3 * i + 1], posT[3 * i + 2]]), i * 3);
+for (let i = 0; i < NE; i++) todosPos.set(cm(extra.pos.slice(i * 3, i * 3 + 3)), (NV + i) * 3);
+const idx = new Uint16Array([...I, ...extra.idx.map((i) => i + NV)]);
+const reg = new Uint8Array([...regiao, ...extra.reg]);
+const ossoDe = new Uint8Array((NV + NE) * 4), peso = new Uint8Array((NV + NE) * 4);
+for (let i = 0; i < NV + NE; i++) {
+  const w = i < NV ? pesos[i] : [[iHead, 1]];
+  // (pesos em 0–255, a soma exata em 255: o resto vai para o maior)
+  const q = w.map(([, p]) => Math.round(p * 255)), falta = 255 - q.reduce((a, b) => a + b, 0);
+  q[0] += falta;
+  w.forEach(([o], j) => { ossoDe[i * 4 + j] = o; peso[i * 4 + j] = q[j]; });
+}
+const b64 = (a) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64');
+const saida = {
+  _leiame: `Corpo de arquivo "${cfg.nome}" (js/corpo-arquivo.js), gerado por ferramentas/corpo-de-arquivo/importar.mjs a partir de ${cfg.entrada} — não edite à mão: mude o recorte e rode de novo. ossos: onde fica cada osso do guerreiro NESTE corpo (cm, pose T; os que faltam ficam onde estão). pos (Float32, cm, pose T), idx (Uint16), regiao (Uint8 por triângulo: ${Object.keys(REG).join(', ')}), nomes (os ossos dos pesos), ossoDe/peso (Uint8, 4 por vértice; peso em 255 avos). Tudo em base64.`,
+  nome: cfg.nome, jogo: Object.fromEntries(Object.entries(cfg.jogo ?? {}).filter(([k2]) => k2 !== '_leiame')), ossos: ossosCm, nomes: NOMES,
+  vertices: NV + NE, triangulos: idx.length / 3,
+  pos: b64(todosPos), idx: b64(idx), regiao: b64(reg), ossoDe: b64(ossoDe), peso: b64(peso),
+};
+const arqSaida = path.join(RAIZ, 'assets/corpos', `${cfg.nome}.json`);
+fs.mkdirSync(path.dirname(arqSaida), { recursive: true });
+fs.writeFileSync(arqSaida, JSON.stringify(saida, null, 1) + '\n');
+console.log(`[corpo] gravado ${path.relative(RAIZ, arqSaida)}: ${NV + NE} vértices, ${idx.length / 3} triângulos (${(fs.statSync(arqSaida).size / 1024).toFixed(0)} KB)`);
+
+// ------------------------------------------------------------ as fotos de conferência
+if (opc.conferir) {
+  const pasta = path.resolve(opc.conferir);
+  fs.mkdirSync(pasta, { recursive: true });
+  const CORES = [[232, 190, 160], [70, 50, 45], [60, 70, 110], [245, 245, 240], [40, 120, 140], [25, 20, 20], [255, 255, 255], [180, 90, 100]];
+  const vermelho = [255, 50, 50], azul = [60, 160, 255];
+  // as juntas na pose A
+  const pts = [...NOMES.map((n) => [J[n], vermelho]), ...Object.values(pontas).map((p) => [p, azul]), [pontaDaCabeca, azul]];
+  prancha(path.join(pasta, `juntas-${cfg.nome}.png`), P, I, { vistas: [0, 90].map((g) => ({ giro: g, centro: [0, 0], escala: 270 })), W: 420, H: 560, pontos: pts });
+  // o resultado na pose T, nas cores das regiões (de frente, de lado, de costas e o rosto)
+  const corT = Array.from(reg, (r) => CORES[r]);
+  const ossosPts = Object.values(ossosCm).map((p) => [p, vermelho]);
+  prancha(path.join(pasta, `regioes-${cfg.nome}.png`), todosPos, idx, { vistas: [0, 90, 180].map((g) => ({ giro: g, centro: [0, 95], escala: 2.7 })), W: 520, H: 560, cores: corT, pontos: ossosPts });
+  const olho = [0, cfg.alturaDosOlhos - 4];
+  prancha(path.join(pasta, `rosto-${cfg.nome}.png`), todosPos, idx, { vistas: [0, 35, 90].map((g) => ({ giro: g, centro: olho, escala: 14 })), W: 380, H: 420, cores: corT });
+  // OS PESOS: braços abaixados, cotovelo e joelho dobrados, a coluna e a cabeça giradas (cinemática direta simples)
+  const pose = {
+    ArmL: new THREE.Euler(0, 0, -1.1), ArmR: new THREE.Euler(0, 0, 1.1), ElbowL: new THREE.Euler(0, -1.0, 0), ElbowR: new THREE.Euler(0, 1.0, 0),
+    Thighl: new THREE.Euler(-0.9, 0, 0), Shinl: new THREE.Euler(1.3, 0, 0), Spine001: new THREE.Euler(0.25, 0, 0), Head: new THREE.Euler(0, 0.6, 0),
+  };
+  const mundo = {}, ordem = NOMES.slice().sort((a, b) => profundidade(a) - profundidade(b));
+  function profundidade(n) { let d = 0; for (let p = PAI[n]; p; p = PAI[p]) d++; return d; }
+  for (const n of ordem) {
+    const pai = PAI[n] in mundo ? mundo[PAI[n]] : new THREE.Matrix4();
+    const j = V(ossosCm[n]), local = new THREE.Matrix4().makeTranslation(j.x, j.y, j.z).multiply(new THREE.Matrix4().makeRotationFromEuler(pose[n] ?? new THREE.Euler())).multiply(new THREE.Matrix4().makeTranslation(-j.x, -j.y, -j.z));
+    mundo[n] = pai.clone().multiply(local);
+  }
+  const posP = new Float32Array(todosPos.length), v = new THREE.Vector3(), s = new THREE.Vector3();
+  for (let i = 0; i < NV + NE; i++) {
+    s.set(0, 0, 0);
+    for (let j = 0; j < 4; j++) { const w = peso[i * 4 + j] / 255; if (!w) continue; s.addScaledVector(v.fromArray(todosPos, i * 3).applyMatrix4(mundo[NOMES[ossoDe[i * 4 + j]]]), w); }
+    posP.set([s.x, s.y, s.z], i * 3);
+  }
+  prancha(path.join(pasta, `poses-${cfg.nome}.png`), posP, idx, { vistas: [0, 90, 180].map((g) => ({ giro: g, centro: [0, 95], escala: 2.7 })), W: 520, H: 560, cores: corT });
+  console.log(`[corpo] fotos em ${pasta}`);
+}

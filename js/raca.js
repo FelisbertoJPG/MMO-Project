@@ -117,8 +117,21 @@ export const PROPORCOES = [
 export const SEXOS = ['Masculino', 'Feminino'];
 // o corpo FEMININO da raça de número `n` (0 = o humano), ou undefined: não há
 const feminino = (n) => (n > 0 ? Assets.racas?.[n - 1]?.feminino : Assets.humano?.feminino);
+/**
+ * O CORPO DE ARQUIVO (26/10/2026; corpo-arquivo.js, `assets/corpos/<nome>.json`): um 3º corpo da raça, feito de
+ * um modelo PRONTO (a "Feminino 2", do Meshy) — o valor 2 do dígito do sexo. Os dados (o rótulo, as cores do
+ * modelo, a altura e as larguras que afinam as armaduras) moram no arquivo dele (`jogo`), não no racas.json (o
+ * editor de cenas regrava o racas.json). Devolve o corpo carregado da raça `n`, ou null.
+ */
+const deArquivo = (n) => Object.values(Assets.corpos ?? {}).find((c) => (c.jogo?.raca ?? 0) === n) ?? null;
 /** A raça de número `n` tem o corpo feminino? (só então o jogador escolhe o sexo) */
 export const temFeminino = (n) => !!feminino(n);
+/** A raça `n` tem o corpo de ARQUIVO (o 3º da linha "Sexo")? */
+export const temArquivo = (n) => !!deArquivo(n);
+/** As opções da linha "Sexo" da raça `n` (o lugar na lista é o dígito: 0, 1, 2). */
+export const sexosDe = (n) => [...SEXOS, ...(deArquivo(n) ? [deArquivo(n).jogo?.rotulo ?? 'Feminino 2'] : [])];
+/** O corpo de arquivo de uma raça já resolvida por `racaDe` (o objeto carregado), ou null. */
+export const corpoDeArquivo = (raca) => (raca?.arquivo ? Assets.corpos?.[raca.arquivo] ?? null : null);
 /**
  * A RAÇA ESCULPIDA (16/10/2026): `esculpido` no `racas.json` = o nome de um corpo feito de
  * fotos (esculpido.js, `assets/esculpidos/<nome>.glb`) — quem é dessa raça joga com AQUELE
@@ -128,12 +141,19 @@ export const temFeminino = (n) => !!feminino(n);
 export const esculpidoDe = (raca) => (raca?.esculpido && Assets.esculpidos?.[raca.esculpido] ? raca.esculpido : null);
 /**
  * A raça de número `n` (o dígito da aparência) no corpo do `sexo` (0 = masculino, 1 =
- * feminino): de onde saem as proporções, as cores e as listas do boneco — ou null: o humano
+ * feminino, 2 = o corpo de arquivo): de onde saem as proporções, as cores e as listas do boneco — ou null: o humano
  * como o modelo é (ou raça que não existe mais). No feminino, a raça com o que o corpo
  * `feminino` dela diz por cima (sem ele, a própria raça).
  */
 export function racaDe(n, sexo = 0) {
-  const raca = n > 0 ? Assets.racas?.[n - 1] ?? null : null, f = sexo === 1 ? feminino(n) : null;
+  const raca = n > 0 ? Assets.racas?.[n - 1] ?? null : null;
+  // (o 2: o corpo de ARQUIVO — o modelo inteiro, com o cabelo e o rosto dele: sem penteado, barba, sobrancelha,
+  // presas nem busto; as proporções dele só dão a altura e afinam as armaduras. Sem ele, vale o feminino)
+  const arq = sexo === 2 ? deArquivo(n) : null;
+  if (arq) {
+    return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, pele: null, olhos: null, semCabelo: true, semBarba: true, penteados: [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {} };
+  }
+  const f = sexo >= 1 ? feminino(n) : null;
   return f ? { ...raca, ...f, feminino: undefined } : raca;
 }
 /** As proporções completas de uma raça (o que falta, ou está torto, vale o padrão: o humano). */

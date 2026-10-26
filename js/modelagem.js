@@ -68,7 +68,7 @@
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
-import { temFeminino, ORELHA, BUSTO } from './raca.js';
+import { temFeminino, temArquivo, ORELHA, BUSTO } from './raca.js';
 import { pertoNoTriangulo } from './ima.js';
 import { naPele } from './aparencia.js';
 
@@ -110,7 +110,9 @@ const PARTE = new Map(PARTES.map((p) => [p.id, p]));
 /** A chave do corpo da raça `raca` (o dígito da aparência; 0 = humano) no `sexo` dela. */
 export function chaveDoCorpo(raca, sexo) {
   const id = (raca > 0 && Assets.racas?.[raca - 1]?.id) || 'humano';   // (raça que não existe mais = o humano, como em racaDe)
-  return sexo === 1 && temFeminino(id === 'humano' ? 0 : raca) ? `${id}:feminino` : id;
+  // (o 2, o corpo de ARQUIVO: a chave dele não tem edição — a malha é a do arquivo, e as do masculino não valem nela)
+  if (sexo === 2 && temArquivo(id === 'humano' ? 0 : raca)) return `${id}:arquivo`;
+  return sexo >= 1 && temFeminino(id === 'humano' ? 0 : raca) ? `${id}:feminino` : id;
 }
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {

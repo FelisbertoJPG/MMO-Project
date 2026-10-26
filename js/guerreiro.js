@@ -29,7 +29,7 @@ import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS, naPele, corDaPele } from './aparencia.js';
-import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino } from './raca.js';
+import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino, corpoDeArquivo } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO } from './pintura.js';
@@ -38,6 +38,7 @@ import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 import { folhaDaSombra } from './sombra.js';
 import { peleNova, PELE, TROCADAS, OSSOS_DO_CORPO } from './retopologia.js';
+import { pecaDoArquivo, ossosDoArquivo } from './corpo-arquivo.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -203,6 +204,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // proporções da raça e sem índice: entram por último, e o `deformar` para antes deles
   let doCorpo = 0;
   for (const g of lista) doCorpo += g.attributes.position.count;
+  // (o CORPO DE ARQUIVO — corpo-arquivo.js, a última peça — não se deforma pela raça: as proporções dele só afinam as armaduras)
+  const fixa = pecas.at(-1)?.semRaca ? lista.at(-1).attributes.position.count : 0;
   const cabelo = penteado && inversos ? geometriaDoPenteado({
     ...penteado, ordem, deformador: deformadorDe(raca, ordem, inversos, pecas[0].bindMatrix), escala: proporcoesDe(raca).cabeca, rosto: rostoDaRaca(raca), largo: largoDoQueixo(raca), modelo: lista[0], mapa: pecas[0].material?.map,
   }) : null;
@@ -235,7 +238,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   for (const g of geos) g.dispose();
   cabelo?.dispose();
   // a RAÇA: as proporções dela na malha (raca.js), uma vez por corpo
-  if (geo && raca) deformar(geo, raca, ordem, inversos, pecas[0].bindMatrix, doCorpo);
+  if (geo && raca) deformar(geo, raca, ordem, inversos, pecas[0].bindMatrix, doCorpo - fixa);
   // … e as EDIÇÕES do corpo, por cima (a aba guarda também a malha de antes delas: `base`)
   if (comModelo) {
     // (a malha antes das edições: a aba Modelo refaz a vista dela, e a pintura projeta nela — pintura.js)
@@ -372,6 +375,8 @@ export class CorpoGuerreiro {
     });
     this.esqueleto = new THREE.Skeleton(ossos, inversos);
     this.inversos = inversos;
+    // (onde cada osso fica no arquivo: o corpo de ARQUIVO os move para as juntas dele, e a volta é para cá)
+    this.ossosDeResto = ossos.map((b) => b.position.clone());
     // (a raça nos ossos ainda não: ela entra depois das medidas da pose T)
     this.vestir(armadura);
 
@@ -426,6 +431,7 @@ export class CorpoGuerreiro {
     this.hipRestoU = hipU.clone();
     // o quadril do guerreiro na pose T, no espaço da cena DELE (a cena pode andar no pivot)
     this.hipRestoG = cena.worldToLocal(cena.getObjectByName('Hips').getWorldPosition(new THREE.Vector3()));
+    this.hipRestoBase = this.hipRestoG.clone();
     this.proporcao = 1 / cena.scale.x;   // o deslocamento do UAL (em metros do pivot) na escala da cena
     this.pivoInv = new THREE.Matrix4();
     // A RAÇA NOS OSSOS (raca.js): a escala da cena sem raça, e os ossos que se afastam
@@ -494,7 +500,20 @@ export class CorpoGuerreiro {
     for (const o of this.ossosDasMaos) o?.scale.setScalar(p.maos);
     this.cena.scale.setScalar(this.escalaBase * p.altura);
     this.proporcao = 1 / this.cena.scale.x;
-    for (const a of this.afastados) a.osso.position.copy(a.resto).addScaledVector(a.lado, a.resto.dot(a.lado) * (p[a.chave] - 1));
+    // OS OSSOS: no lugar de sempre (com os ombros e o quadril da raça) — ou, no CORPO DE ARQUIVO (corpo-arquivo.js),
+    // nas juntas DELE (as pernas mais longas, os ombros mais estreitos); o quadril que o `seguir` anda vai junto
+    const ossos = this.esqueleto.bones, arq = corpoDeArquivo(this.raca);
+    ossos.forEach((b, i) => b.position.copy(this.ossosDeResto[i]));
+    if (arq) {
+      const ligacao = this.pecas[0].bindMatrix;
+      this.locaisDoArquivo ??= new Map();
+      if (!this.locaisDoArquivo.has(arq.nome)) this.locaisDoArquivo.set(arq.nome, ossosDoArquivo(arq, ossos, this.ordem, this.inversos, ligacao));
+      this.locaisDoArquivo.get(arq.nome).forEach((v, i) => { if (v) ossos[i].position.copy(v); });
+      if (arq.ossos.Hips) this.hipRestoG.set(...arq.ossos.Hips).applyMatrix4(ligacao);
+    } else {
+      for (const a of this.afastados) a.osso.position.copy(a.resto).addScaledVector(a.lado, a.resto.dot(a.lado) * (p[a.chave] - 1));
+      this.hipRestoG.copy(this.hipRestoBase);
+    }
     return antes !== this.altura * 1000 + this.maos;
   }
 
@@ -509,6 +528,8 @@ export class CorpoGuerreiro {
     const aparencia = armadura.split(':')[1] ?? APARENCIA_PADRAO;
     for (const o of this.rigidas) o.visible = false;
     const desenho = (lugar, conj) => desenhoDe(Assets.armaduras, lugar, conj);
+    // (o CORPO DE ARQUIVO — corpo-arquivo.js: a malha dele no lugar das peças do corpo; as armaduras ficam)
+    const arq = corpoDeArquivo(this.raca);
     const usadas = this.pecas.filter((o) => {
       // (o cabelo solto do modelo saiu do jogo, e a barba e as sobrancelhas dele são só a
       // matéria das do jogo: o PENTEADO, a BARBA e as SOBRANCELHAS desenhados, abaixo; o COLAR
@@ -518,7 +539,7 @@ export class CorpoGuerreiro {
       // um em cima do outro, e a de baixo, desenhada depois, é a que se via. 26/10/2026: a pele sai)
       if (o.name === 'hips' && this.pecas.some((p) => p.name === 'hips_02')) return false;
       const a = o.name.match(ARMADURA);
-      if (!a) return true;
+      if (!a) return !arq;
       const lugar = lugarDaPeca(o.name);
       return armadura[LUGARES.indexOf(lugar)] === a[1] && !desenho(lugar, a[1]);
     });
@@ -534,7 +555,7 @@ export class CorpoGuerreiro {
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
     // o OLHO DO MODELO apagado debaixo de uma folha pintada (pintura.js: o desenho velho aparecia nas bordas)
-    const lida = lerAparencia(aparencia), edicoes = edicoesDoCorpo(lida.raca, lida.sexo);
+    const lida = lerAparencia(aparencia), edicoes = arq ? null : edicoesDoCorpo(lida.raca, lida.sexo);
     // (… ou SEM o olho do modelo — `semOlhos` no corpo, 24/10/2026, pedido do dono: era mal feito. A peça sai
     // inteira (o rosto debaixo dela é fechado) e o olho é a IMAGEM que o dono pôs numa folha; sem a peça não
     // há pálpebra: esse corpo não pisca)
@@ -548,7 +569,7 @@ export class CorpoGuerreiro {
     // o que a RAÇA acrescenta (as presas do orc; o busto e o top do corpo feminino — só no
     // peito nu). O que é PELE (o busto) é tingido como ela — DEPOIS das peças do corpo: a
     // razão da cor da pele é uma só, e quem a mede são elas
-    if (this.raca) for (const o of pecasDaRaca(this.raca, this.pecas, elmo, armadura[LUGARES.indexOf('peito')] !== '0')) {
+    if (this.raca && !arq) for (const o of pecasDaRaca(this.raca, this.pecas, elmo, armadura[LUGARES.indexOf('peito')] !== '0')) {
       usadas.push(o.pele && aparenciaValida(aparencia) ? tingir(o, aparencia) : o);
       // (o busto é COSTURADO no peito: a pele debaixo dele sai e o buraco fecha até o pé dele — raca.js)
       const i = o.costura ? usadas.findIndex((x) => /^Upper_Torso(_tingido)?$/.test(x.name)) : -1;
@@ -557,10 +578,12 @@ export class CorpoGuerreiro {
     // o PENTEADO, a BARBA e as SOBRANCELHAS (penteado.js): desenhados em código ao fundir o corpo
     const ap = lerAparencia(aparencia), cabelo = penteadoDe(this.raca, ap.cabelo), barba = barbaDe(this.raca, ap.barba), sobrancelha = sobrancelhaDe(this.raca, ap.sobrancelha), doPeito = desenho('peito', armadura[LUGARES.indexOf('peito')]);
     const peca = (nome) => this.pecas.find((o) => o.name === nome);
-    const penteado = PENTEADOS[cabelo]?.formas || BARBAS[barba]?.formas || SOBRANCELHAS[sobrancelha]?.formas ? {
+    const penteado = !arq && (PENTEADOS[cabelo]?.formas || BARBAS[barba]?.formas || SOBRANCELHAS[sobrancelha]?.formas) ? {
       id: cabelo, barba, sobrancelha, cor: CABELOS[ap.cor][1], elmo, pecaDaBarba: peca('Beard'), pecaDaSobrancelha: peca('Eye_Brows'), pecaDoRosto: peca('Face'), pecaDaCabeca: peca('head'),
       apoio: usadas.filter((o) => APOIO.test(o.name) || (ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'peito') || (doPeito && o.name.startsWith(`casca_${doPeito.id}_`))),
     } : null;
+    // a peça do CORPO DE ARQUIVO entra por ÚLTIMO (a fundida a deixa fora das proporções da raça)
+    if (arq) usadas.push(pecaDoArquivo(arq, aparencia, { ordem: this.ordem, inversos: this.inversos, esqueleto: this.esqueleto, ligacao: this.pecas[0].bindMatrix, material: this.materiais.find((m) => m.vertexColors) ?? this.materiais[0] }));
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     // (uma peça TINGIDA tem cor mas guarda o material da original, que pode ser o sem cor
     // de vértice — nu, só com a aparência, a cor não aparecia: vale o material com cor)
@@ -568,9 +591,9 @@ export class CorpoGuerreiro {
     const material = (comCor && this.materiais.find((m) => m.vertexColors)) || (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
     // (o BATOM — boca.js: os lábios, uma folha pintada no rosto; 0 = sem, nada muda)
-    const boca = aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
+    const boca = !arq && aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
     // (a SOMBRA dos olhos — sombra.js: uma folha esfumada em volta de cada olho; 0 = sem)
-    const sombra = aparenciaValida(aparencia) ? folhaDaSombra(ap.sombra) : null;
+    const sombra = !arq && aparenciaValida(aparencia) ? folhaDaSombra(ap.sombra) : null;
     // (a cor da ÍRIS desenhada em malha — cilios.js: a dos olhos da raça, ou a escolhida)
     const corOlhos = this.raca?.olhos ?? OLHOS[ap.olhos]?.[1] ?? null;
     // (`this.pele`: a versão da pele forçada neste boneco — a comparação lado a lado do editor; entra na chave da malha guardada)

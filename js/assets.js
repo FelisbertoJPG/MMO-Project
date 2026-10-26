@@ -78,6 +78,9 @@ export const ANIMACOES = ['greatsword-idle'];
 // assets/esculpidos/<nome>.glb, com o esqueleto do manequim UAL em outras proporções. Faltando
 // um, ele só não aparece.
 export const ESCULPIDOS = ['dennis'];
+// OS CORPOS DE ARQUIVO (corpo-arquivo.js; um modelo pronto feito corpo do guerreiro por
+// ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
+export const CORPOS_DE_ARQUIVO = ['feminino2'];
 export const ANIMAIS_MODELOS =['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
@@ -215,6 +218,27 @@ export async function carregarModelagem() {
     const j = await r.json();
     return { corpos: j?.corpos && typeof j.corpos === 'object' && !Array.isArray(j.corpos) ? j.corpos : {} };
   } catch { return { corpos: {} }; }
+}
+
+/**
+ * Os CORPOS DE ARQUIVO (assets/corpos/<nome>.json, corpo-arquivo.js): nome → os dados já abertos (as listas em
+ * base64 viram arrays). Arquivo que falta ou vem torto fica de fora: a opção dele some do painel.
+ */
+export async function carregarCorpos() {
+  const de64 = (s, T) => { const b = Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); return new T(b.buffer, 0, b.byteLength / T.BYTES_PER_ELEMENT); };
+  const corpos = {};
+  await Promise.all(CORPOS_DE_ARQUIVO.map(async (nome) => {
+    try {
+      const r = await fetch(`assets/corpos/${nome}.json`, { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      const c = { nome, jogo: j.jogo ?? {}, ossos: j.ossos, nomes: j.nomes, pos: de64(j.pos, Float32Array), idx: de64(j.idx, Uint16Array), regiao: de64(j.regiao, Uint8Array), ossoDe: de64(j.ossoDe, Uint8Array), peso: de64(j.peso, Uint8Array) };
+      const nv = c.pos.length / 3;
+      if (!Array.isArray(c.nomes) || !c.ossos || c.idx.length !== c.regiao.length * 3 || c.ossoDe.length !== nv * 4 || c.peso.length !== nv * 4 || c.idx.some((i) => i >= nv)) throw new Error('torto');
+      corpos[nome] = c;
+    } catch (e) { console.warn(`[corpo] sem assets/corpos/${nome}.json:`, e.message); }
+  }));
+  return corpos;
 }
 
 /** As ARMADURAS PINTADAS (assets/armaduras.json, casca.js): a lista de desenhos ([] sem o arquivo). */
@@ -434,6 +458,7 @@ export const Assets = {
   pinturas: new Map(),         // as imagens das folhas pintadas nos corpos (assets/pintura/; pintura.js): arquivo → imagem
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
   esculpidos: {},    // nome → a cena dos personagens feitos de fotos (esculpido.js)
+  corpos: {},        // nome → um CORPO DE ARQUIVO (corpo-arquivo.js): a malha, os pesos e os ossos de um modelo pronto
 
   async load(onProgress = () => {}) {
     const loader = new GLTFLoader();
@@ -483,6 +508,7 @@ export const Assets = {
     this.empunhadura = await carregarEmpunhadura();
     this.armaduras = await carregarArmaduras();
     ({ racas: this.racas, humano: this.humano } = await lerRacas());
+    this.corpos = await carregarCorpos();
     this.modelagem = await carregarModelagem();
     this.pinturas = await carregarPinturas(this.modelagem);
     usarPenteados(await carregarPenteados());   // (os penteados editados na aba Cabelo do editor, por cima dos do código)

@@ -33,7 +33,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { tela, pontoNaTela, retanguloNaTela } from './tela.js';
-import { racaDe, proporcoesDe, SEXOS, temFeminino, esculpidoDe } from './raca.js';
+import { racaDe, proporcoesDe, sexosDe, temFeminino, temArquivo, esculpidoDe } from './raca.js';
 import { penteadosDe, nomeDoPenteado, barbasDe, nomeDaBarba, sobrancelhasDe, nomeDaSobrancelha } from './penteado.js';
 
 export const PELES = [
@@ -87,7 +87,7 @@ export function lerAparencia(c) {
   const d = [...s].map(Number);
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1] + (s.length >= 12 ? d[11] * 10 : 0), cor: d[2] < CABELOS.length ? d[2] : 0,
-    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] === 1 ? 1 : 0,
+    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] === 1 || d[7] === 2 ? d[7] : 0,
     batom: d[8] < BATONS.length ? d[8] : 0, tom: s.length >= 11 ? d[9] * 10 + d[10] : null, sombra: s.length >= 13 && d[12] < SOMBRAS.length ? d[12] : 0,
   };
 }
@@ -99,9 +99,9 @@ export function codigoDaAparencia(a) {
   const sobrancelha = a.sobrancelha ?? 1, alto = a.cabelo > 9 || a.sombra > 0;
   if (a.tom != null || alto) {
     const tom = String(Math.min(TOM_MAX, Math.max(0, Math.round(a.tom ?? TOM_DE_PELE[a.pele] ?? TOM_DE_PELE[0])))).padStart(2, '0');
-    return `0${a.cabelo % 10}${a.cor}${a.barba}${a.olhos}${a.raca || 0}${sobrancelha}${a.sexo ? 1 : 0}${a.batom || 0}${tom}${alto ? Math.floor(a.cabelo / 10) : ''}${a.sombra > 0 ? a.sombra : ''}`;
+    return `0${a.cabelo % 10}${a.cor}${a.barba}${a.olhos}${a.raca || 0}${sobrancelha}${a.sexo || 0}${a.batom || 0}${tom}${alto ? Math.floor(a.cabelo / 10) : ''}${a.sombra > 0 ? a.sombra : ''}`;
   }
-  const cauda = a.batom ? `${a.raca || 0}${sobrancelha}${a.sexo ? 1 : 0}${a.batom}`
+  const cauda = a.batom ? `${a.raca || 0}${sobrancelha}${a.sexo || 0}${a.batom}`
     : a.sexo ? `${a.raca || 0}${sobrancelha}${a.sexo}` : sobrancelha === 1 ? a.raca || '' : `${a.raca || 0}${sobrancelha}`;
   return `${a.pele}${a.cabelo}${a.cor}${a.barba}${a.olhos}${cauda}`;
 }
@@ -132,6 +132,8 @@ function texel(px, u, v) {
   const i = (y * px.w + x) * 4;
   return [linear(px.d[i]), linear(px.d[i + 1]), linear(px.d[i + 2])];
 }
+/** A cor (linear) da paleta num ponto (u, v), ou null (sem leitura) — corpo-arquivo.js pinta por cima dela. */
+export function corNaPaleta(mapa, u, v) { const px = lerTextura(mapa); return px ? texel(px, u, v) : null; }
 export const naPele = (u, v) => u >= FAIXA_PELE.u[0] && u <= FAIXA_PELE.u[1] && v >= FAIXA_PELE.v[0] && v <= FAIXA_PELE.v[1];
 
 /** O tom pedido ÷ a média dos texels escolhidos (as cores de vértice que dão o tom pedido). */
@@ -200,16 +202,17 @@ export function tingir(peca, codigo) {
 // [chave, rótulo, as opções (dada a raça), some quando a raça manda nisso (dada a raça e a aparência)]
 const LINHAS = [
   ['raca', 'Raça', () => racasDoPainel().map((r) => r.nome), () => racasDoPainel().length < 2],
-  // (o sexo só aparece para a raça que TEM o corpo feminino no arquivo: raca.js)
-  ['sexo', 'Sexo', () => SEXOS, (r, a) => !temFeminino(a.raca)],
+  // (o sexo só aparece para a raça que TEM o corpo feminino no arquivo — ou o corpo de ARQUIVO, o 3º: raca.js)
+  ['sexo', 'Sexo', (r, a) => sexosDe(a.raca), (r, a) => sexosDe(a.raca).length < 2],
   ['pele', 'Pele', () => PELES.map((p) => p[0]), (r) => !!r?.pele],
   ['cabelo', 'Cabelo', (r) => ['Sem cabelo', ...penteadosDe(r).map(nomeDoPenteado)], (r) => !penteadosDe(r).length],
   ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0])],
   ['barba', 'Barba', (r) => ['Sem barba', ...barbasDe(r).map(nomeDaBarba)], (r) => !barbasDe(r).length],
   ['sobrancelha', 'Sobrancelhas', (r) => ['Sem sobrancelhas', ...sobrancelhasDe(r).map(nomeDaSobrancelha)], (r) => !sobrancelhasDe(r).length],
   ['olhos', 'Olhos', () => OLHOS.map((p) => p[0]), (r) => !!r?.olhos],
-  ['batom', 'Batom', () => BATONS.map((b) => b[0])],
-  ['sombra', 'Sombra nos olhos', () => SOMBRAS.map((s) => s[0])],
+  // (o corpo de ARQUIVO tem o rosto dele: sem batom nem sombra — corpo-arquivo.js)
+  ['batom', 'Batom', () => BATONS.map((b) => b[0]), (r) => !!r?.arquivo],
+  ['sombra', 'Sombra nos olhos', () => SOMBRAS.map((s) => s[0]), (r) => !!r?.arquivo],
 ];
 /** As raças que o jogador pode escolher: o humano e as `jogavel` do arquivo ({ n, nome }). */
 const racasDoPainel = () => [{ n: 0, nome: 'Humano' }, ...Assets.racas.map((r, i) => ({ n: i + 1, nome: r.nome, jogavel: r.jogavel })).filter((r) => r.jogavel)];
@@ -280,14 +283,17 @@ export class EditorDeAparencia {
 
   mudar(parcial) {
     const p = this.game.player, antes = lerAparencia(p.aparencia), a = { ...antes, ...parcial };
-    // (trocou de raça: o sexo só vale se ela tem o corpo)
-    if (!temFeminino(a.raca)) a.sexo = 0;
+    // (trocou de raça: o sexo só vale se ela tem o corpo — o 2, o de arquivo; sem ele, o feminino)
+    if (a.sexo === 2 && !temArquivo(a.raca)) a.sexo = 1;
+    if (a.sexo === 1 && !temFeminino(a.raca)) a.sexo = 0;
     // O número do cabelo, da barba e da sobrancelha é o lugar na lista de CADA raça (e de cada
     // corpo dela). Trocou de raça ou de sexo: fica o MESMO corte, se o outro o tem (a "Longa"
     // é a 8ª do humano e a 6ª do orc); senão, o que passa do fim da lista vale o último
     const de = racaDe(antes.raca, antes.sexo), raca = racaDe(a.raca, a.sexo);
+    // (o corpo de ARQUIVO não usa nenhum dos três: os números ficam guardados para quando voltar)
     for (const [k, lista] of [['cabelo', penteadosDe], ['barba', barbasDe], ['sobrancelha', sobrancelhasDe]]) {
-      const nova = lista(raca), id = !(k in parcial) && a[k] > 0 ? lista(de)[a[k] - 1] : null;
+      if (raca?.arquivo) continue;
+      const nova = lista(raca), id = !(k in parcial) && a[k] > 0 && !de?.arquivo ? lista(de)[a[k] - 1] : null;
       a[k] = (id ? nova.indexOf(id) + 1 : 0) || Math.min(a[k], nova.length);
     }
     p.aparencia = codigoDaAparencia(a);
@@ -305,7 +311,7 @@ export class EditorDeAparencia {
       if (k !== 'raca' && esculpidoDe(raca)) continue;
       // (a PELE é uma régua — o tom livre, do bege ao quase preto: o corpo muda ao SOLTAR; arrastando, só a amostra)
       if (k === 'pele') { this.lista.appendChild(this.reguaDaPele(a)); continue; }
-      const ops = opcoes(raca), linha = document.createElement('div');
+      const ops = opcoes(raca, a), linha = document.createElement('div');
       // a raça anda pela lista das jogáveis (o número dela é o lugar no arquivo, não na lista)
       const agora = k === 'raca' ? Math.max(0, racas.findIndex((r) => r.n === a.raca)) : a[k];
       const valor = (i) => (k === 'raca' ? racas[i].n : i);
