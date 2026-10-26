@@ -121,6 +121,11 @@ export function edicoesDoCorpo(raca, sexo) {
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
 let aberta = false;
 export function abrirModelagem(sim = true) { aberta = sim; }
+// A PELE que a aba Modelo edita (26/10/2026): 'antiga' = as PEÇAS do guerreiro (as edições do corpo, como sempre); 'nova' =
+// a PELE NOVA do corpo feminino (retopologia.js) — a camada `nova` de edições dentro do corpo, feita por cima dela
+let peleEditada = 'antiga';
+export const editarPele = (qual) => { peleEditada = qual === 'nova' ? 'nova' : 'antiga'; };
+export const peleEmEdicao = () => peleEditada;
 export const modelagemAberta = () => aberta;
 
 /**

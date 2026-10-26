@@ -31,7 +31,7 @@ import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS, naPele, corDaPele } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
-import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes } from './modelagem.js';
+import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO } from './pintura.js';
 import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
@@ -179,7 +179,8 @@ export function planosDoRosto(geo, faixas, extrasDe = null, graus = PLANO) {
 
 // (`maquiagem`: as folhas da aparência — a sombra dos olhos, sombra.js, e os lábios com batom, boca.js —, pintadas como
 // as da modelagem, mesmo no corpo sem edição)
-function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, maquiagem = [], corOlhos = null) {
+// (`pele`: 'antiga' ou 'nova' força a pele do corpo feminino — a comparação lado a lado do editor; null = a de sempre)
+function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, maquiagem = [], corOlhos = null, pele = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
   const geos = pecas.map((p) => {
@@ -282,9 +283,11 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   }
   // A PELE NOVA (retopologia.js, 26/10/2026): no corpo FEMININO (o que tem busto), as peças da pele do tronco, dos
   // braços, das pernas e do pescoço — com o busto e os triângulos criados no corpo — viram UMA pele de anéis, feita
-  // por cima de tudo (a raça e as edições: a forma é copiada). A aba Modelo do editor edita as peças: com ela aberta, não
+  // por cima de tudo (a raça e as edições: a forma é copiada). Com a aba Modelo do editor aberta editando as PEÇAS, não
+  // (`peleEmEdicao`: 'antiga'); editando a pele nova, sim — e ela leva o que a aba precisa (`ctxNova`)
   let tirados = null;
-  if (geo && !geo.index && inversos && PELE.ligada && proporcoesDe(raca).busto > 0.01 && !modelagemAberta()) {
+  const querNova = pele ? pele === 'nova' : !modelagemAberta() || peleEmEdicao() === 'nova';
+  if (geo && !geo.index && inversos && PELE.ligada && proporcoesDe(raca).busto > 0.01 && querNova) {
     const nt = geo.attributes.position.count / 3, trocar = new Uint8Array(nt), faixas = new Map();
     let de = 0;
     lista.forEach((g, i) => {
@@ -309,12 +312,24 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     const junta = (nome) => { const i = Math.max(0, ordem.indexOf(nome)); return def(new THREE.Vector3().setFromMatrixPosition(mm.copy(inversos[i]).invert()).applyMatrix4(volta), [i, 0, 0, 0], [1, 0, 0, 0]); };
     // (a pele nova que falha não derruba o corpo: fica a de antes)
     let r = null;
-    try { r = peleNova(geo, { trocar, junta, faixa: (n) => faixas.get(n) ?? null }); } catch (e) { console.warn('[pele nova] falhou; fica a pele de antes:', e); }
+    try { r = peleNova(geo, { trocar, junta, faixa: (n) => faixas.get(n) ?? null, ctx: comModelo }); } catch (e) { console.warn('[pele nova] falhou; fica a pele de antes:', e); }
     if (r) {
       if (geo.userData.rosto) r.geo.userData.rosto = geo.userData.rosto.map(([a, b]) => [a - r.removidos(a), b - r.removidos(b)]);
       tirados = r.removidos;
       geo.dispose();
       geo = r.geo;
+      // A CAMADA DA PELE NOVA (`edicoes.nova`, editada na aba Modelo com "pele nova"): o que a modelagem precisa saber da
+      // malha nova — de onde veio cada vértice e onde estava no MODELO (pela pele de baixo em que caiu) — e as edições por cima
+      if (comModelo && r.antes) {
+        const ctxNova = { ordem, origem: r.origem, antes: r.antes, juntas: comModelo.juntas, sobOBusto: comModelo.sobOBusto, rosto: geo.userData.rosto ?? [] };
+        ctxNova.base = geo.attributes.position.array.slice();
+        if (modelagemAberta() && !pele && peleEmEdicao() === 'nova') geo.userData.modelagem = ctxNova; else delete geo.userData.modelagem;
+        if (edicoes?.nova) {
+          aplicarModelagem(geo, edicoes.nova, ctxNova);
+          geo = acrescentarTriangulos(geo, ctxNova);
+          if (edicoes.nova.luzes?.length) aplicarLuzes(geo, edicoes.nova.luzes, ctxNova);
+        }
+      }
     }
   }
   if (geo && formasDoCabelo) geo.userData.formasDoCabelo = tirados ? formasDoCabelo.map(([a, b]) => [a - tirados(a), b - tirados(b)]) : formasDoCabelo;
@@ -558,7 +573,8 @@ export class CorpoGuerreiro {
     const sombra = aparenciaValida(aparencia) ? folhaDaSombra(ap.sombra) : null;
     // (a cor da ÍRIS desenhada em malha — cilios.js: a dos olhos da raça, ou a escolhida)
     const corOlhos = this.raca?.olhos ?? OLHOS[ap.olhos]?.[1] ?? null;
-    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, [sombra, boca].filter(Boolean), corOlhos) : null;
+    // (`this.pele`: a versão da pele forçada neste boneco — a comparação lado a lado do editor; entra na chave da malha guardada)
+    const geo = material ? geometriaFundida(this.pele ? `${armadura}|pele:${this.pele}` : armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, [sombra, boca].filter(Boolean), corOlhos, this.pele ?? null) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; if (this.palpebras) this.palpebras.visible = false; if (this.cilios) this.cilios.visible = false; return; }
     if (!this.fundida) {

@@ -36,7 +36,8 @@ export const PELE = {
   passoTronco: 5, passoBusto: 3.4, passoPernas: 6.5, passoBracos: 6, passoPescoco: 3.5,
   janela: 6,       // cm: as cascas que o raio atravessa saindo, até aqui uma da outra, são a mesma pele (vale a de fora)
   passoJuncao: 0.24,   // radianos entre os pontos da grade de uma junção, vistos do meio dela
-  suavizar: 3,     // passadas de alisar os pesos
+  suavizar: 0,     // passadas de alisar os pesos (0: cada ponto com os pesos da pele de baixo nele — a pele nova dobra como as peças;
+                   // alisados, o peito e os ombros eram puxados pelos braços abaixados e a humana ficava disforme na aba Raça)
   detalhe: 2,      // quantas vezes a face com um detalhe fino da roupa por dentro (uma alça) se divide em quatro
 };
 // as peças da pele que a pele nova TROCA (com o "_tingido" da aparência; o busto costurado é `busto_<tamanho>`)
@@ -50,7 +51,9 @@ const X = new V3(1, 0, 0), Y = new V3(0, 1, 0), Z = new V3(0, 0, 1);
 
 // ------------------------------------------------------------ a pele de baixo (os triângulos trocados)
 class Fonte {
-  constructor(geo, tris) {
+  // (`ctx`: o da modelagem da malha de baixo — `antes`, onde cada vértice estava no MODELO, e `origem`; sem ele, null)
+  constructor(geo, tris, ctx = null) {
+    this.A = ctx?.antes ?? null; this.O = ctx?.origem ?? null;
     const a = geo.attributes;
     this.P = a.position.array; this.uv = a.uv ?? null; this.cor = a.color ?? null; this.si = a.skinIndex; this.sw = a.skinWeight;
     // (os cortados da aba Modelo são pontos: área zero, o raio não os acha)
@@ -177,6 +180,12 @@ class Fonte {
     for (let k = 0; k < 3; k++) for (let j = 0; j < s; j++) r[j] += A[(h.t * 3 + k) * s + j] * b[k];
     return r;
   }
+  /** onde o ponto estava no MODELO (antes da raça e das edições): pelo lugar dele no triângulo da malha de baixo */
+  antesDe(h) {
+    const b = this.bari(h), A = this.A, r = new V3();
+    for (let k = 0; k < 3; k++) { const i = (h.t * 3 + k) * 3; r.x += A[i] * b[k]; r.y += A[i + 1] * b[k]; r.z += A[i + 2] * b[k]; }
+    return r;
+  }
   /** os ossos e os pesos no ponto: Map osso → peso */
   pesos(h) {
     const b = this.bari(h), m = new Map(), I = this.si.array, W = this.sw.array, s = this.si.itemSize;
@@ -230,8 +239,10 @@ function casco(pts) {
 // ------------------------------------------------------------ a malha nova
 class Malha {
   constructor(fonte) { this.f = fonte; this.v = []; this.faces = []; }
-  /** um vértice: o ponto, os pesos e o encontro (a UV de reserva) */
-  vertice(p, h, w = h ? this.f.pesos(h) : new Map()) { this.v.push({ p, h, w }); return this.v.length - 1; }
+  /** um vértice: o ponto, os pesos, o encontro (a UV de reserva) e onde estava no MODELO (`a`: do encontro, ou dado) */
+  vertice(p, h, w = h ? this.f.pesos(h) : new Map(), a = h && this.f.A ? this.f.antesDe(h) : null) { this.v.push({ p, h, w, a }); return this.v.length - 1; }
+  /** o "antes" entre dois vértices (o ponto novo de um lado) */
+  antesEntre(i, j, s) { const a = this.v[i].a, b = this.v[j].a; return a && b ? a.clone().lerp(b, s) : null; }
   /** uma face virada para fora de `dentro`; `de`: de onde sai o raio do meio dela (a UV e a cor) */
   // (`orientar` false: a ordem já vem certa — a do casco)
   face(a, b, c, dentro, de, orientar = true) {
@@ -413,7 +424,7 @@ function calca(M, T, E, D, C, cand) {
     const b = dentroD[i], p = M.v[a].p.clone().add(M.v[b].p).multiplyScalar(0.5), d = p.clone().sub(C), r = d.length();
     const h = M.f.amostra(C, d.normalize(), cand, r * 2 + 4), w = new Map();
     for (const x of [a, b]) for (const [o, q] of M.v[x].w) w.set(o, (w.get(o) ?? 0) + q / 2);
-    return h && h.dist < r * 2 ? M.vertice(h.p, h) : M.vertice(p, M.v[a].h, w);
+    return h && h.dist < r * 2 ? M.vertice(h.p, h) : M.vertice(p, M.v[a].h, w, M.antesEntre(a, b, 0.5));
   });
   ziper(dentroE, meio); ziper(meio, dentroD);
   // o púbis (o tronco da frente, o de dentro das duas pernas e o meio) e o de trás
@@ -447,12 +458,12 @@ function naLinha(linha, eixo, valor) {
  * (as mãos, os pés, a cabeça: onde os tubos acabam). Devolve { geo, removidos(v): quantos vértices tirados antes de v,
  * info } — ou null (a forma não deu: fica a de antes).
  */
-export function peleNova(geo, { trocar, junta, faixa }) {
+export function peleNova(geo, { trocar, junta, faixa, ctx = null }) {
   const nt = geo.attributes.position.count / 3, tris = [];
   for (let t = 0; t < nt; t++) if (trocar[t]) tris.push(t);
   if (tris.length < 50) return null;
   const relogio = [performance.now()], marca = () => relogio.push(performance.now());
-  const M = new Malha(new Fonte(geo, tris)), P = geo.attributes.position.array;
+  const M = new Malha(new Fonte(geo, tris, ctx)), P = geo.attributes.position.array;
   const J = (n) => junta(n);
   const quadril = J('Hips'), pescoco = J('Neck'), cabeca = J('Head');
   // os pontos extremos de uma peça (para onde o tubo vai)
@@ -586,7 +597,7 @@ export function peleNova(geo, { trocar, junta, faixa }) {
         for (const i of [a, b]) for (const [o, q] of M.v[i].w) w.set(o, (w.get(o) ?? 0) + q / 2);
         // (o ponto fica na RETA do lado: a forma é a dos anéis; o raio só diz se ali é pele ou roupa — a alça é uma fita
         // levantada da pele, e o ponto assentado nela fazia um degrau)
-        meios.set(k, M.vertice(p, x?.h ?? M.v[a].h, w));
+        meios.set(k, M.vertice(p, x?.h ?? M.v[a].h, w, M.antesEntre(a, b, 0.5)));
       }
     }
     if (!meios.size) break;
@@ -625,7 +636,7 @@ export function peleNova(geo, { trocar, junta, faixa }) {
       const s = (lo + hi) / 2, w = new Map();
       for (const [o, p] of A.w) w.set(o, p * (1 - s));
       for (const [o, p] of B.w) w.set(o, (w.get(o) ?? 0) + p * s);
-      cortes.set(k, M.vertice(A.p.clone().lerp(B.p, s), null, w));
+      cortes.set(k, M.vertice(A.p.clone().lerp(B.p, s), null, w, M.antesEntre(i, j, s)));
     }
     return cortes.get(k);
   };
@@ -684,6 +695,19 @@ export function peleNova(geo, { trocar, junta, faixa }) {
     g.setAttribute(nome, new THREE.BufferAttribute(arr, s, at.normalized));
   }
   marca();
+  // (a ORIGEM e o ANTES de cada vértice da malha nova — o que a modelagem precisa para editar a pele nova: os que ficam,
+  // como estavam; os novos, do ponto da malha de baixo em que caíram)
+  let origem = null, antes = null;
+  if (M.f.A && M.f.O) {
+    const O = M.f.O, A = M.f.A, de = fica.length * 3;
+    origem = new Uint8Array(total); antes = new Float32Array(total * 3);
+    fica.forEach((t, j) => { origem.set(O.subarray(t * 3, t * 3 + 3), j * 3); antes.set(A.subarray(t * 9, t * 9 + 9), j * 9); });
+    finais.forEach((x, q) => x.v.forEach((vi, e) => {
+      const k = de + q * 3 + e, v = M.v[vi], a = v.a ?? v.p;
+      origem[k] = v.h ? O[v.h.t * 3] : 0;
+      antes[k * 3] = a.x; antes[k * 3 + 1] = a.y; antes[k * 3 + 2] = a.z;
+    }));
+  }
   g.userData = { ...geo.userData };
   // quantos vértices tirados antes de cada vértice de antes (para as faixas que a malha guarda: o cabelo, o rosto)
   const tirados = new Int32Array(nt + 1);
@@ -691,5 +715,5 @@ export function peleNova(geo, { trocar, junta, faixa }) {
   const info = { ms: relogio.slice(1).map((x, i) => Math.round(x - relogio[i])), trocados: tris.length, novos: nf, cortados: cortes.size, abertos, dobrados, tortosOmbros, folgaOmbros: Math.round(mo.folga), sobraOmbros: mo.sobra, topoDaCoxa: Math.round(topoDaCoxa * 10) / 10, fimDaPerna: pernas.map((l) => Math.round(l[l.length - 1].c.y * 10) / 10), pePedido: Math.round(fimDaPerna * 10) / 10, fimDoBraco: bracos.map((l) => Math.round(l[l.length - 1].c.x * 10) / 10), aneis: { pernas: pernas.map((l) => l.length), bracos: bracos.map((l) => l.length), tronco: tronco.length, colo: colo.length }, gancho: Math.round(gancho * 10) / 10, sovaco: Math.round(sovaco * 10) / 10 };
   if (tortos) console.warn('[pele nova] junção com lados soltos:', info);
   g.userData.peleNova = info;
-  return { geo: g, removidos: (v) => tirados[Math.min(nt, Math.floor(v / 3))] + (trocar[Math.floor(v / 3)] ? v % 3 : 0), info };
+  return { geo: g, origem, antes, removidos: (v) => tirados[Math.min(nt, Math.floor(v / 3))] + (trocar[Math.floor(v / 3)] ? v % 3 : 0), info };
 }
