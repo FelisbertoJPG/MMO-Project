@@ -285,8 +285,13 @@ for (let t = 0; t < NT; t++) {
 }
 
 // ------------------------------------------------------------ 7. os olhos e a boca (folhas no rosto, na pose A)
-// a altura do rosto num (x, y): o ponto mais à frente da pele ali (um raio de frente)
+// a altura do rosto num (x, y): o ponto mais à frente da pele ali (um raio de frente). Sem pele ali (a ponta do
+// traço dos cílios caía no cabelo do lado): a pele mais perto, indo para o meio do rosto
 function frenteDaPele(x, y) {
+  for (let k = 0; k < 30; k++) { const z = raioNaPele(x * (1 - k / 30), y); if (z > -Infinity) return z; }
+  return 0;
+}
+function raioNaPele(x, y) {
   let melhor = -Infinity;
   for (let t = 0; t < NT; t++) {
     if (regiao[t] !== REG.pele) continue;

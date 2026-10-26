@@ -38,7 +38,7 @@ import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 import { folhaDaSombra } from './sombra.js';
 import { peleNova, PELE, TROCADAS, OSSOS_DO_CORPO } from './retopologia.js';
-import { pecaDoArquivo, ossosDoArquivo } from './corpo-arquivo.js';
+import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo } from './corpo-arquivo.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -234,11 +234,23 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     // (a pele do peito que o seio cobre: os puxões feitos nela não fazem nada — raca.js `sobOBustoDe`)
     comModelo.sobOBusto = sobOBustoDe(raca);
     Object.assign(comModelo, { origem, antes, juntas: new Map(inversos ? ordem.map((nome, i) => [nome, new THREE.Vector3().setFromMatrixPosition(m.copy(inversos[i]).invert()).applyMatrix4(volta)]) : []) });
+    // (no corpo de arquivo, os pivôs das partes são as juntas DELE)
+    for (const [nome, v] of pecas.at(-1)?.juntas ?? []) comModelo.juntas.set(nome, v.clone());
   }
   for (const g of geos) g.dispose();
   cabelo?.dispose();
   // a RAÇA: as proporções dela na malha (raca.js), uma vez por corpo
   if (geo && raca) deformar(geo, raca, ordem, inversos, pecas[0].bindMatrix, doCorpo - fixa);
+  // (no CORPO DE ARQUIVO as armaduras andam com as juntas dele — o esqueleto tem os inversos deste corpo, corpo-arquivo.js:
+  // cada ponto delas mais o quanto os ossos dele andaram; a malha do arquivo já está no lugar)
+  if (geo && fixa && pecas.at(-1).anda) {
+    const anda = pecas.at(-1).anda, P = geo.attributes.position.array, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+    for (let i = 0; i < doCorpo - fixa; i++) for (let k = 0; k < 4; k++) {
+      const w = sw.getComponent(i, k), d = anda[si.getComponent(i, k)];
+      if (w && d) { P[i * 3] += d.x * w; P[i * 3 + 1] += d.y * w; P[i * 3 + 2] += d.z * w; }
+    }
+    geo.attributes.position.needsUpdate = true;
+  }
   // … e as EDIÇÕES do corpo, por cima (a aba guarda também a malha de antes delas: `base`)
   if (comModelo) {
     // (a malha antes das edições: a aba Modelo refaz a vista dela, e a pintura projeta nela — pintura.js)
@@ -373,7 +385,9 @@ export class CorpoGuerreiro {
       for (const p of this.pecas) { const i = p.skeleton.bones.findIndex((x) => x.name === b.name); if (i >= 0) return p.skeleton.boneInverses[i].clone(); }
       return new THREE.Matrix4();
     });
-    this.esqueleto = new THREE.Skeleton(ossos, inversos);
+    // (o esqueleto com uma CÓPIA dos inversos: o corpo de arquivo troca os dele — corpo-arquivo.js —, e `this.inversos`
+    // segue o do guerreiro: o das proporções e das juntas da malha)
+    this.esqueleto = new THREE.Skeleton(ossos, inversos.map((m) => m.clone()));
     this.inversos = inversos;
     // (onde cada osso fica no arquivo: o corpo de ARQUIVO os move para as juntas dele, e a volta é para cá)
     this.ossosDeResto = ossos.map((b) => b.position.clone());
@@ -502,15 +516,19 @@ export class CorpoGuerreiro {
     this.proporcao = 1 / this.cena.scale.x;
     // OS OSSOS: no lugar de sempre (com os ombros e o quadril da raça) — ou, no CORPO DE ARQUIVO (corpo-arquivo.js),
     // nas juntas DELE (as pernas mais longas, os ombros mais estreitos); o quadril que o `seguir` anda vai junto
-    const ossos = this.esqueleto.bones, arq = corpoDeArquivo(this.raca);
+    // (… e o esqueleto ganha os inversos de ligação DELE: a malha do arquivo está na forma verdadeira)
+    const ossos = this.esqueleto.bones, arq = corpoDeArquivo(this.raca), inv = this.esqueleto.boneInverses;
     ossos.forEach((b, i) => b.position.copy(this.ossosDeResto[i]));
     if (arq) {
       const ligacao = this.pecas[0].bindMatrix;
-      this.locaisDoArquivo ??= new Map();
-      if (!this.locaisDoArquivo.has(arq.nome)) this.locaisDoArquivo.set(arq.nome, ossosDoArquivo(arq, ossos, this.ordem, this.inversos, ligacao));
-      this.locaisDoArquivo.get(arq.nome).forEach((v, i) => { if (v) ossos[i].position.copy(v); });
+      this.doArquivo ??= new Map();
+      if (!this.doArquivo.has(arq.nome)) this.doArquivo.set(arq.nome, { locais: ossosDoArquivo(arq, ossos, this.ordem, this.inversos, ligacao), inversos: inversosDoArquivo(arq, this.ordem, this.inversos, ligacao) });
+      const d = this.doArquivo.get(arq.nome);
+      d.locais.forEach((v, i) => { if (v) ossos[i].position.copy(v); });
+      d.inversos.forEach((m, i) => inv[i].copy(m));
       if (arq.ossos.Hips) this.hipRestoG.set(...arq.ossos.Hips).applyMatrix4(ligacao);
     } else {
+      this.inversos.forEach((m, i) => inv[i].copy(m));
       for (const a of this.afastados) a.osso.position.copy(a.resto).addScaledVector(a.lado, a.resto.dot(a.lado) * (p[a.chave] - 1));
       this.hipRestoG.copy(this.hipRestoBase);
     }
@@ -555,7 +573,8 @@ export class CorpoGuerreiro {
       if (t) usadas[i] = t; else usadas.splice(i, 1);
     }
     // o OLHO DO MODELO apagado debaixo de uma folha pintada (pintura.js: o desenho velho aparecia nas bordas)
-    const lida = lerAparencia(aparencia), edicoes = arq ? null : edicoesDoCorpo(lida.raca, lida.sexo);
+    // (o corpo de arquivo tem as edições DELE na aba Modelo: `chaveDoCorpo` = '<raça>:arquivo')
+    const lida = lerAparencia(aparencia), edicoes = edicoesDoCorpo(lida.raca, lida.sexo);
     // (… ou SEM o olho do modelo — `semOlhos` no corpo, 24/10/2026, pedido do dono: era mal feito. A peça sai
     // inteira (o rosto debaixo dela é fechado) e o olho é a IMAGEM que o dono pôs numa folha; sem a peça não
     // há pálpebra: esse corpo não pisca)
