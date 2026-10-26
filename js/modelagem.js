@@ -31,6 +31,9 @@
  * `movidos`: [{ de, em, mover: [x, y, z], espelho }] — os VÉRTICES MOVIDOS (24/10/2026; a ferramenta
  * "mover" da aba): o vértice que o `em` marca no MODELO — um do corpo (o `antes` dele), um criado
  * (`vertices`) ou o canto de um triângulo criado — anda `mover` cm (`moverVertices`, `movidoEm`).
+ * `apagados`: [{ de, em, com }] — os VÉRTICES APAGADOS do corpo (25/10/2026; a ferramenta "apagar vértice" da
+ * aba): o vértice que o `em` marca no MODELO vai para onde está o vizinho `com` (`apagarVertices`): os triângulos
+ * entre os dois ficam sem área e os outros esticam até o vizinho — o vértice some sem abrir buraco.
  * `semOlhos`: a peça dos olhos do modelo sai (guerreiro.js); o olho é uma folha com a imagem do dono.
  * `olhosLisos`: a peça dos olhos fica só com a plaquinha da frente, sem textura (pintura.js `olhosLisos`): o dono a molda.
  *
@@ -112,7 +115,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris || e.sobrancelha) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.apagados?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris || e.sobrancelha) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -431,6 +434,9 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   // ---- 2-. os VÉRTICES MOVIDOS do corpo (depois do top seguir a pele: o vértice do top movido ficava onde a
   // pele o punha; antes dos vértices e dos triângulos criados, que colam nos do corpo e andam junto)
   if (edicoes.movidos?.length && !idx) moverVertices(P, ctx, edicoes.movidos, mexeu, ctx.novosDe ?? n);
+  // ---- 2-'. os VÉRTICES APAGADOS do corpo: cada um vai para o vizinho (depois de os dois andarem; antes dos criados,
+  // que colam nele e vão junto)
+  if (edicoes.apagados?.length && !idx) apagarVertices(P, ctx, edicoes.apagados, mexeu, ctx.novosDe ?? n);
   // ---- 2a. as CORES: o triângulo do corpo pintado no editor pega um ponto da paleta (antes dos
   // vértices criados: os pedaços de um triângulo pintado herdam a cor dele)
   if (edicoes.cores?.length && !idx) pintarTriangulos(geo, edicoes.cores, ctx);
@@ -603,6 +609,28 @@ function moverVertices(P, ctx, movidos, mexeu, nc) {
       if (s) for (let v = 0; v < Math.min(s.length, nc); v++) if (s[v] >= 0 && vai.has(s[v])) vai.add(v);
       for (const v of vai) { P[v * 3] += m.mover[0] * lado; P[v * 3 + 1] += m.mover[1]; P[v * 3 + 2] += m.mover[2]; mexeu[v] = 1; }
     }
+  }
+}
+// os APAGADOS: toda cópia do vértice `em` (a mesma origem e o `antes`), o que está colado nela e o que a segue vão
+// para o lugar de agora do vizinho `com` (a mesma origem). Sem o vizinho (cortado, outro modelo), nada muda
+const apagadoValido = (x) => ORIGENS.includes(x?.de) && [x.em, x.com].every((v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite));
+function apagarVertices(P, ctx, apagados, mexeu, nc) {
+  const A = ctx.antes, O = ctx.origem, ARM = ORIGENS.indexOf('armadura'), s = ctx.segue;
+  const perto = (a, b) => Math.abs(P[a * 3] - P[b * 3]) < COLADO && Math.abs(P[a * 3 + 1] - P[b * 3 + 1]) < COLADO && Math.abs(P[a * 3 + 2] - P[b * 3 + 2]) < COLADO;
+  const no = (o, [x, y, z], v) => O[v] === o && Math.abs(A[v * 3] - x) < NO_MOVIDO && Math.hypot(A[v * 3] - x, A[v * 3 + 1] - y, A[v * 3 + 2] - z) < NO_MOVIDO;
+  for (const x of apagados) {
+    if (!apagadoValido(x)) continue;
+    const o = ORIGENS.indexOf(x.de);
+    let alvo = -1;
+    for (let v = 0; v < nc && alvo < 0; v++) if (no(o, x.com, v)) alvo = v;
+    if (alvo < 0) continue;
+    const vai = new Set(), onde = [];
+    for (let v = 0; v < nc; v++) if (no(o, x.em, v)) { vai.add(v); if (!onde.some((q) => perto(q, v))) onde.push(v); }
+    if (!vai.size) continue;
+    for (let v = 0; v < nc; v++) if (!vai.has(v) && (O[v] === ARM) === (o === ARM) && onde.some((q) => perto(q, v))) vai.add(v);
+    if (s) for (let v = 0; v < Math.min(s.length, nc); v++) if (s[v] >= 0 && vai.has(s[v])) vai.add(v);
+    const ax = P[alvo * 3], ay = P[alvo * 3 + 1], az = P[alvo * 3 + 2];
+    for (const v of vai) { P[v * 3] = ax; P[v * 3 + 1] = ay; P[v * 3 + 2] = az; mexeu[v] = 1; }
   }
 }
 // o quanto o ponto `em` (no modelo) da origem `de` foi movido: [x, y, z] cm (a soma dos que o pegam) — ou null
