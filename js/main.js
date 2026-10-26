@@ -40,6 +40,7 @@ import { tokenValido } from './rede/supabase.js';
 import { MUNDO_PADRAO, detectarHospedagem, temSaveEmArquivo, serveOMundo } from './hospedagem.js';
 import { vigiarVersao, notaDaAtualizacao } from './versao.js';
 import { aquecerPintura } from './pintura.js';
+import { aquecerBrilhoDosOlhos } from './cilios.js';
 import { CAMADA_SOMBRA, carregarFotosGuardadas, gravarFotosNovas, apagarFotosGuardadas } from './lod.js';
 import './relogio.js';   // o relógio de teste (só com ?relogio no endereço)
 
@@ -916,6 +917,8 @@ class Game {
     w.lod?.vestirSoltas();
     // (a PINTURA, pintura.js: o shader dela — transparente, com ossos — compila aqui, e não quando chega alguém pintado)
     const tirarPintura = aquecerPintura(this.player?.model?.guerreiro);
+    // (o OLHO QUE BRILHA, cilios.js: o material dele compila aqui, e não quando chega alguém de olho brilhante)
+    const tirarBrilhoDosOlhos = aquecerBrilhoDosOlhos(this.player?.model?.guerreiro);
     // (os ESCULPIDOS, esculpido.js: o shader de quem joga com a raça dele, e não quando ele chega)
     const tirarEsculpidos = aquecerEsculpidos(this.scene, new THREE.Vector3(larg / 2, 0, prof / 2));
     const cam = new THREE.OrthographicCamera(-larg / 2 - 10, larg / 2 + 10, prof / 2 + 10, -prof / 2 - 10, 1, 1200);
@@ -972,6 +975,7 @@ class Game {
     for (const c of cartazes) if (c.malha.count === 1) { c.malha.count = 0; c.sujo = true; }
     w.distribuirLuzes();
     tirarPintura();
+    tirarBrilhoDosOlhos();
     tirarEsculpidos();
   }
 

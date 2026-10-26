@@ -33,7 +33,7 @@ import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, 
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO } from './pintura.js';
-import { geometriaDosCilios, alisarOlhos } from './cilios.js';
+import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 
@@ -269,10 +269,10 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
       geo.userData.palpebras = geometriasDasPalpebras(geo, faixa(io), cascaDoOlho(pecas[io].geometry), pele);
     }
   }
-  // OS CÍLIOS-DELINEADO e a ÍRIS (cilios.js, `cilios` e `iris` no corpo): sobre o olho como ele ficou
-  if (geo && !geo.index && (edicoes?.cilios || edicoes?.iris) && comModelo?.origem) {
+  // OS CÍLIOS-DELINEADO, a ÍRIS e as CORES DO OLHO (cilios.js, `cilios`, `iris` e `olhoCor` no corpo): sobre o olho como ele ficou
+  if (geo && !geo.index && (edicoes?.cilios || edicoes?.iris || edicoes?.olhoCor) && comModelo?.origem) {
     const io = pecas.findIndex((p) => /^Eyes(_tingido)?$/.test(p.name));
-    if (io >= 0) geo.userData.cilios = geometriaDosCilios(geo, comModelo.origem, { cilios: edicoes.cilios, iris: edicoes.iris }, { escuro: uvEscura(pecas[io]), claro: uvClara(pecas[io]) }, corOlhos ?? undefined);
+    if (io >= 0) geo.userData.cilios = geometriaDosCilios(geo, comModelo.origem, { cilios: edicoes.cilios, iris: edicoes.iris, olhoCor: edicoes.olhoCor }, { escuro: uvEscura(pecas[io]), claro: uvClara(pecas[io]) }, corOlhos ?? undefined);
   }
   fundidas.set(chave, geo);
   return geo;
@@ -526,17 +526,18 @@ export class CorpoGuerreiro {
   }
 
   // OS CÍLIOS-DELINEADO (cilios.js): uma malha a mais, presa ao mesmo esqueleto, com o material do corpo
-  // (a cor é um texel escuro da paleta) — o material de agora vem a cada quadro, no `piscar`
+  // (a cor é um texel escuro da paleta) — o material de agora vem a cada quadro, no `piscar`; com as cores do olho que
+  // BRILHAM (o atributo `brilho`), a cópia dele que emite luz (cilios.js `materialComBrilho`)
   vestirCilios(geo, material) {
     const g = geo.userData.cilios ?? null;
     if (!g) { if (this.cilios) this.cilios.visible = false; return; }
     if (!this.cilios) {
-      const m = new THREE.SkinnedMesh(g, material);
+      const m = new THREE.SkinnedMesh(g, g.attributes.brilho ? materialComBrilho(material) : material);
       m.name = 'cilios'; m.frustumCulled = false; m.receiveShadow = true;
       this.cena.add(m);
       m.bind(this.esqueleto, this.fundida.bindMatrix);
       this.cilios = m;
-    } else { this.cilios.geometry = g; this.cilios.material = material; }
+    } else { this.cilios.geometry = g; this.cilios.material = g.attributes.brilho ? materialComBrilho(material) : material; }
     this.cilios.visible = true;
   }
 
@@ -561,7 +562,7 @@ export class CorpoGuerreiro {
   piscar(dt, fechados = false) {
     const m = this.palpebras, etapas = this.etapasDaPiscada, mat = this.fundida?.material;
     // (os cílios com o material de agora — o do jogador remoto é uma cópia, o do fantasma é translúcido — e só com o corpo)
-    if (this.cilios) { this.cilios.material = mat ?? this.cilios.material; this.cilios.visible = !!this.fundida?.visible && !!this.fundida.geometry.userData.cilios; }
+    if (this.cilios) { this.cilios.material = !mat ? this.cilios.material : this.cilios.geometry.attributes.brilho ? materialComBrilho(mat) : mat; this.cilios.visible = !!this.fundida?.visible && !!this.fundida.geometry.userData.cilios; }
     if (!m) return;
     // (o fantasma, translúcido, não pisca: a pálpebra sairia translúcida por cima do olho)
     if (!etapas || !this.fundida.visible || mat.transparent) { m.visible = false; return; }

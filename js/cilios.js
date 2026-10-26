@@ -14,6 +14,12 @@
  *    na Aparência), com a pupila escura e um brilho, RECORTADO pelo contorno do olho (as pálpebras tapam o alto e o
  *    baixo dela, como num olho de verdade). `tamanho`: o raio em vezes a meia largura do olho; `pupila`: em vezes o
  *    raio da íris.
+ *  - as CORES DO OLHO (`olhoCor` no corpo, 26/10/2026 — o dono: "alterar a cor do fundo do olho, da pupila e da íris
+ *    individualmente, 'cor única' todo o olho, e em cada uma brilho e iluminação"): { fundo, iris, pupila, unica } —
+ *    cada uma { cor: '#rrggbb', luz (a iluminação: × a cor), brilho (luz PRÓPRIA: acende até no escuro) }. O FUNDO é
+ *    uma cópia da tampa do olho logo à frente dela, na cor pedida; a íris sem `cor` segue a de quem veste; `unica`:
+ *    o olho inteiro de uma cor (o fundo, sem íris nem pupila). O brilho vai no atributo `brilho` da malha (a luz emitida, rgb), que então
+ *    é desenhada com `materialComBrilho` (uma cópia do material do corpo que soma a cor × brilho na luz que emite).
  * E `alisarOlhos`: o olho liso (`olhosLisos`) com UMA luz em cada olho (a normal média da tampa) — as facetas dele
  * saíam umas claras, outras escuras ("as sombras da malha dos olhos").
  */
@@ -25,7 +31,9 @@ export const IRIS_PADRAO = { tamanho: 0.42, pupila: 0.38 };
 const OLHOS = ORIGENS.indexOf('olhos');
 const LEVANTA = 0.03;   // cm à frente do olho e da pele (a faixa não briga com eles)
 const DENTRO = 0.03;    // cm para dentro do olho na beira: sem fresta entre a faixa e o olho
-const NA_FRENTE = { iris: 0.045, pupila: 0.06, brilho: 0.075 };   // cm à frente do plano do olho
+const NA_FRENTE = { fundo: 0.02, iris: 0.045, pupila: 0.06, brilho: 0.075 };   // cm à frente do plano do olho
+const CLARO = 1.22;   // (a cor de vértice sobre o texel claro que dá a cor pedida — o branco do olho liso, pintura.js)
+export const PARTES_DO_OLHO = ['unica', 'fundo', 'iris', 'pupila'];
 
 const normalDe = (P, t, n = new THREE.Vector3()) => {
   const a = new THREE.Vector3().fromArray(P, t * 9), b = new THREE.Vector3().fromArray(P, t * 9 + 3).sub(a), c = new THREE.Vector3().fromArray(P, t * 9 + 6).sub(a);
@@ -107,10 +115,16 @@ const circulo = (cx, cy, r, n = 20) => Array.from({ length: n }, (_, i) => [cx +
  */
 export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
   const P = geo.attributes.position.array, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, nt = P.length / 9;
-  if (!si || !sw || geo.index || !origem || !(o?.cilios || o?.iris)) return null;
+  if (!si || !sw || geo.index || !origem || !(o?.cilios || o?.iris || o?.olhoCor)) return null;
   const A = { ...CILIOS_PADRAO, ...(o.cilios ?? {}) }, I = { ...IRIS_PADRAO, ...(o.iris ?? {}) };
   const ci = new THREE.Color(corIris), corDaIris = [ci.r, ci.g, ci.b];
-  const pos = [], nor = [], fonte = [], uv = [], cor = [], trilha = [];
+  const pos = [], nor = [], fonte = [], uv = [], cor = [], bri = [], trilha = [];
+  // as CORES DO OLHO: a cor de vértice de uma parte (sobre o texel claro) × a iluminação dela; e a luz que ela EMITE — a
+  // cor pura × o brilho (na que vem da cena ela "estourava" para o branco: a parte que brilha tira até 60% dela)
+  const OC = o.olhoCor ?? {}, rgb = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; }, SEM = [0, 0, 0];
+  const corDe = (x, padrao) => rgb(x?.cor ?? padrao).map((v) => v * CLARO * (x?.luz ?? 1));
+  const acesa = (x, k) => k.map((v) => v * (1 - 0.6 * Math.min(1, x?.brilho ?? 0)));
+  const emite = (x, base) => (x?.brilho > 0 ? base.map((v) => v * x.brilho * 0.8) : SEM);
   for (const lado of [1, -1]) {
     const { tris, n } = tampaDoOlho(P, origem, lado);
     const L = tris.length ? bordaDoOlho(P, tris) : [];
@@ -119,13 +133,22 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
     const U = new THREE.Vector3(0, 1, 0).addScaledVector(n, -n.y).normalize();   // (o "para cima" no plano do olho)
     const R = new THREE.Vector3().crossVectors(U, n).normalize();                  // (o "para o lado")
     // um triângulo (virado para fora do olho, para onde `n` aponta), com a cor de um texel e uma cor de vértice
-    const tri = (a, b, c, va, vb, vc, t = uvs?.escuro, k = [1, 1, 1]) => {
+    const tri = (a, b, c, va, vb, vc, t = uvs?.escuro, k = [1, 1, 1], emissao = SEM) => {
       const f = b.clone().sub(a).cross(c.clone().sub(a));
       const [x, y, z] = f.dot(n) < 0 ? [a, c, b] : [a, b, c], [vx, vy, vz] = f.dot(n) < 0 ? [va, vc, vb] : [va, vb, vc];
-      for (const [q, v] of [[x, vx], [y, vy], [z, vz]]) { pos.push(q.x, q.y, q.z); nor.push(n.x, n.y, n.z); fonte.push(v); uv.push(t?.[0] ?? 0, t?.[1] ?? 0); cor.push(...k); }
+      for (const [q, v] of [[x, vx], [y, vy], [z, vz]]) { pos.push(q.x, q.y, q.z); nor.push(n.x, n.y, n.z); fonte.push(v); uv.push(t?.[0] ?? 0, t?.[1] ?? 0); cor.push(...k); bri.push(...emissao); }
     };
+    // ---- o FUNDO do olho (`olhoCor.fundo`, ou a cor única): a tampa copiada um tico à frente, na cor dela
+    const fundo = OC.unica ?? OC.fundo;
+    if (fundo) for (const t of tris) {
+      const q = [0, 1, 2].map((e) => new THREE.Vector3().fromArray(P, t * 9 + e * 3).addScaledVector(n, NA_FRENTE.fundo));
+      tri(q[0], q[1], q[2], t * 3, t * 3 + 1, t * 3 + 2, uvs?.claro, acesa(fundo, corDe(fundo, '#f2efe9')), emite(fundo, rgb(fundo.cor ?? '#f2efe9')));
+    }
+    // (com o fundo, tudo o que vai por cima dele — a íris, a pupila, o reflexo, o delineado — sobe o mesmo tanto: a tampa
+    // é abaulada, e a 0,025 cm do fundo a íris deixava ele aparecer em pedaços)
+    const sobe = fundo ? NA_FRENTE.fundo : 0, LV = LEVANTA + sobe;
     // ---- a ÍRIS, a pupila e o brilho: discos no plano do olho, recortados pela borda dele (no 2D do plano)
-    if (o.iris) {
+    if (o.iris && !OC.unica) {
       const em2d = (p) => { const d = p.clone().sub(C); return [d.dot(R), d.dot(U)]; };
       let janela = L.map((x) => em2d(x.p));
       // (anti-horário: a área com sinal positiva)
@@ -147,21 +170,24 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
       };
       const de2d = (q, h) => C.clone().addScaledVector(R, q[0]).addScaledVector(U, q[1]).addScaledVector(n, altura(q) + h);
       // (em leque a partir do MEIO do pedaço recortado: um triângulo grande de borda a borda passaria por baixo da tampa)
-      const disco = (poli, h, t, k) => {
+      const disco = (poli, h, t, k, emissao = SEM) => {
         const p = recortar(poli, janela);
         if (p.length < 3) return;
         const m2 = [p.reduce((s, x) => s + x[0], 0) / p.length, p.reduce((s, x) => s + x[1], 0) / p.length];
-        for (let i = 0; i < p.length; i++) tri(de2d(m2, h), de2d(p[i], h), de2d(p[(i + 1) % p.length], h), L[0].v, L[0].v, L[0].v, t, k);
+        for (let i = 0; i < p.length; i++) tri(de2d(m2, h + sobe), de2d(p[i], h + sobe), de2d(p[(i + 1) % p.length], h + sobe), L[0].v, L[0].v, L[0].v, t, k, emissao);
       };
       // (a íris um tico mais clara que a cor pura — ela "acende" no rosto; a pupila escura; o brilho no alto, para dentro)
-      disco(circulo(0, 0, r), NA_FRENTE.iris, uvs?.claro, corDaIris.map((x) => Math.min(1.4, x * 1.25 + 0.04)));
-      disco(circulo(0, 0, r * I.pupila, 16), NA_FRENTE.pupila, uvs?.escuro);
+      // (com `olhoCor`: a cor pedida no lugar da de quem veste, × a iluminação, e o brilho de cada uma)
+      const I2 = OC.iris, baseIris = I2?.cor ? rgb(I2.cor) : corDaIris;
+      disco(circulo(0, 0, r), NA_FRENTE.iris, uvs?.claro, acesa(I2, baseIris.map((x) => Math.min(1.4, x * 1.25 + 0.04) * (I2?.luz ?? 1))), emite(I2, baseIris));
+      const P2 = OC.pupila;
+      disco(circulo(0, 0, r * I.pupila, 16), NA_FRENTE.pupila, P2?.cor ? uvs?.claro : uvs?.escuro, acesa(P2, P2?.cor ? corDe(P2) : [1, 1, 1].map((x) => x * (P2?.luz ?? 1))), emite(P2, P2?.cor ? rgb(P2.cor) : [0.02, 0.02, 0.02]));
       disco(circulo(-lado * r * 0.3, r * 0.32, r * 0.17, 8), NA_FRENTE.brilho, uvs?.claro, [1.3, 1.3, 1.3]);
     }
     if (!o.cilios) continue;
     // ---- os CÍLIOS-DELINEADO: a faixa em volta da borda
     // a pele na frente? a faixa assenta nela (o osso da sobrancelha costuma estar à frente do plano do olho)
-    const naPele = (q) => { const z = zDaPele(P, null, nt, origem, q.x, q.y, q.z); if (z !== null && z + LEVANTA > q.z) q.z = z + LEVANTA; return q; };
+    const naPele = (q) => { const z = zDaPele(P, null, nt, origem, q.x, q.y, q.z); if (z !== null && z + LV > q.z) q.z = z + LV; return q; };
     const m = L.length;
     // os CANTOS — o de dentro (perto do nariz) e o de fora — e as duas metades da borda entre eles: a de cima e a de baixo
     let ki = 0, ko = 0;
@@ -185,8 +211,8 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
       const d = new THREE.Vector3().crossVectors(tg, n).normalize();
       if (d.dot(p.clone().sub(C)) < 0) d.negate();
       const t = tB[j] / (tB[tB.length - 1] || 1);
-      dentroB.push(p.clone().addScaledVector(d, -DENTRO).addScaledVector(n, LEVANTA));
-      foraB.push(naPele(p.clone().addScaledVector(d, Math.max(0.01, A.baixo + extra('baixo', t))).addScaledVector(n, LEVANTA)));
+      dentroB.push(p.clone().addScaledVector(d, -DENTRO).addScaledVector(n, LV));
+      foraB.push(naPele(p.clone().addScaledVector(d, Math.max(0.01, A.baixo + extra('baixo', t))).addScaledVector(n, LV)));
       trilha.push({ lado, faixa: 'baixo', t, p: dentroB[j].clone().add(foraB[j]).multiplyScalar(0.5).toArray() });
     });
     for (let j = 0; j + 1 < deBaixo.length; j++) {
@@ -223,8 +249,8 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
     const N = 20, dentroC = [], foraC = [], vC = [];
     for (let j = 0; j <= N; j++) {
       const [a, b] = curva(j / N), alem = (a - aE) * s > 0, borda = naBorda(alem ? aE : a);
-      dentroC.push(de2([borda.q[0], borda.q[1] - DENTRO, borda.q[2] + LEVANTA]));
-      foraC.push(naPele(de2([a, b, borda.q[2] + LEVANTA])));
+      dentroC.push(de2([borda.q[0], borda.q[1] - DENTRO, borda.q[2] + LV]));
+      foraC.push(naPele(de2([a, b, borda.q[2] + LV])));
       vC.push(borda.v);
       trilha.push({ lado, faixa: 'cima', t: j / N, p: dentroC[j].clone().add(foraC[j]).multiplyScalar(0.5).toArray() });
     }
@@ -238,7 +264,7 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
       let nr = [-tg[1], tg[0]];
       if (nr[1] < 0) nr = [-nr[0], -nr[1]];   // (para fora do olho: para cima)
       const rumo = [nr[0] * 0.65 + s * 0.45, nr[1] * 0.65 + 0.25], rl = Math.hypot(...rumo), quanto = A.fios * (0.55 + 0.75 * t);
-      const h = naBorda(Math.min((a - a0) * s, (aE - a0) * s) * s + a0).q[2] + LEVANTA, larg = 0.045;
+      const h = naBorda(Math.min((a - a0) * s, (aE - a0) * s) * s + a0).q[2] + LV, larg = 0.045;
       const ponta = naPele(de2([a + (rumo[0] / rl) * quanto, b + (rumo[1] / rl) * quanto, h]));
       tri(naPele(de2([a - tg[0] * larg, b - tg[1] * larg, h])), ponta, naPele(de2([a + tg[0] * larg, b + tg[1] * larg, h])), vC[0], vC[0], vC[0]);
     }
@@ -249,6 +275,8 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.setAttribute('color', new THREE.Float32BufferAttribute(cor, 3));
+  // (a luz que cada ponto EMITE — rgb —, só se alguma parte brilha: aí a malha vai com `materialComBrilho`)
+  if (bri.some((x) => x > 0)) g.setAttribute('brilho', new THREE.Float32BufferAttribute(bri, 3));
   // (os ossos de cada ponto: os do vértice do olho de onde ele sai)
   const ossos = new Uint16Array(k * 4), pesos = new Float32Array(k * 4);
   fonte.forEach((v, i) => { for (let c = 0; c < 4; c++) { ossos[i * 4 + c] = si.getComponent(v, c); pesos[i * 4 + c] = sw.getComponent(v, c); } });
@@ -257,4 +285,45 @@ export function geometriaDosCilios(geo, origem, o, uvs, corIris = '#4a3020') {
   // (por onde passa cada traço — a ferramenta delineado da aba acha nele o lugar do clique: { lado, faixa, t, p })
   g.userData.trilha = trilha;
   return g;
+}
+
+/**
+ * O material que BRILHA (as cores do olho com `brilho`): uma cópia do material do corpo `base` (uma por material, guardada)
+ * que soma à luz que ele emite a do atributo `brilho` de cada ponto (rgb: a cor da parte × o brilho). A cada chamada copia do de base o que muda
+ * no jogo (o clarão do golpe, a transparência do fantasma). Compilado no carregamento (`aquecerBrilhoDosOlhos`).
+ */
+const comBrilho = new WeakMap();
+export function materialComBrilho(base) {
+  let m = comBrilho.get(base);
+  if (!m) {
+    m = base.clone();
+    m.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 brilho;\nvarying vec3 vBrilho;').replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvBrilho = brilho;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vBrilho;').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += vBrilho;');
+    };
+    m.customProgramCacheKey = () => 'olho-brilho';
+    comBrilho.set(base, m);
+  }
+  if (m.emissive && base.emissive) { m.emissive.copy(base.emissive); m.emissiveIntensity = base.emissiveIntensity; }
+  m.opacity = base.opacity;
+  return m;
+}
+
+/** Para o preaquecer do jogo (main.js): um triângulo com o material que brilha no corpo do jogador — o shader dele compila
+ * no carregamento, e não quando chega alguém de olho brilhante. Devolve quem o tira (o material fica: é o do jogo). */
+export function aquecerBrilhoDosOlhos(corpo) {
+  if (!corpo?.fundida?.isSkinnedMesh) return () => {};
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0, 100, 0, 1, 100, 0, 0, 101, 0], 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1], 2));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(9).fill(1), 3));
+  g.setAttribute('brilho', new THREE.Float32BufferAttribute(new Float32Array(9), 3));
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(12), 4));
+  g.setAttribute('skinWeight', new THREE.Float32BufferAttribute([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], 4));
+  const m = new THREE.SkinnedMesh(g, materialComBrilho(corpo.fundida.material));
+  m.frustumCulled = false; m.receiveShadow = true;
+  corpo.cena.add(m);
+  m.bind(corpo.esqueleto, corpo.fundida.bindMatrix);
+  return () => { corpo.cena.remove(m); g.dispose(); };
 }
