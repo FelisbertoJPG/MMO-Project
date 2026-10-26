@@ -247,6 +247,56 @@ function seguirAPele(P, idx, nt, ctx, mexeu) {
   }
 }
 
+// As SOBRANCELHAS COLADAS (`sobrancelha.colar`, 0 a 1 — 25/10/2026, o dono: "a ponta da sobrancelha tá afastada do
+// rosto"): ela nasce com a camada de baixo uns 3 a 4 mm DENTRO da pele e a de cima uns 3 mm fora; esvaziada a pele em
+// volta dos olhos, o puxão (que anda pela normal de cada vértice) empurrava a camada de baixo — de faces viradas para
+// dentro — para FORA: ela ficava achatada e solta até 9 mm. Cada ponto dela mede a altura sobre a pele (a distância, com
+// sinal, ao triângulo de pele mais perto) agora e na malha de ANTES das edições (`ctx.base`) e volta (× `colar`) à de
+// quando nasceu, pela normal da pele; o `frente` da parte vale por cima. O lugar dela ao longo do rosto (subir, afastar,
+// o arco, os movidos) fica — só a altura sobre a pele volta
+function colarSobrancelhas(P, ctx, edicoes, mexeu, nc) {
+  const SOB = ORIGENS.indexOf('sobrancelhas'), O = ctx.origem, B = ctx.base, colar = Math.min(1, edicoes.sobrancelha.colar);
+  const frente = edicoes.partes?.sobrancelhas?.mover?.[2] ?? 0;
+  const sob = [];
+  for (let i = 0; i < nc; i++) if (O[i] === SOB) sob.push(i);
+  if (!sob.length) return;
+  // (a pele: os triângulos do corpo perto delas, de pé agora e antes)
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const i of sob) { x0 = Math.min(x0, P[i * 3]); x1 = Math.max(x1, P[i * 3]); y0 = Math.min(y0, P[i * 3 + 1]); y1 = Math.max(y1, P[i * 3 + 1]); }
+  const tris = [];
+  for (let i = 0; i < nc; i += 3) {
+    if (O[i] !== 0) continue;
+    const mx = (P[i * 3] + P[i * 3 + 3] + P[i * 3 + 6]) / 3, my = (P[i * 3 + 1] + P[i * 3 + 4] + P[i * 3 + 7]) / 3;
+    if (mx > x0 - 3 && mx < x1 + 3 && my > y0 - 3 && my < y1 + 3) tris.push(i);
+  }
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), q = new THREE.Vector3(), cp = new THREE.Vector3(), nn = new THREE.Vector3(), tri = new THREE.Triangle();
+  // a altura (com sinal) do vértice `i` sobre a pele em `X` (P ou a base); `normal` recebe a normal da pele ali
+  const altura = (X, i, normal = null) => {
+    q.fromArray(X, i * 3);
+    let d = Infinity, s = 1;
+    for (const k of tris) {
+      tri.set(a.fromArray(X, k * 3), b.fromArray(X, k * 3 + 3), c.fromArray(X, k * 3 + 6));
+      if (tri.getArea() < 1e-6) continue;   // (cortado)
+      tri.closestPointToPoint(q, cp);
+      const x = cp.distanceTo(q);
+      if (x >= d) continue;
+      d = x;
+      tri.getNormal(nn);
+      s = cp.sub(q).dot(nn) > 0 ? -1 : 1;
+      normal?.copy(nn);
+    }
+    return d === Infinity ? null : d * s;
+  };
+  sob.forEach((i) => {
+    const n = new THREE.Vector3(), agora = altura(P, i, n), antes = altura(B, i);
+    if (agora === null || antes === null) return;
+    const d = (agora - antes - frente) * colar;
+    if (Math.abs(d) < 0.01 || n.lengthSq() < 0.5) return;
+    P[i * 3] -= n.x * d; P[i * 3 + 1] -= n.y * d; P[i * 3 + 2] -= n.z * d;
+    mexeu[i] = 1;
+  });
+}
+
 // A altura (z) da PELE do rosto num ponto (x, y): o triângulo de pele (de frente, perto de `zRef`) mais
 // para fora que cobre o ponto — ou null
 export function zDaPele(P, idx, nt, origem, x, y, zRef) {
@@ -437,6 +487,8 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   // ---- 2-'. os VÉRTICES APAGADOS do corpo: cada um vai para o vizinho (depois de os dois andarem; antes dos criados,
   // que colam nele e vão junto)
   if (edicoes.apagados?.length && !idx) apagarVertices(P, ctx, edicoes.apagados, mexeu, ctx.novosDe ?? n);
+  // ---- 2-''. as SOBRANCELHAS COLADAS no rosto (`sobrancelha.colar`), com a pele e elas já onde ficam
+  if (edicoes.sobrancelha?.colar > 0 && ctx.base && !idx) colarSobrancelhas(P, ctx, edicoes, mexeu, ctx.novosDe ?? n);
   // ---- 2a. as CORES: o triângulo do corpo pintado no editor pega um ponto da paleta (antes dos
   // vértices criados: os pedaços de um triângulo pintado herdam a cor dele)
   if (edicoes.cores?.length && !idx) pintarTriangulos(geo, edicoes.cores, ctx);
