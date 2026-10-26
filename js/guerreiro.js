@@ -28,7 +28,7 @@ import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { LUGARES } from './ficha.js';
 import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
-import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, PELES, OLHOS, naPele } from './aparencia.js';
+import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS, naPele, corDaPele } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes } from './modelagem.js';
@@ -44,9 +44,10 @@ import { folhaDaBoca } from './boca.js';
 // armadura vem do EQUIPAMENTO; antes vinha do provador, inteira).
 // Depois de ':' vem a APARÊNCIA (aparencia.js: pele, cabelo, barba, olhos — 5 dígitos):
 // '0100:21310'. Sem ela, a do modelo. Um 6º dígito na aparência é a RAÇA (raca.js), um 7º, a
-// SOBRANCELHA (penteado.js), um 8º, o SEXO (raca.js `racaDe`), e um 9º, o BATOM (boca.js).
+// SOBRANCELHA (penteado.js), um 8º, o SEXO (raca.js `racaDe`), e um 9º, o BATOM (boca.js); com 11, o 10º e o 11º são
+// o TOM de pele livre (aparencia.js `corDoTom`).
 export const NU = '0000';
-const CODIGO = /^[0-9]{4}(:[0-9]{5,9})?$/;
+const CODIGO = /^[0-9]{4}(:(?:[0-9]{5,9}|[0-9]{11}))?$/;
 /** O corpo que veio da rede é válido? (os nomes de antes — 'nu', 'A1'… — ainda valem) */
 export const corpoValido = (c) => c === 'antigo' || CODIGO.test(c) || ['nu', 'A1', 'A2', 'A3'].includes(c);
 /** corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo; senão o código) */
@@ -583,7 +584,7 @@ export class CorpoGuerreiro {
   vestirPinturas(geo, material, ap) {
     this.pinturas ??= [];
     const folhas = geo.userData.pinturas ?? [], raca = this.raca;
-    const cores = { pele: raca?.pele ?? PELES[ap.pele][1] ?? CORES_DO_MODELO.pele, olhos: raca?.olhos ?? OLHOS[ap.olhos][1] ?? CORES_DO_MODELO.olhos, cabelo: CABELOS[ap.cor][1] ?? CORES_DO_MODELO.cabelo };
+    const cores = { pele: raca?.pele ?? corDaPele(ap) ?? CORES_DO_MODELO.pele, olhos: raca?.olhos ?? OLHOS[ap.olhos][1] ?? CORES_DO_MODELO.olhos, cabelo: CABELOS[ap.cor][1] ?? CORES_DO_MODELO.cabelo };
     folhas.forEach(({ folha, geometry }, i) => {
       const map = texturaDaFolha(folha, cores, Assets.pinturas);
       let m = this.pinturas[i];

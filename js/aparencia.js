@@ -40,6 +40,24 @@ export const PELES = [
   // (tons pensados para a luz do jogo: a paleta original do modelo é #f8bb7f)
   ['Original', null], ['Clara', '#ffcfa0'], ['Morena clara', '#e8ae80'], ['Morena', '#cf9061'], ['Parda', '#ad7148'], ['Negra', '#80523a'],
 ];
+// O TOM DE PELE LIVRE (26/10/2026, o dono: "mudar a cor do personagem humano dentro do espectro bege a preto — cores
+// humanas mesmo", na Aparência do jogo também): `tom` de 0 a 99, do bege mais claro ao quase preto, passando pelos tons
+// de PELES (os pontos da régua: `TONS`). No código, os dígitos 10 e 11 (com os 9 de antes inteiros); o código sem eles
+// (o de todos até aqui) segue com o tom da lista PELES pelo 1º dígito.
+const TONS = ['#ffe2c6', '#ffcfa0', '#e8ae80', '#cf9061', '#ad7148', '#80523a', '#5c3828', '#3a2219'];
+export const TOM_MAX = 99;
+// (onde cada tom da lista PELES cai na régua — o "Original", o do modelo, entre a Clara e a Morena clara)
+export const TOM_DE_PELE = [20, 14, 28, 42, 57, 71];
+export function corDoTom(t) {
+  const x = (Math.min(TOM_MAX, Math.max(0, t)) / TOM_MAX) * (TONS.length - 1), i = Math.min(TONS.length - 2, Math.floor(x)), f = x - i;
+  const a = parseInt(TONS[i].slice(1), 16), b = parseInt(TONS[i + 1].slice(1), 16);
+  const c = [16, 8, 0].map((s) => Math.round(((a >> s) & 255) * (1 - f) + ((b >> s) & 255) * f));
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+/** a cor da pele de uma aparência lida (o tom livre, ou o da lista; null = a do modelo) */
+export const corDaPele = (a) => (a.tom != null ? corDoTom(a.tom) : PELES[a.pele]?.[1] ?? null);
+/** a régua em CSS (o fundo dela no painel) */
+export const GRADIENTE_DA_PELE = `linear-gradient(90deg, ${TONS.join(', ')})`;
 // (a ORDEM é o número no save, o 3º dígito: cor nova entra no FIM — no máximo 10)
 export const CABELOS = [
   ['Original', null], ['Preto', '#1e1712'], ['Castanho', '#4b2f1b'], ['Castanho claro', '#7b4c27'], ['Loiro', '#c99f5c'], ['Ruivo', '#a3431f'], ['Grisalho', '#8c8a86'], ['Branco', '#e6e0d2'], ['Vinho', '#74202a'], ['Vermelho', '#c0262c'],
@@ -55,21 +73,23 @@ export const BATONS = [
   ['Coral', '#e0644e', 0], ['Nude', '#b07463', 0], ['Roxo', '#4b1d4f', 0], ['Preto', '#1c1418', 0],
 ];
 export const APARENCIA_PADRAO = '01010';
-const CODIGO = /^[0-9]{5,9}$/;
+const CODIGO = /^(?:[0-9]{5,9}|[0-9]{11})$/;
 
-/** Lê um código (ou o padrão, se torto): { pele, cabelo, cor, barba, olhos, raca, sobrancelha, sexo, batom }. */
+/** Lê um código (ou o padrão, se torto): { pele, cabelo, cor, barba, olhos, raca, sobrancelha, sexo, batom, tom }. */
 export function lerAparencia(c) {
   const s = CODIGO.test(c ?? '') ? c : APARENCIA_PADRAO;
   const d = [...s].map(Number);
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1], cor: d[2] < CABELOS.length ? d[2] : 0,
     barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] === 1 ? 1 : 0,
-    batom: d[8] < BATONS.length ? d[8] : 0,
+    batom: d[8] < BATONS.length ? d[8] : 0, tom: s.length === 11 ? d[9] * 10 + d[10] : null,
   };
 }
-// (humano de sobrancelha normal: os 5 dígitos de sempre; a raça é o 6º; a sobrancelha que não é a do modelo pede os 7; o feminino, os 8; o batom, os 9)
+// (humano de sobrancelha normal: os 5 dígitos de sempre; a raça é o 6º; a sobrancelha que não é a do modelo pede os 7; o feminino, os 8; o batom, os 9;
+// o TOM livre, os 11 — os 9 inteiros e ele em 2 dígitos)
 export function codigoDaAparencia(a) {
   const sobrancelha = a.sobrancelha ?? 1;
+  if (a.tom != null) return `0${a.cabelo}${a.cor}${a.barba}${a.olhos}${a.raca || 0}${sobrancelha}${a.sexo ? 1 : 0}${a.batom || 0}${String(Math.min(TOM_MAX, Math.max(0, Math.round(a.tom)))).padStart(2, '0')}`;
   const cauda = a.batom ? `${a.raca || 0}${sobrancelha}${a.sexo ? 1 : 0}${a.batom}`
     : a.sexo ? `${a.raca || 0}${sobrancelha}${a.sexo}` : sobrancelha === 1 ? a.raca || '' : `${a.raca || 0}${sobrancelha}`;
   return `${a.pele}${a.cabelo}${a.cor}${a.barba}${a.olhos}${cauda}`;
@@ -125,7 +145,7 @@ export function esquecerTingidas() { for (const g of tingidas.values()) g?.dispo
  */
 export function tingir(peca, codigo) {
   const a = lerAparencia(codigo), nome = peca.name, raca = racaDe(a.raca, a.sexo);
-  const pele = raca?.pele ?? PELES[a.pele][1], olhos = raca?.olhos ?? OLHOS[a.olhos][1];
+  const pele = raca?.pele ?? corDaPele(a), olhos = raca?.olhos ?? OLHOS[a.olhos][1];
   let hex = null, escolhe = null;
   const uv = peca.geometry.attributes.uv;
   if (!uv) return peca;
@@ -203,7 +223,7 @@ export class EditorDeAparencia {
       // (a raça não entra no sorteio: é escolha)
       const agora = lerAparencia(game.player.aparencia), raca = racaDe(agora.raca, agora.sexo), penteados = penteadosDe(raca).length, barbas = barbasDe(raca).length, sobrancelhas = sobrancelhasDe(raca).length;
       // (o batom só no sorteio do corpo feminino; no masculino, sai)
-      this.mudar({ pele: 1 + r(PELES.length - 1), cabelo: penteados && Math.random() < 0.85 ? 1 + r(penteados) : 0, cor: 1 + r(CABELOS.length - 1), barba: barbas && Math.random() < 0.6 ? 1 + r(barbas) : 0, olhos: r(OLHOS.length), sobrancelha: sobrancelhas ? 1 + r(sobrancelhas) : 0, batom: agora.sexo ? r(BATONS.length) : 0 });
+      this.mudar({ pele: 0, tom: r(TOM_MAX + 1), cabelo: penteados && Math.random() < 0.85 ? 1 + r(penteados) : 0, cor: 1 + r(CABELOS.length - 1), barba: barbas && Math.random() < 0.6 ? 1 + r(barbas) : 0, olhos: r(OLHOS.length), sobrancelha: sobrancelhas ? 1 + r(sobrancelhas) : 0, batom: agora.sexo ? r(BATONS.length) : 0 });
     });
     // a volta da vista: 0 = de frente para o rosto, π = as costas
     this.giro = 0;
@@ -271,6 +291,8 @@ export class EditorDeAparencia {
       // (a raça ESCULPIDA — um corpo feito de fotos, esculpido.js — já vem pintada e vestida:
       // só a linha da raça; o resto do código fica guardado para quando voltar ao humano)
       if (k !== 'raca' && esculpidoDe(raca)) continue;
+      // (a PELE é uma régua — o tom livre, do bege ao quase preto: o corpo muda ao SOLTAR; arrastando, só a amostra)
+      if (k === 'pele') { this.lista.appendChild(this.reguaDaPele(a)); continue; }
       const ops = opcoes(raca), linha = document.createElement('div');
       // a raça anda pela lista das jogáveis (o número dela é o lugar no arquivo, não na lista)
       const agora = k === 'raca' ? Math.max(0, racas.findIndex((r) => r.n === a.raca)) : a[k];
@@ -282,6 +304,19 @@ export class EditorDeAparencia {
       }
       this.lista.appendChild(linha);
     }
+  }
+
+  reguaDaPele(a) {
+    const linha = document.createElement('div'), tom = a.tom ?? TOM_DE_PELE[a.pele] ?? TOM_DE_PELE[0];
+    linha.className = 'aparencia-linha aparencia-tom';
+    linha.innerHTML = `<span class="rotulo">Pele</span><input type="range" min="0" max="${TOM_MAX}" step="1" value="${tom}" aria-label="tom de pele"><span class="tom-amostra"></span>`;
+    const regua = linha.querySelector('input'), amostra = linha.querySelector('.tom-amostra');
+    regua.style.background = GRADIENTE_DA_PELE;
+    const mostrar = () => { amostra.style.background = corDoTom(Number(regua.value)); };
+    mostrar();
+    regua.addEventListener('input', mostrar);
+    regua.addEventListener('change', () => this.mudar({ pele: 0, tom: Number(regua.value) }));
+    return linha;
   }
 
   /**
