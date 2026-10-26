@@ -58,6 +58,7 @@
  */
 import * as THREE from 'three';
 import { texelClaro } from './casca.js';
+import { Assets, CORPOS_DE_ARQUIVO } from './assets.js';   // (o cabelo dos corpos de arquivo: a forma `malha`; só lido ao desenhar)
 import { triangulosDe, raio, raioDe, grudar, lugar, normalLisa, pesos, misturar } from './ima.js';
 
 // quem não escolheu a cor ("Original"): o castanho do cabelo do modelo, medido na textura
@@ -174,6 +175,9 @@ export const PENTEADOS = {
     // (os coques nos cantos de cima da cabeça, o meio deles acima do couro: saltam da silhueta, como na referência)
     ['bola', { em: [108, 33], raio: 5.6, sai: 6.1, achata: 0.94, inclina: 6, bagunca: 0.1 }],
   ] },
+  // OS COQUES DO MODELO (26/10/2026): o cabelo do próprio modelo da Feminino 2 (o corpo de arquivo), tirado do corpo dela
+  // — a forma MALHA; as réguas (na aba Cabelo do editor) aumentam, achatam, giram e mudam o lugar dele
+  coquesDoModelo: { nome: 'Coques (do modelo)', formas: [['malha', { corpo: 0 }]] },
 };
 
 /**
@@ -236,6 +240,10 @@ export const MEDIDAS = {
     ['raio', 'grossura', 4.2, 0.5, 8, 0.05], ['onda', 'onda (cm)', 1.4, 0, 5, 0.05], ['passo', 'passo da onda', 13, 3, 60, 0.5], ['fase', 'fase', 0, 0, 6.3, 0.05], ['folga', 'volume (cm)', 2.2, 0, 5, 0.05],
     ['vira', 'ponta vira', 2, -5, 8, 0.05], ['achata', 'achatada', 0.6, 0.2, 1.5, 0.01], ['larg', 'largura', 1.3, 0.5, 3, 0.05], ['prumo', 'prumo', 0.12, 0, 1, 0.01]],
   fiapo: [['lado', 'lado (1 ou -1)', 1, -1, 1, 2], ['pontos', 'pontos', [[9.3, 176.6, 4.8], [10.8, 172.4, 4.4], [11.2, 167.4, 4.8]], -40, 200, 0.1, XYZ], ['raio', 'grossura', 0.62, 0.1, 3, 0.02]],
+  malha: [['corpo', 'de qual corpo de arquivo (nº)', 0, 0, 9, 1], ['escala', 'tamanho', 1, 0.5, 1.6, 0.01], ['largura', 'largura', 1, 0.5, 1.6, 0.01],
+    ['altura', 'altura', 1, 0.5, 1.6, 0.01], ['fundo', 'fundo', 1, 0.5, 1.6, 0.01], ['x', 'para o lado (cm)', 0, -10, 10, 0.1], ['y', 'para cima (cm)', 0, -10, 10, 0.1],
+    ['z', 'para a frente (cm)', 0, -10, 10, 0.1], ['giro', 'giro (graus)', 0, -45, 45, 0.5], ['inclina', 'inclinação (graus, + para trás)', 0, -45, 45, 0.5],
+    ['tomBaixo', 'tom embaixo', 0.8, 0.3, 1.5, 0.01], ['tomCima', 'tom em cima', 1.08, 0.3, 1.5, 0.01]],
 };
 /** Uma forma NOVA do cabelo, com as medidas de exemplo (as de `MEDIDAS`). */
 export const formaNova = (forma) => [forma, Object.fromEntries((MEDIDAS[forma] ?? []).map(([k, , p]) => [k, JSON.parse(JSON.stringify(p))]))];
@@ -481,6 +489,31 @@ const FORMAS = {
       const est = (d, q, cor) => ({ c: p.clone().addScaledVector(eixo, d * raio), a: X.clone().multiplyScalar(q * raio), b: b.clone().multiplyScalar(q * raio), cor, w: c.CABECA });
       tubo(r, [est(-AFUNDA / raio, 0.7, faixa), est(0.55, 0.7, faixa)], HEXAGONO, [false, true]);
       tubo(r, [est(0.45, 0.55, c.tom(0.75)), est(0.95, 1, c.tom(0.92)), est(1.6, 1.02, c.tom(1.1)), est(2.1, 0.62, c.tom(1.22)), est(2.32, 0, c.tom(1.28))], HEXAGONO);
+    });
+  },
+
+  // A MALHA (26/10/2026): o cabelo PRONTO de um corpo de arquivo (corpo-arquivo.js — o da Feminino 2, tirado do modelo
+  // dela pelo importar.mjs: `Assets.corpos[nome].cabelo`), inteiro e preso à cabeça. `corpo`: o número dele em
+  // CORPOS_DE_ARQUIVO. As réguas: `escala` (e por eixo `largura`, `altura`, `fundo`) em volta do meio da cabeça dele
+  // (`pivo`), `giro` (em volta do eixo de pé) e `inclina` (para trás), e andar `x`, `y`, `z` cm; o tom vai de `tomBaixo`
+  // a `tomCima`. Ele está no lugar da cabeça DAQUELE corpo: em outro corpo, fica onde ela estaria. Com elmo, sai.
+  malha(m, c, { corpo = 0, escala = 1, largura = 1, altura = 1, fundo = 1, x = 0, y = 0, z = 0, giro = 0, inclina = 0, tomBaixo = 0.8, tomCima = 1.08 }) {
+    const cab = Assets.corpos?.[CORPOS_DE_ARQUIVO[Math.round(corpo)]]?.cabelo;
+    if (c.elmo || !cab) return;
+    const piv = new THREE.Vector3(...cab.pivo), anda = new THREE.Vector3(x, y, z);
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler((inclina * Math.PI) / 180, (giro * Math.PI) / 180, 0, 'YXZ'));
+    let baixo = Infinity, cima = -Infinity;
+    for (let i = 1; i < cab.pos.length; i += 3) { baixo = Math.min(baixo, cab.pos[i]); cima = Math.max(cima, cab.pos[i]); }
+    naCabeca(m, c, (r) => {
+      const cantos = [];
+      for (let i = 0; i < cab.pos.length; i += 3) {
+        const p = new THREE.Vector3(cab.pos[i], cab.pos[i + 1], cab.pos[i + 2]).sub(piv);
+        p.set(p.x * escala * largura, p.y * escala * altura, p.z * escala * fundo).applyQuaternion(q).add(piv).add(anda);
+        const f = (cab.pos[i + 1] - baixo) / Math.max(1e-6, cima - baixo);
+        cantos.push({ p, cor: c.tom(tomBaixo + (tomCima - tomBaixo) * f), w: c.CABECA });
+      }
+      // (a ordem dos cantos é a do modelo: já virada para fora)
+      for (let t = 0; t < cab.idx.length; t += 3) r.v.push(cantos[cab.idx[t]], cantos[cab.idx[t + 1]], cantos[cab.idx[t + 2]]);
     });
   },
 

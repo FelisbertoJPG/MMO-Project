@@ -1,5 +1,5 @@
 {
-  "_leiame": "O recorte do CORPO DE ARQUIVO feminino2 (importar.mjs). Medidas em UNIDADES DO ARQUIVO (o .glb do Meshy: 1,90 de altura, y para cima, de frente para +z, na pose A) — exceto alturaDosOlhos (cm, no espaço do guerreiro). Mudou algo aqui: rode de novo `node ferramentas/corpo-de-arquivo/importar.mjs ferramentas/corpo-de-arquivo/feminino2.json --conferir=<pasta>` e confira as fotos.",
+  "_leiame": "O recorte do CORPO DE ARQUIVO feminino2 (importar.mjs). Medidas em UNIDADES DO ARQUIVO (o .glb do Meshy: 1,90 de altura, y para cima, de frente para +z, na pose A) — exceto alturaDosOlhos e `cabelo` (cm, no espaço do guerreiro, como a régua da aba Modelo). Mudou algo aqui: rode de novo `node ferramentas/corpo-de-arquivo/importar.mjs ferramentas/corpo-de-arquivo/feminino2.json --conferir=<pasta>` e confira as fotos. ATENÇÃO: as edições da aba Modelo (humano:arquivo) estão presas aos pontos da malha — gerar de novo pode perdê-las.",
   "nome": "feminino2",
   "entrada": "ferramentas/corpo-de-arquivo/feminino2-meshy.glb",
   "triangulos": 8000,
@@ -12,20 +12,31 @@
   },
   "olhos": { "x": 0.04, "y": 0.752, "largura": 0.036, "altura": 0.022, "giro": 6 },
   "boca": { "y": 0.692, "largura": 0.016, "altura": 0.0035 },
+  "cabelo": {
+    "_leiame": "O CABELO sai do corpo (vira o penteado 'Coques (do modelo)') e a cabeça fica CARECA. linha = a LINHA DO CABELO: [graus a partir da testa (0) até a nuca (180), altura em cm], igual dos dois lados — acima dela é cabelo (a testa sobe até a linha que o dono traçou na aba Modelo, ~183 cm no meio). cabeca = daqui (cm) para cima é a cabeça. fina = cm: o que é mais fino que isto (uma lâmina) é mecha solta; naFrente = cm: a face virada para fora com outra superfície a menos disto atrás dela (no rumo do eixo da cabeça) também — a franja diante da testa, as mechas diante das bochechas. ilha = ilhas de cabelo com até tantos triângulos dentro da pele voltam para ela. O COURO novo (a careca) é uma CÚPULA à parte (não costurada na beira): gomos em volta, aneis de baixo até o alto; começa desce graus abaixo da beira e dentro cm por dentro da pele dali; folgaDoCouro = cm abaixo da casca do cabelo, no alto; cranio = o CRÂNIO liso da careca (cm, a partir do meio da cabeça): meia largura, frente, trás, alto (a altura do topo, abaixo do volume do cabelo) e baixo (abaixo do meio, para a nuca). Na testa (acima de testaDe cm, de frente), o que tem outra superfície a menos de naTesta cm atrás é mecha.",
+    "linha": [[0, 183], [25, 181.5], [45, 178], [60, 170], [75, 165], [90, 164.5], [180, 164.5]],
+    "cabeca": 162,
+    "fina": 1.3,
+    "naFrente": 2.5,
+    "testaDe": 173,
+    "naTesta": 4,
+    "cranio": { "largura": 8.2, "frente": 10, "tras": 10, "alto": 188, "baixo": 11 },
+    "ilha": 2,
+    "aneis": 8,
+    "gomos": 24,
+    "desce": 6,
+    "dentro": 0.3,
+    "folgaDoCouro": 1.2
+  },
   "jogo": {
-    "_leiame": "O que o JOGO usa deste corpo (vai para assets/corpos/<nome>.json): raca = de qual raça ele é o 3º corpo (0 = o humano); rotulo = o nome na linha Sexo da Aparência; cores = as do modelo quando o jogador deixa o Original (pele, cabelo, olhos) e a da roupa (top e calcinha); proporcoes = altura (a escala do corpo inteiro) e as larguras que AFINAM AS ARMADURAS para este corpo (o corpo em si não muda com elas).",
+    "_leiame": "O que o JOGO usa deste corpo (vai para assets/corpos/<nome>.json): raca = de qual raça ele é o 3º corpo (0 = o humano); rotulo = o nome na linha Sexo da Aparência; cores = as do modelo quando o jogador deixa o Original (pele, cabelo, olhos) e a da roupa (top e calcinha); penteados = os cabelos que ele tem (ids de js/penteado.js: o 'coquesDoModelo' é o cabelo tirado do próprio modelo); proporcoes = altura (a escala do corpo inteiro) e as larguras que AFINAM AS ARMADURAS para este corpo (o corpo em si não muda com elas).",
     "raca": 0,
     "rotulo": "Feminino 2",
     "cores": { "pele": "#f8bb7f", "cabelo": "#2a1812", "olhos": "#2f7f95", "roupa": "#232a44" },
+    "penteados": ["coquesDoModelo"],
     "proporcoes": { "altura": 0.93, "ombros": 0.9, "peitoLargura": 0.88, "peitoFundo": 0.95, "barrigaLargura": 0.82, "quadril": 1.05, "bracos": 0.8, "antebracos": 0.8, "coxas": 0.95, "canelas": 0.88 }
   },
   "regioes": {
-    "pescocoAte": 0.672,
-    "franja": 0.766,
-    "rostoLargura": 0.075,
-    "rostoFrente": 0.02,
-    "queixo": { "frente": 0.0, "ate": 0.735 },
-    "nuca": 0.69,
     "top": { "de": 0.385, "ate": 0.497, "sobe": 0.03, "largura": 0.125, "costasDe": 0.35, "costasAte": 0.445, "alca": [0.072, 0.102] },
     "calcinha": { "meioZ": 0.0, "cintura": [0.133, 0.18, 0.165], "quadril": [0.14, 0.178], "costasCava": 0.07 }
   }

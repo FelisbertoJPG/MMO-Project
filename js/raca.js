@@ -147,11 +147,14 @@ export const esculpidoDe = (raca) => (raca?.esculpido && Assets.esculpidos?.[rac
  */
 export function racaDe(n, sexo = 0) {
   const raca = n > 0 ? Assets.racas?.[n - 1] ?? null : null;
-  // (o 2: o corpo de ARQUIVO — o modelo inteiro, com o cabelo e o rosto dele: sem penteado, barba, sobrancelha,
-  // presas nem busto; as proporções dele só dão a altura e afinam as armaduras. Sem ele, vale o feminino)
+  // (o 2: o corpo de ARQUIVO — o modelo inteiro, com o rosto dele e CARECA: o cabelo dele é um penteado ("Coques do
+  // modelo", a forma `malha`) — os da lista `jogo.penteados` do arquivo (a MESMA lista sempre: a aba Cabelo do editor põe
+  // nela o penteado que está editando); sem barba, sobrancelha, presas nem busto; as proporções dele só dão a altura e
+  // afinam as armaduras. Sem ele, vale o feminino)
   const arq = sexo === 2 ? deArquivo(n) : null;
   if (arq) {
-    return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, pele: null, olhos: null, semCabelo: true, semBarba: true, penteados: [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {} };
+    if (arq.jogo) arq.jogo.penteados = Array.isArray(arq.jogo.penteados) ? arq.jogo.penteados : [];
+    return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, pele: null, olhos: null, semCabelo: false, semBarba: true, penteados: arq.jogo?.penteados ?? [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {} };
   }
   const f = sexo >= 1 ? feminino(n) : null;
   return f ? { ...raca, ...f, feminino: undefined } : raca;

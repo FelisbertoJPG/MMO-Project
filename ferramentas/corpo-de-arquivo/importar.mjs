@@ -258,14 +258,7 @@ for (let t = 0; t < NT; t++) {
   const [x, y, z] = c, ax = Math.abs(x);
   const braco = (pesoDoBraco(I[3 * t]) + pesoDoBraco(I[3 * t + 1]) + pesoDoBraco(I[3 * t + 2])) / 3 > 0.5;
   let r = REG.pele;
-  // o CABELO: tudo da cabeça acima do pescoço, menos o rosto (a frente, abaixo da franja), o queixo e o lado
-  // dele (abaixo das mechas do lado) e a nuca
-  if (y > cr.pescocoAte) {
-    const rosto = z > cr.rostoFrente && y < cr.franja && ax < cr.rostoLargura;
-    const queixo = z > cr.queixo.frente && y < cr.queixo.ate;
-    const nuca = z < cr.rostoFrente && y < cr.nuca && ax < cr.rostoLargura;
-    if (!rosto && !queixo && !nuca) r = REG.cabelo;
-  }
+  // (o CABELO é separado abaixo: `separarOCabelo`)
   // o TOP: o bojo na frente (a borda de cima sobe para os lados), a faixa das costas e as alças por cima do ombro
   const tp = cr.top;
   if (!braco && y < ombroTopo + 0.02) {
@@ -282,6 +275,200 @@ for (let t = 0; t < NT; t++) {
     if (y < cintura && y > cava) r = REG.roupa;
   }
   regiao[t] = r;
+}
+
+// ------------------------------------------------------------ 6b. o CABELO sai do corpo (vira um penteado) e a cabeça fica CARECA
+// (26/10/2026, o dono traçou na aba Modelo onde a testa acaba: a testa sobe até ~183 cm no meio, entre as mechas da franja)
+// É cabelo, na cabeça (acima de `cabeca` cm):
+//  - o que está acima da LINHA DO CABELO (`linha`: [graus a partir da frente, altura em cm], igual dos dois lados, em
+//    volta do meio da cabeça) — a casca do cabelo, os coques;
+//  - as MECHAS soltas (a franja, as do lado do rosto): lâminas FINAS — um raio para dentro da face acha o outro lado
+//    dela a menos de `fina` cm (a testa e o rosto atrás delas são grossos: o raio atravessa a cabeça);
+//  - e as ilhas que sobram soltas do corpo (as pontas das mechas abaixo da linha).
+// O buraco que o cabelo deixa no alto da cabeça é fechado por um COURO novo (anéis da beira até o alto, por dentro da
+// casca do cabelo: `folgaDoCouro`), preso à cabeça; buraquinhos (a raiz de uma mecha na testa), por um leque.
+const ccab = cfg.cabelo, cmY = (y) => (y - y0) * k, porCm = 1 / k;
+const triMeio = (t) => [0, 1, 2].map((e) => (P[3 * I[3 * t] + e] + P[3 * I[3 * t + 1] + e] + P[3 * I[3 * t + 2] + e]) / 3);
+const triNormal = (t) => {
+  const a = V(P.slice(3 * I[3 * t], 3 * I[3 * t] + 3)), b = V(P.slice(3 * I[3 * t + 1], 3 * I[3 * t + 1] + 3)), c = V(P.slice(3 * I[3 * t + 2], 3 * I[3 * t + 2] + 3));
+  return b.sub(a).cross(c.sub(a)).normalize();
+};
+const linhaDoCabelo = (graus) => {   // a altura (cm) da linha do cabelo nesse ângulo (0 = a testa, 180 = a nuca)
+  const L = ccab.linha, g = Math.min(180, Math.abs(graus));
+  for (let i = 0; i < L.length - 1; i++) if (g >= L[i][0] && g <= L[i + 1][0]) { const f = (g - L[i][0]) / (L[i + 1][0] - L[i][0]); return L[i][1] + f * (L[i + 1][1] - L[i][1]); }
+  return L.at(-1)[1];
+};
+const naCabeca = new Uint8Array(NT);
+for (let t = 0; t < NT; t++) naCabeca[t] = cmY(triMeio(t)[1]) > ccab.cabeca ? 1 : 0;
+// o raio de `o` na direção `d`: a que distância está a face mais perto (Möller–Trumbore, só entre as da `lista`)
+const daCabeca = [...naCabeca.keys()].filter((t) => naCabeca[t]);
+function raioAte(o, d, fora, lista = daCabeca) {
+  let melhor = Infinity;
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), h = new THREE.Vector3(), s = new THREE.Vector3(), q = new THREE.Vector3(), a = new THREE.Vector3();
+  for (const t of lista) {
+    if (t === fora) continue;
+    a.fromArray(P, 3 * I[3 * t]); e1.fromArray(P, 3 * I[3 * t + 1]).sub(a); e2.fromArray(P, 3 * I[3 * t + 2]).sub(a);
+    h.crossVectors(d, e2); const det = e1.dot(h);
+    if (Math.abs(det) < 1e-12) continue;
+    s.subVectors(o, a); const u = s.dot(h) / det; if (u < 0 || u > 1) continue;
+    q.crossVectors(s, e1); const v = d.dot(q) / det; if (v < 0 || u + v > 1) continue;
+    const dist = e2.dot(q) / det;
+    if (dist > 1e-6 && dist < melhor) melhor = dist;
+  }
+  return melhor;
+}
+const meioDaCabeca = V([0, J.Head[1] + (coroa - J.Head[1]) * 0.35, J.Head[2]]);
+for (const t of daCabeca) {
+  const m = V(triMeio(t)), n = triNormal(t);
+  const graus = (Math.atan2(m.x - meioDaCabeca.x, m.z - meioDaCabeca.z) * 180) / Math.PI;
+  const acima = cmY(m.y) > linhaDoCabelo(graus);
+  const fina = !acima && raioAte(m.clone().addScaledVector(n, -1e-5), n.clone().negate(), t) < ccab.fina * porCm;
+  // (… e a MECHA NA FRENTE de algo: a face virada para fora com outra superfície logo atrás dela, no rumo do eixo da
+  // cabeça — a franja diante da testa, a mecha diante da bochecha; a testa e a bochecha têm a cabeça inteira atrás)
+  const rumo = new THREE.Vector3(meioDaCabeca.x - m.x, 0, meioDaCabeca.z - m.z).normalize();
+  const naFrente = !acima && !fina && rumo.dot(n) < -0.3 && raioAte(m.clone().addScaledVector(n, -1e-5), rumo, t) < ccab.naFrente * porCm;
+  // (… e, na testa — acima das sobrancelhas, de frente —, a camada DA FRENTE: outra superfície logo atrás, olhando de frente)
+  const testa = !acima && !fina && !naFrente && cmY(m.y) > ccab.testaDe && Math.abs(graus) < 45 && n.z > 0.1 && raioAte(m.clone().addScaledVector(n, -1e-5), new THREE.Vector3(0, 0, -1), t) < ccab.naTesta * porCm;
+  // (… e, na testa, o que está virado para BAIXO ou para TRÁS: a testa acima das sobrancelhas nunca olha para o chão nem
+  // para dentro da cabeça — é a raiz de uma mecha, ou o lado de dentro da franja)
+  const paraBaixo = !acima && cmY(m.y) > ccab.testaDe && Math.abs(graus) < 45 && (n.y < -0.3 || n.z < -0.2);
+  if (acima || fina || naFrente || testa || paraBaixo) regiao[t] = REG.cabelo;
+}
+// as ILHAS: do que sobrou do corpo, só o pedaço maior fica (o resto — pontas de mecha — vai para o cabelo); do cabelo,
+// as ilhas pequenas DENTRO da pele voltam para ela (um triângulo marcado errado deixaria um furo)
+const vizinhos = (() => {
+  const arestas = new Map(), viz = Array.from({ length: NT }, () => []);
+  for (let t = 0; t < NT; t++) for (let e = 0; e < 3; e++) {
+    const a = I[3 * t + e], b = I[3 * t + (e + 1) % 3], ch = a < b ? `${a}_${b}` : `${b}_${a}`;
+    if (arestas.has(ch)) { const u = arestas.get(ch); viz[t].push(u); viz[u].push(t); } else arestas.set(ch, t);
+  }
+  return viz;
+})();
+const pedacos = (dentro) => {   // os pedaços ligados dos triângulos em que `dentro(t)`
+  const de = new Int32Array(NT).fill(-1), lista = [];
+  for (let t0 = 0; t0 < NT; t0++) {
+    if (de[t0] >= 0 || !dentro(t0)) continue;
+    const p = [t0]; de[t0] = lista.length;
+    for (let i = 0; i < p.length; i++) for (const u of vizinhos[p[i]]) if (de[u] < 0 && dentro(u)) { de[u] = lista.length; p.push(u); }
+    lista.push(p);
+  }
+  return lista;
+};
+for (const p of pedacos((t) => regiao[t] === REG.cabelo)) if (p.length <= ccab.ilha) for (const t of p) regiao[t] = REG.pele;
+// O QUE O DONO MARCOU: os triângulos CORTADOS (ferramenta Cortar, K) na aba Modelo deste corpo (`assets/modelagem.json`,
+// a chave dele — 'humano:arquivo') são CABELO: saem do corpo para o cabelo, e a careca fecha por baixo deles. (Cada corte
+// é achado pelo meio do triângulo no modelo, cm; depois de gerar de novo, o corte não acha mais nada: fica sem efeito)
+{
+  let cortes = [];
+  try { cortes = JSON.parse(fs.readFileSync(path.join(RAIZ, 'assets/modelagem.json'), 'utf8')).corpos?.[ccab.chave ?? 'humano:arquivo']?.cortes ?? []; } catch { /* sem o arquivo */ }
+  const meios = Array.from({ length: NT }, (_, t) => { const s = [0, 0, 0]; for (let q = 0; q < 3; q++) { const c = cm([posT[3 * I[3 * t + q]], posT[3 * I[3 * t + q] + 1], posT[3 * I[3 * t + q] + 2]]); for (let e = 0; e < 3; e++) s[e] += c[e] / 3; } return s; });
+  let marcados = 0;
+  for (const c of cortes) {
+    if (c.de && c.de !== 'corpo' || !Array.isArray(c.em)) continue;
+    let melhor = -1, d = 0.05 ** 2;
+    for (let t = 0; t < NT; t++) { const q = (meios[t][0] - c.em[0]) ** 2 + (meios[t][1] - c.em[1]) ** 2 + (meios[t][2] - c.em[2]) ** 2; if (q < d) { d = q; melhor = t; } }
+    if (melhor >= 0 && regiao[melhor] !== REG.cabelo) { regiao[melhor] = REG.cabelo; marcados++; }
+  }
+  if (cortes.length) console.log(`[corpo] os cortes da aba Modelo: ${marcados} de ${cortes.length} viraram cabelo`);
+}
+const doCorpo = pedacos((t) => regiao[t] !== REG.cabelo).sort((a, b) => b.length - a.length);
+for (const p of doCorpo.slice(1)) for (const t of p) regiao[t] = REG.cabelo;
+console.log(`[corpo] cabelo: ${regiao.filter((r) => r === REG.cabelo).length} triângulos tirados do corpo`);
+
+// a BEIRA do corpo (as arestas com um triângulo só): os laços, cada um na ordem das arestas como os triângulos as têm.
+// (Um vértice pode ter DUAS beiras saindo dele — o laço encosta em si mesmo: cada aresta da beira é usada uma vez, e o
+// que sobra vira outro laço; antes um mapa de uma saída por vértice perdia um pedaço e ficava um buraco na testa)
+const fica = (t) => regiao[t] !== REG.cabelo;
+const saidas = new Map();   // vértice → as arestas da beira que saem dele [a, b]
+for (let t = 0; t < NT; t++) {
+  if (!fica(t)) continue;
+  for (let e = 0; e < 3; e++) {
+    const a = I[3 * t + e], b = I[3 * t + (e + 1) % 3];
+    if (vizinhos[t].some((u) => fica(u) && [0, 1, 2].some((f) => I[3 * u + f] === b && I[3 * u + (f + 1) % 3] === a))) continue;
+    if (!saidas.has(a)) saidas.set(a, []);
+    saidas.get(a).push(b);
+  }
+}
+const lacos = [];
+for (const a0 of saidas.keys()) {
+  while (saidas.get(a0)?.length) {
+    const laco = [a0];
+    let a = a0;
+    for (let passos = 0; passos < 100000; passos++) {
+      const b = saidas.get(a)?.shift();
+      if (b === undefined || b === a0) break;
+      laco.push(b);
+      a = b;
+    }
+    // (um laço que passa duas vezes pelo mesmo vértice é partido ali: cada pedaço é um laço simples)
+    const pilha = [], onde = new Map();
+    for (const v of laco) {
+      if (onde.has(v)) { const de = onde.get(v), sub = pilha.splice(de); for (const x of sub) onde.delete(x); if (sub.length >= 3) lacos.push(sub); }
+      onde.set(v, pilha.length); pilha.push(v);
+    }
+    if (pilha.length >= 3) lacos.push(pilha);
+  }
+}
+lacos.sort((a, b) => b.length - a.length);
+// o COURO: anéis do laço maior (a beira da testa, das têmporas e da nuca) até o alto, por dentro da casca do cabelo
+const novos = [];   // os vértices novos (pose A, unidades do arquivo); índices a partir de NV
+const fechos = [];  // os triângulos novos (índices de vértice)
+const doCabelo = [...daCabeca].filter((t) => regiao[t] === REG.cabelo);
+const casca = (o, d) => raioAte(o, d, -1, doCabelo);   // (até a casca do cabelo, por dentro)
+const novo = (v) => { novos.push(v); return NV + novos.length - 1; };
+if (lacos.length) {
+  const laco = lacos[0], pts = laco.map((i) => V(P.slice(3 * i, 3 * i + 3)));
+  // (os anéis saem do MEIO DA CABEÇA e vão para um CRÂNIO liso — um ovo com as medidas de `cranio`, cm: meia largura,
+  // frente, trás, alto (a altura do topo) e baixo (abaixo do meio) —, não para a casca do cabelo: no primeiro anel, quase a
+  // beira; do terceiro em diante, o crânio)
+  const meio = meioDaCabeca.clone(), cr2 = ccab.cranio;
+  const cima = new THREE.Vector3(0, 1, 0);
+  const rx = cr2.largura * porCm, rf = cr2.frente * porCm, rt = cr2.tras * porCm, ra = (cr2.alto - (meio.y - y0) * k) * porCm, rb = cr2.baixo * porCm;
+  const noCranio = (d) => meio.clone().addScaledVector(d, 1 / Math.sqrt((d.x / rx) ** 2 + (d.y / (d.y > 0 ? ra : rb)) ** 2 + (d.z / (d.z > 0 ? rf : rt)) ** 2));
+  // A CÚPULA não é costurada na beira (a beira desce em dentes na raiz das mechas, e os anéis costurados nela dobravam —
+  // a mancha escura na testa): é uma peça à parte, em gomos (`gomos` em volta, `aneis` de baixo até o alto), que começa
+  // `desce` graus ABAIXO da beira, um pouco POR DENTRO da pele dali (`dentro` cm), e sobe para o crânio liso. Pele e
+  // cúpula da mesma cor: a beira dentada da pele some contra ela.
+  const angulo = (p) => { const d = p.clone().sub(meio); return [Math.atan2(d.x, d.z), Math.asin(Math.max(-1, Math.min(1, d.y / d.length()))), d.length()]; };
+  const beira = pts.map(angulo), G = ccab.gomos, N = ccab.aneis, abre = (ccab.desce * Math.PI) / 180, dentro = ccab.dentro * porCm;
+  const pelaVolta = Array.from({ length: G }, (_, g) => {
+    // (em cada gomo, a beira MAIS BAIXA perto dele — dentro de ±1,5 gomo —, e a que distância do meio ela está)
+    const th = (g / G) * Math.PI * 2 - Math.PI, largo = (1.5 * Math.PI * 2) / G;
+    let el = Infinity, r = 0;
+    for (const [t, e, d] of beira) { let dt = Math.abs(t - th); if (dt > Math.PI) dt = 2 * Math.PI - dt; if (dt < largo && e < el) { el = e; r = d; } }
+    if (el === Infinity) { el = 0; r = noCranio(new THREE.Vector3(Math.sin(th), 0, Math.cos(th))).distanceTo(meio); }
+    return { th, el: el - abre, r: r - dentro };
+  });
+  // o raio de cada ponto: o do CRÂNIO liso — mas, onde há pele (um raio do meio da cabeça a acha), `dentro` cm por dentro
+  // dela; acima da última pele do gomo, do raio dela até o do crânio em dois anéis (sem degrau na linha do cabelo)
+  const pele = daCabeca.filter((t) => regiao[t] !== REG.cabelo);
+  const linhas = Array.from({ length: N }, () => []);
+  for (const [g, { th, el }] of pelaVolta.entries()) {
+    let ultimo = null, desde = 0;
+    for (let j = 0; j < N; j++) {
+      const e = el + (Math.PI / 2 - el) * (j / N), d = new THREE.Vector3(Math.sin(th) * Math.cos(e), Math.sin(e), Math.cos(th) * Math.cos(e));
+      const rc = noCranio(d).distanceTo(meio), naPele = raioAte(meio, d, -1, pele);
+      let r;
+      if (naPele < rc + 3 * porCm) { r = naPele - dentro; ultimo = r; desde = 0; } else { desde++; r = ultimo === null ? rc : ultimo + (rc - ultimo) * Math.min(1, desde / 2); }
+      linhas[j][g] = novo(meio.clone().addScaledVector(d, r));
+    }
+  }
+  const polo = novo(meio.clone().addScaledVector(cima, ra));
+  // (a ordem dos cantos: virados para FORA, conferido no primeiro)
+  const fora = (a, b, c) => { const pa = novos[a - NV], pb = novos[b - NV], pc = novos[c - NV]; return pb.clone().sub(pa).cross(pc.clone().sub(pa)).dot(pa.clone().add(pb).add(pc).multiplyScalar(1 / 3).sub(meio)) > 0; };
+  const tri = (a, b, c) => fechos.push(fora(a, b, c) ? [a, b, c] : [a, c, b]);
+  for (let j = 0; j < N - 1; j++) for (let g = 0; g < G; g++) {
+    const g2 = (g + 1) % G, a = linhas[j][g], b = linhas[j][g2], c = linhas[j + 1][g2], d = linhas[j + 1][g];
+    tri(a, b, c); tri(a, c, d);
+  }
+  for (let g = 0; g < G; g++) tri(linhas[N - 1][g], linhas[N - 1][(g + 1) % G], polo);
+  // os laços pequenos (a raiz de uma mecha que pousava na testa): um leque do meio deles
+  for (const l of lacos.slice(1)) {
+    const c = l.map((i) => V(P.slice(3 * i, 3 * i + 3))).reduce((s, p) => s.add(p), new THREE.Vector3()).multiplyScalar(1 / l.length);
+    const m = novo(c);
+    for (let i = 0; i < l.length; i++) fechos.push([l[(i + 1) % l.length], l[i], m]);
+  }
+  console.log(`[corpo] careca: o couro com ${novos.length} vértices novos (a beira tinha ${laco.length}); ${lacos.length - 1} buraquinho(s) fechado(s)`);
 }
 
 // ------------------------------------------------------------ 7. os olhos e a boca (folhas no rosto, na pose A)
@@ -347,30 +534,49 @@ folha(elipse(0, bo.y, bo.largura / 2, bo.altura / 2, 0, 10), 0.0015, REG.boca);
 const iHead = NOMES.indexOf('Head');
 
 // ------------------------------------------------------------ o arquivo do jogo
-const NE = extra.pos.length / 3, todosPos = new Float32Array((NV + NE) * 3);
-for (let i = 0; i < NV; i++) todosPos.set(cm([posT[3 * i], posT[3 * i + 1], posT[3 * i + 2]]), i * 3);
-for (let i = 0; i < NE; i++) todosPos.set(cm(extra.pos.slice(i * 3, i * 3 + 3)), (NV + i) * 3);
-const idx = new Uint16Array([...I, ...extra.idx.map((i) => i + NV)]);
-const reg = new Uint8Array([...regiao, ...extra.reg]);
-const ossoDe = new Uint8Array((NV + NE) * 4), peso = new Uint8Array((NV + NE) * 4);
-for (let i = 0; i < NV + NE; i++) {
+// os vértices: os do modelo (na pose T), os do couro (na cabeça: a pose T não a mexe) e os desenhados; só os que o
+// CORPO usa (os do cabelo vão no `cabelo`, à parte), renumerados
+const NN = novos.length, NE = extra.pos.length / 3, todos = NV + NN + NE;
+const posDe = (i) => (i < NV ? cm([posT[3 * i], posT[3 * i + 1], posT[3 * i + 2]]) : i < NV + NN ? cm(novos[i - NV].toArray()) : cm(extra.pos.slice((i - NV - NN) * 3, (i - NV - NN) * 3 + 3)));
+const trisDoCorpo = [], regDoCorpo = [];
+for (let t = 0; t < NT; t++) if (regiao[t] !== REG.cabelo) { trisDoCorpo.push(I[3 * t], I[3 * t + 1], I[3 * t + 2]); regDoCorpo.push(regiao[t]); }
+for (const f of fechos) { trisDoCorpo.push(...f); regDoCorpo.push(REG.pele); }
+for (let i = 0; i < extra.idx.length; i++) trisDoCorpo.push(extra.idx[i] + NV + NN);
+regDoCorpo.push(...extra.reg);
+const novoNumero = new Int32Array(todos).fill(-1), usados = [];
+for (const i of trisDoCorpo) if (novoNumero[i] < 0) { novoNumero[i] = usados.length; usados.push(i); }
+const todosPos = new Float32Array(usados.length * 3);
+usados.forEach((i, j) => todosPos.set(posDe(i), j * 3));
+const idx = new Uint16Array(trisDoCorpo.map((i) => novoNumero[i]));
+const reg = new Uint8Array(regDoCorpo);
+const ossoDe = new Uint8Array(usados.length * 4), peso = new Uint8Array(usados.length * 4);
+for (const [j, i] of usados.entries()) {
   const w = i < NV ? pesos[i] : [[iHead, 1]];
   // (pesos em 0–255, a soma exata em 255: o resto vai para o maior)
   const q = w.map(([, p]) => Math.round(p * 255)), falta = 255 - q.reduce((a, b) => a + b, 0);
   q[0] += falta;
-  w.forEach(([o], j) => { ossoDe[i * 4 + j] = o; peso[i * 4 + j] = q[j]; });
+  w.forEach(([o], n) => { ossoDe[j * 4 + n] = o; peso[j * 4 + n] = q[n]; });
 }
+// O CABELO tirado do corpo (o penteado "malha" do penteado.js o desenha): os triângulos dele, na pose T (cm), e o
+// meio da cabeça (`pivo`: é em volta dele que as réguas do penteado o aumentam e giram)
+const trisDoCabelo = [];
+for (let t = 0; t < NT; t++) if (regiao[t] === REG.cabelo) trisDoCabelo.push(I[3 * t], I[3 * t + 1], I[3 * t + 2]);
+const numCabelo = new Map();
+for (const i of trisDoCabelo) if (!numCabelo.has(i)) numCabelo.set(i, numCabelo.size);
+const posCabelo = new Float32Array(numCabelo.size * 3);
+for (const [i, j] of numCabelo) posCabelo.set(cm([posT[3 * i], posT[3 * i + 1], posT[3 * i + 2]]), j * 3);
 const b64 = (a) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64');
 const saida = {
-  _leiame: `Corpo de arquivo "${cfg.nome}" (js/corpo-arquivo.js), gerado por ferramentas/corpo-de-arquivo/importar.mjs a partir de ${cfg.entrada} — não edite à mão: mude o recorte e rode de novo. ossos: onde fica cada osso do guerreiro NESTE corpo (cm, pose T; os que faltam ficam onde estão). pos (Float32, cm, pose T), idx (Uint16), regiao (Uint8 por triângulo: ${Object.keys(REG).join(', ')}), nomes (os ossos dos pesos), ossoDe/peso (Uint8, 4 por vértice; peso em 255 avos). Tudo em base64.`,
+  _leiame: `Corpo de arquivo "${cfg.nome}" (js/corpo-arquivo.js), gerado por ferramentas/corpo-de-arquivo/importar.mjs a partir de ${cfg.entrada} — não edite à mão: mude o recorte e rode de novo. ossos: onde fica cada osso do guerreiro NESTE corpo (cm, pose T; os que faltam ficam onde estão). pos (Float32, cm, pose T), idx (Uint16), regiao (Uint8 por triângulo: ${Object.keys(REG).join(', ')}), nomes (os ossos dos pesos), ossoDe/peso (Uint8, 4 por vértice; peso em 255 avos): o corpo CARECA. cabelo: o cabelo do modelo, à parte (pos, idx; pivo = o meio da cabeça, cm) — o penteado "malha" (js/penteado.js). Tudo em base64.`,
   nome: cfg.nome, jogo: Object.fromEntries(Object.entries(cfg.jogo ?? {}).filter(([k2]) => k2 !== '_leiame')), ossos: ossosCm, nomes: NOMES,
-  vertices: NV + NE, triangulos: idx.length / 3,
+  vertices: usados.length, triangulos: idx.length / 3,
   pos: b64(todosPos), idx: b64(idx), regiao: b64(reg), ossoDe: b64(ossoDe), peso: b64(peso),
+  cabelo: { pivo: cm(meioDaCabeca.toArray()).map((v) => +v.toFixed(2)), vertices: numCabelo.size, triangulos: trisDoCabelo.length / 3, pos: b64(posCabelo), idx: b64(new Uint16Array(trisDoCabelo.map((i) => numCabelo.get(i)))) },
 };
 const arqSaida = path.join(RAIZ, 'assets/corpos', `${cfg.nome}.json`);
 fs.mkdirSync(path.dirname(arqSaida), { recursive: true });
 fs.writeFileSync(arqSaida, JSON.stringify(saida, null, 1) + '\n');
-console.log(`[corpo] gravado ${path.relative(RAIZ, arqSaida)}: ${NV + NE} vértices, ${idx.length / 3} triângulos (${(fs.statSync(arqSaida).size / 1024).toFixed(0)} KB)`);
+console.log(`[corpo] gravado ${path.relative(RAIZ, arqSaida)}: o corpo com ${usados.length} vértices e ${idx.length / 3} triângulos, o cabelo com ${trisDoCabelo.length / 3} (${(fs.statSync(arqSaida).size / 1024).toFixed(0)} KB)`);
 
 // ------------------------------------------------------------ as fotos de conferência
 if (opc.conferir) {
@@ -400,7 +606,7 @@ if (opc.conferir) {
     mundo[n] = pai.clone().multiply(local);
   }
   const posP = new Float32Array(todosPos.length), v = new THREE.Vector3(), s = new THREE.Vector3();
-  for (let i = 0; i < NV + NE; i++) {
+  for (let i = 0; i < usados.length; i++) {
     s.set(0, 0, 0);
     for (let j = 0; j < 4; j++) { const w = peso[i * 4 + j] / 255; if (!w) continue; s.addScaledVector(v.fromArray(todosPos, i * 3).applyMatrix4(mundo[NOMES[ossoDe[i * 4 + j]]]), w); }
     posP.set([s.x, s.y, s.z], i * 3);

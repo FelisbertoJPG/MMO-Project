@@ -597,8 +597,9 @@ export class CorpoGuerreiro {
     // o PENTEADO, a BARBA e as SOBRANCELHAS (penteado.js): desenhados em código ao fundir o corpo
     const ap = lerAparencia(aparencia), cabelo = penteadoDe(this.raca, ap.cabelo), barba = barbaDe(this.raca, ap.barba), sobrancelha = sobrancelhaDe(this.raca, ap.sobrancelha), doPeito = desenho('peito', armadura[LUGARES.indexOf('peito')]);
     const peca = (nome) => this.pecas.find((o) => o.name === nome);
-    const penteado = !arq && (PENTEADOS[cabelo]?.formas || BARBAS[barba]?.formas || SOBRANCELHAS[sobrancelha]?.formas) ? {
-      id: cabelo, barba, sobrancelha, cor: CABELOS[ap.cor][1], elmo, pecaDaBarba: peca('Beard'), pecaDaSobrancelha: peca('Eye_Brows'), pecaDoRosto: peca('Face'), pecaDaCabeca: peca('head'),
+    // (no corpo de arquivo, só o cabelo — os penteados da lista dele —, e o Original é a cor do cabelo do modelo)
+    const penteado = PENTEADOS[cabelo]?.formas || BARBAS[barba]?.formas || SOBRANCELHAS[sobrancelha]?.formas ? {
+      id: cabelo, barba, sobrancelha, cor: CABELOS[ap.cor][1] ?? (arq ? arq.jogo?.cores?.cabelo : null), elmo, pecaDaBarba: peca('Beard'), pecaDaSobrancelha: peca('Eye_Brows'), pecaDoRosto: peca('Face'), pecaDaCabeca: peca('head'),
       apoio: usadas.filter((o) => APOIO.test(o.name) || (ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'peito') || (doPeito && o.name.startsWith(`casca_${doPeito.id}_`))),
     } : null;
     // a peça do CORPO DE ARQUIVO entra por ÚLTIMO (a fundida a deixa fora das proporções da raça)

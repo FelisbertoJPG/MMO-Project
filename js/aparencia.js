@@ -290,9 +290,10 @@ export class EditorDeAparencia {
     // corpo dela). Trocou de raça ou de sexo: fica o MESMO corte, se o outro o tem (a "Longa"
     // é a 8ª do humano e a 6ª do orc); senão, o que passa do fim da lista vale o último
     const de = racaDe(antes.raca, antes.sexo), raca = racaDe(a.raca, a.sexo);
-    // (o corpo de ARQUIVO não usa nenhum dos três: os números ficam guardados para quando voltar)
+    // (o corpo de ARQUIVO não usa barba nem sobrancelha: esses números ficam guardados para quando voltar; o cabelo dele é a
+    // lista dele — os Coques do modelo)
     for (const [k, lista] of [['cabelo', penteadosDe], ['barba', barbasDe], ['sobrancelha', sobrancelhasDe]]) {
-      if (raca?.arquivo) continue;
+      if (raca?.arquivo && !lista(raca).length) continue;
       const nova = lista(raca), id = !(k in parcial) && a[k] > 0 && !de?.arquivo ? lista(de)[a[k] - 1] : null;
       a[k] = (id ? nova.indexOf(id) + 1 : 0) || Math.min(a[k], nova.length);
     }

@@ -235,6 +235,11 @@ export async function carregarCorpos() {
       const c = { nome, jogo: j.jogo ?? {}, ossos: j.ossos, nomes: j.nomes, pos: de64(j.pos, Float32Array), idx: de64(j.idx, Uint16Array), regiao: de64(j.regiao, Uint8Array), ossoDe: de64(j.ossoDe, Uint8Array), peso: de64(j.peso, Uint8Array) };
       const nv = c.pos.length / 3;
       if (!Array.isArray(c.nomes) || !c.ossos || c.idx.length !== c.regiao.length * 3 || c.ossoDe.length !== nv * 4 || c.peso.length !== nv * 4 || c.idx.some((i) => i >= nv)) throw new Error('torto');
+      // (o CABELO tirado do modelo — o penteado "malha" do penteado.js o desenha; torto, o corpo fica sem ele)
+      if (j.cabelo?.pos && Array.isArray(j.cabelo.pivo)) {
+        const cab = { pivo: j.cabelo.pivo, pos: de64(j.cabelo.pos, Float32Array), idx: de64(j.cabelo.idx, Uint16Array) };
+        if (!cab.idx.some((i) => i >= cab.pos.length / 3)) c.cabelo = cab;
+      }
       corpos[nome] = c;
     } catch (e) { console.warn(`[corpo] sem assets/corpos/${nome}.json:`, e.message); }
   }));
