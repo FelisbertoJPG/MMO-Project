@@ -2,7 +2,7 @@
   "_leiame": "As RAÇAS (js/raca.js): o corpo do guerreiro com outra cor e outras proporções. A ORDEM é o número que vai no save (o 6º dígito da aparência): não reordene nem apague do meio — raça nova entra no FIM. pele/olhos: '#rrggbb' (a raça manda) ou null (o jogador escolhe). jogavel: aparece no editor de personagem do jogo. penteados / barbas / sobrancelhas: os cabelos, as barbas e as sobrancelhas que a raça tem (ids de js/penteado.js) — a ORDEM é o número no save: o novo entra no FIM; sem a lista, os do humano. proporcoes: 1 = como o modelo é. feminino (numa raça, ou em `humano`, ao lado de `racas`): o OUTRO CORPO dela — as proporções dele e o que mais mudar (pele, olhos, semBarba, as listas); o que não diz vale o da raça. Com ele, o jogador escolhe Masculino/Feminino. esculpido: o nome de um corpo feito de fotos (assets/esculpidos/<nome>.glb, js/esculpido.js) — a raça joga com AQUELE corpo inteiro, e as proporções, as cores e as listas dela não valem. Editadas na tela Raças do editor de cenas.",
   "humano": {
     "feminino": {
-      "olhos": "#087d1b",
+      "olhos": "#08697d",
       "semBarba": true,
       "penteados": [
         "guerreira",
