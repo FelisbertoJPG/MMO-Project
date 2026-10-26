@@ -37,6 +37,7 @@ import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js'
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 import { folhaDaSombra } from './sombra.js';
+import { peleNova, PELE, TROCADAS, OSSOS_DO_CORPO } from './retopologia.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -279,7 +280,44 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     const io = pecas.findIndex((p) => /^Eyes(_tingido)?$/.test(p.name));
     if (io >= 0) geo.userData.cilios = geometriaDosCilios(geo, comModelo.origem, { cilios: edicoes.cilios, iris: edicoes.iris, olhoCor: edicoes.olhoCor }, { escuro: uvEscura(pecas[io]), claro: uvClara(pecas[io]) }, corOlhos ?? undefined);
   }
-  if (geo && formasDoCabelo) geo.userData.formasDoCabelo = formasDoCabelo;
+  // A PELE NOVA (retopologia.js, 26/10/2026): no corpo FEMININO (o que tem busto), as peças da pele do tronco, dos
+  // braços, das pernas e do pescoço — com o busto e os triângulos criados no corpo — viram UMA pele de anéis, feita
+  // por cima de tudo (a raça e as edições: a forma é copiada). A aba Modelo do editor edita as peças: com ela aberta, não
+  let tirados = null;
+  if (geo && !geo.index && inversos && PELE.ligada && proporcoesDe(raca).busto > 0.01 && !modelagemAberta()) {
+    const nt = geo.attributes.position.count / 3, trocar = new Uint8Array(nt), faixas = new Map();
+    let de = 0;
+    lista.forEach((g, i) => {
+      const n = g.attributes.position.count, nome = pecas[i].name.replace(/_tingido$/, '');
+      if (TROCADAS.test(nome)) trocar.fill(1, de / 3, (de + n) / 3);
+      if (!faixas.has(nome)) faixas.set(nome, [de, de + n]);
+      de += n;
+    });
+    // (os triângulos CRIADOS na aba Modelo, no corpo ou no busto, presos a um osso do corpo: são parte da forma)
+    if (comModelo?.novosDe != null) {
+      const si = geo.attributes.skinIndex.array, sw = geo.attributes.skinWeight.array, oc = ORIGENS.indexOf('corpo'), ob = ORIGENS.indexOf('busto');
+      for (let t = comModelo.novosDe / 3; t < nt; t++) {
+        const v = t * 3, o = comModelo.origem[v];
+        if (o !== oc && o !== ob) continue;
+        let k = 0;
+        for (let j = 1; j < 4; j++) if (sw[v * 4 + j] > sw[v * 4 + k]) k = j;
+        if (OSSOS_DO_CORPO.test(ordem[si[v * 4 + k]] ?? '')) trocar[t] = 1;
+      }
+    }
+    // onde está cada osso, como a raça o deixou (o eixo dos anéis)
+    const ligacao = pecas[0].bindMatrix, volta = ligacao.clone().invert(), def = deformadorDe(raca, ordem, inversos, ligacao), mm = new THREE.Matrix4();
+    const junta = (nome) => { const i = Math.max(0, ordem.indexOf(nome)); return def(new THREE.Vector3().setFromMatrixPosition(mm.copy(inversos[i]).invert()).applyMatrix4(volta), [i, 0, 0, 0], [1, 0, 0, 0]); };
+    // (a pele nova que falha não derruba o corpo: fica a de antes)
+    let r = null;
+    try { r = peleNova(geo, { trocar, junta, faixa: (n) => faixas.get(n) ?? null }); } catch (e) { console.warn('[pele nova] falhou; fica a pele de antes:', e); }
+    if (r) {
+      if (geo.userData.rosto) r.geo.userData.rosto = geo.userData.rosto.map(([a, b]) => [a - r.removidos(a), b - r.removidos(b)]);
+      tirados = r.removidos;
+      geo.dispose();
+      geo = r.geo;
+    }
+  }
+  if (geo && formasDoCabelo) geo.userData.formasDoCabelo = tirados ? formasDoCabelo.map(([a, b]) => [a - tirados(a), b - tirados(b)]) : formasDoCabelo;
   fundidas.set(chave, geo);
   return geo;
 }
@@ -461,6 +499,9 @@ export class CorpoGuerreiro {
       // matéria das do jogo: o PENTEADO, a BARBA e as SOBRANCELHAS desenhados, abaixo; o COLAR
       // — `Chain`, a corrente de plaquinha de soldado, 170 triângulos — saiu de todos os corpos, 19/10/2026)
       if (o.name === 'Hair' || o.name === 'Beard' || o.name === 'Eye_Brows' || o.name === 'Chain') return false;
+      // (o QUADRIL vinha duas vezes — `hips`, a pele, e `hips_02`, a roupa de baixo, com os MESMOS pontos: 52 triângulos
+      // um em cima do outro, e a de baixo, desenhada depois, é a que se via. 26/10/2026: a pele sai)
+      if (o.name === 'hips' && this.pecas.some((p) => p.name === 'hips_02')) return false;
       const a = o.name.match(ARMADURA);
       if (!a) return true;
       const lugar = lugarDaPeca(o.name);
