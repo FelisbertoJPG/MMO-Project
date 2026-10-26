@@ -204,6 +204,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   const cabelo = penteado && inversos ? geometriaDoPenteado({
     ...penteado, ordem, deformador: deformadorDe(raca, ordem, inversos, pecas[0].bindMatrix), escala: proporcoesDe(raca).cabeca, rosto: rostoDaRaca(raca), largo: largoDoQueixo(raca), modelo: lista[0], mapa: pecas[0].material?.map,
   }) : null;
+  // (onde cada forma do cabelo cai na malha fundida: a aba Cabelo do editor acende a escolhida e acha a clicada)
+  const formasDoCabelo = cabelo?.userData.formas.map(([a, b]) => [doCorpo + a, doCorpo + b]) ?? null;
   let geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
   // A MODELAGEM (modelagem.js), só quando o corpo tem edição (ou a aba Modelo do editor está
   // aberta): de onde veio cada vértice (`origem`) e onde ele estava no MODELO, antes da raça
@@ -277,6 +279,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     const io = pecas.findIndex((p) => /^Eyes(_tingido)?$/.test(p.name));
     if (io >= 0) geo.userData.cilios = geometriaDosCilios(geo, comModelo.origem, { cilios: edicoes.cilios, iris: edicoes.iris, olhoCor: edicoes.olhoCor }, { escuro: uvEscura(pecas[io]), claro: uvClara(pecas[io]) }, corOlhos ?? undefined);
   }
+  if (geo && formasDoCabelo) geo.userData.formasDoCabelo = formasDoCabelo;
   fundidas.set(chave, geo);
   return geo;
 }

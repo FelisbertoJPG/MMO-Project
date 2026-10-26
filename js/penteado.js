@@ -46,6 +46,11 @@
  * O dígito da barba na aparência é o lugar na lista (`BARBAS_PADRAO`, ou `barbas` da raça),
  * como o do cabelo.
  *
+ * O PENTEADO DO ARQUIVO (26/10/2026): `assets/penteados.json`, gravado pela aba CABELO do Editor de
+ * Personagem (o editor de cenas), SUBSTITUI o do código de mesmo id — ou entra como novo (`usarPenteados`,
+ * chamado pelo assets.js ao carregar). As medidas que a aba mostra, com rótulo e régua, são as de `MEDIDAS`:
+ * forma nova do cabelo = a função em `FORMAS` E a lista dela em `MEDIDAS`.
+ *
  * AS SOBRANCELHAS (`SOBRANCELHAS`) são a do modelo (a peça `Eye_Brows`) inteira ou MEXIDA —
  * mais alta, mais curta, inclinada, unida no meio — e presa à pele do rosto pelo mesmo ÍMÃ:
  * na raça de arcada saliente, assentam em cima dela. O lugar na lista é o 7º dígito da
@@ -152,6 +157,23 @@ export const PENTEADOS = {
     LISA_NAS_COSTAS(1, 46, 9, { abre: 1.5, ate: 116, raio: 3.3 }), LISA_NAS_COSTAS(-1, 46, 9, { abre: 1.5, ate: 116, raio: 3.3 }),
     LISA_NAS_COSTAS(1, 66, 12.5, { abre: 2.5, ate: 118, raio: 3.1 }), LISA_NAS_COSTAS(-1, 66, 12.5, { abre: 2.5, ate: 118, raio: 3.1 }),
   ] },
+  // OS DOIS COQUES (26/10/2026, a referência do dono — a prancha low poly): o cabelo preso em duas BOLAS facetadas no
+  // alto da cabeça, a franja reta e grossa na testa, a risca no meio, as mechas pontudas emoldurando o rosto até o
+  // maxilar e a nuca em V
+  coques: { nome: 'Dois coques', formas: [
+    ['touca', { de: 30, ate: 214, lado: 86, linhas: 9, colunas: 13, folga: 2.2, onda: 0.1, recua: 5, risca: 1 }],
+    ['franja', { raiz: 98, corte: 16, lado: 52, colunas: 11, passos: 6, folga: 2.3, rente: 0.9, grossura: 0.7, fios: 0.6 }],
+    ['mechas', { folga: 2.3, rente: 1, grossura: 0.5, passos: 4, lista: [
+      // a do rosto: da têmpora, na frente da orelha, até o maxilar
+      [62, 58, -22, 70, 2.3, 4.5, 1],
+      // atrás da orelha, até o pescoço
+      [112, 64, 200, 80, 2.6, 3, 1.4],
+      // a nuca em V
+      [136, 0, 218, 0, 3, 3.6, 0.5], [132, 22, 214, 26, 2.4, 1.6, 0.8],
+    ] }],
+    // (os coques nos cantos de cima da cabeça, o meio deles acima do couro: saltam da silhueta, como na referência)
+    ['bola', { em: [108, 33], raio: 5.6, sai: 6.1, achata: 0.94, inclina: 6, bagunca: 0.1 }],
+  ] },
 };
 
 /**
@@ -175,6 +197,79 @@ export function penteadoDe(raca, n) {
   return n > 0 && lista.length ? lista[Math.min(n, lista.length) - 1] : null;
 }
 export const nomeDoPenteado = (id) => PENTEADOS[id]?.nome ?? id;
+
+/**
+ * AS MEDIDAS de cada forma do CABELO, para a aba Cabelo do editor: [chave, rótulo, padrão, mín, máx, passo, colunas]. O
+ * PADRÃO diz o tipo — número (a régua), sim/não, um PAR de números ([volta, lado], com os nomes em `colunas`) ou uma
+ * LISTA de linhas de números (as colunas nomeadas) —, e vale quando a forma não diz a medida (o mesmo padrão da função;
+ * nas que ela exige, um exemplo: é com ele que nasce a forma nova). Só estas formas entram num penteado do arquivo.
+ */
+const VL = ['volta', 'lado'], XYZ = ['x', 'y', 'z'];
+export const MEDIDAS = {
+  touca: [['de', 'testa (volta)', 30, 0, 120, 1], ['ate', 'nuca (volta)', 214, 150, 240, 1], ['lado', 'até o lado (graus)', 86, 30, 100, 1],
+    ['linhas', 'linhas', 9, 3, 17, 1], ['colunas', 'colunas', 13, 3, 21, 1], ['folga', 'volume (cm)', 1.1, 0, 5, 0.05], ['onda', 'gomos (cm)', 0.6, 0, 3, 0.05],
+    ['recua', 'recuo nas têmporas', 0, 0, 30, 0.5], ['risca', 'risca no meio (cm)', 0, 0, 3, 0.05]],
+  franja: [['raiz', 'raiz (volta)', 104, 60, 140, 1], ['corte', 'corte (volta: menos = mais baixo)', 19, -10, 60, 0.5], ['lado', 'largura (graus de cada lado)', 60, 10, 90, 1],
+    ['colunas', 'colunas', 13, 3, 25, 1], ['passos', 'passos', 7, 2, 12, 1], ['folga', 'volume (cm)', 1.9, 0, 5, 0.05], ['rente', 'rente no corte (cm)', 0.75, 0, 3, 0.05],
+    ['grossura', 'grossura do corte (cm)', 0.5, 0.1, 2, 0.05], ['fios', 'pontas desiguais (cm)', 0.22, 0, 3, 0.02]],
+  mechas: [['lista', 'mechas', [[95, 20, 30, 40, 2.2, 1, 0.5]], -90, 240, 0.5, ['raiz volta', 'raiz lado', 'ponta volta', 'ponta lado', 'largura', 'cai', 'abre']],
+    ['folga', 'volume (cm)', 1.9, 0, 5, 0.05], ['rente', 'rente na ponta (cm)', 0.8, 0, 3, 0.05], ['grossura', 'grossura', 0.42, 0.1, 2, 0.02], ['passos', 'passos', 4, 2, 8, 1]],
+  bola: [['em', 'lugar', [122, 42], -90, 240, 1, VL], ['raio', 'raio (cm)', 5, 1, 12, 0.1], ['sai', 'meio afastado do couro (cm)', 4, -3, 12, 0.1],
+    ['achata', 'achatada', 0.92, 0.3, 1.6, 0.01], ['inclina', 'deitada para trás (graus)', 0, -60, 60, 1], ['bagunca', 'facetas desiguais', 0.1, 0, 0.4, 0.01],
+    ['detalhe', 'faces (0 = 20, 1 = 80, 2 = 320)', 1, 0, 2, 1], ['semente', 'sorteio das facetas', 1, 1, 99, 1], ['espelho', 'dos dois lados', true]],
+  tufos: [['pontas', 'pontas', [[102, 0, 4]], -90, 240, 0.1, ['volta', 'lado', 'altura']], ['deita', 'deitados (graus)', 55, 0, 90, 1],
+    ['largura', 'largura', 1.6, 0.3, 5, 0.05], ['base', 'pé (comprimento)', 2.8, 0.5, 8, 0.1]],
+  coque: [['em', 'lugar (cm da testa)', 24, 0, 45, 0.5], ['raio', 'raio (cm)', 4.3, 1, 10, 0.1]],
+  crina: [['de', 'de (cm da testa)', 2.5, 0, 45, 0.5], ['ate', 'até', 41, 0, 45, 0.5], ['altura', 'altura', 2.7, 0, 15, 0.1], ['largura', 'largura', 3.5, 0.5, 8, 0.1],
+    ['topo', 'topo (fração)', 0.5, 0, 1, 0.05], ['dente', 'dentes', 0, 0, 5, 0.1], ['inclina', 'inclina', 0, -1, 1, 0.05], ['passo', 'passo', 3.2, 1, 8, 0.1]],
+  espinhos: [['de', 'de (cm da testa)', 3.5, 0, 45, 0.5], ['ate', 'até', 39, 0, 45, 0.5], ['n', 'quantos', 8, 2, 20, 1], ['altura', 'altura', 11.5, 1, 25, 0.1],
+    ['largura', 'largura', 1.9, 0.3, 5, 0.05], ['base', 'pé', 3.3, 0.5, 8, 0.1], ['inclina', 'inclina', 0.35, -1, 1.5, 0.05]],
+  antena: [['em', 'lugar', [104, 3], -90, 240, 1, VL], ['altura', 'altura', 4.5, 0, 15, 0.1], ['frente', 'para a frente', 5.5, -10, 15, 0.1], ['largura', 'largura', 0.85, 0.2, 3, 0.05]],
+  mecha: [['raiz', 'raiz (cm da testa)', 29.5, 0, 45, 0.5], ['solta', 'pontos soltos', [[187, -16.8], [181, -24.6]], -40, 200, 0.1, ['y', 'z']], ['ate', 'até a altura', 134, 60, 160, 1],
+    ['raio', 'grossura', 3.7, 0.5, 8, 0.05], ['x', 'x', 0, -10, 10, 0.1], ['abre', 'abre', 0, -10, 10, 0.1], ['elo', 'trança: gomo (0 = sem)', 0, 0, 10, 0.1],
+    ['argola', 'argola', false], ['achata', 'achatada', 0.72, 0.2, 1.5, 0.01]],
+  caida: [['lado', 'lado (1 ou -1)', 1, -1, 1, 2], ['raiz', 'raiz', [198, 47], -90, 240, 1, VL], ['solta', 'pontos soltos', [[11.8, 164.2, -7.2], [13.4, 160.2, -2.8]], -40, 200, 0.1, XYZ],
+    ['x', 'x', 12.8, 0, 20, 0.1], ['abre', 'abre', 0, -10, 10, 0.1], ['de', 'pousa de', 151, 100, 170, 1], ['ate', 'até a altura', 120, 60, 160, 1], ['raio', 'grossura', 4.1, 0.5, 8, 0.05],
+    ['gomos', 'gomos', 3, 1, 8, 1], ['ferro', 'argola de ferro', true], ['achata', 'achatada', 0.86, 0.2, 1.5, 0.01], ['prumo', 'prumo', 0.12, 0, 1, 0.01]],
+  solto: [['lado', 'lado (1 ou -1)', 1, -1, 1, 2], ['raiz', 'raiz', [150, 0], -90, 240, 1, VL], ['sai', 'sai do couro em', [200, 0], -90, 240, 1, VL], ['solta', 'pontos soltos', [], -40, 200, 0.1, XYZ],
+    ['frente', 'pela frente do ombro', false], ['x', 'x', 0, -20, 20, 0.1], ['abre', 'abre', 0, -10, 10, 0.1], ['de', 'pousa de', NUCA, 100, 175, 1], ['ate', 'até a altura', 118, 60, 160, 1],
+    ['raio', 'grossura', 4.2, 0.5, 8, 0.05], ['onda', 'onda (cm)', 1.4, 0, 5, 0.05], ['passo', 'passo da onda', 13, 3, 60, 0.5], ['fase', 'fase', 0, 0, 6.3, 0.05], ['folga', 'volume (cm)', 2.2, 0, 5, 0.05],
+    ['vira', 'ponta vira', 2, -5, 8, 0.05], ['achata', 'achatada', 0.6, 0.2, 1.5, 0.01], ['larg', 'largura', 1.3, 0.5, 3, 0.05], ['prumo', 'prumo', 0.12, 0, 1, 0.01]],
+  fiapo: [['lado', 'lado (1 ou -1)', 1, -1, 1, 2], ['pontos', 'pontos', [[9.3, 176.6, 4.8], [10.8, 172.4, 4.4], [11.2, 167.4, 4.8]], -40, 200, 0.1, XYZ], ['raio', 'grossura', 0.62, 0.1, 3, 0.02]],
+};
+/** Uma forma NOVA do cabelo, com as medidas de exemplo (as de `MEDIDAS`). */
+export const formaNova = (forma) => [forma, Object.fromEntries((MEDIDAS[forma] ?? []).map(([k, , p]) => [k, JSON.parse(JSON.stringify(p))]))];
+
+// uma medida do arquivo: número, sim/não, ou lista (de números, ou de listas de números) — nada de texto, objeto ou fundo demais
+const medidaBoa = (v, fundo = 0) => (typeof v === 'number' ? Number.isFinite(v) : typeof v === 'boolean' || (Array.isArray(v) && fundo < 2 && v.length <= 200 && v.every((x) => medidaBoa(x, fundo + 1))));
+/** Um penteado do arquivo está em ordem? (o id só de letras, como nas listas das raças; as formas, as do cabelo) */
+export const penteadoValido = (id, p) => /^[A-Za-z]{1,30}$/.test(id) && !!p && typeof p.nome === 'string' && p.nome.length <= 40 && Array.isArray(p.formas) && p.formas.length <= 80
+  && p.formas.every((f) => Array.isArray(f) && f.length === 2 && f[0] in MEDIDAS && f[1] && typeof f[1] === 'object' && !Array.isArray(f[1]) && Object.entries(f[1]).every(([k, v]) => /^\w{1,30}$/.test(k) && medidaBoa(v)));
+/** Os penteados como o CÓDIGO os desenha (a aba Cabelo compara com eles: "voltar ao do código"). */
+export const PENTEADOS_DO_CODIGO = JSON.parse(JSON.stringify(PENTEADOS));
+/**
+ * Usa os penteados do ARQUIVO (`assets/penteados.json`: { penteados: { id: { nome, formas } } }): cada um substitui o do
+ * código de mesmo id, ou entra no FIM do catálogo; o torto é ignorado (fica o do código). Chamar de novo refaz tudo a
+ * partir do código (a aba Cabelo, a cada mudança). Devolve os ids ignorados.
+ */
+export function usarPenteados(dados) {
+  for (const id of Object.keys(PENTEADOS)) delete PENTEADOS[id];
+  Object.assign(PENTEADOS, JSON.parse(JSON.stringify(PENTEADOS_DO_CODIGO)));
+  const tortos = [];
+  for (const [id, p] of Object.entries(dados?.penteados ?? {})) {
+    if (penteadoValido(id, p)) PENTEADOS[id] = { nome: p.nome, formas: JSON.parse(JSON.stringify(p.formas)) };
+    else tortos.push(id);
+  }
+  if (tortos.length) console.warn('[penteados] ignorei os do arquivo que vieram tortos:', tortos.join(', '));
+  return tortos;
+}
+/** Onde um ponto (cm, pose T) está no crânio: [volta, lado] em graus, as medidas das formas (ver `direcao`). */
+export function voltaELado(p) {
+  const d = new THREE.Vector3(p.x, p.y, p.z).sub(CENTRO).normalize();
+  let volta = (Math.atan2(d.y, d.z) * 180) / Math.PI;
+  if (volta < -90) volta += 360;
+  return [Math.round(volta), Math.round((Math.asin(d.x) * 180) / Math.PI)];
+}
 
 /**
  * As barbas que há ('modelo' é a do modelo inteira, a de sempre). `partes`: as partes da
@@ -317,6 +412,24 @@ function naCabeca(m, c, desenhar) {
   m.v.push(...r.v);
 }
 const entre = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+// um número "sorteado" entre 0 e 1, sempre o mesmo para o mesmo (i, semente): as facetas da bola não mudam a cada corpo
+const sorteio = (i, s) => { const x = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return x - Math.floor(x); };
+// a ESFERA de raio 1 facetada (o icosaedro dividido `detalhe` vezes): os lugares (sem repetir) e as faces (três lugares cada)
+const esferas = new Map();
+function esferaUnitaria(detalhe) {
+  if (esferas.has(detalhe)) return esferas.get(detalhe);
+  const g = new THREE.IcosahedronGeometry(1, detalhe), P = g.attributes.position, lugares = [], indice = new Map(), faces = [];
+  const lugar = (i) => {
+    const chave = `${P.getX(i).toFixed(4)},${P.getY(i).toFixed(4)},${P.getZ(i).toFixed(4)}`;
+    if (!indice.has(chave)) { indice.set(chave, lugares.length); lugares.push(new THREE.Vector3(P.getX(i), P.getY(i), P.getZ(i))); }
+    return indice.get(chave);
+  };
+  for (let i = 0; i < P.count; i += 3) faces.push([lugar(i), lugar(i + 1), lugar(i + 2)]);
+  g.dispose();
+  const e = { lugares, faces };
+  esferas.set(detalhe, e);
+  return e;
+}
 
 // ------------------------------------------------------------ as formas
 const FORMAS = {
@@ -371,6 +484,34 @@ const FORMAS = {
     });
   },
 
+  // A BOLA (26/10/2026, os dois coques): o coque REDONDO e facetado do low poly — um icosaedro dividido `detalhe` vezes
+  // (0 = 20 faces, 1 = 80, 2 = 320), preso ao crânio em `em` ([volta, lado], ver `direcao`; com `espelho`, o mesmo do
+  // outro lado), o MEIO dele a `sai` cm do couro pela normal dali (o pé afunda na touca), deitado `inclina` graus para
+  // trás, achatado `achata` no eixo de fora, e cada canto mexido até `bagunca` do raio (as facetas desiguais; `semente`
+  // sorteia outras). O tom: escuro no pé, claro em cima.
+  bola(m, c, { em, raio = 5, sai = 4, achata = 0.92, inclina = 0, bagunca = 0.1, detalhe = 1, semente = 1, espelho = true }) {
+    if (c.elmo || !Array.isArray(em)) return;
+    const esfera = esferaUnitaria(Math.round(entre(detalhe, 0, 3)));
+    naCabeca(m, c, (r) => {
+      for (const lado of espelho && em[1] ? [1, -1] : [1]) {
+        const h = c.noCranio(direcao(em[0], em[1] * lado));
+        if (!h) continue;
+        const eixo = h.n.clone().applyAxisAngle(X, (-inclina * Math.PI) / 180).normalize();
+        const a = new THREE.Vector3().crossVectors(eixo, Math.abs(eixo.x) > 0.9 ? FRENTE : X).normalize(), b = new THREE.Vector3().crossVectors(eixo, a);
+        const meio = h.q.clone().addScaledVector(eixo, sai);
+        // um canto por LUGAR da esfera (as faces vizinhas dividem o mesmo: a bola não abre)
+        const cantos = esfera.lugares.map((u, i) => {
+          const q = raio * (1 + bagunca * (2 * sorteio(i, semente) - 1));
+          return {
+            p: meio.clone().addScaledVector(a, u.x * q).addScaledVector(b, u.y * q).addScaledVector(eixo, u.z * q * achata),
+            cor: c.tom(0.74 + 0.24 * (u.z + 1) + 0.1 * (sorteio(i, semente + 7) - 0.5)), w: c.CABECA,
+          };
+        });
+        for (const [i, j, k] of esfera.faces) r.tri(meio, cantos[i], cantos[j], cantos[k]);
+      }
+    });
+  },
+
   // A MECHA que cai: sai da cabeça em `raiz` (amarrada por uma tira de couro), passa pelos
   // pontos `solta` ([y, z], presos à cabeça) e da NUCA para baixo pousa nas costas, até a
   // altura `ate`. `raio`: a grossura; `elo`: o comprimento de cada gomo — com ele é uma
@@ -400,7 +541,8 @@ const FORMAS = {
   // orelha). A BEIRADA fecha na pele; por dentro fica a `folga` cm dela, e uma fileira sim,
   // outra não, sobe `onda` a mais (os gomos do cabelo penteado). `recua`: quantos graus a
   // linha da testa recua nas têmporas.
-  touca(m, c, { de, ate, lado, linhas = 9, colunas = 9, folga = 1.1, onda = 0.6, recua = 0 }) {
+  // `risca`: quantos cm a coluna do MEIO afunda (a risca do cabelo repartido; só com `colunas` ímpar).
+  touca(m, c, { de, ate, lado, linhas = 9, colunas = 9, folga = 1.1, onda = 0.6, recua = 0, risca = 0 }) {
     if (c.elmo) return;
     const meio = (colunas - 1) / 2, comeco = (fj) => de + recua * (2 * fj - 1) ** 2;
     // a grade: onde cada raio acha o couro, e a que distância dele fica a casca ali
@@ -409,8 +551,8 @@ const FORMAS = {
       const fj = j / (colunas - 1), borda = j === 0 || j === colunas - 1, gomo = (j - meio) % 2 === 0, coluna = [];
       for (let i = 0; i < linhas; i++) {
         const fi = i / (linhas - 1), h = c.noCranio(direcao(comeco(fj) + (ate - comeco(fj)) * fi, (fj * 2 - 1) * lado));
-        const beira = borda || i === 0 || i === linhas - 1;
-        coluna.push(h && { h, beira, gomo, f: beira ? BEIRA : folga * (0.7 + 0.3 * Math.sin(Math.PI * fi)) + (gomo ? onda : 0) });
+        const beira = borda || i === 0 || i === linhas - 1, f = folga * (0.7 + 0.3 * Math.sin(Math.PI * fi)) + (gomo ? onda : 0);
+        coluna.push(h && { h, beira, gomo, f: beira ? BEIRA : j === meio && risca ? Math.max(BEIRA, f - onda - risca) : f });
       }
       grade.push(coluna);
     }
@@ -894,7 +1036,12 @@ export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, 
     aDistancia: (ima, d) => lugar(ima.g, doRosto).p.addScaledVector(ima.dir, d * escala),
   };
   const m = new Malha(), fim = [];
-  formas.forEach(([forma, medidas], i) => { FORMAS[forma]?.(m, c, medidas); fim[i] = m.v.length; });
+  formas.forEach(([forma, medidas], i) => {
+    // (a forma que falha — uma medida torta do arquivo — sai inteira; o resto do corpo é desenhado)
+    const antes = m.v.length;
+    try { FORMAS[forma]?.(m, c, medidas); } catch (e) { m.v.length = antes; console.warn(`[penteados] a forma ${i + 1} (${forma}) de "${id ?? barba ?? sobrancelha}" falhou:`, e); }
+    fim[i] = m.v.length;
+  });
   const n = m.v.length;
   if (!n) return null;
   const g = new THREE.BufferGeometry(), uvClaro = texelClaro(mapa) ?? [0.5, 0.5];
@@ -915,5 +1062,7 @@ export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, 
   // o que é o cabelo, a barba e as sobrancelhas (os vértices de cada um, [de, até]: a modelagem os edita à parte)
   const ate = (k) => (k > 0 ? fim[k - 1] : 0), nc = PENTEADOS[id]?.formas?.length ?? 0, nb = nc + (BARBAS[barba]?.formas?.length ?? 0);
   g.userData.partes = { cabelo: [0, ate(nc)], barba: [ate(nc), ate(nb)], sobrancelhas: [ate(nb), n] };
+  // … e cada FORMA do cabelo, [de, até] (a aba Cabelo do editor acende a escolhida e acha a que foi clicada)
+  g.userData.formas = Array.from({ length: nc }, (_, i) => [ate(i), fim[i]]);
   return g;
 }

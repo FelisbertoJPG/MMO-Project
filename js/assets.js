@@ -5,6 +5,7 @@ import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { categoriaDaPeca } from './categorias.js';
 import { carregarPinturas } from './pintura.js';
+import { usarPenteados } from './penteado.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
 // a gaveta dele. Um .glb em assets/dungeon/ que NÃO esteja aqui existe no disco
@@ -197,6 +198,16 @@ export async function carregarEmpunhadura() {
 }
 
 /** A MODELAGEM (assets/modelagem.json, modelagem.js): { corpos: { <chave do corpo>: as edições da malha dele } } ({ corpos: {} } sem o arquivo). */
+/** Os PENTEADOS DO ARQUIVO (assets/penteados.json, gravado pela aba Cabelo do editor; penteado.js `usarPenteados`): { penteados: {} } sem ele. */
+export async function carregarPenteados() {
+  try {
+    const r = await fetch('assets/penteados.json', { cache: 'no-store' });
+    if (!r.ok) return { penteados: {} };
+    const j = await r.json();
+    return { penteados: j?.penteados && typeof j.penteados === 'object' && !Array.isArray(j.penteados) ? j.penteados : {} };
+  } catch { return { penteados: {} }; }
+}
+
 export async function carregarModelagem() {
   try {
     const r = await fetch('assets/modelagem.json', { cache: 'no-store' });
@@ -474,6 +485,7 @@ export const Assets = {
     ({ racas: this.racas, humano: this.humano } = await lerRacas());
     this.modelagem = await carregarModelagem();
     this.pinturas = await carregarPinturas(this.modelagem);
+    usarPenteados(await carregarPenteados());   // (os penteados editados na aba Cabelo do editor, por cima dos do código)
     for (const clip of await Promise.all(ANIMACOES.map(carregarAnimacao))) if (clip) this.clips[clip.name] = clip;
     this.mapa = mapa; this.decor = decor.itens; this.grama = decor.grama;
     for (const [nome, m] of await Promise.all(MODELOS.map(async (n) => [n, await carregarModelo(n)]))) {

@@ -69,6 +69,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 - Raça é sempre `racaDe(a.raca, a.sexo)`, nunca `Assets.racas[n]`.
 - Coisa que encoste no corpo (brinco, chifre, cicatriz) prende-se pelo ÍMÃ (`js/ima.js`), não por conta paralela às réguas. Régua nova que mexa no rosto entra em `rostoDaRaca`.
 - Antes de acrescentar uma parte do corpo, confira se o modelo já não a tem.
+- Penteado que está em `assets/penteados.json` (a aba Cabelo do editor grava lá) vale NO LUGAR do do código: mexa no arquivo, não no `PENTEADOS`. Forma nova do cabelo = função em `FORMAS` + lista em `MEDIDAS`. "Deixei recados no cabelo" = ler `referencias/recados-cabelo.json` do editor (base `aparencia-e-racas`).
 
 **Desempenho** (→ base `desempenho-do-jogo`)
 - Nunca ler pixels da placa no meio do jogo (`readPixels`) nem criar/descartar material a cada vez.

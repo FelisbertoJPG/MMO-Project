@@ -1,0 +1,4 @@
+{
+  "_leiame": "Os PENTEADOS DO ARQUIVO (js/penteado.js, usarPenteados): gravados pela aba CABELO do Editor de Personagem (o editor de cenas). Cada um SUBSTITUI o penteado do codigo de mesmo id (o PENTEADOS do penteado.js), ou entra como novo no fim do catalogo (para alguem o ter, ele entra na lista `penteados` de uma raca, no racas.json). id: so letras. formas: [nome da forma, as medidas] — as formas e as medidas de MEDIDAS no penteado.js. Penteado torto e ignorado (fica o do codigo). Sem um penteado aqui, vale o do codigo.",
+  "penteados": {}
+}
