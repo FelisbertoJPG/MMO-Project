@@ -88,6 +88,11 @@ const CAIDA = (lado) => ['caida', { lado, raiz: [198, 47], solta: [[11.8, 164.2,
 // o COMPRIDO: as mechas soltas das costas (nascem no alto de trás, `l` graus para o lado, e caem em `x`) e a da frente do ombro
 const COSTAS = (lado, l, x, o = {}) => ['solto', { lado, raiz: [150, l], sai: [200, l * 0.9], x, ate: 118, raio: 4.2, larg: 1.65, achata: 0.5, ...o }];
 const SOLTA_NA_FRENTE = (lado) => ['solto', { lado, frente: true, raiz: [120, 60], sai: [175, 72], solta: [[12, 162.5, -6.5], [13.6, 158.5, -2.4]], x: 12.6, abre: -1, de: 151, ate: 126, raio: 3.9, larg: 1.5, onda: 1.1, passo: 11, fase: 0.6 }];
+// o LISO COM FRANJA: as mechas lisas que caem dos lados do rosto, por cima da orelha, até o peito (`perto`: a de junto
+// do rosto; a outra, mais para fora e para trás, por cima do ombro) — sem onda, a ponta quase reta
+// (ESTREITAS: a seção do fio é larga de um lado ao outro — certo deitada no peito, mas do lado do rosto virava uma aba)
+const LISA_NA_FRENTE = (lado, o = {}) => ['solto', { lado, frente: true, raiz: [88, 64], sai: [104, 82], solta: [[9.2, 170.5, 6.4], [9.6, 164.5, 5.4], [10.2, 158.5, 3.4]], x: 10.2, abre: 0.8, de: 152, ate: 124, raio: 2.3, larg: 1.15, achata: 0.6, onda: 0.1, passo: 40, vira: 0.2, folga: 1.4, ...o }];
+const LISA_NAS_COSTAS = (lado, l, x, o = {}) => COSTAS(lado, l, x, { onda: 0.18, passo: 40, vira: 0.3, folga: 1.2, raio: 3.4, ...o });
 const FIAPO = (lado) => ['fiapo',{ lado, pontos: [[9.3, 176.6, 4.8], [10.8, 172.4, 4.4], [11.2, 167.4, 4.8], [10.9, 162.6, 5.6], [10.4, 158.8, 6.2]] }];
 export const PENTEADOS = {
   rabo: { nome: 'Rabo de cavalo', formas: [['mecha', { raiz: 29.5, solta: [[187, -16.8], [186.2, -21.4], [181, -24.6], [174, -25], [167.5, -22.6]], ate: 134, raio: 3.7 }]] },
@@ -132,6 +137,20 @@ export const PENTEADOS = {
     COSTAS(1, 46, 9, { fase: 4.2, abre: 2.5, ate: 120, raio: 4 }), COSTAS(-1, 46, 9, { fase: 5.1, abre: 2.5, ate: 121, raio: 4 }),
     COSTAS(1, 66, 12.5, { fase: 1, abre: 4, ate: 124, raio: 3.8 }), COSTAS(-1, 66, 12.5, { fase: 0.2, abre: 4, ate: 123, raio: 3.8 }),
     SOLTA_NA_FRENTE(1), SOLTA_NA_FRENTE(-1),
+  ] },
+  // O LISO COM FRANJA (26/10/2026, a referência do dono — a personagem gótica): liso e comprido, a FRANJA reta cortada
+  // logo acima das sobrancelhas, as laterais caindo lisas dos dois lados do rosto até o peito e as costas lisas até o
+  // meio delas
+  lisoFranja: { nome: 'Liso com franja', formas: [
+    ['touca', { de: 30, ate: 214, lado: 86, linhas: 9, colunas: 13, folga: 1.8, onda: 0.15, recua: 4 }],
+    ['franja', { raiz: 104, corte: 15, lado: 62 }],
+    LISA_NA_FRENTE(1), LISA_NA_FRENTE(-1),
+    LISA_NA_FRENTE(1, { raiz: [96, 80], sai: [112, 90], solta: [[10.6, 168, 3.6], [11.2, 161.5, 1.8]], x: 11.8, abre: 1, ate: 127 }),
+    LISA_NA_FRENTE(-1, { raiz: [96, 80], sai: [112, 90], solta: [[10.6, 168, 3.6], [11.2, 161.5, 1.8]], x: 11.8, abre: 1, ate: 127 }),
+    LISA_NAS_COSTAS(1, 0, 0, { ate: 114 }),
+    LISA_NAS_COSTAS(1, 24, 5, { abre: 0.6, ate: 115 }), LISA_NAS_COSTAS(-1, 24, 5, { abre: 0.6, ate: 115 }),
+    LISA_NAS_COSTAS(1, 46, 9, { abre: 1.5, ate: 116, raio: 3.3 }), LISA_NAS_COSTAS(-1, 46, 9, { abre: 1.5, ate: 116, raio: 3.3 }),
+    LISA_NAS_COSTAS(1, 66, 12.5, { abre: 2.5, ate: 118, raio: 3.1 }), LISA_NAS_COSTAS(-1, 66, 12.5, { abre: 2.5, ate: 118, raio: 3.1 }),
   ] },
 };
 
@@ -475,6 +494,43 @@ const FORMAS = {
         return { c: q.p, a: u.multiplyScalar(larg), b: v.multiplyScalar(i === n - 1 ? 0 : grossura * c.k * (1 - 0.4 * f)), cor: c.tom(0.78 + 0.45 * f), w: c.CABECA };
       });
       tubo(m, est, LOSANGO, [true, false]);
+    }
+  },
+
+  // A FRANJA (26/10/2026, o liso com franja): uma LÂMINA de cabelo que desce do alto da cabeça (`raiz`, graus de volta no
+  // crânio — ver `direcao`), por cima da touca, e acaba num CORTE RETO na testa: a altura em que o raio do meio da cabeça
+  // acha o couro na volta `corte` (no meio; nas outras colunas, a mesma altura — o crânio arredonda para os lados, cada
+  // uma busca a sua volta), uma coluna sim, outra não, um tico mais comprida (os fios). De `lado` a `lado` graus
+  // (`colunas`), a `folga` cm do couro, assentando até `rente` no corte; a beirada do corte tem `grossura` (não é uma folha).
+  franja(m, c, { raiz = 104, corte = 19, lado = 60, colunas = 13, passos = 7, folga = 1.9, rente = 0.75, grossura = 0.5, fios = 0.22 }) {
+    if (c.elmo) return;
+    const meio = c.noCranio(direcao(corte, 0));
+    if (!meio) return;
+    // a volta, na coluna de `lado` l, em que o couro chega à altura y (busca: a altura cresce com a volta, na testa)
+    const voltaNaAltura = (l, y) => {
+      let a = corte - 20, b = raiz;
+      for (let k = 0; k < 20; k++) { const v = (a + b) / 2, h = c.noCranio(direcao(v, l)); if (h && h.q.y >= y) b = v; else a = v; }
+      return b;
+    };
+    const grade = [];
+    for (let j = 0; j < colunas; j++) {
+      const l = ((2 * j) / (colunas - 1) - 1) * lado, vc = voltaNaAltura(l, meio.q.y - (j % 2 ? fios : 0)), col = [];
+      for (let i = 0; i <= passos; i++) {
+        const f = i / passos, h = c.noCranio(direcao(raiz + (vc - raiz) * f, l));
+        if (!h) break;
+        const fo = i === 0 ? 0.4 : folga + (rente - folga) * entre((f - 0.45) / 0.55);
+        col.push({ p: h.p(fo), cor: c.tom(0.8 + 0.32 * f), w: h.w, dentro: h.p(-3), baixo: h.p(fo - grossura) });
+      }
+      grade.push(col.length === passos + 1 ? col : null);
+    }
+    for (let j = 0; j < colunas - 1; j++) {
+      const A = grade[j], B = grade[j + 1];
+      if (!A || !B) continue;
+      for (let i = 0; i < passos; i++) { m.tri(A[i].dentro, A[i], B[i], B[i + 1]); m.tri(A[i].dentro, A[i], B[i + 1], A[i + 1]); }
+      // a beirada do corte, virada para baixo: da lâmina até a camada de dentro dela
+      const a = A[passos], b = B[passos], ai = { p: a.baixo, cor: c.tom(0.66), w: a.w }, bi = { p: b.baixo, cor: c.tom(0.66), w: b.w };
+      const cima = a.p.clone().add(b.p).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.6, 0));
+      m.tri(cima, a, b, bi); m.tri(cima, a, bi, ai);
     }
   },
 

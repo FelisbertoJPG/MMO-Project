@@ -36,6 +36,7 @@ import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olh
 import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
+import { folhaDaSombra } from './sombra.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -45,9 +46,9 @@ import { folhaDaBoca } from './boca.js';
 // Depois de ':' vem a APARÊNCIA (aparencia.js: pele, cabelo, barba, olhos — 5 dígitos):
 // '0100:21310'. Sem ela, a do modelo. Um 6º dígito na aparência é a RAÇA (raca.js), um 7º, a
 // SOBRANCELHA (penteado.js), um 8º, o SEXO (raca.js `racaDe`), e um 9º, o BATOM (boca.js); com 11, o 10º e o 11º são
-// o TOM de pele livre (aparencia.js `corDoTom`).
+// o TOM de pele livre (aparencia.js `corDoTom`); com 12, o 12º é a dezena do CABELO; com 13, o 13º é a SOMBRA (sombra.js).
 export const NU = '0000';
-const CODIGO = /^[0-9]{4}(:(?:[0-9]{5,9}|[0-9]{11}))?$/;
+const CODIGO = /^[0-9]{4}(:(?:[0-9]{5,9}|[0-9]{11,13}))?$/;
 /** O corpo que veio da rede é válido? (os nomes de antes — 'nu', 'A1'… — ainda valem) */
 export const corpoValido = (c) => c === 'antigo' || CODIGO.test(c) || ['nu', 'A1', 'A2', 'A3'].includes(c);
 /** corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo; senão o código) */
@@ -175,8 +176,9 @@ export function planosDoRosto(geo, faixas, extrasDe = null, graus = PLANO) {
   nor.needsUpdate = true;
 }
 
-// (`boca`:a folha dos lábios com batom — boca.js —, pintada como as da modelagem, mesmo no corpo sem edição)
-function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, boca = null, corOlhos = null) {
+// (`maquiagem`: as folhas da aparência — a sombra dos olhos, sombra.js, e os lábios com batom, boca.js —, pintadas como
+// as da modelagem, mesmo no corpo sem edição)
+function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, maquiagem = [], corOlhos = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
   const geos = pecas.map((p) => {
@@ -207,7 +209,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // aberta): de onde veio cada vértice (`origem`) e onde ele estava no MODELO, antes da raça
   // (`antes`: é onde o pincel guarda o centro), e as juntas no espaço da malha (os pivôs). A BOCA
   // pintada também precisa disso (sem edição, a malha continua bit a bit a de sempre)
-  const comModelo = geo && (edicoes || modelagemAberta() || boca) ? { ordem } : null;
+  const comModelo = geo && (edicoes || modelagemAberta() || maquiagem.length) ? { ordem } : null;
   if (comModelo) {
     const n = geo.attributes.position.count, origem = new Uint8Array(n), antes = new Float32Array(n * 3);
     let k = 0;
@@ -254,8 +256,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   if (comModelo?.origem && edicoes?.olhosLisos) alisarOlhos(geo, comModelo.origem);
   if (comModelo) {
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
-    // (a da BOCA por último: os lábios por cima de qualquer pintura do rosto)
-    const folhas = [...(edicoes?.pinturas ?? []), ...(boca ? [boca] : [])];
+    // (as da MAQUIAGEM por último — a da boca no fim: os lábios por cima de qualquer pintura do rosto)
+    const folhas = [...(edicoes?.pinturas ?? []), ...maquiagem];
     if (folhas.length) geo.userData.pinturas = folhas.map((folha) => ({ folha, geometry: geometriaDaFolha(folha, geo, comModelo) })).filter((f) => f.geometry);
   }
   // AS PÁLPEBRAS (piscada.js), sobre o olho como ele ficou (a raça, a modelagem): a tampa da frente
@@ -508,9 +510,11 @@ export class CorpoGuerreiro {
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
     // (o BATOM — boca.js: os lábios, uma folha pintada no rosto; 0 = sem, nada muda)
     const boca = aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
+    // (a SOMBRA dos olhos — sombra.js: uma folha esfumada em volta de cada olho; 0 = sem)
+    const sombra = aparenciaValida(aparencia) ? folhaDaSombra(ap.sombra) : null;
     // (a cor da ÍRIS desenhada em malha — cilios.js: a dos olhos da raça, ou a escolhida)
     const corOlhos = this.raca?.olhos ?? OLHOS[ap.olhos]?.[1] ?? null;
-    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, boca, corOlhos) : null;
+    const geo = material ? geometriaFundida(armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, [sombra, boca].filter(Boolean), corOlhos) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; if (this.palpebras) this.palpebras.visible = false; if (this.cilios) this.cilios.visible = false; return; }
     if (!this.fundida) {
