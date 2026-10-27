@@ -80,10 +80,10 @@ export const ANIMACOES = ['greatsword-idle'];
 export const ESCULPIDOS = ['dennis'];
 // OS CORPOS DE ARQUIVO (corpo-arquivo.js; um modelo pronto feito corpo do guerreiro por
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
-export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino3'];
+export const CORPOS_DE_ARQUIVO = ['feminino2'];
 // (os que SÓ O EDITOR carrega — a aba Modelo os edita antes de irem para o jogo: o jogo nem baixa o arquivo; 27/10/2026, a
-// Feminino 4. Pronto para o jogo = passar para a lista de cima)
-export const CORPOS_DO_EDITOR = ['feminino4'];
+// Feminino 3 e a 4, até o dono diminuir os triângulos delas. Pronta para o jogo = passar para a lista de cima)
+export const CORPOS_DO_EDITOR = ['feminino3', 'feminino4'];
 export const ANIMAIS_MODELOS =['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
