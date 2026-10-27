@@ -1,0 +1,22 @@
+{
+  "_leiame": "O recorte do CORPO DE ARQUIVO feminino3 (importar.mjs, modo `manter`): o modelo INTEIRO do Meshy (cada triângulo, com a textura de cor), preso ao esqueleto do guerreiro com as juntas achadas nele (o mesmo jeito da Feminino 2). A cópia reduzida (`triangulos`) só serve para achar as juntas e pesar; os pesos passam para cada vértice do arquivo. cmPorUnidade = a escala (a mesma da Feminino 2: os dois modelos têm 1,90 de altura). Rode: node ferramentas/corpo-de-arquivo/importar.mjs ferramentas/corpo-de-arquivo/feminino3.json",
+  "nome": "feminino3",
+  "entrada": "ferramentas/corpo-de-arquivo/feminino3-meshy.glb",
+  "manter": true,
+  "triangulos": 8000,
+  "cmPorUnidade": 100.8, "medidas": { "virilha": 0.015 },
+  "juntas": {
+    "limiteDoOmbro": 0.12,
+    "ombroAbaixo": 0.05,
+    "tornozelo": 0.1,
+    "maoX": 0.28
+  },
+  "jogo": {
+    "_leiame": "O que o JOGO usa deste corpo: raca (0 = o humano) e sexo (3 = o 4º da linha Sexo da Aparência) dele; rotulo = o nome na linha; penteados = nenhum (o cabelo é do modelo); proporcoes = altura e as larguras que afinam as armaduras (as da Feminino 2).",
+    "raca": 0,
+    "sexo": 3,
+    "rotulo": "Feminino 3",
+    "penteados": [],
+    "proporcoes": { "altura": 0.93, "ombros": 0.9, "peitoLargura": 0.88, "peitoFundo": 0.95, "barrigaLargura": 0.82, "quadril": 1.05, "bracos": 0.8, "antebracos": 0.8, "coxas": 0.95, "canelas": 0.88 }
+  }
+}

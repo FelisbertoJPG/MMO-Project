@@ -87,7 +87,7 @@ export function lerAparencia(c) {
   const d = [...s].map(Number);
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1] + (s.length >= 12 ? d[11] * 10 : 0), cor: d[2] < CABELOS.length ? d[2] : 0,
-    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] === 1 || d[7] === 2 ? d[7] : 0,
+    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] >= 1 && d[7] <= 3 ? d[7] : 0,
     batom: d[8] < BATONS.length ? d[8] : 0, tom: s.length >= 11 ? d[9] * 10 + d[10] : null, sombra: s.length >= 13 && d[12] < SOMBRAS.length ? d[12] : 0,
   };
 }
@@ -204,12 +204,12 @@ const LINHAS = [
   ['raca', 'Raça', () => racasDoPainel().map((r) => r.nome), () => racasDoPainel().length < 2],
   // (o sexo só aparece para a raça que TEM o corpo feminino no arquivo — ou o corpo de ARQUIVO, o 3º: raca.js)
   ['sexo', 'Sexo', (r, a) => sexosDe(a.raca), (r, a) => sexosDe(a.raca).length < 2],
-  ['pele', 'Pele', () => PELES.map((p) => p[0]), (r) => !!r?.pele],
+  ['pele', 'Pele', () => PELES.map((p) => p[0]), (r) => !!r?.pele || !!r?.textura],
   ['cabelo', 'Cabelo', (r) => ['Sem cabelo', ...penteadosDe(r).map(nomeDoPenteado)], (r) => !penteadosDe(r).length],
-  ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0])],
+  ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0]), (r) => !!r?.textura],
   ['barba', 'Barba', (r) => ['Sem barba', ...barbasDe(r).map(nomeDaBarba)], (r) => !barbasDe(r).length],
   ['sobrancelha', 'Sobrancelhas', (r) => ['Sem sobrancelhas', ...sobrancelhasDe(r).map(nomeDaSobrancelha)], (r) => !sobrancelhasDe(r).length],
-  ['olhos', 'Olhos', () => OLHOS.map((p) => p[0]), (r) => !!r?.olhos],
+  ['olhos', 'Olhos', () => OLHOS.map((p) => p[0]), (r) => !!r?.olhos || !!r?.textura],
   // (o corpo de ARQUIVO tem o rosto dele: sem batom nem sombra — corpo-arquivo.js)
   ['batom', 'Batom', () => BATONS.map((b) => b[0]), (r) => !!r?.arquivo],
   ['sombra', 'Sombra nos olhos', () => SOMBRAS.map((s) => s[0]), (r) => !!r?.arquivo],
@@ -284,7 +284,7 @@ export class EditorDeAparencia {
   mudar(parcial) {
     const p = this.game.player, antes = lerAparencia(p.aparencia), a = { ...antes, ...parcial };
     // (trocou de raça: o sexo só vale se ela tem o corpo — o 2, o de arquivo; sem ele, o feminino)
-    if (a.sexo === 2 && !temArquivo(a.raca)) a.sexo = 1;
+    if (a.sexo >= 2 && !temArquivo(a.raca, a.sexo)) a.sexo = a.sexo > 2 && temArquivo(a.raca, 2) ? 2 : 1;
     if (a.sexo === 1 && !temFeminino(a.raca)) a.sexo = 0;
     // O número do cabelo, da barba e da sobrancelha é o lugar na lista de CADA raça (e de cada
     // corpo dela). Trocou de raça ou de sexo: fica o MESMO corte, se o outro o tem (a "Longa"

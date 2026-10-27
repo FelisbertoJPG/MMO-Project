@@ -25,6 +25,12 @@ if modo == 'reduzir':
     bpy.context.view_layer.objects.active = obj
     obj.select_set(True)
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    # (o modelo com textura vem com os pontos das costuras da UV repetidos: soldados, a cópia reduzida fica fechada — os
+    # cortes do importar.mjs acham laços e o "calor" dos ossos pesa direito)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles(threshold=0.0001)
+    bpy.ops.object.mode_set(mode='OBJECT')
     m = obj.modifiers.new('plano', 'DECIMATE'); m.decimate_type = 'DISSOLVE'; m.angle_limit = math.radians(2); m.delimit = set()
     bpy.ops.object.modifier_apply(modifier='plano')
     t = obj.modifiers.new('tri', 'TRIANGULATE'); t.quad_method = 'BEAUTY'; t.ngon_method = 'BEAUTY'

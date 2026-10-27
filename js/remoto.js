@@ -188,12 +188,13 @@ export class JogadorRemoto {
     this.model.root.traverse((o) => {
       // escondida (o manequim sob o guerreiro, as peças soltas da malha fundida) não se vê: nem clona
       if (!o.isMesh || !o.material || o.userData.etiqueta || !o.visible) return;
+      // (a fundida do corpo com TEXTURA tem dois materiais — guerreiro.js: cada um é tratado igual)
       if (!o.userData.matProprio) {
-        o.material = o.material.clone(); o.userData.matProprio = true;
-        o.material.userData.corOriginal = o.material.color?.getHex();
-        o.material.userData.brilhoOriginal = o.material.emissive?.getHex();
+        o.material = Array.isArray(o.material) ? o.material.map((x) => x.clone()) : o.material.clone(); o.userData.matProprio = true;
+        for (const x of [].concat(o.material)) { x.userData.corOriginal = x.color?.getHex(); x.userData.brilhoOriginal = x.emissive?.getHex(); }
       }
-      const m = o.material, ud = m.userData;
+      for (const m of [].concat(o.material)) {
+      const ud = m.userData;
       // a armadura fundida (character.js) guarda a cor nos vértices: o fantasma
       // a pinta de UMA cor, então desliga a cor dos vértices enquanto está tingido
       ud.vertexColorsOriginal ??= m.vertexColors;
@@ -206,6 +207,7 @@ export class JogadorRemoto {
       if (m.emissive) m.emissive.setHex(ap ? ap.brilho : ud.brilhoOriginal ?? 0);
       ud.opacidadeBase = ap?.opacidade ?? 1;
       this.mats.push(m);
+      }
     });
     this.aplicarOpacidade();
   }

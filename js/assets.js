@@ -80,7 +80,7 @@ export const ANIMACOES = ['greatsword-idle'];
 export const ESCULPIDOS = ['dennis'];
 // OS CORPOS DE ARQUIVO (corpo-arquivo.js; um modelo pronto feito corpo do guerreiro por
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
-export const CORPOS_DE_ARQUIVO = ['feminino2'];
+export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino3'];
 export const ANIMAIS_MODELOS =['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
@@ -232,9 +232,14 @@ export async function carregarCorpos() {
       const r = await fetch(`assets/corpos/${nome}.json`, { cache: 'no-store' });
       if (!r.ok) return;
       const j = await r.json();
-      const c = { nome, jogo: j.jogo ?? {}, ossos: j.ossos, nomes: j.nomes, pos: de64(j.pos, Float32Array), idx: de64(j.idx, Uint16Array), regiao: de64(j.regiao, Uint8Array), ossoDe: de64(j.ossoDe, Uint8Array), peso: de64(j.peso, Uint8Array) };
+      const c = { nome, jogo: j.jogo ?? {}, ossos: j.ossos, nomes: j.nomes, pos: de64(j.pos, Float32Array), idx: j.idx32 ? de64(j.idx32, Uint32Array) : de64(j.idx, Uint16Array), regiao: de64(j.regiao, Uint8Array), ossoDe: de64(j.ossoDe, Uint8Array), peso: de64(j.peso, Uint8Array) };
       const nv = c.pos.length / 3;
       if (!Array.isArray(c.nomes) || !c.ossos || c.idx.length !== c.regiao.length * 3 || c.ossoDe.length !== nv * 4 || c.peso.length !== nv * 4 || c.idx.some((i) => i >= nv)) throw new Error('torto');
+      // (o modelo INTEIRO com a TEXTURA dele — a Feminino 3, `manter` no importar.mjs: as normais lisas e a UV do arquivo)
+      if (j.uv && j.normal && typeof j.textura === 'string' && /^assets\/corpos\/[a-z0-9-]+\.(jpe?g|png|webp)$/.test(j.textura)) {
+        const uv = de64(j.uv, Float32Array), normal = de64(j.normal, Float32Array);
+        if (uv.length === nv * 2 && normal.length === nv * 3) Object.assign(c, { uv, normal, textura: j.textura });
+      }
       // (os BURACOS DO ROSTO — corpo-arquivo.js, o rosto da modelo 1: a beira de cada um, cm, e a escala do pedaço)
       if (j.rosto && typeof j.rosto === 'object' && Object.values(j.rosto).every((b) => Array.isArray(b?.borda) && b.borda.every((p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite)))) c.rosto = j.rosto;
       // (o CABELO tirado do modelo — o penteado "malha" do penteado.js o desenha; torto, o corpo fica sem ele)

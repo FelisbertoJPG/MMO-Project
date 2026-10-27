@@ -146,6 +146,14 @@ for (let i = 0; i < NV; i++) {
   if (Math.abs(P[3 * i]) < 0.012 && P[3 * i + 1] > y0 + 0.3) virilha = Math.min(virilha, P[3 * i + 1]);
   if (Math.abs(P[3 * i]) < 0.05) coroa = Math.max(coroa, P[3 * i + 1]);
 }
+// (o recorte pode dar as alturas à mão — `medidas: { virilha, ombroTopo, pescoco }`, em unidades do arquivo — quando o
+// modelo engana os cortes; CORTES=1 no ambiente imprime a largura do corte do meio por altura, para escolhê-las)
+const med = cfg.medidas ?? {};
+if (med.virilha != null) virilha = med.virilha;
+if (process.env.CORTES) {
+  for (let y = y0 + 0.3; y < yt; y += 0.01) { const g = doMeio(y); console.log(y.toFixed(2), g ? `${g.min[0].toFixed(3)}..${g.max[0].toFixed(3)} n${g.n}` : '-', cortes(y).length); }
+  process.exit(0);
+}
 // (o alto do ombro: acima da AXILA — onde o corte do meio já pega os braços — o corte afina de repente para o pescoço)
 let ombroTopo = null, axila = null;
 for (let y = virilha + 0.2; y < yt && ombroTopo === null; y += 0.004) {
@@ -153,9 +161,13 @@ for (let y = virilha + 0.2; y < yt && ombroTopo === null; y += 0.004) {
   if (!g) continue;
   if (axila === null) { if (meiaLargura(g) > cj.limiteDoOmbro + 0.04) axila = y; } else if (meiaLargura(g) < cj.limiteDoOmbro) ombroTopo = y;
 }
+if (med.ombroTopo != null) ombroTopo = med.ombroTopo;
 let pesc = ombroTopo, largPesc = Infinity;
 for (let y = ombroTopo; y < ombroTopo + 0.12; y += 0.004) { const g = doMeio(y); if (g && meiaLargura(g) < largPesc) { largPesc = meiaLargura(g); pesc = y; } }
-const k = cfg.alturaDosOlhos / (cfg.olhos.y - y0);   // cm por unidade do arquivo
+if (med.pescoco != null) pesc = med.pescoco;
+// cm por unidade do arquivo: os olhos na altura dos do guerreiro — ou o número do recorte (`cmPorUnidade`: o modelo sem
+// olhos marcados, do mesmo tamanho de outro)
+const k = cfg.cmPorUnidade ?? cfg.alturaDosOlhos / (cfg.olhos.y - y0);
 console.log(`[corpo] pés ${y0.toFixed(3)}, virilha ${virilha.toFixed(3)}, alto do ombro ${ombroTopo.toFixed(3)}, pescoço ${pesc.toFixed(3)}, topo ${coroa.toFixed(3)}; ${k.toFixed(1)} cm por unidade`);
 
 const J = {};   // a junta de cada osso (pose A, unidades do arquivo)
@@ -282,6 +294,113 @@ for (const [L, l] of LADOS) {
     const d = /^(Thumb|Index|Middle|Ring|Pinky)([lLrR])(00[12])?$/.exec(nome);
     if (d && d[2].toUpperCase() === L) ossosCm[nome] = G[nome].clone().sub(G[n.hand]).multiplyScalar(escala).add(mao).toArray().map((x) => +x.toFixed(2));
   }
+}
+
+// ------------------------------------------------------------ 5b. O MODELO INTEIRO (`manter`; a Feminino 3, 27/10/2026)
+// O dono: "carrega o esqueleto da fem2 nessa última e junto mapeia os vértices, pro jogo carregar cada triângulo do modelo,
+// aí podemos editar na mão". A cópia reduzida só serviu para achar as juntas (o mesmo esqueleto da Feminino 2, ajustado a
+// este corpo) e pesar; aqui CADA VÉRTICE DO ARQUIVO ganha os pesos do lugar da reduzida mais perto dele (o ponto mais perto
+// num triângulo dela virado para o mesmo lado: a mistura dos pesos dos três cantos), vai para a pose T como ela (dual
+// quaternion, a normal junto) e sai com a UV e a TEXTURA de cor do arquivo. Nenhum triângulo muda; nada de cabelo à
+// parte, regiões, buracos nem olhos desenhados
+if (cfg.manter) {
+  const b = fs.readFileSync(path.resolve(RAIZ, cfg.entrada)), jl = b.readUInt32LE(12), jg = JSON.parse(b.subarray(20, 20 + jl).toString('utf8')), bin = b.subarray(20 + jl + 8);
+  const acc = (i) => {
+    const a = jg.accessors[i], bv = jg.bufferViews[a.bufferView], n = { VEC3: 3, VEC2: 2, SCALAR: 1 }[a.type];
+    const C = { 5126: Float32Array, 5125: Uint32Array, 5123: Uint16Array }[a.componentType], off = bin.byteOffset + (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
+    return new C(bin.buffer.slice(off, off + a.count * n * C.BYTES_PER_ELEMENT));
+  };
+  const prim = jg.meshes[0].primitives[0];   // (o Meshy: uma malha só, sem giro no nó)
+  const FP = acc(prim.attributes.POSITION), FN = acc(prim.attributes.NORMAL), FUV = acc(prim.attributes.TEXCOORD_0), FI = Uint32Array.from(acc(prim.indices));
+  const nv = FP.length / 3, nt = I.length / 3;
+  // a grade dos triângulos da reduzida, e a normal de cada um
+  const L = 0.03, grade = new Map(), cel = (x) => Math.floor(x / L);
+  const nTri = [];
+  for (let t = 0; t < nt; t++) {
+    const a = V(P.slice(3 * I[3 * t], 3 * I[3 * t] + 3)), bb = V(P.slice(3 * I[3 * t + 1], 3 * I[3 * t + 1] + 3)), c = V(P.slice(3 * I[3 * t + 2], 3 * I[3 * t + 2] + 3));
+    nTri.push(bb.clone().sub(a).cross(c.clone().sub(a)).normalize());
+    const lo = [0, 1, 2].map((e) => cel(Math.min(a.getComponent(e), bb.getComponent(e), c.getComponent(e)))), hi = [0, 1, 2].map((e) => cel(Math.max(a.getComponent(e), bb.getComponent(e), c.getComponent(e))));
+    for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) { const kk = `${x},${y},${z}`; if (!grade.has(kk)) grade.set(kk, []); grade.get(kk).push(t); }
+  }
+  // o ponto mais perto de p num triângulo (a, b, c): as baricêntricas [u, v, w]
+  const _ab = new THREE.Vector3(), _ac = new THREE.Vector3(), _ap = new THREE.Vector3(), _q = new THREE.Vector3();
+  function baricentricas(p, a, bb, c) {
+    _ab.subVectors(bb, a); _ac.subVectors(c, a); _ap.subVectors(p, a);
+    const d1 = _ab.dot(_ap), d2 = _ac.dot(_ap);
+    if (d1 <= 0 && d2 <= 0) return [1, 0, 0];
+    const bp = _ap.clone().sub(_ab), d3 = _ab.dot(bp), d4 = _ac.dot(bp);
+    if (d3 >= 0 && d4 <= d3) return [0, 1, 0];
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) { const v = d1 / (d1 - d3); return [1 - v, v, 0]; }
+    const cp = _ap.clone().sub(_ac), d5 = _ab.dot(cp), d6 = _ac.dot(cp);
+    if (d6 >= 0 && d5 <= d6) return [0, 0, 1];
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) { const w = d2 / (d2 - d6); return [1 - w, 0, w]; }
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return [0, 1 - w, w]; }
+    const den = 1 / (va + vb + vc), v = vb * den, w = vc * den;
+    return [1 - v - w, v, w];
+  }
+  const dq = giros.map(({ q, t }) => { const d = new THREE.Quaternion(t.x, t.y, t.z, 0).multiply(q); return [q, [d.x * 0.5, d.y * 0.5, d.z * 0.5, d.w * 0.5]]; });
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), ossoDe = new Uint8Array(nv * 4), peso = new Uint8Array(nv * 4);
+  const p = new THREE.Vector3(), n = new THREE.Vector3(), A = new THREE.Vector3(), B = new THREE.Vector3(), Cc = new THREE.Vector3();
+  let semVizinho = 0;
+  for (let i = 0; i < nv; i++) {
+    p.fromArray(FP, i * 3); n.fromArray(FN, i * 3);
+    // os triângulos perto (a grade em volta, crescendo até achar)
+    let melhor = null, dMelhor = Infinity;
+    for (let r = 1; r <= 4 && !melhor; r++) {
+      const cx = cel(p.x), cy = cel(p.y), cz = cel(p.z), vistos = new Set();
+      for (let x = cx - r; x <= cx + r; x++) for (let y = cy - r; y <= cy + r; y++) for (let z = cz - r; z <= cz + r; z++) for (const t of grade.get(`${x},${y},${z}`) ?? []) {
+        if (vistos.has(t)) continue;
+        vistos.add(t);
+        A.fromArray(P, 3 * I[3 * t]); B.fromArray(P, 3 * I[3 * t + 1]); Cc.fromArray(P, 3 * I[3 * t + 2]);
+        const w = baricentricas(p, A, B, Cc);
+        _q.set(0, 0, 0).addScaledVector(A, w[0]).addScaledVector(B, w[1]).addScaledVector(Cc, w[2]);
+        // (virado para o outro lado — o lado de dentro do braço encostado no tronco — conta como mais longe)
+        const d = _q.distanceTo(p) + (nTri[t].dot(n) < 0 ? 0.05 : 0);
+        if (d < dMelhor) { dMelhor = d; melhor = [t, w]; }
+      }
+    }
+    if (!melhor) { semVizinho++; melhor = [0, [1, 0, 0]]; }
+    const [t, w] = melhor, soma = new Map();
+    for (let e = 0; e < 3; e++) for (const [o, pp] of pesos[I[3 * t + e]]) soma.set(o, (soma.get(o) ?? 0) + pp * w[e]);
+    const lista = [...soma].sort((a, bb) => bb[1] - a[1]).slice(0, 4), tot = lista.reduce((s, [, pp]) => s + pp, 0);
+    // a pose T (dual quaternion) e a normal girada junto
+    const rr = [0, 0, 0, 0], du = [0, 0, 0, 0];
+    let ref = null;
+    for (const [o, pp] of lista) {
+      const [q, d] = dq[o], f = pp / tot;
+      if (!ref) ref = q;
+      const s = q.x * ref.x + q.y * ref.y + q.z * ref.z + q.w * ref.w < 0 ? -f : f;
+      rr[0] += q.x * s; rr[1] += q.y * s; rr[2] += q.z * s; rr[3] += q.w * s;
+      for (let e = 0; e < 4; e++) du[e] += d[e] * s;
+    }
+    const m = Math.hypot(...rr), qr = new THREE.Quaternion(rr[0] / m, rr[1] / m, rr[2] / m, rr[3] / m), qd = new THREE.Quaternion(du[0] / m, du[1] / m, du[2] / m, du[3] / m);
+    const tt = qd.multiply(qr.clone().conjugate());
+    const v = p.clone().applyQuaternion(qr).add(new THREE.Vector3(tt.x * 2, tt.y * 2, tt.z * 2));
+    pos.set(cm(v.toArray()), i * 3);
+    nor.set(n.clone().applyQuaternion(qr).normalize().toArray(), i * 3);
+    // (os pesos em 255 avos, a soma exata)
+    const qq = lista.map(([, pp]) => Math.round((pp / tot) * 255)), falta = 255 - qq.reduce((s, x) => s + x, 0);
+    qq[0] += falta;
+    lista.forEach(([o], e) => { ossoDe[i * 4 + e] = o; peso[i * 4 + e] = qq[e]; });
+  }
+  // a TEXTURA de cor do arquivo, ao lado do corpo
+  const tex = jg.textures[jg.materials[0].pbrMetallicRoughness.baseColorTexture.index], img = jg.images[tex.source], bv = jg.bufferViews[img.bufferView];
+  const ext = img.mimeType === 'image/png' ? 'png' : 'jpg', arqTex = `assets/corpos/${cfg.nome}-cor.${ext}`;
+  fs.writeFileSync(path.join(RAIZ, arqTex), bin.subarray(bv.byteOffset ?? 0, (bv.byteOffset ?? 0) + bv.byteLength));
+  const b64 = (a) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64');
+  const saida = {
+    _leiame: `Corpo de arquivo "${cfg.nome}" (js/corpo-arquivo.js), o MODELO INTEIRO de ${cfg.entrada} (cada triângulo; gerado por ferramentas/corpo-de-arquivo/importar.mjs com \`manter\` — não edite à mão). ossos: onde fica cada osso do guerreiro neste corpo (cm, pose T). pos/normal (Float32, cm, pose T), uv (Float32), idx32 (Uint32), nomes (os ossos dos pesos), ossoDe/peso (Uint8, 4 por vértice; peso em 255 avos), regiao (Uint8 por triângulo, tudo 0), textura (a imagem de cor). Tudo em base64.`,
+    nome: cfg.nome, jogo: Object.fromEntries(Object.entries(cfg.jogo ?? {}).filter(([k2]) => k2 !== '_leiame')), ossos: ossosCm, nomes: NOMES,
+    vertices: nv, triangulos: FI.length / 3, textura: arqTex,
+    pos: b64(pos), normal: b64(nor), uv: b64(FUV), idx32: b64(FI), regiao: b64(new Uint8Array(FI.length / 3)), ossoDe: b64(ossoDe), peso: b64(peso),
+  };
+  const arqSaida = path.join(RAIZ, 'assets/corpos', `${cfg.nome}.json`);
+  fs.writeFileSync(arqSaida, JSON.stringify(saida) + '\n');
+  console.log(`[corpo] gravado ${path.relative(RAIZ, arqSaida)} e ${arqTex}: ${nv} vértices, ${FI.length / 3} triângulos (o modelo inteiro)${semVizinho ? `; ${semVizinho} sem vizinho na reduzida` : ''} (${(fs.statSync(arqSaida).size / 1048576).toFixed(1)} MB)`);
+  process.exit(0);
 }
 
 // ------------------------------------------------------------ 6. as regiões (a cor de cada triângulo), na pose A

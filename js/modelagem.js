@@ -111,7 +111,8 @@ const PARTE = new Map(PARTES.map((p) => [p.id, p]));
 export function chaveDoCorpo(raca, sexo) {
   const id = (raca > 0 && Assets.racas?.[raca - 1]?.id) || 'humano';   // (raça que não existe mais = o humano, como em racaDe)
   // (o 2, o corpo de ARQUIVO: a chave dele não tem edição — a malha é a do arquivo, e as do masculino não valem nela)
-  if (sexo === 2 && temArquivo(id === 'humano' ? 0 : raca)) return `${id}:arquivo`;
+  // (o 3, a Feminino 3: `:arquivo3`)
+  if (sexo >= 2 && temArquivo(id === 'humano' ? 0 : raca, sexo)) return `${id}:arquivo${sexo > 2 ? sexo : ''}`;
   return sexo >= 1 && temFeminino(id === 'humano' ? 0 : raca) ? `${id}:feminino` : id;
 }
 /** As edições do corpo (ou null: não há — a malha fica como é). */

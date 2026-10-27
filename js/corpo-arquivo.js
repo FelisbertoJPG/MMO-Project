@@ -278,6 +278,7 @@ export function esquecerCorpos() { for (const g of feitas.values()) g.dispose();
  * tem as mesmas cores.
  */
 export function pecaDoArquivo(corpo, codigo, { ordem, inversos, esqueleto, ligacao, material }) {
+  if (corpo.uv) return pecaComTextura(corpo, { ordem, inversos, esqueleto, ligacao, material });
   const a = lerAparencia(codigo), c = corpo.jogo?.cores ?? {};
   const cores = { pele: corDaPele(a) ?? c.pele ?? '#f8bb7f', cabelo: CABELOS[a.cor]?.[1] ?? c.cabelo ?? '#2a1812', iris: OLHOS[a.olhos]?.[1] ?? c.olhos ?? '#2f7f95', roupa: c.roupa ?? '#232a44', ...FIXAS };
   const chave = `${corpo.nome}|${cores.pele}|${cores.cabelo}|${cores.iris}`;
@@ -315,4 +316,53 @@ export function pecaDoArquivo(corpo, codigo, { ordem, inversos, esqueleto, ligac
   }
   const anda = andaNoArquivo(corpo, ordem, inversos, ligacao), juntasDele = new Map(Object.entries(corpo.ossos).map(([n, p]) => [n, new THREE.Vector3(...p)]));
   return { name: `corpo_${corpo.nome}`, geometry: feitas.get(chave), skeleton: esqueleto, material, bindMatrix: ligacao, semRaca: true, anda, juntas: juntasDele };
+}
+
+// ------------------------------------------------------------ O MODELO INTEIRO, COM A TEXTURA (27/10/2026)
+// A FEMININO 3 (o dono: "carrega o esqueleto da fem2 nessa última e mapeia os vértices — o jogo carrega cada triângulo do
+// modelo, aí podemos editar na mão"): o .glb do Meshy INTEIRO (todos os triângulos, a UV e a textura dele), com o esqueleto
+// achado como o da Feminino 2 e os pesos passados da cópia reduzida para cada ponto (importar.mjs, `manter`). A cor é a
+// da TEXTURA: a peça vai na malha fundida com o grupo dela (guerreiro.js: `textura` na peça → o 2º material da fundida,
+// `materialDaTextura`) e as normais lisas do arquivo. Pele, cabelo e olhos já vêm pintados: o painel não os oferece.
+const texturas = new Map();
+/** A textura de um corpo (uma por caminho, dividida por todos os bonecos). */
+export function texturaDoCorpo(caminho) {
+  if (!texturas.has(caminho)) {
+    const t = new THREE.TextureLoader().load(caminho);
+    t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = 4;   // (a UV do glTF: sem virar)
+    texturas.set(caminho, t);
+  }
+  return texturas.get(caminho);
+}
+/** Um material com a textura do corpo, do jeito do material do guerreiro (`base`: a aspereza, o reflexo do céu). */
+export function materialDaTextura(caminho, base) {
+  const m = new THREE.MeshStandardMaterial({ map: texturaDoCorpo(caminho), roughness: base?.roughness ?? 0.85, metalness: 0 });
+  if (base?.envMap) { m.envMap = base.envMap; m.envMapIntensity = base.envMapIntensity; }
+  m.name = 'corpo-textura';
+  return m;
+}
+function pecaComTextura(corpo, { ordem, inversos, esqueleto, ligacao, material }) {
+  const chave = `${corpo.nome}|textura`;
+  if (!feitas.has(chave)) {
+    const P = corpo.pos, N = corpo.normal, U = corpo.uv, I = corpo.idx, n = I.length;
+    const indice = corpo.nomes.map((nm) => ordem.indexOf(nm));
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+    for (let o = 0; o < n; o++) {
+      const v = I[o];
+      pos[o * 3] = P[v * 3]; pos[o * 3 + 1] = P[v * 3 + 1]; pos[o * 3 + 2] = P[v * 3 + 2];
+      nor[o * 3] = N[v * 3]; nor[o * 3 + 1] = N[v * 3 + 1]; nor[o * 3 + 2] = N[v * 3 + 2];
+      uv[o * 2] = U[v * 2]; uv[o * 2 + 1] = U[v * 2 + 1];
+      for (let j = 0; j < 4; j++) { si[o * 4 + j] = Math.max(0, indice[corpo.ossoDe[v * 4 + j]] ?? 0); sw[o * 4 + j] = corpo.peso[v * 4 + j] / 255; }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(1), 3));
+    g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+    g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+    feitas.set(chave, g);
+  }
+  const anda = andaNoArquivo(corpo, ordem, inversos, ligacao), juntasDele = new Map(Object.entries(corpo.ossos).map(([nm, p]) => [nm, new THREE.Vector3(...p)]));
+  return { name: `corpo_${corpo.nome}`, geometry: feitas.get(chave), skeleton: esqueleto, material, bindMatrix: ligacao, semRaca: true, anda, juntas: juntasDele, textura: corpo.textura };
 }

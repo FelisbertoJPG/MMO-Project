@@ -321,7 +321,7 @@ export function aquecerBrilhoDosOlhos(corpo) {
   g.setAttribute('brilho', new THREE.Float32BufferAttribute(new Float32Array(9), 3));
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(12), 4));
   g.setAttribute('skinWeight', new THREE.Float32BufferAttribute([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], 4));
-  const m = new THREE.SkinnedMesh(g, materialComBrilho(corpo.fundida.material));
+  const m = new THREE.SkinnedMesh(g, materialComBrilho([].concat(corpo.fundida.material)[0]));
   m.frustumCulled = false; m.receiveShadow = true;
   corpo.cena.add(m);
   m.bind(corpo.esqueleto, corpo.fundida.bindMatrix);

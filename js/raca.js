@@ -123,13 +123,19 @@ const feminino = (n) => (n > 0 ? Assets.racas?.[n - 1]?.feminino : Assets.humano
  * modelo, a altura e as larguras que afinam as armaduras) moram no arquivo dele (`jogo`), não no racas.json (o
  * editor de cenas regrava o racas.json). Devolve o corpo carregado da raça `n`, ou null.
  */
-const deArquivo = (n) => Object.values(Assets.corpos ?? {}).find((c) => (c.jogo?.raca ?? 0) === n) ?? null;
+// (o `sexo` do corpo é o `jogo.sexo` do arquivo — 2 se não diz; a Feminino 3, 27/10/2026, é o 3: o modelo INTEIRO,
+// com a textura dele)
+const deArquivo = (n, sexo = 2) => Object.values(Assets.corpos ?? {}).find((c) => (c.jogo?.raca ?? 0) === n && (c.jogo?.sexo ?? 2) === sexo) ?? null;
 /** A raça de número `n` tem o corpo feminino? (só então o jogador escolhe o sexo) */
 export const temFeminino = (n) => !!feminino(n);
 /** A raça `n` tem o corpo de ARQUIVO (o 3º da linha "Sexo")? */
-export const temArquivo = (n) => !!deArquivo(n);
-/** As opções da linha "Sexo" da raça `n` (o lugar na lista é o dígito: 0, 1, 2). */
-export const sexosDe = (n) => [...SEXOS, ...(deArquivo(n) ? [deArquivo(n).jogo?.rotulo ?? 'Feminino 2'] : [])];
+export const temArquivo = (n, sexo = 2) => !!deArquivo(n, sexo);
+/** As opções da linha "Sexo" da raça `n` (o lugar na lista é o dígito: 0, 1, 2, 3 — sem buraco: para no 1º que falta). */
+export function sexosDe(n) {
+  const l = [...SEXOS];
+  for (let s = 2; deArquivo(n, s); s++) l.push(deArquivo(n, s).jogo?.rotulo ?? `Feminino ${s}`);
+  return l;
+}
 /** O corpo de arquivo de uma raça já resolvida por `racaDe` (o objeto carregado), ou null. */
 export const corpoDeArquivo = (raca) => (raca?.arquivo ? Assets.corpos?.[raca.arquivo] ?? null : null);
 /**
@@ -151,10 +157,11 @@ export function racaDe(n, sexo = 0) {
   // modelo", a forma `malha`) — os da lista `jogo.penteados` do arquivo (a MESMA lista sempre: a aba Cabelo do editor põe
   // nela o penteado que está editando); sem barba, sobrancelha, presas nem busto; as proporções dele só dão a altura e
   // afinam as armaduras. Sem ele, vale o feminino)
-  const arq = sexo === 2 ? deArquivo(n) : null;
+  // (o 3 e além: o modelo com TEXTURA — cabelo, olhos e pele já pintados nele: sem penteado nem cores do painel)
+  const arq = sexo >= 2 ? deArquivo(n, sexo) : null;
   if (arq) {
     if (arq.jogo) arq.jogo.penteados = Array.isArray(arq.jogo.penteados) ? arq.jogo.penteados : [];
-    return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, pele: null, olhos: null, semCabelo: false, semBarba: true, penteados: arq.jogo?.penteados ?? [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {} };
+    return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, textura: !!arq.uv, pele: null, olhos: null, semCabelo: !!arq.uv, semBarba: true, penteados: arq.uv ? [] : arq.jogo?.penteados ?? [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {} };
   }
   const f = sexo >= 1 ? feminino(n) : null;
   return f ? { ...raca, ...f, feminino: undefined } : raca;

@@ -38,7 +38,7 @@ import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 import { folhaDaSombra } from './sombra.js';
 import { peleNova, PELE, TROCADAS, OSSOS_DO_CORPO } from './retopologia.js';
-import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, rostoDaModelo, edicoesDoRosto, transplantarRosto } from './corpo-arquivo.js';
+import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, rostoDaModelo, edicoesDoRosto, transplantarRosto, materialDaTextura } from './corpo-arquivo.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -357,6 +357,16 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     }
   }
   if (geo && formasDoCabelo) geo.userData.formasDoCabelo = tirados ? formasDoCabelo.map(([a, b]) => [a - tirados(a), b - tirados(b)]) : formasDoCabelo;
+  // (o corpo de arquivo COM TEXTURA — a Feminino 3, corpo-arquivo.js: o pedaço dele é o grupo do 2º material; o resto, e
+  // os triângulos criados na aba Modelo, no fim, o 1º)
+  if (geo && fixa && pecas.at(-1).textura && !tirados && !transplante) {
+    const de = doCorpo - fixa, ate = doCorpo, n = geo.attributes.position.count;
+    geo.clearGroups();
+    if (de > 0) geo.addGroup(0, de, 0);
+    geo.addGroup(de, ate - de, 1);
+    if (n > ate) geo.addGroup(ate, n - ate, 0);
+    geo.userData.textura = pecas.at(-1).textura;
+  }
   fundidas.set(chave, geo);
   return geo;
 }
@@ -649,13 +659,23 @@ export class CorpoGuerreiro {
     const geo = material ? geometriaFundida(this.pele ? `${armadura}|pele:${this.pele}` : armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, [sombra, boca].filter(Boolean), corOlhos, this.pele ?? null) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
     if (!geo) { if (this.fundida) this.fundida.visible = false; if (this.palpebras) this.palpebras.visible = false; if (this.cilios) this.cilios.visible = false; return; }
+    // (o corpo com TEXTURA: a fundida com dois materiais — o do guerreiro e o da textura dele, um por boneco: o clarão de dano)
+    let mats = material;
+    if (geo.userData.textura) {
+      if (this.matTextura?.userData.caminho !== geo.userData.textura) {
+        this.matTextura = materialDaTextura(geo.userData.textura, material);
+        this.matTextura.userData.caminho = geo.userData.textura;
+        this.modelo.flashMats.push(this.matTextura); this.modelo.baseEmissive.push(this.matTextura.emissive.clone());
+      }
+      mats = [material, this.matTextura];
+    }
     if (!this.fundida) {
-      this.fundida = new THREE.SkinnedMesh(geo, material);
+      this.fundida = new THREE.SkinnedMesh(geo, mats);
       this.fundida.name = 'guerreiro-fundido';
       this.fundida.frustumCulled = false; this.fundida.castShadow = true; this.fundida.receiveShadow = true;
       this.cena.add(this.fundida);
       this.fundida.bind(this.esqueleto, usadas[0].bindMatrix.clone());
-    } else { this.fundida.geometry = geo; this.fundida.material = material; }
+    } else { this.fundida.geometry = geo; this.fundida.material = mats; }
     this.fundida.visible = true;
     this.vestirPinturas(geo, material, ap);
     this.vestirPalpebras(geo, material);
@@ -697,7 +717,7 @@ export class CorpoGuerreiro {
   // degrau por geometria. `fechados`: os olhos fecham e ficam (morto). A cada quadro, depois
   // do `seguir` (character.js)
   piscar(dt, fechados = false) {
-    const m = this.palpebras, etapas = this.etapasDaPiscada, mat = this.fundida?.material;
+    const m = this.palpebras, etapas = this.etapasDaPiscada, mat = [].concat(this.fundida?.material)[0];
     // (os cílios com o material de agora — o do jogador remoto é uma cópia, o do fantasma é translúcido — e só com o corpo)
     if (this.cilios) { this.cilios.material = !mat ? this.cilios.material : this.cilios.geometry.attributes.brilho ? materialComBrilho(mat) : mat; this.cilios.visible = !!this.fundida?.visible && !!this.fundida.geometry.userData.cilios; }
     if (!m) return;

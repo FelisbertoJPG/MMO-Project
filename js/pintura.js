@@ -430,7 +430,7 @@ export function aquecerPintura(corpo) {
   g.setAttribute('skinWeight', new THREE.Float32BufferAttribute([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], 4));
   const c = document.createElement('canvas');
   c.width = c.height = 1;
-  const tex = new THREE.CanvasTexture(c), m = new THREE.SkinnedMesh(g, materialDaPintura(corpo.fundida.material, tex));
+  const tex = new THREE.CanvasTexture(c), m = new THREE.SkinnedMesh(g, materialDaPintura([].concat(corpo.fundida.material)[0], tex));
   m.frustumCulled = false; m.receiveShadow = true;
   corpo.cena.add(m);
   m.bind(corpo.esqueleto, corpo.fundida.bindMatrix);
