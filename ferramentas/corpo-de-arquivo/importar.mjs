@@ -373,6 +373,23 @@ for (const p of pedacos((t) => regiao[t] === REG.cabelo)) if (p.length <= ccab.i
 }
 const doCorpo = pedacos((t) => regiao[t] !== REG.cabelo).sort((a, b) => b.length - a.length);
 for (const p of doCorpo.slice(1)) for (const t of p) regiao[t] = REG.cabelo;
+// AS MARCAS DO DONO (por último: mandam em tudo): a ferramenta "cabelo ⇄ pele" da aba Modelo grava em
+// ferramentas/corpo-de-arquivo/<nome>-marcas.json o meio (cm, pose T) dos triângulos errados — `cabelo`: os da pele que
+// são cabelo; `pele`: os do cabelo que são pele. Cada marca acha o triângulo do modelo mais perto (até 0,5 cm)
+{
+  let marcas = null;
+  try { marcas = JSON.parse(fs.readFileSync(path.join(AQUI, `${cfg.nome}-marcas.json`), 'utf8')); } catch { /* sem marcas */ }
+  if (marcas) {
+    const meios = Array.from({ length: NT }, (_, t) => { const s = [0, 0, 0]; for (let q = 0; q < 3; q++) { const c = cm([posT[3 * I[3 * t + q]], posT[3 * I[3 * t + q] + 1], posT[3 * I[3 * t + q] + 2]]); for (let e = 0; e < 3; e++) s[e] += c[e] / 3; } return s; });
+    const achar = (m) => { let b = -1, d = 0.5 ** 2; for (let t = 0; t < NT; t++) { const q = (meios[t][0] - m[0]) ** 2 + (meios[t][1] - m[1]) ** 2 + (meios[t][2] - m[2]) ** 2; if (q < d) { d = q; b = t; } } return b; };
+    let n = 0;
+    for (const [lista, r] of [[marcas.cabelo, REG.cabelo], [marcas.pele, REG.pele]]) for (const m of Array.isArray(lista) ? lista : []) {
+      const t = Array.isArray(m) && m.length === 3 ? achar(m) : -1;
+      if (t >= 0) { regiao[t] = r; n++; }
+    }
+    console.log(`[corpo] as marcas cabelo ⇄ pele: ${n} de ${(marcas.cabelo?.length ?? 0) + (marcas.pele?.length ?? 0)} aplicadas`);
+  }
+}
 console.log(`[corpo] cabelo: ${regiao.filter((r) => r === REG.cabelo).length} triângulos tirados do corpo`);
 
 // a BEIRA do corpo (as arestas com um triângulo só): os laços, cada um na ordem das arestas como os triângulos as têm.
