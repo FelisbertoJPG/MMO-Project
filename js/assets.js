@@ -81,6 +81,9 @@ export const ESCULPIDOS = ['dennis'];
 // OS CORPOS DE ARQUIVO (corpo-arquivo.js; um modelo pronto feito corpo do guerreiro por
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
 export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino3'];
+// (os que SÓ O EDITOR carrega — a aba Modelo os edita antes de irem para o jogo: o jogo nem baixa o arquivo; 27/10/2026, a
+// Feminino 4. Pronto para o jogo = passar para a lista de cima)
+export const CORPOS_DO_EDITOR = ['feminino4'];
 export const ANIMAIS_MODELOS =['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
@@ -224,10 +227,10 @@ export async function carregarModelagem() {
  * Os CORPOS DE ARQUIVO (assets/corpos/<nome>.json, corpo-arquivo.js): nome → os dados já abertos (as listas em
  * base64 viram arrays). Arquivo que falta ou vem torto fica de fora: a opção dele some do painel.
  */
-export async function carregarCorpos() {
+export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
   const de64 = (s, T) => { const b = Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); return new T(b.buffer, 0, b.byteLength / T.BYTES_PER_ELEMENT); };
   const corpos = {};
-  await Promise.all(CORPOS_DE_ARQUIVO.map(async (nome) => {
+  await Promise.all(lista.map(async (nome) => {
     try {
       const r = await fetch(`assets/corpos/${nome}.json`, { cache: 'no-store' });
       if (!r.ok) return;
