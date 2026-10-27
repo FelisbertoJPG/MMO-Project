@@ -311,7 +311,14 @@ if (cfg.manter) {
     return new C(bin.buffer.slice(off, off + a.count * n * C.BYTES_PER_ELEMENT));
   };
   const prim = jg.meshes[0].primitives[0];   // (o Meshy: uma malha só, sem giro no nó)
-  const FP = acc(prim.attributes.POSITION), FN = acc(prim.attributes.NORMAL), FUV = acc(prim.attributes.TEXCOORD_0), FI = Uint32Array.from(acc(prim.indices));
+  let FP = acc(prim.attributes.POSITION), FN = acc(prim.attributes.NORMAL), FUV = acc(prim.attributes.TEXCOORD_0), FI = Uint32Array.from(acc(prim.indices));
+  // (a malha SIMPLIFICADA — simplificar.mjs, a ferramenta Simplificar da aba Modelo — no lugar da do .glb; a textura é a mesma)
+  const simples = path.join(AQUI, `${cfg.nome}-simples.json`);
+  if (fs.existsSync(simples)) {
+    const s = JSON.parse(fs.readFileSync(simples, 'utf8'));
+    FP = Float32Array.from(s.pos); FN = Float32Array.from(s.normal); FUV = Float32Array.from(s.uv); FI = Uint32Array.from(s.idx);
+    console.log(`[corpo] a malha simplificada: ${FI.length / 3} triângulos`);
+  }
   const nv = FP.length / 3, nt = I.length / 3;
   // a grade dos triângulos da reduzida, e a normal de cada um
   const L = 0.03, grade = new Map(), cel = (x) => Math.floor(x / L);
