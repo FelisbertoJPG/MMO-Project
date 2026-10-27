@@ -71,6 +71,44 @@ const baixo = path.join(TRABALHO, 'baixo.json');
 console.log(`[corpo] reduzindo ${cfg.entrada} para ${cfg.triangulos} triângulos…`);
 blender('reduzir', path.resolve(RAIZ, cfg.entrada), baixo, String(cfg.triangulos));
 const malha = JSON.parse(fs.readFileSync(baixo, 'utf8'));
+// 1b. O ROSTO SUBDIVIDIDO (26/10/2026, para os buracos da boca e dos olhos da modelo 1 — `rosto` do recorte): os triângulos
+// do rosto dela são grandes (um ia do olho à boca, e os buracos se juntavam); os de frente na faixa `rosto.fino` (cm: de y,
+// até y, meia largura) se partem em 4, `rosto.niveis` vezes — e o vizinho que divide uma aresta partida se parte junto
+// (em 2 ou 3: sem rachadura). `paiDe[t]` = o triângulo da redução de onde t saiu (as marcas e os cortes do dono são
+// achados pelo meio dele)
+const I0 = malha.idx.slice(), P0 = malha.pos.slice();
+let paiDe = Array.from({ length: malha.idx.length / 3 }, (_, t) => t);
+if (cfg.rosto?.fino) {
+  let ymin = Infinity;
+  for (let i = 1; i < malha.pos.length; i += 3) ymin = Math.min(ymin, malha.pos[i]);
+  const kk = cfg.alturaDosOlhos / (cfg.olhos.y - ymin), f = cfg.rosto.fino;
+  for (let nivel = 0; nivel < (cfg.rosto.niveis ?? 2); nivel++) {
+    const pos = malha.pos, idx = malha.idx, nt = idx.length / 3, corta = new Map();
+    const chave = (a, b) => (a < b ? `${a}_${b}` : `${b}_${a}`);
+    const meio = (a, b) => { const k2 = chave(a, b); if (!corta.has(k2)) { corta.set(k2, pos.length / 3); pos.push(...[0, 1, 2].map((e) => (pos[3 * a + e] + pos[3 * b + e]) / 2)); } return corta.get(k2); };
+    for (let t = 0; t < nt; t++) {
+      const c = [0, 1, 2].map((e) => (pos[3 * idx[3 * t] + e] + pos[3 * idx[3 * t + 1] + e] + pos[3 * idx[3 * t + 2] + e]) / 3);
+      const ycm = (c[1] - ymin) * kk, xcm = Math.abs(c[0]) * kk, zcm = c[2] * kk;
+      if (ycm > f.de && ycm < f.ate && xcm < f.largura && zcm > (f.frente ?? 0)) for (let e = 0; e < 3; e++) meio(idx[3 * t + e], idx[3 * t + (e + 1) % 3]);
+    }
+    const novoIdx = [], novoPai = [];
+    for (let t = 0; t < nt; t++) {
+      const a = idx[3 * t], b = idx[3 * t + 1], c = idx[3 * t + 2], ab = corta.get(chave(a, b)), bc = corta.get(chave(b, c)), ca = corta.get(chave(c, a));
+      const n = [ab, bc, ca].filter((x) => x !== undefined).length, out = [];
+      if (n === 0) out.push([a, b, c]);
+      else if (n === 3) out.push([a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]);
+      else if (n === 1) { if (ab !== undefined) out.push([a, ab, c], [ab, b, c]); else if (bc !== undefined) out.push([a, b, bc], [a, bc, c]); else out.push([a, b, ca], [ca, b, c]); }
+      else if (ca === undefined) out.push([a, ab, bc], [ab, b, bc], [a, bc, c]);
+      else if (ab === undefined) out.push([b, bc, ca], [bc, c, ca], [b, ca, a]);
+      else out.push([c, ca, ab], [ca, a, ab], [c, ab, b]);
+      for (const tri of out) { novoIdx.push(...tri); novoPai.push(paiDe[t]); }
+    }
+    malha.idx = novoIdx; paiDe = novoPai;
+  }
+  fs.writeFileSync(path.join(TRABALHO, 'baixo-fino.json'), JSON.stringify(malha));
+  console.log(`[corpo] o rosto subdividido: ${malha.idx.length / 3} triângulos no corpo`);
+}
+const malhaPesada = cfg.rosto?.fino ? path.join(TRABALHO, 'baixo-fino.json') : baixo;
 const P = malha.pos, I = malha.idx, NV = P.length / 3;
 
 // ------------------------------------------------------------ 2. as juntas (pose A, unidades do arquivo)
@@ -174,7 +212,7 @@ const ossos = Object.keys(J).map((nome) => ({
   pai: PAI[nome] in J ? PAI[nome] : null,
 }));
 fs.writeFileSync(path.join(TRABALHO, 'ossos.json'), JSON.stringify(ossos));
-blender('pesar', baixo, path.join(TRABALHO, 'ossos.json'), path.join(TRABALHO, 'pesos.json'));
+blender('pesar', malhaPesada, path.join(TRABALHO, 'ossos.json'), path.join(TRABALHO, 'pesos.json'));
 const pesosB = JSON.parse(fs.readFileSync(path.join(TRABALHO, 'pesos.json'), 'utf8')).pesos;
 const NOMES = Object.keys(J);
 const pesos = pesosB.map((w, i) => {
@@ -328,7 +366,7 @@ for (const t of daCabeca) {
   const rumo = new THREE.Vector3(meioDaCabeca.x - m.x, 0, meioDaCabeca.z - m.z).normalize();
   const naFrente = !acima && !fina && rumo.dot(n) < -0.3 && raioAte(m.clone().addScaledVector(n, -1e-5), rumo, t) < ccab.naFrente * porCm;
   // (… e, na testa — acima das sobrancelhas, de frente —, a camada DA FRENTE: outra superfície logo atrás, olhando de frente)
-  const testa = !acima && !fina && !naFrente && cmY(m.y) > ccab.testaDe && Math.abs(graus) < 45 && n.z > 0.1 && raioAte(m.clone().addScaledVector(n, -1e-5), new THREE.Vector3(0, 0, -1), t) < ccab.naTesta * porCm;
+  const testa = !acima && !fina && !naFrente && cmY(m.y) > (ccab.camadaDe ?? ccab.testaDe) && Math.abs(graus) < 45 && n.z > 0.1 && raioAte(m.clone().addScaledVector(n, -1e-5), new THREE.Vector3(0, 0, -1), t) < ccab.naTesta * porCm;
   // (… e, na testa, o que está virado para BAIXO ou para TRÁS: a testa acima das sobrancelhas nunca olha para o chão nem
   // para dentro da cabeça — é a raiz de uma mecha, ou o lado de dentro da franja)
   const paraBaixo = !acima && cmY(m.y) > ccab.testaDe && Math.abs(graus) < 45 && (n.y < -0.3 || n.z < -0.2);
@@ -355,19 +393,33 @@ const pedacos = (dentro) => {   // os pedaços ligados dos triângulos em que `d
   return lista;
 };
 for (const p of pedacos((t) => regiao[t] === REG.cabelo)) if (p.length <= ccab.ilha) for (const t of p) regiao[t] = REG.pele;
+// os triângulos de uma MARCA do dono (o meio de um triângulo, cm, pose T): o triângulo de agora com esse meio (até 0,05 cm);
+// senão, o da REDUÇÃO com esse meio (até `ate` cm) — e então todos os que saíram dele ao subdividir o rosto (a marca feita
+// antes da subdivisão vale para os pedaços)
+const meioCm = (ids, t) => { const s = [0, 0, 0]; for (let q = 0; q < 3; q++) { const c = cm([posT[3 * ids[3 * t + q]], posT[3 * ids[3 * t + q] + 1], posT[3 * ids[3 * t + q] + 2]]); for (let e = 0; e < 3; e++) s[e] += c[e] / 3; } return s; };
+const meiosAgora = Array.from({ length: NT }, (_, t) => meioCm(I, t)), meiosDosPais = Array.from({ length: I0.length / 3 }, (_, t) => meioCm(I0, t));
+const perto2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+function trisDaMarca(m, ate) {
+  let b = -1, d = 0.05 ** 2;
+  for (let t = 0; t < NT; t++) { const q = perto2(meiosAgora[t], m); if (q < d) { d = q; b = t; } }
+  if (b >= 0) return [b];
+  let p = -1; d = ate ** 2;
+  for (let t = 0; t < meiosDosPais.length; t++) { const q = perto2(meiosDosPais[t], m); if (q < d) { d = q; p = t; } }
+  if (p < 0) return [];
+  const ts = [];
+  for (let t = 0; t < NT; t++) if (paiDe[t] === p) ts.push(t);
+  return ts;
+}
 // O QUE O DONO MARCOU: os triângulos CORTADOS (ferramenta Cortar, K) na aba Modelo deste corpo (`assets/modelagem.json`,
 // a chave dele — 'humano:arquivo') são CABELO: saem do corpo para o cabelo, e a careca fecha por baixo deles. (Cada corte
 // é achado pelo meio do triângulo no modelo, cm; depois de gerar de novo, o corte não acha mais nada: fica sem efeito)
 {
   let cortes = [];
   try { cortes = JSON.parse(fs.readFileSync(path.join(RAIZ, 'assets/modelagem.json'), 'utf8')).corpos?.[ccab.chave ?? 'humano:arquivo']?.cortes ?? []; } catch { /* sem o arquivo */ }
-  const meios = Array.from({ length: NT }, (_, t) => { const s = [0, 0, 0]; for (let q = 0; q < 3; q++) { const c = cm([posT[3 * I[3 * t + q]], posT[3 * I[3 * t + q] + 1], posT[3 * I[3 * t + q] + 2]]); for (let e = 0; e < 3; e++) s[e] += c[e] / 3; } return s; });
   let marcados = 0;
   for (const c of cortes) {
     if (c.de && c.de !== 'corpo' || !Array.isArray(c.em)) continue;
-    let melhor = -1, d = 0.05 ** 2;
-    for (let t = 0; t < NT; t++) { const q = (meios[t][0] - c.em[0]) ** 2 + (meios[t][1] - c.em[1]) ** 2 + (meios[t][2] - c.em[2]) ** 2; if (q < d) { d = q; melhor = t; } }
-    if (melhor >= 0 && regiao[melhor] !== REG.cabelo) { regiao[melhor] = REG.cabelo; marcados++; }
+    for (const t of trisDaMarca(c.em, 0.05)) if (regiao[t] !== REG.cabelo) { regiao[t] = REG.cabelo; marcados++; }
   }
   if (cortes.length) console.log(`[corpo] os cortes da aba Modelo: ${marcados} de ${cortes.length} viraram cabelo`);
 }
@@ -380,12 +432,11 @@ for (const p of doCorpo.slice(1)) for (const t of p) regiao[t] = REG.cabelo;
   let marcas = null;
   try { marcas = JSON.parse(fs.readFileSync(path.join(AQUI, `${cfg.nome}-marcas.json`), 'utf8')); } catch { /* sem marcas */ }
   if (marcas) {
-    const meios = Array.from({ length: NT }, (_, t) => { const s = [0, 0, 0]; for (let q = 0; q < 3; q++) { const c = cm([posT[3 * I[3 * t + q]], posT[3 * I[3 * t + q] + 1], posT[3 * I[3 * t + q] + 2]]); for (let e = 0; e < 3; e++) s[e] += c[e] / 3; } return s; });
-    const achar = (m) => { let b = -1, d = 0.5 ** 2; for (let t = 0; t < NT; t++) { const q = (meios[t][0] - m[0]) ** 2 + (meios[t][1] - m[1]) ** 2 + (meios[t][2] - m[2]) ** 2; if (q < d) { d = q; b = t; } } return b; };
     let n = 0;
     for (const [lista, r] of [[marcas.cabelo, REG.cabelo], [marcas.pele, REG.pele]]) for (const m of Array.isArray(lista) ? lista : []) {
-      const t = Array.isArray(m) && m.length === 3 ? achar(m) : -1;
-      if (t >= 0) { regiao[t] = r; n++; }
+      const ts = Array.isArray(m) && m.length === 3 ? trisDaMarca(m, 0.5) : [];
+      for (const t of ts) regiao[t] = r;
+      if (ts.length) n++;
     }
     console.log(`[corpo] as marcas cabelo ⇄ pele: ${n} de ${(marcas.cabelo?.length ?? 0) + (marcas.pele?.length ?? 0)} aplicadas`);
   }
@@ -479,6 +530,22 @@ if (lacos.length) {
     tri(a, b, c); tri(a, c, d);
   }
   for (let g = 0; g < G; g++) tri(linhas[N - 1][g], linhas[N - 1][(g + 1) % G], polo);
+  // A COSTURA DA BEIRA (26/10/2026, o dono traçou duas linhas na nuca: "conecte os vértices da linha de baixo com os da
+  // linha de cima (as bases)"): a beira da pele (o laço) e o pé da cúpula (o primeiro anel) ligados por uma faixa — em volta
+  // da cabeça, pela ordem do ângulo (um zíper: avança quem tem o próximo ângulo menor), cada triângulo virado para fora
+  {
+    const posDe = (i) => (i < NV ? V(P.slice(3 * i, 3 * i + 3)) : novos[i - NV].clone());
+    const angulo2 = (i) => { const p = posDe(i); return Math.atan2(p.x - meio.x, p.z - meio.z); };
+    const emOrdem = (l) => l.map((i) => [i, angulo2(i)]).sort((a, b) => a[1] - b[1]);
+    const A = emOrdem(laco), B = emOrdem(linhas[0]), na = A.length, nb = B.length;
+    const un = (L, k) => L[k % L.length][1] + (k >= L.length ? 2 * Math.PI : 0);
+    const triFora = (a, b, c) => { const pa = posDe(a), pb = posDe(b), pc = posDe(c), n = pb.clone().sub(pa).cross(pc.clone().sub(pa)); fechos.push(n.dot(pa.clone().add(pb).add(pc).multiplyScalar(1 / 3).sub(meio)) > 0 ? [a, b, c] : [a, c, b]); };
+    let i = 0, j = 0;
+    while (i < na || j < nb) {
+      const a0 = A[i % na][0], b0 = B[j % nb][0];
+      if (j >= nb || (i < na && un(A, i + 1) <= un(B, j + 1))) { triFora(a0, A[(i + 1) % na][0], b0); i++; } else { triFora(a0, B[(j + 1) % nb][0], b0); j++; }
+    }
+  }
   // os laços pequenos (a raiz de uma mecha que pousava na testa): um leque do meio deles
   for (const l of lacos.slice(1)) {
     const c = l.map((i) => V(P.slice(3 * i, 3 * i + 3))).reduce((s, p) => s.add(p), new THREE.Vector3()).multiplyScalar(1 / l.length);
@@ -486,6 +553,51 @@ if (lacos.length) {
     for (let i = 0; i < l.length; i++) fechos.push([l[(i + 1) % l.length], l[i], m]);
   }
   console.log(`[corpo] careca: o couro com ${novos.length} vértices novos (a beira tinha ${laco.length}); ${lacos.length - 1} buraquinho(s) fechado(s)`);
+}
+
+// ------------------------------------------------------------ 6c. os BURACOS DO ROSTO (26/10/2026): a boca e os olhos da MODELO 1
+// O dono: "carregue a boca/lábios da modelo 1 pro modelo 2, conecte com as malhas" — e o mesmo com os olhos. O jogo põe
+// ali as peças do rosto do guerreiro (a boca e os olhos, com as edições da modelo 1: js/corpo-arquivo.js `transplantarRosto`)
+// e as COSTURA na beira destes buracos. Aqui: tirar do rosto os triângulos de frente dentro de cada elipse (`rosto`, cm:
+// o meio x/y, os raios rx/ry; `frente` = só os de z acima disso) e gravar a BEIRA de cada buraco (os pontos, cm, pose T)
+REG.buraco = 8;
+const buracos = {};
+if (cfg.rosto) {
+  const ro = cfg.rosto;
+  const regioes = [['boca', ro.boca.x, ro.boca], ['olho1', ro.olhos.x, ro.olhos], ['olho2', -ro.olhos.x, ro.olhos]];
+  // (o rosto foi SUBDIVIDIDO na faixa `fino` — 1b: os triângulos de dentro da elipse são pequenos, e o buraco sai do
+  // tamanho dela; a beira, um laço perto da elipse, é costurada direto na peça da modelo 1, no jogo. Cuidado: `k` é a
+  // escala, cm por unidade — o número da região aqui é `q`)
+  const qual = new Int8Array(NT).fill(-1);
+  regioes.forEach(([, cx, r], q) => {
+    for (let t = 0; t < NT; t++) {
+      if (regiao[t] !== REG.pele) continue;
+      const [x, y, z] = cm(triMeio(t));
+      if (z >= ro.frente && ((x - cx) / r.rx) ** 2 + ((y - r.y) / r.ry) ** 2 < 1) { qual[t] = q; regiao[t] = REG.buraco; }
+    }
+  });
+  // a beira de cada buraco: as arestas entre um triângulo do buraco e um que fica (o laço mais longo)
+  regioes.forEach(([nome, , r], q) => {
+    const saida = new Map();
+    for (let t = 0; t < NT; t++) {
+      if (qual[t] !== q) continue;
+      for (const u of vizinhos[t]) {
+        if (regiao[u] === REG.buraco || regiao[u] === REG.cabelo) continue;
+        // (a aresta comum, na ordem do triângulo que fica)
+        for (let e = 0; e < 3; e++) { const a = I[3 * u + e], b = I[3 * u + (e + 1) % 3]; if ([0, 1, 2].some((f) => I[3 * t + f] === a) && [0, 1, 2].some((f) => I[3 * t + f] === b)) saida.set(a, b); }
+      }
+    }
+    let melhor = [];
+    const visto = new Set();
+    for (const a0 of saida.keys()) {
+      if (visto.has(a0)) continue;
+      const l = [];
+      for (let a = a0; a !== undefined && !visto.has(a); a = saida.get(a)) { visto.add(a); l.push(a); }
+      if (l.length > melhor.length) melhor = l;
+    }
+    buracos[nome] = { borda: melhor.map((i) => cm([posT[3 * i], posT[3 * i + 1], posT[3 * i + 2]]).map((v) => +v.toFixed(3))), escala: r.escala ?? 1 };
+  });
+  console.log(`[corpo] rosto: buracos da boca (${buracos.boca.borda.length} pontos na beira) e dos olhos (${buracos.olho1.borda.length}, ${buracos.olho2.borda.length})`);
 }
 
 // ------------------------------------------------------------ 7. os olhos e a boca (folhas no rosto, na pose A)
@@ -522,8 +634,9 @@ const elipse = (cx, cy, rx, ry, giro = 0, n = 12, de = 0, ate = Math.PI * 2) => 
   const a = de + (ate - de) * (i / n), x = Math.cos(a) * rx, y = Math.sin(a) * ry, c = Math.cos(giro), s = Math.sin(giro);
   return [cx + x * c - y * s, cy + x * s + y * c];
 });
+// (com o ROSTO DA MODELO 1 — `rosto` no recorte —, os olhos e a boca desenhados saem: o jogo põe os dela)
 const ol = cfg.olhos;
-for (const s of [1, -1]) {
+for (const s of cfg.rosto ? [] : [1, -1]) {
   const cx = ol.x * s, cy = ol.y, w = ol.largura / 2, h = ol.altura / 2, g = (ol.giro * Math.PI / 180) * s;
   // o branco: amêndoa (mais reta embaixo)
   const amendoa = Array.from({ length: 16 }, (_, i) => { const a = (i / 16) * Math.PI * 2, x = Math.cos(a) * w, y = Math.sin(a) * h * (Math.sin(a) > 0 ? 1 : 0.7); return [cx + x * Math.cos(g) - y * Math.sin(g), cy + x * Math.sin(g) + y * Math.cos(g)]; });
@@ -546,7 +659,7 @@ for (const s of [1, -1]) {
   }
 }
 const bo = cfg.boca;
-folha(elipse(0, bo.y, bo.largura / 2, bo.altura / 2, 0, 10), 0.0015, REG.boca);
+if (!cfg.rosto) folha(elipse(0, bo.y, bo.largura / 2, bo.altura / 2, 0, 10), 0.0015, REG.boca);
 // os desenhados: presos à cabeça; e pela pose A dos braços não passam (a cabeça não gira)
 const iHead = NOMES.indexOf('Head');
 
@@ -556,7 +669,7 @@ const iHead = NOMES.indexOf('Head');
 const NN = novos.length, NE = extra.pos.length / 3, todos = NV + NN + NE;
 const posDe = (i) => (i < NV ? cm([posT[3 * i], posT[3 * i + 1], posT[3 * i + 2]]) : i < NV + NN ? cm(novos[i - NV].toArray()) : cm(extra.pos.slice((i - NV - NN) * 3, (i - NV - NN) * 3 + 3)));
 const trisDoCorpo = [], regDoCorpo = [];
-for (let t = 0; t < NT; t++) if (regiao[t] !== REG.cabelo) { trisDoCorpo.push(I[3 * t], I[3 * t + 1], I[3 * t + 2]); regDoCorpo.push(regiao[t]); }
+for (let t = 0; t < NT; t++) if (regiao[t] !== REG.cabelo && regiao[t] !== REG.buraco) { trisDoCorpo.push(I[3 * t], I[3 * t + 1], I[3 * t + 2]); regDoCorpo.push(regiao[t]); }
 for (const f of fechos) { trisDoCorpo.push(...f); regDoCorpo.push(REG.pele); }
 for (let i = 0; i < extra.idx.length; i++) trisDoCorpo.push(extra.idx[i] + NV + NN);
 regDoCorpo.push(...extra.reg);
@@ -588,6 +701,7 @@ const saida = {
   nome: cfg.nome, jogo: Object.fromEntries(Object.entries(cfg.jogo ?? {}).filter(([k2]) => k2 !== '_leiame')), ossos: ossosCm, nomes: NOMES,
   vertices: usados.length, triangulos: idx.length / 3,
   pos: b64(todosPos), idx: b64(idx), regiao: b64(reg), ossoDe: b64(ossoDe), peso: b64(peso),
+  ...(cfg.rosto ? { rosto: buracos } : {}),
   cabelo: { pivo: cm(meioDaCabeca.toArray()).map((v) => +v.toFixed(2)), vertices: numCabelo.size, triangulos: trisDoCabelo.length / 3, pos: b64(posCabelo), idx: b64(new Uint16Array(trisDoCabelo.map((i) => numCabelo.get(i)))) },
 };
 const arqSaida = path.join(RAIZ, 'assets/corpos', `${cfg.nome}.json`);

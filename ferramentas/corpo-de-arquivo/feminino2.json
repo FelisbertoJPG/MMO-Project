@@ -12,13 +12,22 @@
   },
   "olhos": { "x": 0.04, "y": 0.752, "largura": 0.036, "altura": 0.022, "giro": 6 },
   "boca": { "y": 0.692, "largura": 0.016, "altura": 0.0035 },
+  "rosto": {
+    "_leiame": "A BOCA e os OLHOS da MODELO 1 (a humana feminina) no lugar dos desenhados: o importar.mjs abre um BURACO no rosto para cada um (elipse de frente, cm: o meio x/y e os raios rx/ry; frente = só os triângulos com z acima disso) e grava a beira; o jogo (js/corpo-arquivo.js) põe ali as peças do rosto do guerreiro com as edições da modelo 1, do tamanho escala, e as costura na beira. fino = a faixa do rosto (cm: de y, até y, meia largura, frente = z acima disso) cujos triângulos se partem em 4, niveis vezes, antes dos buracos (os do rosto dela são grandes). Sem este bloco, os olhos e a boca desenhados (olhos, boca acima).",
+    "boca": { "x": 0, "y": 165.2, "rx": 3.8, "ry": 1.9, "escala": 0.72 },
+    "olhos": { "x": 4.3, "y": 171.2, "rx": 3.2, "ry": 2.0, "escala": 0.8 },
+    "frente": 3,
+    "fino": { "de": 162, "ate": 174.6, "largura": 7.8, "frente": 4 },
+    "niveis": 2
+  },
   "cabelo": {
-    "_leiame": "O CABELO sai do corpo (vira o penteado 'Coques (do modelo)') e a cabeça fica CARECA. linha = a LINHA DO CABELO: [graus a partir da testa (0) até a nuca (180), altura em cm], igual dos dois lados — acima dela é cabelo (a testa sobe até a linha que o dono traçou na aba Modelo, ~183 cm no meio). cabeca = daqui (cm) para cima é a cabeça. fina = cm: o que é mais fino que isto (uma lâmina) é mecha solta; naFrente = cm: a face virada para fora com outra superfície a menos disto atrás dela (no rumo do eixo da cabeça) também — a franja diante da testa, as mechas diante das bochechas. ilha = ilhas de cabelo com até tantos triângulos dentro da pele voltam para ela. O COURO novo (a careca) é uma CÚPULA à parte (não costurada na beira): gomos em volta, aneis de baixo até o alto; começa desce graus abaixo da beira e dentro cm por dentro da pele dali; folgaDoCouro = cm abaixo da casca do cabelo, no alto; cranio = o CRÂNIO liso da careca (cm, a partir do meio da cabeça): meia largura, frente, trás, alto (a altura do topo, abaixo do volume do cabelo) e baixo (abaixo do meio, para a nuca). Na testa (acima de testaDe cm, de frente), o que tem outra superfície a menos de naTesta cm atrás é mecha.",
+    "_leiame": "O CABELO sai do corpo (vira o penteado 'Coques (do modelo)') e a cabeça fica CARECA. linha = a LINHA DO CABELO: [graus a partir da testa (0) até a nuca (180), altura em cm], igual dos dois lados — acima dela é cabelo (a testa sobe até a linha que o dono traçou na aba Modelo, ~183 cm no meio). cabeca = daqui (cm) para cima é a cabeça. fina = cm: o que é mais fino que isto (uma lâmina) é mecha solta; naFrente = cm: a face virada para fora com outra superfície a menos disto atrás dela (no rumo do eixo da cabeça) também — a franja diante da testa, as mechas diante das bochechas. ilha = ilhas de cabelo com até tantos triângulos dentro da pele voltam para ela. O COURO novo (a careca) é uma CÚPULA à parte (não costurada na beira): gomos em volta, aneis de baixo até o alto; começa desce graus abaixo da beira e dentro cm por dentro da pele dali; folgaDoCouro = cm abaixo da casca do cabelo, no alto; cranio = o CRÂNIO liso da careca (cm, a partir do meio da cabeça): meia largura, frente, trás, alto (a altura do topo, abaixo do volume do cabelo) e baixo (abaixo do meio, para a nuca). Na testa (acima de testaDe cm, de frente) o que olha para baixo ou para trás é mecha; e, acima de camadaDe cm (até a linha dos olhos), o que tem outra superfície a menos de naTesta cm atrás (olhando de frente) também — as mechas da franja diante dos olhos.",
     "linha": [[0, 183], [25, 181.5], [45, 178], [60, 170], [75, 165], [90, 164.5], [180, 164.5]],
     "cabeca": 162,
     "fina": 1.3,
     "naFrente": 2.5,
     "testaDe": 173,
+    "camadaDe": 167,
     "naTesta": 4,
     "cranio": { "largura": 8.2, "frente": 10, "tras": 10, "alto": 188, "baixo": 11 },
     "ilha": 2,

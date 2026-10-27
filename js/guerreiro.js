@@ -38,7 +38,7 @@ import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 import { folhaDaSombra } from './sombra.js';
 import { peleNova, PELE, TROCADAS, OSSOS_DO_CORPO } from './retopologia.js';
-import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo } from './corpo-arquivo.js';
+import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, rostoDaModelo, edicoesDoRosto, transplantarRosto } from './corpo-arquivo.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -189,7 +189,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     for (const nome of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight', 'color'].includes(nome)) g.deleteAttribute(nome);
     if (comCor && !g.attributes.color) g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 3).fill(1), 3));
     g.morphAttributes = {};
-    if (raca) moldarPeca(g, p.name, raca, elmo);   // (o que a raça muda NA PEÇA: as orelhas, a arcada, o queixo)
+    if (raca || p.raca) moldarPeca(g, p.name, p.raca ?? raca, elmo);   // (o que a raça muda NA PEÇA: as orelhas, a arcada, o queixo — a peça pode trazer a dela: o rosto da modelo 1, corpo-arquivo.js)
     // o osso i DESTA peça → o índice dele na ordem única
     const troca = p.skeleton.bones.map((b) => ordem.indexOf(b.name));
     const si = g.attributes.skinIndex, novo = new Uint16Array(si.count * 4);
@@ -216,7 +216,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // aberta): de onde veio cada vértice (`origem`) e onde ele estava no MODELO, antes da raça
   // (`antes`: é onde o pincel guarda o centro), e as juntas no espaço da malha (os pivôs). A BOCA
   // pintada também precisa disso (sem edição, a malha continua bit a bit a de sempre)
-  const comModelo = geo && (edicoes || modelagemAberta() || maquiagem.length) ? { ordem } : null;
+  const comModelo = geo && (edicoes || modelagemAberta() || maquiagem.length || pecas.at(-1)?.transplante) ? { ordem } : null;
   if (comModelo) {
     const n = geo.attributes.position.count, origem = new Uint8Array(n), antes = new Float32Array(n * 3);
     let k = 0;
@@ -251,6 +251,14 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     }
     geo.attributes.position.needsUpdate = true;
   }
+  // (O ROSTO DA MODELO 1 no corpo de arquivo — corpo-arquivo.js: as edições dela na boca e nos olhos, o lugar e a costura —,
+  // ANTES das edições deste corpo: o `base` da aba Modelo já o tem)
+  const transplante = pecas.at(-1)?.transplante;
+  if (geo && transplante && comModelo) {
+    const faixa = (re) => { let de = 0; for (let i = 0; i < lista.length; i++) { const n = lista[i].attributes.position.count; if (re.test(pecas[i].name)) return [de, de + n]; de += n; } return null; };
+    // (o transplante que falha não derruba o corpo: fica sem o rosto novo)
+    try { geo = transplantarRosto(geo, comModelo, transplante, { face: faixa(/^Face/), olhos: faixa(/^Eyes/), arq: faixa(/^corpo_/) }); } catch (e) { console.warn('[rosto da modelo 1] falhou:', e); }
+  }
   // … e as EDIÇÕES do corpo, por cima (a aba guarda também a malha de antes delas: `base`)
   if (comModelo) {
     // (a malha antes das edições: a aba Modelo refaz a vista dela, e a pintura projeta nela — pintura.js)
@@ -282,7 +290,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // AS PÁLPEBRAS (piscada.js), sobre o olho como ele ficou (a raça, a modelagem): a tampa da frente
   // da peça dos olhos, na cor de um ponto de pele da cabeça
   if (geo && !geo.index) {
-    const io = pecas.findIndex((p) => /^Eyes(_tingido)?$/.test(p.name)), ic = pecas.findIndex((p) => /^head(_tingido)?$/.test(p.name));
+    // (a cor da pálpebra é a de um ponto de pele da cabeça — sem a peça `head`, o corpo de arquivo, a do rosto)
+    const io = pecas.findIndex((p) => /^Eyes(_tingido)?$/.test(p.name)), ic0 = pecas.findIndex((p) => /^head(_tingido)?$/.test(p.name)), ic = ic0 >= 0 ? ic0 : pecas.findIndex((p) => /^Face(_tingido)?$/.test(p.name));
     if (io >= 0 && ic >= 0 && !pecas[io].geometry.index) {
       const faixa = (i) => { let de = 0; for (let k = 0; k < i; k++) de += lista[k].attributes.position.count; return { de, n: lista[i].attributes.position.count }; };
       const cabeca = faixa(ic), uv = geo.attributes.uv;
@@ -574,7 +583,21 @@ export class CorpoGuerreiro {
     }
     // o OLHO DO MODELO apagado debaixo de uma folha pintada (pintura.js: o desenho velho aparecia nas bordas)
     // (o corpo de arquivo tem as edições DELE na aba Modelo: `chaveDoCorpo` = '<raça>:arquivo')
-    const lida = lerAparencia(aparencia), edicoes = edicoesDoCorpo(lida.raca, lida.sexo);
+    const lida = lerAparencia(aparencia);
+    let edicoes = edicoesDoCorpo(lida.raca, lida.sexo);
+    // O ROSTO DA MODELO 1 no corpo de arquivo (corpo-arquivo.js, `rosto` no arquivo dele): a boca e os olhos da peça `Face`
+    // do guerreiro (recortada) e a peça `Eyes`, tingidas como as dela; os OLHOS como os dela (lisos, cílios-delineado, íris,
+    // cores — o que este corpo não diz, vale o da modelo 1)
+    const doRosto = arq?.rosto ? edicoesDoCorpo(lida.raca, 1) : null;
+    if (arq?.rosto) {
+      const face = this.pecas.find((o) => o.name === 'Face'), olho = this.pecas.find((o) => o.name === 'Eyes');
+      const tinta = (o) => (aparenciaValida(aparencia) ? tingir(o, aparencia) ?? o : o);
+      if (face) usadas.push(rostoDaModelo(tinta(face)));
+      if (olho) usadas.push(tinta(olho));
+      const herda = {};
+      for (const k of ['olhosLisos', 'semOlhos', 'cilios', 'iris', 'olhoCor']) if (doRosto?.[k] !== undefined && edicoes?.[k] === undefined) herda[k] = doRosto[k];
+      if (Object.keys(herda).length) edicoes = { ...(edicoes ?? {}), ...herda };
+    }
     // (… ou SEM o olho do modelo — `semOlhos` no corpo, 24/10/2026, pedido do dono: era mal feito. A peça sai
     // inteira (o rosto debaixo dela é fechado) e o olho é a IMAGEM que o dono pôs numa folha; sem a peça não
     // há pálpebra: esse corpo não pisca)
@@ -603,7 +626,12 @@ export class CorpoGuerreiro {
       apoio: usadas.filter((o) => APOIO.test(o.name) || (ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'peito') || (doPeito && o.name.startsWith(`casca_${doPeito.id}_`))),
     } : null;
     // a peça do CORPO DE ARQUIVO entra por ÚLTIMO (a fundida a deixa fora das proporções da raça)
-    if (arq) usadas.push(pecaDoArquivo(arq, aparencia, { ordem: this.ordem, inversos: this.inversos, esqueleto: this.esqueleto, ligacao: this.pecas[0].bindMatrix, material: this.materiais.find((m) => m.vertexColors) ?? this.materiais[0] }));
+    if (arq) {
+      const pecaArq = pecaDoArquivo(arq, aparencia, { ordem: this.ordem, inversos: this.inversos, esqueleto: this.esqueleto, ligacao: this.pecas[0].bindMatrix, material: this.materiais.find((m) => m.vertexColors) ?? this.materiais[0] });
+      // (o transplante do rosto: os buracos dele e as edições da modelo 1 que caem na boca e nos olhos)
+      if (arq.rosto) pecaArq.transplante = { buracos: arq.rosto, fem: edicoesDoRosto(doRosto) };
+      usadas.push(pecaArq);
+    }
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     // (uma peça TINGIDA tem cor mas guarda o material da original, que pode ser o sem cor
     // de vértice — nu, só com a aparência, a cor não aparecia: vale o material com cor)
@@ -611,11 +639,12 @@ export class CorpoGuerreiro {
     const material = (comCor && this.materiais.find((m) => m.vertexColors)) || (usadas.find((o) => o.geometry.attributes.color) ?? usadas[0])?.material;
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
     // (o BATOM — boca.js: os lábios, uma folha pintada no rosto; 0 = sem, nada muda)
-    const boca = !arq && aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
+    // (no corpo de arquivo, só com o rosto da modelo 1: a folha é projetada no `antes` dele, o do guerreiro)
+    const boca = (!arq || arq.rosto) && aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
     // (a SOMBRA dos olhos — sombra.js: uma folha esfumada em volta de cada olho; 0 = sem)
-    const sombra = !arq && aparenciaValida(aparencia) ? folhaDaSombra(ap.sombra) : null;
-    // (a cor da ÍRIS desenhada em malha — cilios.js: a dos olhos da raça, ou a escolhida)
-    const corOlhos = this.raca?.olhos ?? OLHOS[ap.olhos]?.[1] ?? null;
+    const sombra = (!arq || arq.rosto) && aparenciaValida(aparencia) ? folhaDaSombra(ap.sombra) : null;
+    // (a cor da ÍRIS desenhada em malha — cilios.js: a dos olhos da raça, ou a escolhida; no corpo de arquivo, o Original é a do modelo)
+    const corOlhos = this.raca?.olhos ?? OLHOS[ap.olhos]?.[1] ?? (arq ? arq.jogo?.cores?.olhos : null) ?? null;
     // (`this.pele`: a versão da pele forçada neste boneco — a comparação lado a lado do editor; entra na chave da malha guardada)
     const geo = material ? geometriaFundida(this.pele ? `${armadura}|pele:${this.pele}` : armadura, usadas, this.ordem, this.raca, this.inversos, elmo, penteado, edicoes, [sombra, boca].filter(Boolean), corOlhos, this.pele ?? null) : null;
     for (const o of this.pecas) o.visible = !geo && usadas.includes(o);   // (sem a fundida, os desenhos, a aparência e a raça não aparecem)
