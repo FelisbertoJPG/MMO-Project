@@ -499,6 +499,7 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   if (edicoes.sobrancelha?.colar > 0 && ctx.base && !idx) colarSobrancelhas(P, ctx, edicoes, mexeu, ctx.novosDe ?? n);
   // ---- 2a. as CORES: o triângulo do corpo pintado no editor pega um ponto da paleta (antes dos
   // vértices criados: os pedaços de um triângulo pintado herdam a cor dele)
+  ctx.pintados = null;
   if (edicoes.cores?.length && !idx) pintarTriangulos(geo, edicoes.cores, ctx);
   // ---- 2b. os VÉRTICES CRIADOS entram na malha: o triângulo em que cada um cai vira 3 (numa aresta,
   // os dois daquela aresta viram 2 cada) — o de antes é cortado e os pedaços entram como criados de UM
@@ -579,15 +580,17 @@ function pintarTriangulos(geo, cores, ctx) {
   const uv = geo.attributes.uv, cor = geo.attributes.color;
   if (!uv || !ctx.antes) return;
   const l = cores.filter((c) => uvValido(c?.uv));
-  const achados = cortadosPor(l, ctx, geo), m = new THREE.Vector3();
+  const achados = cortadosPor(l, ctx, geo), m = new THREE.Vector3(), pintados = new Set();
   for (const t of achados) {
     meioNoModelo(t, ctx, m);
     const c = corNoMeio(l, ORIGENS[ctx.origem[t * 3]], m);
     if (!c) continue;
+    pintados.add(t);
     const tom = tomDaCor(geo, ctx, c.uv, c.tom);
     for (let k = 0; k < 3; k++) { uv.setXY(t * 3 + k, c.uv[0], c.uv[1]); if (tom) cor.setXYZ(t * 3 + k, tom[0], tom[1], tom[2]); }
   }
   if (achados.size) { uv.needsUpdate = true; if (cor) cor.needsUpdate = true; }
+  ctx.pintados = pintados;   // (os triângulos com tinta: o criado não copia a cor deles — `resolverNovos`)
 }
 /**
  * O TOM (a cor de vértice) de um ponto `uv` da paleta: a pele é tingida pela cor de vértice
@@ -850,6 +853,19 @@ function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null, movido
         copia.uv = copia.uv.map((u) => u.map((_, k) => uv[k]));
         const tom = copia.color && tomDaCor(geo, ctx, uv, c.tom);
         if (tom) copia.color = copia.color.map((c) => c.map((_, k) => tom[k] ?? 1));
+      }
+      // (o criado pelo DONO, sem cor própria, com um canto num triângulo PINTADO: a cor e o UV desse canto vêm de outra cópia
+      // do vértice — o mesmo lugar e a mesma origem —, num triângulo sem tinta. Copiando a do pintado, a tinta escorria pelo
+      // criado: o lábio pintado de preto manchava o buço e as bochechas; 01/11/2026)
+      else if (copia && n >= 0 && ctx.pintados?.size) {
+        for (let q = 0; q < 3; q++) {
+          const f = fonte[q];
+          if (f >= nc || !ctx.pintados.has(Math.floor(f / 3))) continue;
+          const k = `${cel(A[f * 3])},${cel(A[f * 3 + 1])},${cel(A[f * 3 + 2])}`;
+          const outra = (grade.get(k) ?? []).find((v) => !ctx.pintados.has(Math.floor(v / 3)) && ctx.origem[v] === ctx.origem[f]);
+          if (outra === undefined) continue;
+          for (const nome of ['uv', 'color']) { const at = geo.attributes[nome]; if (at && copia[nome]) copia[nome][q] = at.array.slice(outra * at.itemSize, (outra + 1) * at.itemSize); }
+        }
       }
       if (fonte.length === 3) lista.push({ n, lado, fonte, pos, antes, umLado, copia, sobes });
     }
