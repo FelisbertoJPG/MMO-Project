@@ -9,6 +9,8 @@
 #   blender --background --factory-startup --python blender.py -- simplificar <entrada.json> <saida.json>
 #       a ferramenta SIMPLIFICAR (simplificar.mjs): espelha um lado no outro (se pedida a simetria), junta as ilhas marcadas
 #       num ponto e reduz cada grupo (protegido não muda; com a simetria, os dois lados por igual)
+#   blender --background --factory-startup --python blender.py -- cores <entrada.json> <saida.json>
+#       a cor média da textura em cada triângulo (o importar.mjs, `manter`: as regiões da versão lisa)
 import bpy, sys, json, math
 
 args = sys.argv[sys.argv.index('--') + 1:]
@@ -184,3 +186,19 @@ elif modo == 'simplificar':
             idx.append(i)
     json.dump({'pos': pos, 'uv': uv, 'normal': nor, 'idx': idx}, open(saida, 'w'))
     print('[corpo] simplificado:', len(idx) // 3, 'triângulos,', len(chave), 'pontos')
+
+elif modo == 'cores':
+    # A COR DA TEXTURA em cada triângulo (importar.mjs, `manter`: as regiões da versão LISA, a sem textura — 01/11/2026):
+    # { uv, idx, imagem } → { cor: [[r, g, b], …] } — a média de 7 pontos dentro de cada triângulo, o número que a imagem
+    # guarda (0–1). A UV do glTF tem o v para baixo; a imagem do Blender começa embaixo
+    import numpy as np
+    d, saida = json.load(open(args[1])), args[2]
+    img = bpy.data.images.load(d['imagem'])
+    w, h = img.size
+    px = np.empty(w * h * 4, dtype=np.float32); img.pixels.foreach_get(px); px = px.reshape(h, w, 4)
+    U = np.array(d['uv'], dtype=np.float64).reshape(-1, 2); I = np.array(d['idx'], dtype=np.int64).reshape(-1, 3)
+    B = np.array([[1/3, 1/3, 1/3], [.6, .2, .2], [.2, .6, .2], [.2, .2, .6], [.45, .45, .1], [.45, .1, .45], [.1, .45, .45]])
+    uv = np.einsum('sk,tkc->tsc', B, U[I])
+    x = np.clip((uv[..., 0] % 1) * w, 0, w - 1).astype(int); y = np.clip((1 - uv[..., 1] % 1) * h, 0, h - 1).astype(int)
+    json.dump({'cor': px[y, x, :3].mean(1).round(4).tolist()}, open(saida, 'w'))
+    print('[corpo] cores da textura:', len(I), 'triângulos')

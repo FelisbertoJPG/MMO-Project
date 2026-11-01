@@ -302,7 +302,62 @@ for (const [L, l] of LADOS) {
 // este corpo) e pesar; aqui CADA VÉRTICE DO ARQUIVO ganha os pesos do lugar da reduzida mais perto dele (o ponto mais perto
 // num triângulo dela virado para o mesmo lado: a mistura dos pesos dos três cantos), vai para a pose T como ela (dual
 // quaternion, a normal junto) e sai com a UV e a TEXTURA de cor do arquivo. Nenhum triângulo muda; nada de cabelo à
-// parte, regiões, buracos nem olhos desenhados
+// parte, buracos nem olhos desenhados; as REGIÕES (pela cor da textura) só servem à versão lisa
+// As REGIÕES da versão LISA pela cor da textura (01/11/2026; o dono: "uma versão sem textura, pq ela tem uma maquiagem
+// gótica, e eu quero generalizar o modelo pra feminino"): a versão lisa (`jogo.lisa` no recorte; assets.js) desenha o
+// corpo sem a textura, na cor de cada região (corpo-arquivo.js REGIOES: 0 pele, 3 branco, 4 íris, 5 escuro, 6 brilho,
+// 7 boca — a pele e a íris do painel). `P` = os pontos (cm, pose T), `I` = os triângulos, `cor` = a cor média de cada
+// um (blender.py `cores`). A sombra e o traço da maquiagem viram pele, a boca escura vira a cor de lábio, e a ABERTURA de
+// cada olho (crescendo do meio da íris enquanto a cor é de olho) ganha um olho genérico: o branco, a íris, a pupila e o
+// brilho. Medido na Feminino 4: a pele ~0,9 de luz; a sombra gótica marrom-acinzentada (0,35–0,7); a íris verde-escura
+// (< 0,32, o verde ≥ o vermelho); a boca preta (os números são da cor guardada ^(1/2.2), como foram medidos)
+function regioesDaTextura(P, I, cor, reg) {
+  const nt = I.length / 3, gama = (x) => Math.pow(Math.max(0, x), 1 / 2.2);
+  let topo = -Infinity;
+  for (let i = 1; i < P.length; i += 3) topo = Math.max(topo, P[i]);
+  const M = [], C = [];
+  for (let t = 0; t < nt; t++) {
+    M.push([0, 1, 2].map((e) => (P[I[3 * t] * 3 + e] + P[I[3 * t + 1] * 3 + e] + P[I[3 * t + 2] * 3 + e]) / 3));
+    const [r, g, b] = cor[t].map(gama), mx = Math.max(r, g, b);
+    C.push({ r, g, b, lum: 0.2126 * r + 0.7152 * g + 0.0722 * b, sat: (mx - Math.min(r, g, b)) / Math.max(1e-3, mx) });
+  }
+  // os vizinhos de cada triângulo (pelo LUGAR dos cantos: a costura da UV repete pontos)
+  const chave = (v) => `${Math.round(P[v * 3] * 100)},${Math.round(P[v * 3 + 1] * 100)},${Math.round(P[v * 3 + 2] * 100)}`, dosPontos = new Map();
+  for (let t = 0; t < nt; t++) for (let q = 0; q < 3; q++) { const k = chave(I[3 * t + q]); if (!dosPontos.has(k)) dosPontos.set(k, []); dosPontos.get(k).push(t); }
+  const viz = (t) => { const v = new Set(); for (let q = 0; q < 3; q++) for (const u of dosPontos.get(chave(I[3 * t + q]))) if (u !== t) v.add(u); return v; };
+  // o rosto: os 30 cm de cima, a até 7 cm da frente
+  let frente = -Infinity;
+  for (let t = 0; t < nt; t++) if (M[t][1] > topo - 30) frente = Math.max(frente, M[t][2]);
+  const rosto = (t) => M[t][1] > topo - 30 && M[t][2] > frente - 7;
+  const verde = (k) => k.lum < 0.42 && k.g >= k.r - 0.03, claro = (k) => k.lum > 0.6 && k.sat < 0.1;
+  const olhos = [];
+  for (const lado of [1, -1]) {
+    // o meio do olho: os triângulos da íris (escuros e esverdeados) deste lado, na faixa dos olhos (9 a 19 cm do topo)
+    let n = 0;
+    const m = [0, 0];
+    for (let t = 0; t < nt; t++) if (rosto(t) && M[t][0] * lado > 1.5 && M[t][1] > topo - 19 && M[t][1] < topo - 9 && C[t].lum < 0.32 && verde(C[t])) { n++; m[0] += M[t][0]; m[1] += M[t][1]; }
+    if (!n) continue;
+    const meio = [m[0] / n, m[1] / n], dentro = (t) => Math.hypot(M[t][0] - meio[0], (M[t][1] - meio[1]) * 1.5) < 2.8;
+    // A ABERTURA: cresce do triângulo de íris mais perto do meio enquanto a cor é de olho (a íris ou o brilho claro)…
+    let semente = -1, d0 = Infinity;
+    for (let t = 0; t < nt; t++) if (rosto(t) && verde(C[t])) { const d = Math.hypot(M[t][0] - meio[0], M[t][1] - meio[1]); if (d < d0) { d0 = d; semente = t; } }
+    const ab = new Set([semente]), fila = [semente];
+    while (fila.length) for (const u of viz(fila.pop())) if (!ab.has(u) && dentro(u) && (verde(C[u]) || claro(C[u]))) { ab.add(u); fila.push(u); }
+    // …e fecha os furos (o triângulo de fora com 2+ vizinhos nela entra; duas voltas)
+    for (let volta = 0; volta < 2; volta++) for (const t of [...ab]) for (const u of viz(t)) if (!ab.has(u) && dentro(u) && [...viz(u)].filter((w) => ab.has(w)).length >= 2) ab.add(u);
+    // o olho genérico na abertura: a pupila e a íris em volta do meio dela (a íris da altura da abertura), o resto branco
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const t of ab) { x0 = Math.min(x0, M[t][0]); x1 = Math.max(x1, M[t][0]); y0 = Math.min(y0, M[t][1]); y1 = Math.max(y1, M[t][1]); }
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rI = (y1 - y0) / 2, rP = 0.38 * rI;
+    for (const t of ab) { const d = Math.hypot(M[t][0] - cx, M[t][1] - cy); reg[t] = d < rP ? 5 : d < rI ? (C[t].lum > 0.72 ? 6 : 4) : 3; }
+    olhos.push(ab.size);
+  }
+  // a BOCA: o escuro do meio, 19 a 29 cm abaixo do topo → a cor de lábio (o batom gótico sai)
+  let boca = 0;
+  for (let t = 0; t < nt; t++) if (rosto(t) && !reg[t] && Math.abs(M[t][0]) < 4.5 && M[t][1] < topo - 19 && M[t][1] > topo - 29 && C[t].lum < 0.5) { reg[t] = 7; boca++; }
+  console.log(`[corpo] regiões pela textura (a versão lisa): olhos ${olhos.join(' + ') || 'não achados'} triângulos, boca ${boca}`);
+}
+
 if (cfg.manter) {
   const b = fs.readFileSync(path.resolve(RAIZ, cfg.entrada)), jl = b.readUInt32LE(12), jg = JSON.parse(b.subarray(20, 20 + jl).toString('utf8')), bin = b.subarray(20 + jl + 8);
   const acc = (i) => {
@@ -397,12 +452,20 @@ if (cfg.manter) {
   const tex = jg.textures[jg.materials[0].pbrMetallicRoughness.baseColorTexture.index], img = jg.images[tex.source], bv = jg.bufferViews[img.bufferView];
   const ext = img.mimeType === 'image/png' ? 'png' : 'jpg', arqTex = `assets/corpos/${cfg.nome}-cor.${ext}`;
   fs.writeFileSync(path.join(RAIZ, arqTex), bin.subarray(bv.byteOffset ?? 0, (bv.byteOffset ?? 0) + bv.byteLength));
+  // as REGIÕES pela cor da textura (`regioesDaTextura`, a versão lisa); sem o Blender ou a imagem, tudo pele
+  const regLisa = new Uint8Array(FI.length / 3);
+  try {
+    const ent = path.join(TRABALHO, 'cores.json'), sai = path.join(TRABALHO, 'cores-saida.json');
+    fs.writeFileSync(ent, JSON.stringify({ uv: [...FUV], idx: [...FI], imagem: path.join(RAIZ, arqTex) }));
+    blender('cores', ent, sai);
+    regioesDaTextura(pos, FI, JSON.parse(fs.readFileSync(sai, 'utf8')).cor, regLisa);
+  } catch (e) { console.warn('[corpo] sem as regiões da textura (a versão lisa fica toda pele):', e.message); }
   const b64 = (a) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64');
   const saida = {
     _leiame: `Corpo de arquivo "${cfg.nome}" (js/corpo-arquivo.js), o MODELO INTEIRO de ${cfg.entrada} (cada triângulo; gerado por ferramentas/corpo-de-arquivo/importar.mjs com \`manter\` — não edite à mão). ossos: onde fica cada osso do guerreiro neste corpo (cm, pose T). pos/normal (Float32, cm, pose T), uv (Float32), idx32 (Uint32), nomes (os ossos dos pesos), ossoDe/peso (Uint8, 4 por vértice; peso em 255 avos), regiao (Uint8 por triângulo, tudo 0), textura (a imagem de cor). Tudo em base64.`,
     nome: cfg.nome, jogo: Object.fromEntries(Object.entries(cfg.jogo ?? {}).filter(([k2]) => k2 !== '_leiame')), ossos: ossosCm, nomes: NOMES,
     vertices: nv, triangulos: FI.length / 3, textura: arqTex,
-    pos: b64(pos), normal: b64(nor), uv: b64(FUV), idx32: b64(FI), regiao: b64(new Uint8Array(FI.length / 3)), ossoDe: b64(ossoDe), peso: b64(peso),
+    pos: b64(pos), normal: b64(nor), uv: b64(FUV), idx32: b64(FI), regiao: b64(regLisa), ossoDe: b64(ossoDe), peso: b64(peso),
   };
   const arqSaida = path.join(RAIZ, 'assets/corpos', `${cfg.nome}.json`);
   fs.writeFileSync(arqSaida, JSON.stringify(saida) + '\n');

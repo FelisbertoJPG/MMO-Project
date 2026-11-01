@@ -82,8 +82,9 @@ export const ESCULPIDOS = ['dennis'];
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
 export const CORPOS_DE_ARQUIVO = ['feminino2'];
 // (os que SÓ O EDITOR carrega — a aba Modelo os edita antes de irem para o jogo: o jogo nem baixa o arquivo; 27/10/2026, a
-// Feminino 3 e a 4, até o dono diminuir os triângulos delas. Pronta para o jogo = passar para a lista de cima)
-export const CORPOS_DO_EDITOR = ['feminino3', 'feminino4'];
+// Feminino 3 e a 4, até o dono diminuir os triângulos delas. Pronta para o jogo = passar para a lista de cima. 01/11/2026: a
+// Feminino 3 — a "Meshy 2", o modelo antigo — saiu, a pedido; os arquivos dela ficam. A 4 traz junto a versão LISA, o sexo 3)
+export const CORPOS_DO_EDITOR = ['feminino4'];
 export const ANIMAIS_MODELOS =['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
@@ -251,6 +252,15 @@ export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
         if (!cab.idx.some((i) => i >= cab.pos.length / 3)) c.cabelo = cab;
       }
       corpos[nome] = c;
+      // (a versão LISA — 01/11/2026, o dono: "uma versão sem textura, pq ela tem uma maquiagem gótica, e eu quero
+      // generalizar o modelo pra feminino": `jogo.lisa` { sexo, rotulo } no arquivo → o MESMO corpo sem a textura, na cor
+      // das regiões que o importar.mjs achou na textura: a pele e a íris do painel, a boca e o branco do olho. A mesma
+      // malha: simplificar um muda os dois. `base` = o arquivo dele, para as rotas do editor)
+      const lisa = j.jogo?.lisa;
+      if (c.textura && lisa && Number.isInteger(lisa.sexo) && lisa.sexo >= 2) {
+        const { uv, normal, textura, ...semTextura } = c;
+        corpos[`${nome}-lisa`] = { ...semTextura, nome: `${nome}-lisa`, base: nome, jogo: { ...c.jogo, ...lisa, lisa: undefined } };
+      }
     } catch (e) { console.warn(`[corpo] sem assets/corpos/${nome}.json:`, e.message); }
   }));
   return corpos;
