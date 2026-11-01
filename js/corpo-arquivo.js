@@ -298,8 +298,7 @@ export function pecaDoArquivo(corpo, codigo, { ordem, inversos, esqueleto, ligac
         const v = I[t * 3 + q], o = t * 3 + q;
         for (let j = 0; j < 4; j++) { si[o * 4 + j] = Math.max(0, indice[corpo.ossoDe[v * 4 + j]] ?? 0); sw[o * 4 + j] = corpo.peso[v * 4 + j] / 255; }
         pos[o * 3] = P[v * 3]; pos[o * 3 + 1] = P[v * 3 + 1]; pos[o * 3 + 2] = P[v * 3 + 2];
-        if (corpo.normal) { nor[o * 3] = corpo.normal[v * 3]; nor[o * 3 + 1] = corpo.normal[v * 3 + 1]; nor[o * 3 + 2] = corpo.normal[v * 3 + 2]; }
-        else n3.toArray(nor, o * 3);   // (a versão LISA — assets.js — traz as normais do arquivo: lisa como a com textura)
+        n3.toArray(nor, o * 3);
         cor[o * 3] = k[0]; cor[o * 3 + 1] = k[1]; cor[o * 3 + 2] = k[2];
         uv[o * 2] = UV[0]; uv[o * 2 + 1] = UV[1];
       }
@@ -324,7 +323,7 @@ export function pecaDoArquivo(corpo, codigo, { ordem, inversos, esqueleto, ligac
 // modelo, aí podemos editar na mão"): o .glb do Meshy INTEIRO (todos os triângulos, a UV e a textura dele), com o esqueleto
 // achado como o da Feminino 2 e os pesos passados da cópia reduzida para cada ponto (importar.mjs, `manter`). A cor é a
 // da TEXTURA: a peça vai na malha fundida com o grupo dela (guerreiro.js: `textura` na peça → o 2º material da fundida,
-// `materialDaTextura`) e as normais lisas do arquivo. Pele, cabelo e olhos já vêm pintados: o painel não os oferece.
+// `materialDaTextura`), FACETADA como o editor (a normal de cada face; até 01/11/2026, as normais lisas do arquivo). Pele, cabelo e olhos já vêm pintados: o painel não os oferece.
 const texturas = new Map();
 /** A textura de um corpo (uma por caminho, dividida por todos os bonecos). */
 export function texturaDoCorpo(caminho) {
@@ -345,13 +344,17 @@ export function materialDaTextura(caminho, base) {
 function pecaComTextura(corpo, { ordem, inversos, esqueleto, ligacao, material }) {
   const chave = `${corpo.nome}|textura`;
   if (!feitas.has(chave)) {
-    const P = corpo.pos, N = corpo.normal, U = corpo.uv, I = corpo.idx, n = I.length;
+    const P = corpo.pos, U = corpo.uv, I = corpo.idx, n = I.length;
+    // (FACETADA, como o editor a desenha: a normal de cada FACE — 01/11/2026, o dono: "deixa facetado igual ao editor";
+    // antes, as normais lisas do arquivo apagavam o low poly no jogo e nas poses do editor)
+    const a3 = new THREE.Vector3(), b3 = new THREE.Vector3(), c3 = new THREE.Vector3(), d3 = new THREE.Vector3(), n3 = new THREE.Vector3();
     const indice = corpo.nomes.map((nm) => ordem.indexOf(nm));
     const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
     for (let o = 0; o < n; o++) {
       const v = I[o];
       pos[o * 3] = P[v * 3]; pos[o * 3 + 1] = P[v * 3 + 1]; pos[o * 3 + 2] = P[v * 3 + 2];
-      nor[o * 3] = N[v * 3]; nor[o * 3 + 1] = N[v * 3 + 1]; nor[o * 3 + 2] = N[v * 3 + 2];
+      if (o % 3 === 0) { a3.fromArray(P, I[o] * 3); b3.fromArray(P, I[o + 1] * 3); c3.fromArray(P, I[o + 2] * 3); n3.subVectors(c3, b3).cross(d3.subVectors(a3, b3)).normalize(); }
+      n3.toArray(nor, o * 3);
       uv[o * 2] = U[v * 2]; uv[o * 2 + 1] = U[v * 2 + 1];
       for (let j = 0; j < 4; j++) { si[o * 4 + j] = Math.max(0, indice[corpo.ossoDe[v * 4 + j]] ?? 0); sw[o * 4 + j] = corpo.peso[v * 4 + j] / 255; }
     }

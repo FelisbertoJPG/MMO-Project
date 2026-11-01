@@ -239,7 +239,8 @@ export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
       const c = { nome, jogo: j.jogo ?? {}, ossos: j.ossos, nomes: j.nomes, pos: de64(j.pos, Float32Array), idx: j.idx32 ? de64(j.idx32, Uint32Array) : de64(j.idx, Uint16Array), regiao: de64(j.regiao, Uint8Array), ossoDe: de64(j.ossoDe, Uint8Array), peso: de64(j.peso, Uint8Array) };
       const nv = c.pos.length / 3;
       if (!Array.isArray(c.nomes) || !c.ossos || c.idx.length !== c.regiao.length * 3 || c.ossoDe.length !== nv * 4 || c.peso.length !== nv * 4 || c.idx.some((i) => i >= nv)) throw new Error('torto');
-      // (o modelo INTEIRO com a TEXTURA dele — a Feminino 3, `manter` no importar.mjs: as normais lisas e a UV do arquivo)
+      // (o modelo INTEIRO com a TEXTURA dele — a Feminino 3, `manter` no importar.mjs: a UV do arquivo; as normais vêm junto, mas
+      // o corpo-arquivo.js o desenha facetado, a normal de cada face)
       if (j.uv && j.normal && typeof j.textura === 'string' && /^assets\/corpos\/[a-z0-9-]+\.(jpe?g|png|webp)$/.test(j.textura)) {
         const uv = de64(j.uv, Float32Array), normal = de64(j.normal, Float32Array);
         if (uv.length === nv * 2 && normal.length === nv * 3) Object.assign(c, { uv, normal, textura: j.textura });
@@ -254,11 +255,11 @@ export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
       corpos[nome] = c;
       // (a versão LISA — 01/11/2026, o dono: "uma versão sem textura, pq ela tem uma maquiagem gótica, e eu quero
       // generalizar o modelo pra feminino"; e: "eu mandei remover a textura, MODELO LIMPO"): `jogo.lisa` { sexo, rotulo } no
-      // arquivo → o MESMO corpo sem a textura: liso como ele (as normais do arquivo), numa cor só — a pele do painel; nada
+      // arquivo → o MESMO corpo sem a textura, facetado como ele (a normal de cada face), numa cor só — a pele do painel; nada
       // pintado (nem olho nem boca). A mesma malha: simplificar um muda os dois. `base` = o arquivo dele, para o editor)
       const lisa = j.jogo?.lisa;
       if (c.textura && lisa && Number.isInteger(lisa.sexo) && lisa.sexo >= 2) {
-        const { uv, textura, ...semTextura } = c;
+        const { uv, normal, textura, ...semTextura } = c;
         corpos[`${nome}-lisa`] = { ...semTextura, nome: `${nome}-lisa`, base: nome, jogo: { ...c.jogo, ...lisa, lisa: undefined } };
       }
     } catch (e) { console.warn(`[corpo] sem assets/corpos/${nome}.json:`, e.message); }
