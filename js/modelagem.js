@@ -118,7 +118,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.movidos?.length || e.apagados?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris || e.olhoCor || e.sobrancelha) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.delineados?.length || e.movidos?.length || e.apagados?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris || e.olhoCor || e.sobrancelha) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -499,8 +499,12 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   if (edicoes.sobrancelha?.colar > 0 && ctx.base && !idx) colarSobrancelhas(P, ctx, edicoes, mexeu, ctx.novosDe ?? n);
   // ---- 2a. as CORES: o triângulo do corpo pintado no editor pega um ponto da paleta (antes dos
   // vértices criados: os pedaços de um triângulo pintado herdam a cor dele)
+  // (o DELINEADO escolhido — 01/11/2026, a camada `delineados[n − 1]` do corpo, `delineadoAtivo` —: as cores dele entram por
+  // cima das do corpo; os criados pelo dono acham a dele pelo meio, no `resolverNovos` — `ctx.delineado`)
+  const camada = delineadoAtivo(edicoes), coresAgora = camada ? [...camada.cores, ...(edicoes.cores ?? [])] : edicoes.cores ?? [];
+  ctx.delineado = camada?.cores ?? null;
   ctx.pintados = null;
-  if (edicoes.cores?.length && !idx) pintarTriangulos(geo, edicoes.cores, ctx);
+  if (coresAgora.length && !idx) pintarTriangulos(geo, coresAgora, ctx);
   // ---- 2b. os VÉRTICES CRIADOS entram na malha: o triângulo em que cada um cai vira 3 (numa aresta,
   // os dois daquela aresta viram 2 cada) — o de antes é cortado e os pedaços entram como criados de UM
   // lado, na volta dele. Assim o triângulo criado que cola no vértice divide a ARESTA com o corpo
@@ -509,7 +513,7 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   const criados = [...(div?.novos ?? []), ...(edicoes.novos ?? []).map((x, n) => ({ ...x, n }))];
   const cortes = [...(edicoes.cortes ?? []), ...(div?.cortes ?? [])];
   // (os que VÃO ser cortados: o canto que gruda num vértice prefere a cópia dele que fica)
-  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P, edicoes.cores, cortes.length ? cortadosPor(cortes, ctx, geo) : null, edicoes.movidos) : null;
+  ctx.novos = criados.length && !idx ? resolverNovos(geo, criados, ctx, P, coresAgora, cortes.length ? cortadosPor(cortes, ctx, geo) : null, edicoes.movidos) : null;
   // (malha que JÁ os tem — a vista da aba Modelo, refeita a partir da base: eles voltam ao lugar
   // achado agora, em vez de levar as partes e os puxões de novo)
   const o = ctx.ordensNovos;
@@ -576,6 +580,12 @@ function cortadosPor(cortes, ctx, geo) {
 // achado pelo meio no MODELO (como os cortes) fica todo com o `uv` (um ponto da paleta do corpo) e o
 // `tom` (a cor de vértice — o couro do top é um texel claro vezes o tom dele; sem `tom`, `tomDaCor`)
 const uvValido = (uv) => Array.isArray(uv) && uv.length === 2 && uv.every(Number.isFinite);
+// o DELINEADO escolhido (`delineados: [{ nome, cores: [{ de, em, uv, tom }] }]`, 01/11/2026 — "Delineado simples": uma camada de cores
+// que só aparece quando escolhida, como um penteado): `edicoes.delineadoEscolhido` = o número (1 = o primeiro; 0 ou nada = sem)
+export function delineadoAtivo(edicoes) {
+  const n = edicoes?.delineadoEscolhido ?? 0, d = n > 0 ? edicoes.delineados?.[n - 1] : null;
+  return d && Array.isArray(d.cores) && d.cores.length ? { ...d, cores: d.cores.filter((c) => uvValido(c?.uv)) } : null;
+}
 function pintarTriangulos(geo, cores, ctx) {
   const uv = geo.attributes.uv, cor = geo.attributes.color;
   if (!uv || !ctx.antes) return;
@@ -847,7 +857,10 @@ function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null, movido
       // os pesos do triângulo cortado, e o canto que colou num vértice dele andava com o osso errado ao animar)
       const copia = fonte.length === 3 ? Object.fromEntries(Object.entries(geo.attributes).map(([nome, at]) => [nome, fonte.map((f) => at.array.slice(f * at.itemSize, (f + 1) * at.itemSize))])) : null;
       // (a COR: o criado pintado leva o `uv` dele; o pedaço de um vértice criado, o das `cores` pelo meio)
-      const c = !copia?.uv ? null : uvValido(x.uv) ? x : n < 0 && cores?.length ? corNoMeio(cores, ORIGENS[ctx.origem[fonte[0]]], meio.set((antes[0] + antes[3] + antes[6]) / 3, (antes[1] + antes[4] + antes[7]) / 3, (antes[2] + antes[5] + antes[8]) / 3)) : null;
+      const meioDele = () => meio.set((antes[0] + antes[3] + antes[6]) / 3, (antes[1] + antes[4] + antes[7]) / 3, (antes[2] + antes[5] + antes[8]) / 3);
+      const c = !copia?.uv ? null : uvValido(x.uv) ? x
+        : n >= 0 && ctx.delineado?.length ? corNoMeio(ctx.delineado, ORIGENS[ctx.origem[fonte[0]]], meioDele()) ?? null
+        : n < 0 && cores?.length ? corNoMeio(cores, ORIGENS[ctx.origem[fonte[0]]], meioDele()) : null;
       if (c) {
         const uv = c.uv;
         copia.uv = copia.uv.map((u) => u.map((_, k) => uv[k]));
