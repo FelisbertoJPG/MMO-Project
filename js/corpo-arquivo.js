@@ -298,7 +298,8 @@ export function pecaDoArquivo(corpo, codigo, { ordem, inversos, esqueleto, ligac
         const v = I[t * 3 + q], o = t * 3 + q;
         for (let j = 0; j < 4; j++) { si[o * 4 + j] = Math.max(0, indice[corpo.ossoDe[v * 4 + j]] ?? 0); sw[o * 4 + j] = corpo.peso[v * 4 + j] / 255; }
         pos[o * 3] = P[v * 3]; pos[o * 3 + 1] = P[v * 3 + 1]; pos[o * 3 + 2] = P[v * 3 + 2];
-        n3.toArray(nor, o * 3);
+        if (corpo.normal) { nor[o * 3] = corpo.normal[v * 3]; nor[o * 3 + 1] = corpo.normal[v * 3 + 1]; nor[o * 3 + 2] = corpo.normal[v * 3 + 2]; }
+        else n3.toArray(nor, o * 3);   // (a versão LISA — assets.js — traz as normais do arquivo: lisa como a com textura)
         cor[o * 3] = k[0]; cor[o * 3 + 1] = k[1]; cor[o * 3 + 2] = k[2];
         uv[o * 2] = UV[0]; uv[o * 2 + 1] = UV[1];
       }

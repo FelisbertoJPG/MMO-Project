@@ -253,12 +253,12 @@ export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
       }
       corpos[nome] = c;
       // (a versão LISA — 01/11/2026, o dono: "uma versão sem textura, pq ela tem uma maquiagem gótica, e eu quero
-      // generalizar o modelo pra feminino": `jogo.lisa` { sexo, rotulo } no arquivo → o MESMO corpo sem a textura, na cor
-      // das regiões que o importar.mjs achou na textura: a pele e a íris do painel, a boca e o branco do olho. A mesma
-      // malha: simplificar um muda os dois. `base` = o arquivo dele, para as rotas do editor)
+      // generalizar o modelo pra feminino"; e: "eu mandei remover a textura, MODELO LIMPO"): `jogo.lisa` { sexo, rotulo } no
+      // arquivo → o MESMO corpo sem a textura: liso como ele (as normais do arquivo), numa cor só — a pele do painel; nada
+      // pintado (nem olho nem boca). A mesma malha: simplificar um muda os dois. `base` = o arquivo dele, para o editor)
       const lisa = j.jogo?.lisa;
       if (c.textura && lisa && Number.isInteger(lisa.sexo) && lisa.sexo >= 2) {
-        const { uv, normal, textura, ...semTextura } = c;
+        const { uv, textura, ...semTextura } = c;
         corpos[`${nome}-lisa`] = { ...semTextura, nome: `${nome}-lisa`, base: nome, jogo: { ...c.jogo, ...lisa, lisa: undefined } };
       }
     } catch (e) { console.warn(`[corpo] sem assets/corpos/${nome}.json:`, e.message); }
