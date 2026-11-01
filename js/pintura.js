@@ -29,7 +29,7 @@
  * fica sem tinta vira a linha dos cílios.
  *
  * NO ARQUIVO: as `pinturas` de um corpo em assets/modelagem.json — { id, nome, parte, de, em,
- * dir, cima, largura, altura, prof, px: [w, h], espelho, apagaOlhos, virada, lisa, arquivo } — e a imagem em
+ * dir, cima, largura, altura, prof, px: [w, h], espelho, apagaOlhos, virada, lisa, soNoOlho, arquivo } — e a imagem em
  * assets/pintura/<arquivo>.png (2w × h: a cor à esquerda, o tipo à direita). `lisa`: a luz de uma
  * superfície lisa de frente para a folha, em toda ela (a imagem dos olhos colada pelo dono).
  *
@@ -187,6 +187,29 @@ function recortar(poli, eixo, limite, dentro) {
  * que ela cobre, recortados nela, com a UV da imagem e os ossos do corpo — ou null (não cobre nada).
  * `ctx`: o que a malha fundida guardou para a modelagem (`origem`, `antes`…).
  */
+// os triângulos do OLHO (a folha `soNoOlho`): no corpo com a peça dos olhos, os dela; no corpo de ARQUIVO, que não a tem, os
+// PINTADOS (a "pintar triângulos" do editor: `ctx.pintados`, modelagem.js) da cor do pintado mais perto do meio da folha — o
+// branco do olho, dos dois lados, e os criados pintados da mesma cor junto. Sem nada disso, null (a folha pinta como sempre)
+function triangulosDoOlho(geo, ctx, Q, centro, nt, vi) {
+  const peca = new Set();
+  for (let t = 0; t < nt; t++) if (ctx.origem[vi(t, 0)] === OLHOS) peca.add(t);
+  if (peca.size) return peca;
+  const C = geo.attributes.color?.array;
+  if (!C || !ctx.pintados?.size) return null;
+  let ref = -1, d = Infinity;
+  for (const t of ctx.pintados) {
+    if (t >= nt) continue;
+    let x = 0, y = 0, z = 0;
+    for (let k = 0; k < 3; k++) { const i = vi(t, k); x += Q[i * 3]; y += Q[i * 3 + 1]; z += Q[i * 3 + 2]; }
+    const q = (x / 3 - centro.x) ** 2 + (y / 3 - centro.y) ** 2 + (z / 3 - centro.z) ** 2;
+    if (q < d) { d = q; ref = vi(t, 0); }
+  }
+  if (ref < 0) return null;
+  const igual = (i) => Math.abs(C[i * 3] - C[ref * 3]) < 1e-3 && Math.abs(C[i * 3 + 1] - C[ref * 3 + 1]) < 1e-3 && Math.abs(C[i * 3 + 2] - C[ref * 3 + 2]) < 1e-3;
+  const out = new Set();
+  for (let t = 0; t < nt; t++) if (igual(vi(t, 0)) && igual(vi(t, 1)) && igual(vi(t, 2))) out.add(t);
+  return out;
+}
 export function geometriaDaFolha(folha, geo, ctx) {
   // a projeção é feita na malha de ANTES das edições da modelagem (`ctx.base`) e cada ponto vai para onde
   // o lugar dele foi parar: a tinta GRUDA na malha (o olho reposicionado leva o desenho junto).
@@ -200,6 +223,9 @@ export function geometriaDaFolha(folha, geo, ctx) {
   const centro = centroDaFolha(folha, geo, ctx, Q);
   if (!centro || !si || !sw) return null;
   const w = folha.parte && folha.parte !== 'corpo' ? pesosDaParte(folha.parte, geo, ctx) : null;
+  // (`soNoOlho`: a folha só pinta o OLHO, colada na malha dele — 01/11/2026, o dono: "fazer o desenho do olho só desenhar
+  // sobre o olho (aquele que marcamos em branco) e ficar colado na malha do mesmo"; `triangulosDoOlho`)
+  const olho = folha.soNoOlho ? triangulosDoOlho(geo, ctx, Q, centro, nt, vi) : null;
   const L = folha.largura / 2, H = folha.altura / 2, D = folha.prof;
   const pesoDe = (i) => ({ o: [0, 1, 2, 3].map((k) => si.getComponent(i, k)), p: [0, 1, 2, 3].map((k) => sw.getComponent(i, k)) });
   const pos = [], nor = [], uv = [], ossos = [], pesos = [];
@@ -209,7 +235,7 @@ export function geometriaDaFolha(folha, geo, ctx) {
     const E = eixosDaFolha(folha, centro, espelho);
     for (let t = 0; t < nt; t++) {
       const i = vi(t, 0), j = vi(t, 1), k = vi(t, 2);
-      if (FORA.has(ctx.origem[i]) || (so >= 0 && ctx.origem[i] !== so) || (w && w[i] + w[j] + w[k] < 1.5)) continue;
+      if (FORA.has(ctx.origem[i]) || (so >= 0 && ctx.origem[i] !== so) || (w && w[i] + w[j] + w[k] < 1.5) || (olho && !olho.has(t))) continue;
       A.fromArray(Q, i * 3); B.fromArray(Q, j * 3); C.fromArray(Q, k * 3);
       fn.subVectors(B, A).cross(e1.subVectors(C, A));
       if (fn.lengthSq() < 1e-12) continue;
