@@ -222,6 +222,9 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     let k = 0;
     const pedaco = (P, o, de = 0, ate = P.length / 3) => { antes.set(P.subarray(de * 3, ate * 3), k * 3); origem.fill(o, k, k + ate - de); k += ate - de; };
     const inicio = pecas.map((p, i) => { const de = k; pedaco((lista[i] === geos[i] ? p.geometry : p.geometry.toNonIndexed()).attributes.position.array, ORIGENS.indexOf(origemDaPeca(p.name))); return de; });
+    // (a FAIXA do corpo de arquivo — a última peça, a que traz `juntas` —, em triângulos: o Simplificar do editor acha
+    // nela a peça do corpo também na versão LISA, que não tem o pedaço da textura; 01/11/2026)
+    if (pecas.at(-1)?.juntas) comModelo.faixaDoArquivo = [inicio.at(-1) / 3, k / 3];
     // (o couro do bojo segue a pele do seio: raca.js — cada vértice dele, o vértice da pele de onde saiu)
     const top = pecas.findIndex((p) => p.geometry.userData.segue), pele = pecas.findIndex((p) => /^busto_/.test(p.name));
     if (top >= 0 && pele >= 0) {
