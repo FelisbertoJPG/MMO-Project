@@ -6,7 +6,8 @@
 //   node ferramentas/corpo-de-arquivo/simplificar.mjs <recorte.json> [simplificar | desfazer | original]
 //
 // simplificar: lê o pedido `<nome>-simplificar.json` (a pintura da aba: `proteger`, `reduzir`, `juntar` — o meio de cada
-//   triângulo pintado, cm, pose T, como no `assets/corpos/<nome>.json` de agora — e `alvo`, o total de triângulos), dá a
+//   triângulo pintado, cm, pose T, como no `assets/corpos/<nome>.json` de agora — `alvo`, o total de triângulos, e
+//   `simetria`: 1/-1 = antes de tudo o lado +x/−x é espelhado no outro e o redutor reduz os dois por igual), dá a
 //   cada triângulo da malha de agora o grupo do meio pintado mais perto (até 1,5 cm; o PROTEGER manda), e o Blender
 //   (blender.py `simplificar`) junta as ilhas do JUNTAR num ponto e reduz o resto, guardando o formato e a UV. A malha nova
 //   vai em `<nome>-simples.json` (a de antes em `<nome>-simples-antes.json`, para o desfazer) e o importar.mjs refaz o
@@ -88,13 +89,15 @@ for (const [lista, c] of [['reduzir', 2], ['juntar', 3], ['proteger', 1]]) {
   for (const m of pedido[lista] ?? []) { const t = maisPerto(m); if (t >= 0) { cats[t] = c; contas[lista]++; } }
 }
 const alvo = Math.max(500, Math.round(Number(pedido.alvo) || nt));
-console.log(`[corpo] simplificando ${cfg.nome}: ${nt} triângulos → ${alvo}; pintados: proteger ${contas.proteger}, reduzir muito ${contas.reduzir}, juntar ${contas.juntar}`);
+// a SIMETRIA (blender.py): 1 = o lado +x (o esquerdo dela) copiado no outro, -1 = o −x (o direito dela), 0 = nenhuma
+const simetria = [1, -1].includes(Number(pedido.simetria)) ? Number(pedido.simetria) : 0;
+console.log(`[corpo] simplificando ${cfg.nome}: ${nt} triângulos → ${alvo}${simetria ? `; simetria: o lado ${simetria > 0 ? "+x (o esquerdo dela)" : "−x (o direito dela)"} copiado no outro` : ""}; pintados: proteger ${contas.proteger}, reduzir muito ${contas.reduzir}, juntar ${contas.juntar}`);
 
 // ---- o Blender
 const TRABALHO = path.join(os.tmpdir(), `corpo-de-arquivo-${cfg.nome}`);
 fs.mkdirSync(TRABALHO, { recursive: true });
 const ent = path.join(TRABALHO, 'simplificar-entrada.json'), sai = path.join(TRABALHO, 'simplificar-saida.json');
-fs.writeFileSync(ent, JSON.stringify({ pos: [...fonte.pos], uv: [...fonte.uv], idx: [...fonte.idx], cats, alvo }));
+fs.writeFileSync(ent, JSON.stringify({ pos: [...fonte.pos], uv: [...fonte.uv], idx: [...fonte.idx], cats, alvo, simetria }));
 const base = 'C:/Program Files/Blender Foundation';
 const versoes = fs.existsSync(base) ? fs.readdirSync(base).filter((d) => fs.existsSync(path.join(base, d, 'blender.exe'))).sort() : [];
 if (!versoes.length) { console.error('[corpo] Blender não encontrado'); process.exit(1); }

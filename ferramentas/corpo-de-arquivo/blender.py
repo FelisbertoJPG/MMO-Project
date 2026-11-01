@@ -7,7 +7,8 @@
 #       monta a armação (cabeça e ponta de cada osso, em y para cima) e pesa a malha pelo "calor"
 #       dos ossos (o automático do Blender); grava, por vértice, até 4 [osso, peso]
 #   blender --background --factory-startup --python blender.py -- simplificar <entrada.json> <saida.json>
-#       a ferramenta SIMPLIFICAR (simplificar.mjs): junta as ilhas marcadas num ponto e reduz cada grupo (protegido não muda)
+#       a ferramenta SIMPLIFICAR (simplificar.mjs): espelha um lado no outro (se pedida a simetria), junta as ilhas marcadas
+#       num ponto e reduz cada grupo (protegido não muda; com a simetria, os dois lados por igual)
 import bpy, sys, json, math
 
 args = sys.argv[sys.argv.index('--') + 1:]
@@ -109,6 +110,13 @@ elif modo == 'simplificar':
     bm = bmesh.from_edit_mesh(me)
     # (os pontos repetidos nas costuras da UV, soldados: a UV fica em cada canto de triângulo, a costura continua)
     bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
+    # 0. a SIMETRIA (01/11/2026; o dono: "impedir o modelo de perder simetria ao simplificar, e até aplicar simetria nesse
+    # momento"): `simetria` 1 = o lado +x (o esquerdo DELA) é copiado no outro; -1 = o −x (o direito dela). O plano é x = 0
+    # (o meio do Meshy, medido: 0,00 cm no corpo, na cabeça e no rosto). Vão juntos a forma, a UV (os dois lados pegam a
+    # textura do lado copiado) e a pintura; depois o redutor reduz os dois lados por igual (use_symmetry, abaixo)
+    sim = int(d.get('simetria') or 0)
+    if sim:
+        bmesh.ops.symmetrize(bm, input=bm.verts[:] + bm.edges[:] + bm.faces[:], direction='X' if sim > 0 else '-X', dist=1e-4)
     cl = bm.faces.layers.int.get('cat')
     # 1. JUNTAR: cada ilha de triângulos marcados vira um ponto
     sobra = set(f for f in bm.faces if f[cl] == 3)
@@ -145,7 +153,7 @@ elif modo == 'simplificar':
         r0 = (alvo - F1) / (F0 + 0.3 * F2) if F0 + 0.3 * F2 else 1
         r2 = 0.3 * r0
     r0 = min(1.0, max(0.01, r0)); r2 = min(1.0, max(0.005, r2))
-    print('[corpo] simplificar: %d juntados; normal %d (×%.3f), protegido %d, reduzir muito %d (×%.3f) → alvo %d' % (juntados, F0, r0, F1, F2, r2, alvo))
+    print('[corpo] simplificar: %s%d juntados; normal %d (×%.3f), protegido %d, reduzir muito %d (×%.3f) → alvo %d' % ({1: 'simetria (o +x copiado); ', -1: 'simetria (o −x copiado); '}.get(sim, ''), juntados, F0, r0, F1, F2, r2, alvo))
     def reduzir(cats, r):
         if r >= 0.999: return
         bm = bmesh.from_edit_mesh(me); cl = bm.faces.layers.int.get('cat')
@@ -154,7 +162,7 @@ elif modo == 'simplificar':
         for f in bm.faces:
             if f[cl] in cats: f.select_set(True); n += 1
         bmesh.update_edit_mesh(me)
-        if n: bpy.ops.mesh.decimate(ratio=r)
+        if n: bpy.ops.mesh.decimate(ratio=r, use_symmetry=bool(sim), symmetry_axis='X')
     reduzir((2,), r2)
     reduzir((0, 3), r0)
     bpy.ops.mesh.select_all(action='SELECT')
