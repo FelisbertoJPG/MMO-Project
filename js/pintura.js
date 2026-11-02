@@ -163,6 +163,11 @@ export function naFolha(folha, eixos, p) {
   const dx = p.x - eixos.c.x, dy = p.y - eixos.c.y, dz = p.z - eixos.c.z;
   return [(dx * eixos.u.x + dy * eixos.u.y + dz * eixos.u.z) / folha.largura + 0.5, (dx * eixos.v.x + dy * eixos.v.y + dz * eixos.v.z) / folha.altura + 0.5, dx * eixos.n.x + dy * eixos.n.y + dz * eixos.n.z];
 }
+/**
+ * As folhas do corpo que valem agora: as de MAQUIAGEM (`maquiagem: '<nome>'` — o Esfumado da Feminino 4 lisa, 01/11/2026, o dono:
+ * "adiciona a opção no menu Maquiagem → Esfumado") só quando escolhidas (`edicoes.maquiagemEscolhida`, como o delineado).
+ */
+export const folhasAtivas = (edicoes) => (edicoes?.pinturas ?? []).filter((f) => !f.maquiagem || f.maquiagem === edicoes.maquiagemEscolhida);
 /** O centro da folha na malha como ela está (o lugar do corpo que o `em` dela marca), ou null. */
 export function centroDaFolha(folha, geo, ctx, P = ctx.base ?? geo.attributes.position.array) {
   return centroDoPuxao({ de: folha.de, em: folha.em }, geo, ctx, false, P, folha.parte && folha.parte !== 'corpo' ? pesosDaParte(folha.parte, geo, ctx) : null);
@@ -226,6 +231,9 @@ export function geometriaDaFolha(folha, geo, ctx) {
   // (`soNoOlho`: a folha só pinta o OLHO, colada na malha dele — 01/11/2026, o dono: "fazer o desenho do olho só desenhar
   // sobre o olho (aquele que marcamos em branco) e ficar colado na malha do mesmo"; `triangulosDoOlho`)
   const olho = folha.soNoOlho ? triangulosDoOlho(geo, ctx, Q, centro, nt, vi) : null;
+  // (`foraDoOlho`: o contrário — a MAQUIAGEM em volta do olho (o Esfumado, 01/11/2026) não pinta o olho: os triângulos dele, os
+  // do olho mais perto de `folha.olho` — o meio do olho, no MODELO; sem ele, o centro da folha)
+  const semOlho = folha.foraDoOlho ? triangulosDoOlho(geo, ctx, Q, (folha.olho && centroDaFolha({ de: folha.de, em: folha.olho, parte: folha.parte }, geo, ctx, Q)) || centro, nt, vi) : null;
   const L = folha.largura / 2, H = folha.altura / 2, D = folha.prof;
   const pesoDe = (i) => ({ o: [0, 1, 2, 3].map((k) => si.getComponent(i, k)), p: [0, 1, 2, 3].map((k) => sw.getComponent(i, k)) });
   const pos = [], nor = [], uv = [], ossos = [], pesos = [];
@@ -235,7 +243,7 @@ export function geometriaDaFolha(folha, geo, ctx) {
     const E = eixosDaFolha(folha, centro, espelho);
     for (let t = 0; t < nt; t++) {
       const i = vi(t, 0), j = vi(t, 1), k = vi(t, 2);
-      if (FORA.has(ctx.origem[i]) || (so >= 0 && ctx.origem[i] !== so) || (w && w[i] + w[j] + w[k] < 1.5) || (olho && !olho.has(t))) continue;
+      if (FORA.has(ctx.origem[i]) || (so >= 0 && ctx.origem[i] !== so) || (w && w[i] + w[j] + w[k] < 1.5) || (olho && !olho.has(t)) || semOlho?.has(t)) continue;
       A.fromArray(Q, i * 3); B.fromArray(Q, j * 3); C.fromArray(Q, k * 3);
       fn.subVectors(B, A).cross(e1.subVectors(C, A));
       if (fn.lengthSq() < 1e-12) continue;

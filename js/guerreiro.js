@@ -32,7 +32,7 @@ import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino, corpoDeArquivo } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
-import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO } from './pintura.js';
+import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO, folhasAtivas } from './pintura.js';
 import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
@@ -287,7 +287,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   if (comModelo) {
     // … e as FOLHAS da pintura (pintura.js), sobre o corpo como ficou: uma malha cada, presa aos mesmos ossos
     // (as da MAQUIAGEM por último — a da boca no fim: os lábios por cima de qualquer pintura do rosto)
-    const folhas = [...(edicoes?.pinturas ?? []), ...maquiagem];
+    // (as folhas de MAQUIAGEM do corpo — o Esfumado — só quando escolhidas: `folhasAtivas`)
+    const folhas = [...folhasAtivas(edicoes), ...maquiagem];
     if (folhas.length) geo.userData.pinturas = folhas.map((folha) => ({ folha, geometry: geometriaDaFolha(folha, geo, comModelo) })).filter((f) => f.geometry);
   }
   // AS PÁLPEBRAS (piscada.js), sobre o olho como ele ficou (a raça, a modelagem): a tampa da frente
