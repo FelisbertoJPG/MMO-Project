@@ -9,6 +9,8 @@
 #   blender --background --factory-startup --python blender.py -- simplificar <entrada.json> <saida.json>
 #       a ferramenta SIMPLIFICAR (simplificar.mjs): espelha um lado no outro (se pedida a simetria), junta as ilhas marcadas
 #       num ponto e reduz cada grupo (protegido não muda; com a simetria, os dois lados por igual)
+#   blender --background --factory-startup --python blender.py -- simetrizar <entrada.json> <saida.glb>
+#       a SIMETRIA (simetria.mjs): { pos, idx, lado } — o lado copiado no outro pelo x = 0 (1 = o +x), buracos fechados; grava o .glb com as normais
 import bpy, sys, json, math
 
 args = sys.argv[sys.argv.index('--') + 1:]
@@ -184,3 +186,39 @@ elif modo == 'simplificar':
             idx.append(i)
     json.dump({'pos': pos, 'uv': uv, 'normal': nor, 'idx': idx}, open(saida, 'w'))
     print('[corpo] simplificado:', len(idx) // 3, 'triângulos,', len(chave), 'pontos')
+elif modo == 'simetrizar':
+    # A SIMETRIA (simetria.mjs; 02/11/2026): o espelho do Blender no x = 0. Depois, os BURACOS fechados: o que o holes_fill fecha, e o que
+    # sobra — a narina do Meshy, dois furos que se tocam num ponto — vira UM ponto no meio da beira (o "juntar num ponto" do Simplificar)
+    import bmesh
+    from mathutils import Vector
+    d, saida = json.load(open(args[1])), args[2]
+    P, I = d['pos'], d['idx']
+    me = bpy.data.meshes.new('corpo')
+    me.from_pydata([paraB(P[i:i + 3]) for i in range(0, len(P), 3)], [], [I[t:t + 3] for t in range(0, len(I), 3)])
+    me.validate(); me.update()
+    obj = bpy.data.objects.new('corpo', me)
+    bpy.context.scene.collection.objects.link(obj)
+    bm = bmesh.new(); bm.from_mesh(me)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    n0 = len(bm.faces)
+    bmesh.ops.symmetrize(bm, input=bm.verts[:] + bm.edges[:] + bm.faces[:], direction='X' if d.get('lado', 1) > 0 else '-X', dist=1e-4)
+    bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
+    borda = set(v for e in bm.edges if e.is_boundary for v in e.verts)
+    while borda:
+        v0 = borda.pop(); grupo = {v0}; fila = [v0]
+        while fila:
+            v = fila.pop()
+            for e in v.link_edges:
+                if e.is_boundary:
+                    o = e.other_vert(v)
+                    if o in borda: borda.discard(o); grupo.add(o); fila.append(o)
+        meio = sum((v.co for v in grupo), Vector()) / len(grupo)
+        bmesh.ops.pointmerge(bm, verts=list(grupo), merge_co=meio)
+        print('[corpo] buraco fechado num ponto: %d pontos em x %.3f, altura %.3f' % (len(grupo), meio.x, meio.z))
+    bmesh.ops.dissolve_degenerate(bm, edges=bm.edges[:], dist=1e-5)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    print('[corpo] simetria: %d -> %d faces' % (n0, len(bm.faces)))
+    bm.to_mesh(me); bm.free()
+    for pl in me.polygons: pl.use_smooth = True   # (liso: o .glb não repete o ponto por face)
+    bpy.ops.export_scene.gltf(filepath=saida, export_format='GLB', export_normals=True, export_texcoords=False, export_materials='NONE', export_yup=True, use_selection=False)

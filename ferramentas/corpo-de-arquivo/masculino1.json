@@ -2,12 +2,16 @@
   "_leiame": "O recorte do CORPO DE ARQUIVO masculino1 (importar.mjs, modo `manter`): o MASCULINO DA HUMANA desde 02/11/2026 (raca.js `masculinoDeArquivo`; o dono: \"carrega como modelo do player homem, vou ajustar assim como fiz com o feminino\"). A entrada é a FIGURA 1 do .glb do Meshy \"Low Poly Human Figure\" (masculino1-meshy-original.glb: 3 homens lado a lado, ~5.200 triângulos cada, sem textura nem esqueleto; a 1 tem o rosto mais definido e o corpo atlético; antes era a figura 3 do \"Low Poly Anatomy\", trocada a pedido: \"modelo um pouquinho melhor\"), já preparada: de frente (+z), 1,90 de altura, o x no plano de simetria e SIMÉTRICA — \"simetriza o lado esquerdo pra cima do direito, do modelo todo\": o lado +x (o esquerdo DELE) copiado no outro pelo Blender (bmesh symmetrize); as NARINAS, furadas pelo Meshy, juntadas num ponto (a malha fecha); todo ponto tem o par espelhado. Sem textura: o jogo a desenha lisa, na pele do painel. cmPorUnidade = os olhos (y 1,79) na altura dos do guerreiro (171,6 cm): 182 cm. medidas.ombroX = o x da junta do ombro (o braço encosta no tronco até perto da axila: medida, a junta caía para dentro); maoX 0,38 (os dedos dos PÉS vão até 0,37). Rode: node ferramentas/corpo-de-arquivo/importar.mjs ferramentas/corpo-de-arquivo/masculino1.json",
   "nome": "masculino1",
   "entrada": "ferramentas/corpo-de-arquivo/masculino1-meshy.glb",
+  "simetria": {
+    "_leiame": "simetria.mjs: como a entrada sai do original. figura = qual das 3 (da esquerda para a direita); x = o plano do CORPO; lado 1 = o +x, o esquerdo dele, copiado no outro; cabeca = só ela é endireitada antes do espelho (giro e inclina em graus, x em unidades do arquivo; de/ate = onde o pescoço absorve): sem o giro, a ferramenta mede. Dá para acertar à mão e rodar de novo: simetria.mjs e depois importar.mjs.",
+    "original": "ferramentas/corpo-de-arquivo/masculino1-meshy-original.glb",
+    "figura": 0, "altura": 1.9, "x": 0.0016, "lado": 1,
+    "cabeca": { "de": 1.57, "ate": 1.65, "giro": -4.5, "inclina": 1, "x": 0, "pivo": [0, 1.65, 0.0056] }
+  },
   "manter": true,
   "triangulos": 5586,
   "cmPorUnidade": 95.9,
-  "medidas": {
-    "ombroX": 0.205
-  },
+  "medidas": { "ombroX": 0.205, "ombroTopo": 1.636, "pescoco": 1.72 },
   "juntas": {
     "limiteDoOmbro": 0.12,
     "ombroAbaixo": 0.05,
