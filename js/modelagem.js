@@ -512,6 +512,9 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   ctx.batom = batom.length ? batom : null;
   const daCamada = [...batom, ...camadasAtivas(edicoes).flatMap((c) => c.cores)], coresAgora = daCamada.length ? [...daCamada, ...(edicoes.cores ?? [])] : edicoes.cores ?? [];
   ctx.delineado = daCamada.length ? daCamada : null;
+  // (o DELINEADO escolhido, à parte — 02/11/2026: a maquiagem com `foraDoDelineado` não pinta por cima dele, pintura.js; o dono: "poder ter
+  // um delineado preto e uma maquiagem esfumada de outra cor, pra dar contraste nos cílios")
+  ctx.delineadoAtivo = camadasAtivas({ delineados: edicoes.delineados, delineadoEscolhido: edicoes.delineadoEscolhido, delineadoCor: edicoes.delineadoCor })[0]?.cores ?? null;
   ctx.pintados = null;
   if (coresAgora.length && !idx) pintarTriangulos(geo, coresAgora, ctx);
   // ---- 2b. os VÉRTICES CRIADOS entram na malha: o triângulo em que cada um cai vira 3 (numa aresta,

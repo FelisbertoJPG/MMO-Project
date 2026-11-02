@@ -37,7 +37,7 @@
  * (`noModelo`) e só pinta uma origem (`so`).
  */
 import * as THREE from 'three';
-import { ORIGENS, pesosDaParte, centroDoPuxao } from './modelagem.js';
+import { ORIGENS, pesosDaParte, centroDoPuxao, meioNoModelo } from './modelagem.js';
 import { misturar } from './ima.js';
 import { nomesDasSobrancelhas } from './raca.js';
 
@@ -190,6 +190,25 @@ export function olhoDoCorpo(geo, ctx, folhas) {
   const P = geo.attributes.position.array, Q = ctx.base?.length === P.length ? ctx.base : P, centro = centroDaFolha(f, geo, ctx, Q);
   return centro ? triangulosDoOlho(geo, ctx, Q, centro, P.length / 9, (t, k) => t * 3 + k) : null;
 }
+// os triângulos (da malha sem índice) cujo meio no MODELO é o de uma das `cores` ({ de, em }, até 0,02 cm) — os do corpo e os criados
+function triangulosDasCores(cores, ctx, nt) {
+  const grade = new Map(), casa = (x, y, z) => `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`, PERTO = 0.02, out = new Set();
+  for (const c of cores) {
+    const o = ORIGENS.indexOf(c?.de);
+    if (o < 0 || !Array.isArray(c.em)) continue;
+    const ks = new Set();
+    for (const dx of [-1, 1]) for (const dy of [-1, 1]) for (const dz of [-1, 1]) ks.add(casa(c.em[0] + dx * PERTO, c.em[1] + dy * PERTO, c.em[2] + dz * PERTO));
+    for (const k of ks) (grade.get(k) ?? grade.set(k, []).get(k)).push({ o, em: c.em });
+  }
+  if (!ctx.antes || !grade.size) return out;
+  const m = new THREE.Vector3(), n = Math.min(nt, ctx.antes.length / 9);
+  for (let t = 0; t < n; t++) {
+    meioNoModelo(t, ctx, m);
+    const l = grade.get(casa(m.x, m.y, m.z));
+    if (l?.some((c) => c.o === ctx.origem[t * 3] && Math.abs(c.em[0] - m.x) < PERTO && Math.abs(c.em[1] - m.y) < PERTO && Math.abs(c.em[2] - m.z) < PERTO)) out.add(t);
+  }
+  return out;
+}
 /**
  * As folhas do corpo que valem agora: as de MAQUIAGEM (`maquiagem: '<nome>'` — o Esfumado da Feminino 4 lisa, 01/11/2026, o dono:
  * "adiciona a opção no menu Maquiagem → Esfumado") só quando escolhidas (`edicoes.maquiagemEscolhida`, como o delineado).
@@ -264,6 +283,9 @@ export function geometriaDaFolha(folha, geo, ctx) {
   const olho = folha.soNoOlho ? triangulosDoOlho(geo, ctx, Q, centro, nt, vi) : null;
   // (`foraDoOlho`: o contrário — a MAQUIAGEM em volta do olho (o Esfumado, 01/11/2026) não pinta o olho: os triângulos dele, os
   // do olho mais perto de `folha.olho` — o meio do olho, no MODELO; sem ele, o centro da folha)
+  // (`foraDoDelineado`: a MAQUIAGEM não pinta os triângulos do DELINEADO escolhido — `ctx.delineadoAtivo`, modelagem.js; 02/11/2026: o
+  // delineado preto ao lado da sombra de outra cor, o contraste nos cílios — a folha é desenhada por cima da pele e o cobria)
+  const semDelineado = folha.foraDoDelineado && ctx.delineadoAtivo?.length ? triangulosDasCores(ctx.delineadoAtivo, ctx, nt) : null;
   const semOlho = folha.foraDoOlho ? triangulosDoOlho(geo, ctx, Q, (folha.olho && centroDaFolha({ de: folha.de, em: folha.olho, parte: folha.parte }, geo, ctx, Q)) || centro, nt, vi) : null;
   const L = folha.largura / 2, H = folha.altura / 2, D = folha.prof;
   const pesoDe = (i) => ({ o: [0, 1, 2, 3].map((k) => si.getComponent(i, k)), p: [0, 1, 2, 3].map((k) => sw.getComponent(i, k)) });
@@ -274,7 +296,7 @@ export function geometriaDaFolha(folha, geo, ctx) {
     const E = eixosDaFolha(folha, centro, espelho);
     for (let t = 0; t < nt; t++) {
       const i = vi(t, 0), j = vi(t, 1), k = vi(t, 2);
-      if (FORA.has(ctx.origem[i]) || (so >= 0 && ctx.origem[i] !== so) || (w && w[i] + w[j] + w[k] < 1.5) || (olho && !olho.has(t)) || semOlho?.has(t)) continue;
+      if (FORA.has(ctx.origem[i]) || (so >= 0 && ctx.origem[i] !== so) || (w && w[i] + w[j] + w[k] < 1.5) || (olho && !olho.has(t)) || semOlho?.has(t) || semDelineado?.has(t)) continue;
       A.fromArray(Q, i * 3); B.fromArray(Q, j * 3); C.fromArray(Q, k * 3);
       fn.subVectors(B, A).cross(e1.subVectors(C, A));
       if (fn.lengthSq() < 1e-12) continue;

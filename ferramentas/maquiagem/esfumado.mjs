@@ -1,5 +1,5 @@
 // O ESFUMADO (maquiagem gótica — a Esfumada derretida e a Esfumada; 01/11/2026, o dono: "tenta aplicar esse esfumado ao redor dos olhos… adiciona a opção no menu
-// Maquiagem → Esfumado"). Rodar: node ferramentas/maquiagem/esfumado.mjs assets/pintura/humano-arquivo3-m1.png assets/pintura/humano-arquivo3-m2.png assets/pintura/humano-arquivo3-m3.png assets/pintura/humano-arquivo3-m4.png
+// Maquiagem → Esfumado"). Rodar: node ferramentas/maquiagem/esfumado.mjs assets/pintura/humano-arquivo3-m1.png assets/pintura/humano-arquivo3-m2.png (a derretida; as outras: maquiagens.mjs)
 // (as folhas m1/m2 da Feminino 4 lisa no modelagem.json: maquiagem "Esfumado", foraDoOlho; pintura.js folhasAtivas). Depois de
 // gerar, o dono pode retocar com o pincel da PINTURA no editor — e aí rodar de novo APAGA o retoque.
 // a imagem de uma folha da pintura por olho — a cor à esquerda (RGBA, o alfa é a forma), o
@@ -104,7 +104,6 @@ gravar(saida2, desenhar([
   [-0.85, 0.98, -1.02, -3.0, 0.14, 0.07, 0.95, 0.5, 1.3],
   [1.05, 1.08, 1.22, -1.35, 0.1, 0.055, 0.82, 0.36, 3.7],
 ], 11, true));
-// a ESFUMADA (sem escorrido): o olho +x e o −x (virado)
-if (saida3) gravar(saida3, desenhar([], 5, false, MANCHAS_DA_ESFUMADA));
-if (saida4) gravar(saida4, desenhar([], 13, true, MANCHAS_DA_ESFUMADA));
+// (a ESFUMADA — m3/m4 — foi REFEITA no maquiagens.mjs, 02/11/2026: numa cor só, sem o traço rente aos cílios nem a asa no canto; aqui fica só a
+// derretida — o 3º e o 4º arquivo não são mais gravados)
 console.log('ok', W * 2, H);
