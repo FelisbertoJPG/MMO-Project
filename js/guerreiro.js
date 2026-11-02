@@ -32,7 +32,7 @@ import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino, corpoDeArquivo } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
-import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO, folhasAtivas, olhoDoCorpo } from './pintura.js';
+import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO, folhasAtivas, olhoDoCorpo, ordemDaFolha } from './pintura.js';
 import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
@@ -763,7 +763,7 @@ export class CorpoGuerreiro {
     const folhas = geo.userData.pinturas ?? [], raca = this.raca;
     const cores = { pele: raca?.pele ?? corDaPele(ap) ?? CORES_DO_MODELO.pele, olhos: raca?.olhos ?? OLHOS[ap.olhos][1] ?? CORES_DO_MODELO.olhos, cabelo: CABELOS[ap.cor][1] ?? CORES_DO_MODELO.cabelo };
     folhas.forEach(({ folha, geometry }, i) => {
-      const map = texturaDaFolha(folha, cores, Assets.pinturas, folha.maquiagem ? ap.cores?.maquiagem : folha.sobrancelha ? ap.cores?.pintada : null);   // (a maquiagem e a sobrancelha desenhada na cor livre)
+      const map = texturaDaFolha(folha, cores, Assets.pinturas, folha.maquiagem ? ap.cores?.maquiagem : folha.sobrancelha ? ap.cores?.pintada : folha.delineado ? ap.cores?.delineado : null);   // (a maquiagem, a sobrancelha e o delineado desenhados na cor livre)
       let m = this.pinturas[i];
       if (!map) { if (m) m.visible = false; return; }
       if (!m) {
@@ -773,6 +773,7 @@ export class CorpoGuerreiro {
         m.bind(this.esqueleto, this.fundida.bindMatrix);
         this.pinturas.push(m);
       } else { m.geometry = geometry; m.material.map = map; }
+      m.renderOrder = ordemDaFolha(folha);   // (o delineado desenhado por cima da maquiagem)
       m.visible = true;
     });
     for (let i = folhas.length; i < this.pinturas.length; i++) this.pinturas[i].visible = false;

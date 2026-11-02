@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-02.5",
-  "nota": "Maquiagens novas (sombra leve, olho de gato, côncavo marcado, halo, brilho dourado) e a Esfumada refeita: o delineado preto aparece por cima de qualquer cor"
+  "versao": "2026-11-02.6",
+  "nota": "Delineados novos (fino, gatinho, asa longa, contorno, borrado, asa dupla) e o Delineado simples redesenhado, por cima de qualquer maquiagem"
 }

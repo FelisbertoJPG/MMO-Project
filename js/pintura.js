@@ -39,7 +39,7 @@
 import * as THREE from 'three';
 import { ORIGENS, pesosDaParte, centroDoPuxao, meioNoModelo } from './modelagem.js';
 import { misturar } from './ima.js';
-import { nomesDasSobrancelhas } from './raca.js';
+import { nomesDasSobrancelhas, nomesDosDelineados } from './raca.js';
 
 export const PASTA_DA_PINTURA = 'assets/pintura/';
 /** As tintas: a cor escolhida, ou a do personagem (o índice no TIPO é o da tinta − 1). */
@@ -213,11 +213,15 @@ function triangulosDasCores(cores, ctx, nt) {
  * As folhas do corpo que valem agora: as de MAQUIAGEM (`maquiagem: '<nome>'` — o Esfumado da Feminino 4 lisa, 01/11/2026, o dono:
  * "adiciona a opção no menu Maquiagem → Esfumado") só quando escolhidas (`edicoes.maquiagemEscolhida`, como o delineado).
  */
-// (e as SOBRANCELHAS DESENHADAS — `sobrancelha: '<nome>'`, 02/11/2026 —: só a escolhida, `sobrancelhaEscolhida` na lista de raca.js `nomesDasSobrancelhas`)
+// (e as SOBRANCELHAS DESENHADAS — `sobrancelha: '<nome>'`, 02/11/2026 —: só a escolhida, `sobrancelhaEscolhida` na lista de raca.js `nomesDasSobrancelhas`;
+// e os DELINEADOS DESENHADOS — `delineado: '<nome>'` —: só o escolhido, `delineadoEscolhido` na lista de raca.js `nomesDosDelineados`)
 export const folhasAtivas = (edicoes) => {
   const sobrancelha = edicoes?.sobrancelhaEscolhida > 0 ? nomesDasSobrancelhas(edicoes)[edicoes.sobrancelhaEscolhida - 1] : null;
-  return (edicoes?.pinturas ?? []).filter((f) => (!f.maquiagem || f.maquiagem === edicoes.maquiagemEscolhida) && (!f.sobrancelha || f.sobrancelha === sobrancelha));
+  const delineado = edicoes?.delineadoEscolhido > 0 ? nomesDosDelineados(edicoes)[edicoes.delineadoEscolhido - 1] : null;
+  return (edicoes?.pinturas ?? []).filter((f) => (!f.maquiagem || f.maquiagem === edicoes.maquiagemEscolhida) && (!f.sobrancelha || f.sobrancelha === sobrancelha) && (!f.delineado || f.delineado === delineado));
 };
+// (a ordem de desenho: o DELINEADO desenhado vai por cima das outras folhas — a maquiagem de outra cor embaixo dele; `renderOrder` da malha)
+export const ordemDaFolha = (folha) => (folha?.delineado ? 1 : 0);
 /** O centro da folha na malha como ela está (o lugar do corpo que o `em` dela marca), ou null. */
 export function centroDaFolha(folha, geo, ctx, P = ctx.base ?? geo.attributes.position.array) {
   return centroDoPuxao({ de: folha.de, em: folha.em }, geo, ctx, false, P, folha.parte && folha.parte !== 'corpo' ? pesosDaParte(folha.parte, geo, ctx) : null);
