@@ -87,16 +87,26 @@ export const SOMBRAS = [
   ['Esfumada roxa', '#33183f', 0.85], ['Esfumada cinza', '#3c3c44', 0.8], ['Dourada', '#9a7432', 0.7],
 ];
 export const APARENCIA_PADRAO = '01010';
-const CODIGO = /^(?:[0-9]{5,9}|[0-9]{11,13})$/;
+// (a EXTENSÃO depois do `~` — 02/11/2026, o dono: "deixa escolher a sobrancelha pintada no jogo, delineado e maquiagem, além de cores
+// pra cada um — livre — e mais cores de batom, dá a roda de cores pro player": só com os 13 dígitos; 3 dígitos — a sobrancelha
+// PINTADA, o DELINEADO e a MAQUIAGEM do corpo de arquivo (0 = sem; n = a n-ésima camada/maquiagem dele) — e 4 cores LIVRES, o
+// batom, a sobrancelha pintada, o delineado e a maquiagem: 6 hexadecimais, ou '.' = a do desenho)
+const CODIGO = /^(?:[0-9]{5,9}|[0-9]{11,13}|[0-9]{13}~[0-9]{3}(?:\.|[0-9a-f]{6}){4})$/;
+const CORES_DA_EXTENSAO = ['batom', 'pintada', 'delineado', 'maquiagem'];
 
-/** Lê um código (ou o padrão, se torto): { pele, cabelo, cor, barba, olhos, raca, sobrancelha, sexo, batom, tom, sombra }. */
+/**
+ * Lê um código (ou o padrão, se torto): { pele, cabelo, cor, barba, olhos, raca, sobrancelha, sexo, batom, tom, sombra, pintada,
+ * delineado, maquiagem, extra (o código tem a extensão), cores: { batom, pintada, delineado, maquiagem } ('#rrggbb' ou null) }.
+ */
 export function lerAparencia(c) {
-  const s = CODIGO.test(c ?? '') ? c : APARENCIA_PADRAO;
-  const d = [...s].map(Number);
+  const [s, ext] = (CODIGO.test(c ?? '') ? c : APARENCIA_PADRAO).split('~');
+  const d = [...s].map(Number), x = ext ? [...ext.slice(0, 3)].map(Number) : [0, 0, 0], hs = ext ? ext.slice(3).match(/\.|[0-9a-f]{6}/g) ?? [] : [];
+  const cores = Object.fromEntries(CORES_DA_EXTENSAO.map((k, i) => [k, hs[i] && hs[i] !== '.' ? `#${hs[i]}` : null]));
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1] + (s.length >= 12 ? d[11] * 10 : 0), cor: d[2] < CABELOS.length ? d[2] : 0,
     barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] >= 1 && d[7] <= 4 ? d[7] : 0,
     batom: d[8] < BATONS.length ? d[8] : 0, tom: s.length >= 11 ? d[9] * 10 + d[10] : null, sombra: s.length >= 13 && d[12] < SOMBRAS.length ? d[12] : 0,
+    pintada: x[0], delineado: x[1], maquiagem: x[2], extra: !!ext, cores,
   };
 }
 // (humano de sobrancelha normal: os 5 dígitos de sempre; a raça é o 6º; a sobrancelha que não é a do modelo pede os 7; o feminino, os 8; o batom, os 9;
@@ -104,10 +114,14 @@ export function lerAparencia(c) {
 // (as listas passaram de 9: a humana tem 10 penteados); a SOMBRA dos olhos, os 13. Sem tom e com um dos dois, o tom é o
 // da lista PELES na régua — `TOM_DE_PELE` —, e a pele passa a ir por ele)
 export function codigoDaAparencia(a) {
-  const sobrancelha = a.sobrancelha ?? 1, alto = a.cabelo > 9 || a.sombra > 0;
+  // (a extensão só vai quando há o que dizer: uma camada escolhida ou uma cor livre — e aí vão os 13 dígitos)
+  const cs = a.cores ?? {}, um = (n) => Math.min(9, Math.max(0, Math.round(n || 0)));
+  const ext = um(a.pintada) || um(a.delineado) || um(a.maquiagem) || CORES_DA_EXTENSAO.some((k) => /^#[0-9a-f]{6}$/i.test(cs[k] ?? ''))
+    ? `~${um(a.pintada)}${um(a.delineado)}${um(a.maquiagem)}${CORES_DA_EXTENSAO.map((k) => (/^#[0-9a-f]{6}$/i.test(cs[k] ?? '') ? cs[k].slice(1).toLowerCase() : '.')).join('')}` : '';
+  const sobrancelha = a.sobrancelha ?? 1, alto = a.cabelo > 9 || a.sombra > 0 || !!ext;
   if (a.tom != null || alto) {
     const tom = String(Math.min(TOM_MAX, Math.max(0, Math.round(a.tom ?? TOM_DE_PELE[a.pele] ?? TOM_DE_PELE[0])))).padStart(2, '0');
-    return `0${a.cabelo % 10}${a.cor}${a.barba}${a.olhos}${a.raca || 0}${sobrancelha}${a.sexo || 0}${a.batom || 0}${tom}${alto ? Math.floor(a.cabelo / 10) : ''}${a.sombra > 0 ? a.sombra : ''}`;
+    return `0${a.cabelo % 10}${a.cor}${a.barba}${a.olhos}${a.raca || 0}${sobrancelha}${a.sexo || 0}${a.batom || 0}${tom}${alto ? Math.floor(a.cabelo / 10) : ''}${a.sombra > 0 || ext ? a.sombra || 0 : ''}${ext}`;
   }
   const cauda = a.batom ? `${a.raca || 0}${sobrancelha}${a.sexo || 0}${a.batom}`
     : a.sexo ? `${a.raca || 0}${sobrancelha}${a.sexo}` : sobrancelha === 1 ? a.raca || '' : `${a.raca || 0}${sobrancelha}`;
@@ -217,11 +231,24 @@ const LINHAS = [
   ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0]), (r) => !!r?.textura],
   ['barba', 'Barba', (r) => ['Sem barba', ...barbasDe(r).map(nomeDaBarba)], (r) => !barbasDe(r).length],
   ['sobrancelha', 'Sobrancelhas', (r) => ['Sem sobrancelhas', ...sobrancelhasDe(r).map(nomeDaSobrancelha)], (r) => !sobrancelhasDe(r).length],
+  // (o corpo de ARQUIVO — a Feminino: as CAMADAS dele, raca.js `racaDe`; 02/11/2026: a sobrancelha pintada, o delineado e a maquiagem)
+  ['pintada', 'Sobrancelhas', (r) => ['Sem sobrancelhas', ...(r?.pintadas ?? [])], (r) => !r?.pintadas?.length],
+  ['delineado', 'Delineado', (r) => ['Sem delineado', ...(r?.delineadosDoCorpo ?? [])], (r) => !r?.delineadosDoCorpo?.length],
+  ['maquiagem', 'Maquiagem', (r) => ['Sem maquiagem', ...(r?.maquiagens ?? [])], (r) => !r?.maquiagens?.length],
   ['olhos', 'Olhos', () => OLHOS.map((p) => p[0]), (r) => !!r?.olhos || !!r?.textura],
   // (o corpo de ARQUIVO tem o rosto dele: sem batom nem sombra — corpo-arquivo.js; o batom sim quando ele tem a boca marcada, `temBoca`)
   ['batom', 'Batom', () => BATONS.map((b) => b[0]), (r) => !!r?.arquivo && !r.temBoca],
   ['sombra', 'Sombra nos olhos', () => SOMBRAS.map((s) => s[0]), (r) => !!r?.arquivo],
 ];
+// as linhas com COR LIVRE (o quadradinho e a roda de cores) e a cor em que a roda abre
+const COR_LIVRE = { batom: '#b04a58', pintada: '#3a2a22', delineado: '#1b1416', maquiagem: '#322727' };
+const rgbDeHsv = (h, s, v) => { const f = (n) => { const k = (n + h * 6) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); }; return [f(5), f(3), f(1)].map((x) => Math.round(x * 255)); };
+const hexDeHsv = (h, s, v) => `#${rgbDeHsv(h, s, v).map((x) => x.toString(16).padStart(2, '0')).join('')}`;
+const hsvDe = (hex) => {
+  const n = parseInt(hex.slice(1), 16), r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+  const h = !d ? 0 : mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, mx ? d / mx : 0, mx];
+};
 /** As raças que o jogador pode escolher: o humano e as `jogavel` do arquivo ({ n, nome }). */
 const racasDoPainel = () => [{ n: 0, nome: 'Humano' }, ...Assets.racas.map((r, i) => ({ n: i + 1, nome: r.nome, jogavel: r.jogavel })).filter((r) => r.jogavel)];
 
@@ -279,6 +306,7 @@ export class EditorDeAparencia {
 
   abrir() {
     this.el.classList.remove('hidden');
+    this.rodaAberta = null;
     this.game.player.esconderCorpo?.(false);   // (a primeira pessoa esconde o corpo da câmera)
     this.giro = 0;
     this.dist = DIST_PADRAO;
@@ -324,13 +352,70 @@ export class EditorDeAparencia {
       // a raça anda pela lista das jogáveis (o número dela é o lugar no arquivo, não na lista)
       const agora = k === 'raca' ? Math.max(0, racas.findIndex((r) => r.n === a.raca)) : a[k];
       const valor = (i) => (k === 'raca' ? racas[i].n : i);
-      linha.className = 'aparencia-linha';
-      linha.innerHTML = `<span class="rotulo">${rotulo}</span><button class="seta" data-d="-1">◀</button><span class="valor">${ops[agora]}</span><button class="seta" data-d="1">▶</button>`;
+      // (a COR LIVRE — 02/11/2026: o quadradinho abre a roda de cores; no batom sempre, nas camadas com uma escolhida)
+      const comCor = k in COR_LIVRE && (k === 'batom' || a[k] > 0);
+      const corAgora = a.cores?.[k] ?? (k === 'batom' ? BATONS[a.batom]?.[1] ?? (raca?.temBoca ? BATONS[1][1] : null) : null);
+      linha.className = `aparencia-linha${comCor ? ' com-cor' : ''}`;
+      linha.innerHTML = `<span class="rotulo">${rotulo}</span><button class="seta" data-d="-1">◀</button><span class="valor">${ops[agora]}</span><button class="seta" data-d="1">▶</button>${comCor ? '<button class="aparencia-cor" title="Cor livre: a roda de cores" aria-label="cor livre"></button>' : ''}`;
       for (const b of linha.querySelectorAll('.seta')) {
         b.addEventListener('click', () => this.mudar({ [k]: valor((agora + Number(b.dataset.d) + ops.length) % ops.length) }));
       }
+      if (comCor) {
+        const b = linha.querySelector('.aparencia-cor');
+        b.style.background = corAgora ?? 'conic-gradient(#e33, #ee3, #3e3, #3ee, #33e, #e3e, #e33)';
+        b.addEventListener('click', () => { this.rodaAberta = this.rodaAberta === k ? null : k; this.desenhar(); });
+      }
       this.lista.appendChild(linha);
+      if (comCor && this.rodaAberta === k) this.lista.appendChild(this.rodaDeCores(k, corAgora ?? COR_LIVRE[k]));
     }
+  }
+
+  /**
+   * A RODA DE CORES (02/11/2026) de uma linha `k` com cor livre: a volta é o matiz, do meio para a beira a saturação, e a régua o
+   * brilho. Arrastando, só a amostra; ao SOLTAR, o corpo muda (cada cor é um corpo novo nos caches, como o tom da pele).
+   * "Padrão" volta à cor do desenho.
+   */
+  rodaDeCores(k, inicial) {
+    const el = document.createElement('div'), L = 150, R = L / 2;
+    el.className = 'aparencia-roda';
+    el.innerHTML = `<canvas width="${L}" height="${L}" aria-label="roda de cores"></canvas><div class="lado"><span class="rotulo">Brilho</span><input type="range" min="8" max="100" step="1" aria-label="brilho"><span class="amostra"></span><div class="aparencia-botoes"><button data-padrao>Padrão</button><button data-ok>OK</button></div></div>`;
+    const cv = el.querySelector('canvas'), g = cv.getContext('2d'), brilho = el.querySelector('input'), amostra = el.querySelector('.amostra');
+    let [h, s, v] = hsvDe(inicial);
+    brilho.value = String(Math.round(Math.max(0.08, v) * 100));
+    const hex = () => hexDeHsv(h, s, Number(brilho.value) / 100);
+    const mostrar = () => {
+      const img = g.createImageData(L, L), V = Number(brilho.value) / 100;
+      for (let y = 0; y < L; y++) for (let x = 0; x < L; x++) {
+        const dx = x + 0.5 - R, dy = y + 0.5 - R, r = Math.hypot(dx, dy), o = (y * L + x) * 4;
+        if (r > R) continue;
+        const c = rgbDeHsv((Math.atan2(dy, dx) / (2 * Math.PI) + 1) % 1, r / R, V);
+        img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = Math.round(255 * Math.min(1, R - r));
+      }
+      g.putImageData(img, 0, 0);
+      const ang = h * 2 * Math.PI;
+      g.lineWidth = 2; g.strokeStyle = V > 0.55 ? '#000' : '#fff';
+      g.beginPath(); g.arc(R + Math.cos(ang) * s * R, R + Math.sin(ang) * s * R, 6, 0, Math.PI * 2); g.stroke();
+      amostra.style.background = hex();
+    };
+    const escolher = (cor) => this.mudar({ cores: { ...lerAparencia(this.game.player.aparencia).cores, [k]: cor } });
+    // (o ponto na roda: com a página girada pelo CSS no iPhone, pelo tela.js)
+    const tocar = (e) => {
+      const r = retanguloNaTela(cv.getBoundingClientRect()), p = pontoNaTela(e.clientX, e.clientY);
+      const x = ((p.x - r.left) / Math.max(1, r.right - r.left)) * L - R, y = ((p.y - r.top) / Math.max(1, r.bottom - r.top)) * L - R;
+      h = (Math.atan2(y, x) / (2 * Math.PI) + 1) % 1; s = Math.min(1, Math.hypot(x, y) / R);
+      mostrar();
+    };
+    let arrastando = false;
+    cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture?.(e.pointerId); arrastando = true; tocar(e); });
+    cv.addEventListener('pointermove', (e) => { if (arrastando) tocar(e); });
+    cv.addEventListener('pointerup', () => { if (!arrastando) return; arrastando = false; escolher(hex()); });
+    cv.addEventListener('pointercancel', () => { arrastando = false; });
+    brilho.addEventListener('input', mostrar);
+    brilho.addEventListener('change', () => escolher(hex()));
+    el.querySelector('[data-padrao]').addEventListener('click', () => escolher(null));
+    el.querySelector('[data-ok]').addEventListener('click', () => { this.rodaAberta = null; this.desenhar(); });
+    mostrar();
+    return el;
   }
 
   reguaDaPele(a) {

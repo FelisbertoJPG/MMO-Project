@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-02.1",
-  "nota": "A Feminino agora é a modelo nova: pisca, batom nos lábios (careca por enquanto)"
+  "versao": "2026-11-02.2",
+  "nota": "Aparência: sobrancelha pintada, delineado, maquiagem e cores livres (a roda de cores) para a Feminino; batom em qualquer cor"
 }

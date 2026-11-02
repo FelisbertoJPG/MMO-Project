@@ -597,9 +597,18 @@ export function delineadoAtivo(edicoes) {
 }
 // as CAMADAS de cor escolhidas, na ordem em que valem (a 1ª por cima): a SOBRANCELHA pintada (`sobrancelhas`,
 // `sobrancelhaEscolhida`; 01/11/2026 — a "Sombrancelha grossa" da Feminino 4 lisa) e o DELINEADO; as duas por cima das cores do corpo
+// (a COR LIVRE de uma camada — 02/11/2026, a roda de cores do jogo: `sobrancelhaCor`/`delineadoCor` '#rrggbb' — vai no cinza liso da paleta,
+// 112/255 = 0,162 linear, como a "pintar triângulos" do editor: o tom é a cor dividida por ele)
+const UV_DA_COR_LIVRE = [0.586, 0.44];
+const tomDaCorLivre = (hex) => { const c = new THREE.Color(hex); return [c.r / 0.162, c.g / 0.162, c.b / 0.162]; };
 export function camadasAtivas(edicoes) {
-  const uma = (lista, n) => { const d = n > 0 ? lista?.[n - 1] : null; return d && Array.isArray(d.cores) && d.cores.length ? { ...d, cores: d.cores.filter((c) => uvValido(c?.uv)) } : null; };
-  return [uma(edicoes?.sobrancelhas, edicoes?.sobrancelhaEscolhida ?? 0), uma(edicoes?.delineados, edicoes?.delineadoEscolhido ?? 0)].filter(Boolean);
+  const uma = (lista, n, cor) => {
+    const d = n > 0 ? lista?.[n - 1] : null;
+    if (!d || !Array.isArray(d.cores) || !d.cores.length) return null;
+    const cores = d.cores.filter((c) => uvValido(c?.uv)), tom = /^#[0-9a-f]{6}$/i.test(cor ?? '') ? tomDaCorLivre(cor) : null;
+    return { ...d, cores: tom ? cores.map((c) => ({ ...c, uv: UV_DA_COR_LIVRE, tom })) : cores };
+  };
+  return [uma(edicoes?.sobrancelhas, edicoes?.sobrancelhaEscolhida ?? 0, edicoes?.sobrancelhaCor), uma(edicoes?.delineados, edicoes?.delineadoEscolhido ?? 0, edicoes?.delineadoCor)].filter(Boolean);
 }
 function pintarTriangulos(geo, cores, ctx) {
   const uv = geo.attributes.uv, cor = geo.attributes.color;

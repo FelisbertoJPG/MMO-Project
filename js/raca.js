@@ -170,9 +170,12 @@ export function racaDe(n, sexo = 0) {
   const arq = sexo >= 2 ? deArquivo(n, sexo) : sexo === 1 ? femininaDeArquivo(n) : null;
   if (arq) {
     if (arq.jogo) arq.jogo.penteados = Array.isArray(arq.jogo.penteados) ? arq.jogo.penteados : [];
+    // (as edições dele: a boca marcada e as CAMADAS — a sobrancelha pintada, o delineado, a maquiagem —, que o painel oferece)
+    const ed = Assets.modelagem?.corpos?.[`${n > 0 ? raca?.id : 'humano'}:arquivo${(arq.jogo?.sexo ?? 2) > 2 ? arq.jogo.sexo : ''}`];
     return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, textura: !!arq.uv, pele: null, olhos: null, semCabelo: !!arq.uv, semBarba: true, penteados: arq.uv ? [] : arq.jogo?.penteados ?? [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {},
       // (o BATOM nos lábios marcados — `boca` nas edições dele, corpo-arquivo.js `batomDoArquivo`: o painel mostra a linha)
-      temBoca: !!Assets.modelagem?.corpos?.[`${n > 0 ? raca?.id : 'humano'}:arquivo${(arq.jogo?.sexo ?? 2) > 2 ? arq.jogo.sexo : ''}`]?.boca?.length };
+      temBoca: !!ed?.boca?.length, pintadas: (ed?.sobrancelhas ?? []).map((x) => x.nome), delineadosDoCorpo: (ed?.delineados ?? []).map((x) => x.nome),
+      maquiagens: [...new Set((ed?.pinturas ?? []).map((f) => f.maquiagem).filter(Boolean))] };
   }
   const f = sexo >= 1 ? feminino(n) : null;
   return f ? { ...raca, ...f, feminino: undefined } : raca;

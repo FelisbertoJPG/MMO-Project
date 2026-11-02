@@ -130,19 +130,35 @@ export function esquecerTexturasDaPintura() { for (const t of texturas.values())
  * A textura de uma folha nas cores de um personagem — ou null (a imagem não foi lida). `imagens`: Map
  * arquivo → imagem; a folha feita em código (a boca, boca.js) traz a dela em `imagem`.
  */
-export function texturaDaFolha(folha, cores, imagens) {
+export function texturaDaFolha(folha, cores, imagens, tinge = null) {
   const img = folha.imagem ?? imagens?.get(folha.arquivo);
   if (!img) return null;
-  const chave = `${folha.arquivo}|${cores.pele}|${cores.olhos}|${cores.cabelo}`;
+  const tingir = /^#[0-9a-f]{6}$/i.test(tinge ?? '') ? tinge.toLowerCase() : null;
+  const chave = `${folha.arquivo}|${cores.pele}|${cores.olhos}|${cores.cabelo}${tingir ? `|${tingir}` : ''}`;
   if (!texturas.has(chave)) {
     const c = document.createElement('canvas');
     c.width = img.w; c.height = img.h;
     comporFolha(img, cores, c);
+    if (tingir) tingirTela(c, tingir);
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
     texturas.set(chave, t);
   }
   return texturas.get(chave);
+}
+
+// (a MAQUIAGEM na cor LIVRE — 02/11/2026, a roda de cores do jogo: o desenho guarda o CLARO E ESCURO dele, na cor escolhida — o mais
+// claro do desenho sai na cor, o mais escuro a ~35% dela; o alfa não muda. Uma vez por cor, ao vestir)
+function tingirTela(c, hex) {
+  const g = c.getContext('2d', { willReadFrequently: true }), d = g.getImageData(0, 0, c.width, c.height), p = d.data, n = parseInt(hex.slice(1), 16), alvo = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  let max = 1;
+  for (let i = 0; i < p.length; i += 4) if (p[i + 3] > 24) max = Math.max(max, p[i] + p[i + 1] + p[i + 2]);
+  for (let i = 0; i < p.length; i += 4) {
+    if (!p[i + 3]) continue;
+    const k = 0.35 + 0.65 * Math.min(1, (p[i] + p[i + 1] + p[i + 2]) / max);
+    p[i] = Math.round(alvo[0] * k); p[i + 1] = Math.round(alvo[1] * k); p[i + 2] = Math.round(alvo[2] * k);
+  }
+  g.putImageData(d, 0, 0);
 }
 
 // ------------------------------------------------------------ a projeção

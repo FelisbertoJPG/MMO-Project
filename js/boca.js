@@ -69,11 +69,13 @@ function tinta(cor, s, k, claro = 0) {
 }
 
 const imagens = new Map();
-/** A imagem da folha da boca para o batom `n` (o número em `BATONS`) — ou null (sem batom). Uma por batom. */
-export function imagemDaBoca(n) {
-  const b = BATONS[n];
+// (a cor LIVRE do batom — 02/11/2026, a roda de cores do jogo: '#rrggbb', sem a fração de pele; os lábios saem mesmo "sem batom")
+const livreDe = (cor) => (typeof cor === 'string' && /^#[0-9a-f]{6}$/i.test(cor) ? cor.toLowerCase() : null);
+/** A imagem da folha da boca para o batom `n` (o número em `BATONS`), ou na cor `livre` — ou null (sem batom). Uma por batom/cor. */
+export function imagemDaBoca(n, livre = null) {
+  const livreCor = livreDe(livre), b = livreCor ? ['livre', livreCor, 0] : BATONS[n], chave = livreCor ?? n;
   if (!b?.[1]) return null;
-  if (imagens.has(n)) return imagens.get(n);
+  if (imagens.has(chave)) return imagens.get(chave);
   const F = FOLHA_DA_BOCA, [w, h] = F.px, cm = w / F.largura;
   const tela = () => {
     const c = document.createElement('canvas');
@@ -121,7 +123,7 @@ export function imagemDaBoca(n) {
     img.cor[i] = dc[i]; img.cor[i + 1] = dc[i + 1]; img.cor[i + 2] = dc[i + 2]; img.cor[i + 3] = df[i + 3];
     img.tipo[i] = dt[i];
   }
-  imagens.set(n, img);
+  imagens.set(chave, img);
   return img;
 }
 
@@ -130,8 +132,8 @@ export function imagemDaBoca(n) {
  * esticado à parte — `feminina` — para os lábios saírem cheios; com o desenho nos vértices, a boca de cada corpo é a
  * malha dele: a raça e a modelagem dão o tamanho.)
  */
-export function folhaDaBoca(n) {
-  const imagem = imagemDaBoca(n);
+export function folhaDaBoca(n, livre = null) {
+  const cor = livreDe(livre), imagem = imagemDaBoca(n, cor);
   if (!imagem) return null;
-  return { ...FOLHA_DA_BOCA, arquivo: `boca-${n}`, imagem };
+  return { ...FOLHA_DA_BOCA, arquivo: `boca-${cor ? cor.slice(1) : n}`, imagem };
 }

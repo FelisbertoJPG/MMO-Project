@@ -50,7 +50,7 @@ import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, rostoDaModelo, edicoe
 // SOBRANCELHA (penteado.js), um 8º, o SEXO (raca.js `racaDe`), e um 9º, o BATOM (boca.js); com 11, o 10º e o 11º são
 // o TOM de pele livre (aparencia.js `corDoTom`); com 12, o 12º é a dezena do CABELO; com 13, o 13º é a SOMBRA (sombra.js).
 export const NU = '0000';
-const CODIGO = /^[0-9]{4}(:(?:[0-9]{5,9}|[0-9]{11,13}))?$/;
+const CODIGO = /^[0-9]{4}(:(?:[0-9]{5,9}|[0-9]{11,13}|[0-9]{13}~[0-9]{3}(?:\.|[0-9a-f]{6}){4}))?$/;   // (a aparência com a extensão `~`: aparencia.js)
 /** O corpo que veio da rede é válido? (os nomes de antes — 'nu', 'A1'… — ainda valem) */
 export const corpoValido = (c) => c === 'antigo' || CODIGO.test(c) || ['nu', 'A1', 'A2', 'A3'].includes(c);
 /** corpo → o argumento de `CharacterModel.usarGuerreiro` (false = boneco antigo; senão o código) */
@@ -614,6 +614,12 @@ export class CorpoGuerreiro {
     // O BATOM no corpo de arquivo SEM o rosto da modelo 1 (corpo-arquivo.js `batomDoArquivo`; sem batom, o Natural): pinta os lábios marcados no corpo
     // (`boca`; modelagem.js) — a fundida é guardada pelo código inteiro, com o dígito do batom
     if (arq && !arq.rosto && edicoes?.boca?.length) edicoes = { ...edicoes, batomNaBoca: batomDoArquivo(arq, aparencia, this.materiais.find((m) => m.vertexColors) ?? this.materiais[0]) };
+    // AS CAMADAS ESCOLHIDAS NO JOGO (02/11/2026): a sobrancelha pintada, o delineado e a maquiagem do corpo de arquivo e as cores livres
+    // deles — a extensão `~` do código (aparencia.js). Só quando o código a traz: no editor, o VER escolhe (na memória das edições)
+    if (arq && !arq.rosto && edicoes && lida.extra) {
+      const maquiagens = [...new Set((edicoes.pinturas ?? []).map((f) => f.maquiagem).filter(Boolean))];
+      edicoes = { ...edicoes, sobrancelhaEscolhida: lida.pintada, delineadoEscolhido: lida.delineado, maquiagemEscolhida: maquiagens[lida.maquiagem - 1], sobrancelhaCor: lida.cores.pintada, delineadoCor: lida.cores.delineado };
+    }
     if (arq?.rosto) {
       const face = this.pecas.find((o) => o.name === 'Face'), olho = this.pecas.find((o) => o.name === 'Eyes');
       const tinta = (o) => (aparenciaValida(aparencia) ? tingir(o, aparencia) ?? o : o);
@@ -665,7 +671,7 @@ export class CorpoGuerreiro {
     // atributos que não casam: o mergeGeometries devolve null, e as peças ficam soltas
     // (o BATOM — boca.js: os lábios, uma folha pintada no rosto; 0 = sem, nada muda)
     // (no corpo de arquivo, só com o rosto da modelo 1: a folha é projetada no `antes` dele, o do guerreiro)
-    const boca = (!arq || arq.rosto) && aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.sexo === 1 && temFeminino(ap.raca)) : null;
+    const boca = (!arq || arq.rosto) && aparenciaValida(aparencia) ? folhaDaBoca(ap.batom, ap.cores?.batom) : null;   // (a cor LIVRE do batom: a roda de cores)
     // (a SOMBRA dos olhos — sombra.js: uma folha esfumada em volta de cada olho; 0 = sem)
     const sombra = (!arq || arq.rosto) && aparenciaValida(aparencia) ? folhaDaSombra(ap.sombra) : null;
     // (a cor da ÍRIS desenhada em malha — cilios.js: a dos olhos da raça, ou a escolhida; no corpo de arquivo, o Original é a do modelo)
@@ -757,7 +763,7 @@ export class CorpoGuerreiro {
     const folhas = geo.userData.pinturas ?? [], raca = this.raca;
     const cores = { pele: raca?.pele ?? corDaPele(ap) ?? CORES_DO_MODELO.pele, olhos: raca?.olhos ?? OLHOS[ap.olhos][1] ?? CORES_DO_MODELO.olhos, cabelo: CABELOS[ap.cor][1] ?? CORES_DO_MODELO.cabelo };
     folhas.forEach(({ folha, geometry }, i) => {
-      const map = texturaDaFolha(folha, cores, Assets.pinturas);
+      const map = texturaDaFolha(folha, cores, Assets.pinturas, folha.maquiagem ? ap.cores?.maquiagem : null);   // (a maquiagem na cor livre)
       let m = this.pinturas[i];
       if (!map) { if (m) m.visible = false; return; }
       if (!m) {

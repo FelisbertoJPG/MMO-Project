@@ -275,7 +275,7 @@ export function inversosDoArquivo(corpo, ordem, inversos, ligacao) {
  */
 const BATOM_DOS_LABIOS = 1;   // (o Natural: a ordem do BATONS, aparencia.js)
 export function batomDoArquivo(corpo, codigo, material) {
-  const a = lerAparencia(codigo), b = BATONS[a.batom]?.[1] ? BATONS[a.batom] : BATONS[BATOM_DOS_LABIOS];
+  const a = lerAparencia(codigo), b = a.cores?.batom ? ['livre', a.cores.batom, 0] : BATONS[a.batom]?.[1] ? BATONS[a.batom] : BATONS[BATOM_DOS_LABIOS];   // (a cor LIVRE: a roda de cores)
   if (!b?.[1]) return null;
   const cor = new THREE.Color(b[1]).lerp(new THREE.Color(corDaPele(a) ?? corpo.jogo?.cores?.pele ?? '#f8bb7f'), b[2] ?? 0);
   const base = corNaPaleta(material?.map, ...UV) ?? CINZA;
