@@ -501,7 +501,13 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   // vértices criados: os pedaços de um triângulo pintado herdam a cor dele)
   // (o DELINEADO escolhido — 01/11/2026, a camada `delineados[n − 1]` do corpo, `delineadoAtivo` —: as cores dele entram por
   // cima das do corpo; os criados pelo dono acham a dele pelo meio, no `resolverNovos` — `ctx.delineado`)
-  const daCamada = camadasAtivas(edicoes).flatMap((c) => c.cores), coresAgora = daCamada.length ? [...daCamada, ...(edicoes.cores ?? [])] : edicoes.cores ?? [];
+  // (o BATOM — 01/11/2026, corpo-arquivo.js `batomDoArquivo` —: os triângulos dos lábios, `boca: [{ de, em }]` no corpo (o meio no
+  // MODELO, como os cortes), com a cor do batom escolhido POR CIMA de tudo, até da cor própria de um criado; `edicoes.batomNaBoca`
+  // vem do `vestir` e fica no ctx — a vista da aba Modelo refaz a malha com as edições da memória, que não o trazem)
+  if (edicoes.batomNaBoca !== undefined) ctx.batomNaBoca = edicoes.batomNaBoca;
+  const b = ctx.batomNaBoca, batom = b && Array.isArray(edicoes.boca) ? edicoes.boca.filter((t) => Array.isArray(t?.em) && t.em.length === 3).map((t) => ({ de: t.de, em: t.em, uv: b.uv, tom: b.tom })) : [];
+  ctx.batom = batom.length ? batom : null;
+  const daCamada = [...batom, ...camadasAtivas(edicoes).flatMap((c) => c.cores)], coresAgora = daCamada.length ? [...daCamada, ...(edicoes.cores ?? [])] : edicoes.cores ?? [];
   ctx.delineado = daCamada.length ? daCamada : null;
   ctx.pintados = null;
   if (coresAgora.length && !idx) pintarTriangulos(geo, coresAgora, ctx);
@@ -864,7 +870,9 @@ function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null, movido
       const copia = fonte.length === 3 ? Object.fromEntries(Object.entries(geo.attributes).map(([nome, at]) => [nome, fonte.map((f) => at.array.slice(f * at.itemSize, (f + 1) * at.itemSize))])) : null;
       // (a COR: o criado pintado leva o `uv` dele; o pedaço de um vértice criado, o das `cores` pelo meio)
       const meioDele = () => meio.set((antes[0] + antes[3] + antes[6]) / 3, (antes[1] + antes[4] + antes[7]) / 3, (antes[2] + antes[5] + antes[8]) / 3);
-      const c = !copia?.uv ? null : uvValido(x.uv) ? x
+      // (o lábio criado com o BATOM escolhido: a cor dele por cima da do criado)
+      const doBatom = copia?.uv && ctx.batom ? corNoMeio(ctx.batom, ORIGENS[ctx.origem[fonte[0]]], meioDele()) : null;
+      const c = !copia?.uv ? null : doBatom ? doBatom : uvValido(x.uv) ? x
         : n >= 0 && ctx.delineado?.length ? corNoMeio(ctx.delineado, ORIGENS[ctx.origem[fonte[0]]], meioDele()) ?? null
         : n < 0 && cores?.length ? corNoMeio(cores, ORIGENS[ctx.origem[fonte[0]]], meioDele()) : null;
       if (c) {

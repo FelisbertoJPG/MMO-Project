@@ -18,7 +18,7 @@
 // arquivo. Não há penteado, barba, sobrancelha, batom nem piscada: o rosto e o cabelo são os dele. As
 // edições da aba Modelo valem (a chave do corpo é '<raça>:arquivo', modelagem.js `chaveDoCorpo`).
 import * as THREE from 'three';
-import { lerAparencia, corDaPele, CABELOS, OLHOS, corNaPaleta } from './aparencia.js';
+import { lerAparencia, corDaPele, CABELOS, OLHOS, BATONS, corNaPaleta } from './aparencia.js';
 import { aplicarModelagem, acrescentarTriangulos } from './modelagem.js';
 import { racaDe } from './raca.js';
 
@@ -264,6 +264,20 @@ export function ossosDoArquivo(corpo, ossos, ordem, inversos, ligacao) {
 export function inversosDoArquivo(corpo, ordem, inversos, ligacao) {
   const anda = andaNoArquivo(corpo, ordem, inversos, ligacao), zero = new THREE.Vector3().applyMatrix4(ligacao), d = new THREE.Vector3();
   return inversos.map((m, i) => { d.copy(anda[i]).applyMatrix4(ligacao).sub(zero); return m.clone().multiply(new THREE.Matrix4().makeTranslation(-d.x, -d.y, -d.z)); });
+}
+
+/**
+ * O BATOM nos lábios de um corpo de arquivo SEM o rosto da modelo 1 (01/11/2026; a Feminino 4 lisa — o dono pintou a boca
+ * de preto e pediu "liga o batom nos lábios dela"): os triângulos dos lábios são os marcados em `boca` nas edições do corpo
+ * (modelagem.js) e ganham a cor do batom escolhido — a fração `pele` dele é a pele de quem veste, como no boca.js. Devolve
+ * { uv, tom }: o ponto cinza da paleta e a cor de vértice que dá a cor do batom nele. Sem batom: null (fica a cor pintada).
+ */
+export function batomDoArquivo(corpo, codigo, material) {
+  const a = lerAparencia(codigo), b = BATONS[a.batom];
+  if (!b?.[1]) return null;
+  const cor = new THREE.Color(b[1]).lerp(new THREE.Color(corDaPele(a) ?? corpo.jogo?.cores?.pele ?? '#f8bb7f'), b[2] ?? 0);
+  const base = corNaPaleta(material?.map, ...UV) ?? CINZA;
+  return { uv: [...UV], tom: [cor.r / Math.max(0.02, base[0]), cor.g / Math.max(0.02, base[1]), cor.b / Math.max(0.02, base[2])] };
 }
 
 const feitas = new Map();

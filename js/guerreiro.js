@@ -38,7 +38,7 @@ import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 import { folhaDaSombra } from './sombra.js';
 import { peleNova, PELE, TROCADAS, OSSOS_DO_CORPO } from './retopologia.js';
-import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, rostoDaModelo, edicoesDoRosto, transplantarRosto, materialDaTextura } from './corpo-arquivo.js';
+import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, rostoDaModelo, edicoesDoRosto, transplantarRosto, materialDaTextura, batomDoArquivo } from './corpo-arquivo.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -602,6 +602,9 @@ export class CorpoGuerreiro {
     // do guerreiro (recortada) e a peça `Eyes`, tingidas como as dela; os OLHOS como os dela (lisos, cílios-delineado, íris,
     // cores — o que este corpo não diz, vale o da modelo 1)
     const doRosto = arq?.rosto ? edicoesDoCorpo(lida.raca, 1) : null;
+    // O BATOM no corpo de arquivo SEM o rosto da modelo 1 (corpo-arquivo.js `batomDoArquivo`): pinta os lábios marcados no corpo
+    // (`boca`; modelagem.js) — a fundida é guardada pelo código inteiro, com o dígito do batom
+    if (arq && !arq.rosto && edicoes?.boca?.length) edicoes = { ...edicoes, batomNaBoca: batomDoArquivo(arq, aparencia, this.materiais.find((m) => m.vertexColors) ?? this.materiais[0]) };
     if (arq?.rosto) {
       const face = this.pecas.find((o) => o.name === 'Face'), olho = this.pecas.find((o) => o.name === 'Eyes');
       const tinta = (o) => (aparenciaValida(aparencia) ? tingir(o, aparencia) ?? o : o);
