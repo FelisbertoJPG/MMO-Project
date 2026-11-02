@@ -44,20 +44,28 @@ export const PELES = [
 // humanas mesmo", na Aparência do jogo também): `tom` de 0 a 99, do bege mais claro ao quase preto, passando pelos tons
 // de PELES (os pontos da régua: `TONS`). No código, os dígitos 10 e 11 (com os 9 de antes inteiros); o código sem eles
 // (o de todos até aqui) segue com o tom da lista PELES pelo 1º dígito.
-const TONS = ['#ffe2c6', '#ffcfa0', '#e8ae80', '#cf9061', '#ad7148', '#80523a', '#5c3828', '#3a2219'];
+// (a PONTA CLARA refeita em 01/11/2026 — o dono: "a cor mais branca da personagem é essa amarelada; aproxima do tom de pele
+// europeu e permite uma pele mais esbranquiçada pra criar personagens góticas": o 0 era #ffe2c6, um pêssego. Agora o 0 é o
+// BRANCO GÓTICO, o 5 a PORCELANA e o 10 a CLARA EUROPEIA (rosadas, sem o amarelo), e a Clara (#ffcfa0) segue no mesmo lugar:
+// do 14 em diante a régua é a de antes — só quem tinha um tom de 0 a 14 muda de cor.) `TONS`: [onde na régua, cor]
 export const TOM_MAX = 99;
+const TONS = [[0, '#eeeaec'], [5, '#f7e6e0'], [10, '#f2d2c2'],
+  ...['#ffcfa0', '#e8ae80', '#cf9061', '#ad7148', '#80523a', '#5c3828', '#3a2219'].map((c, i) => [((i + 1) * TOM_MAX) / 7, c])];
 // (onde cada tom da lista PELES cai na régua — o "Original", o do modelo, entre a Clara e a Morena clara)
 export const TOM_DE_PELE = [20, 14, 28, 42, 57, 71];
 export function corDoTom(t) {
-  const x = (Math.min(TOM_MAX, Math.max(0, t)) / TOM_MAX) * (TONS.length - 1), i = Math.min(TONS.length - 2, Math.floor(x)), f = x - i;
-  const a = parseInt(TONS[i].slice(1), 16), b = parseInt(TONS[i + 1].slice(1), 16);
+  const x = Math.min(TOM_MAX, Math.max(0, t));
+  let i = 0;
+  while (i < TONS.length - 2 && x > TONS[i + 1][0]) i++;
+  const f = Math.min(1, (x - TONS[i][0]) / (TONS[i + 1][0] - TONS[i][0]));
+  const a = parseInt(TONS[i][1].slice(1), 16), b = parseInt(TONS[i + 1][1].slice(1), 16);
   const c = [16, 8, 0].map((s) => Math.round(((a >> s) & 255) * (1 - f) + ((b >> s) & 255) * f));
   return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 /** a cor da pele de uma aparência lida (o tom livre, ou o da lista; null = a do modelo) */
 export const corDaPele = (a) => (a.tom != null ? corDoTom(a.tom) : PELES[a.pele]?.[1] ?? null);
 /** a régua em CSS (o fundo dela no painel) */
-export const GRADIENTE_DA_PELE = `linear-gradient(90deg, ${TONS.join(', ')})`;
+export const GRADIENTE_DA_PELE = `linear-gradient(90deg, ${TONS.map(([p, c]) => `${c} ${((p / TOM_MAX) * 100).toFixed(1)}%`).join(', ')})`;
 // (a ORDEM é o número no save, o 3º dígito: cor nova entra no FIM — no máximo 10)
 export const CABELOS = [
   ['Original', null], ['Preto', '#1e1712'], ['Castanho', '#4b2f1b'], ['Castanho claro', '#7b4c27'], ['Loiro', '#c99f5c'], ['Ruivo', '#a3431f'], ['Grisalho', '#8c8a86'], ['Branco', '#e6e0d2'], ['Vinho', '#74202a'], ['Vermelho', '#c0262c'],
