@@ -57,7 +57,9 @@ else {
     return new C(bin.buffer.slice(off, off + a.count * n * C.BYTES_PER_ELEMENT));
   };
   const prim = jg.meshes[0].primitives[0];
-  fonte = { pos: [...acc(prim.attributes.POSITION)], uv: [...acc(prim.attributes.TEXCOORD_0)], idx: [...acc(prim.indices)] };
+  // (o modelo SEM TEXTURA — o Homem 2, 02/11/2026 — não tem UV: vai uma de zeros, que o importar.mjs não grava)
+  const pos = [...acc(prim.attributes.POSITION)];
+  fonte = { pos, uv: prim.attributes.TEXCOORD_0 != null ? [...acc(prim.attributes.TEXCOORD_0)] : new Array((pos.length / 3) * 2).fill(0), idx: [...acc(prim.indices)] };
 }
 const nt = fonte.idx.length / 3;
 

@@ -86,7 +86,8 @@ export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino4:lisa', 'masculino1'];
 // (os que SÓ O EDITOR carrega — a aba Modelo os edita antes de irem para o jogo: o jogo nem baixa o arquivo; 27/10/2026, a
 // Feminino 3 e a 4, até o dono diminuir os triângulos delas. Pronta para o jogo = passar para a lista de cima. 01/11/2026: a
 // Feminino 3 — a "Meshy 2", o modelo antigo — saiu, a pedido; os arquivos dela ficam. A 4 traz junto a versão LISA, o sexo 3)
-export const CORPOS_DO_EDITOR = ['feminino4'];
+// (02/11/2026: o HOMEM 2 — `masculino2`, o .glb do Meshy inteiro, liso — para o dono ajustar antes de ir para o jogo)
+export const CORPOS_DO_EDITOR = ['feminino4', 'masculino2'];
 export const ANIMAIS_MODELOS =['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];
@@ -241,6 +242,8 @@ export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
       const j = await r.json();
       const c = { nome, jogo: j.jogo ?? {}, ossos: j.ossos, nomes: j.nomes, pos: de64(j.pos, Float32Array), idx: j.idx32 ? de64(j.idx32, Uint32Array) : de64(j.idx, Uint16Array), regiao: de64(j.regiao, Uint8Array), ossoDe: de64(j.ossoDe, Uint8Array), peso: de64(j.peso, Uint8Array) };
       const nv = c.pos.length / 3;
+      // (o modelo INTEIRO — `manter` no importar.mjs, com ou sem textura: traz as normais — o Simplificar do editor o reduz)
+      if (j.normal) c.inteiro = true;
       if (!Array.isArray(c.nomes) || !c.ossos || c.idx.length !== c.regiao.length * 3 || c.ossoDe.length !== nv * 4 || c.peso.length !== nv * 4 || c.idx.some((i) => i >= nv)) throw new Error('torto');
       // (o modelo INTEIRO com a TEXTURA dele — a Feminino 3, `manter` no importar.mjs: a UV do arquivo; as normais vêm junto, mas
       // o corpo-arquivo.js o desenha facetado, a normal de cada face)

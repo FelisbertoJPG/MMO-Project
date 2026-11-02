@@ -104,7 +104,7 @@ export function lerAparencia(c) {
   const cores = Object.fromEntries(CORES_DA_EXTENSAO.map((k, i) => [k, hs[i] && hs[i] !== '.' ? `#${hs[i]}` : null]));
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1] + (s.length >= 12 ? d[11] * 10 : 0), cor: d[2] < CABELOS.length ? d[2] : 0,
-    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] >= 1 && d[7] <= 4 ? d[7] : 0,
+    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] >= 1 && d[7] <= 9 ? d[7] : 0,   // (até o 9: os corpos de arquivo do editor — 02/11/2026, o Homem 2 é o 6; no jogo a linha Sexo para no último corpo carregado)
     batom: d[8] < BATONS.length ? d[8] : 0, tom: s.length >= 11 ? d[9] * 10 + d[10] : null, sombra: s.length >= 13 && d[12] < SOMBRAS.length ? d[12] : 0,
     pintada: x[0], delineado: x[1], maquiagem: x[2], extra: !!ext, cores,
   };

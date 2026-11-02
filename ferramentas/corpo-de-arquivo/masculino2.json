@@ -1,0 +1,22 @@
+{
+  "_leiame": "O recorte do CORPO DE ARQUIVO masculino2, o \"HOMEM 2\" (importar.mjs, modo `manter`; 02/11/2026, o dono: \"baixei um texturizado, carrega como 'homem 2' e remove a textura, assim como fizemos com a modelo 4 feminina; aí vou ajustar o que for necessário nele\"): o .glb do Meshy \"Low Poly Anatomy\" INTEIRO (uma figura, 205 mil triângulos, de frente para +z, 1,90 de altura), preso ao esqueleto do guerreiro. O arquivo não trazia imagem de textura (só o material): entra LISO, na pele do painel. Por enquanto SÓ NO EDITOR (assets.js `CORPOS_DO_EDITOR`). Sem simetria aplicada (não pedida). cmPorUnidade = os olhos (y 1,79 a partir dos pés) na altura dos do guerreiro (171,6 cm): 182 cm. medidas.ombroX = o x da junta do ombro (o braço encosta no tronco até perto da axila); maoX 0,36 (os dedos dos PÉS vão até 0,34). Rode: node ferramentas/corpo-de-arquivo/importar.mjs ferramentas/corpo-de-arquivo/masculino2.json",
+  "nome": "masculino2",
+  "entrada": "ferramentas/corpo-de-arquivo/masculino2-meshy.glb",
+  "manter": true,
+  "triangulos": 8000,
+  "cmPorUnidade": 95.9, "medidas": { "ombroX": 0.2 },
+  "juntas": {
+    "limiteDoOmbro": 0.12,
+    "ombroAbaixo": 0.05,
+    "tornozelo": 0.1,
+    "maoX": 0.36
+  },
+  "jogo": {
+    "_leiame": "O que o JOGO usa deste corpo: raca (0 = o humano) e sexo (6: o 7º da linha Sexo — por enquanto SÓ NO EDITOR: assets.js `CORPOS_DO_EDITOR`); rotulo = o nome na linha; penteados = nenhum (careca); proporcoes = as larguras que afinam as armaduras (a medir contra o guerreiro quando ele for para o jogo).",
+    "raca": 0,
+    "sexo": 6,
+    "rotulo": "Homem 2",
+    "penteados": [],
+    "proporcoes": {}
+  }
+}
