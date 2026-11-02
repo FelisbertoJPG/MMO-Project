@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-02.8",
-  "nota": "O Masculino da Humana tem corpo novo (o Masculino 2)"
+  "versao": "2026-11-02.9",
+  "nota": "O Masculino da Humana com o corpo novo, mais detalhado e simétrico"
 }

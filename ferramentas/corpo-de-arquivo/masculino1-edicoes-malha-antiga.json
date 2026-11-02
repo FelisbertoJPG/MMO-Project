@@ -1,0 +1,1019 @@
+{
+ "_leiame": "As edições da aba Modelo que o dono fez no MASCULINO 2 da malha ANTIGA (a figura 3 do .glb \"Low Poly Anatomy\", até 02/11/2026) — a chave humano:arquivo5 do assets/modelagem.json —, guardadas quando o corpo trocou para a figura 1 do \"Low Poly Human Figure\" (a pedido: \"guardar à parte, começar limpo\"). Na malha nova os cortes e os movidos não acham os triângulos/pontos e os puxões incham outro rosto. Para voltar: a malha antiga está no git (ferramentas/corpo-de-arquivo/masculino1-meshy.glb do commit 91918b1) e estas edições vão de volta em corpos[\"humano:arquivo5\"].",
+ "corpo": "humano:arquivo5",
+ "edicoes": {
+  "partes": {},
+  "puxoes": [
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     3.38,
+     165.1,
+     9.19
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     3.34,
+     165.11,
+     9.24
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     2.46,
+     163.63,
+     9.75
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -4.95,
+     165.56,
+     7.1
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -4.96,
+     165.57,
+     7.08
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -4.97,
+     165.58,
+     7.06
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -4.98,
+     165.59,
+     7.05
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -5,
+     165.61,
+     7.03
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -5.01,
+     165.62,
+     7.02
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.54,
+     164,
+     9.71
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.49,
+     163.97,
+     9.77
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.47,
+     163.96,
+     9.8
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.44,
+     163.94,
+     9.83
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.42,
+     163.93,
+     9.86
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.4,
+     163.91,
+     9.89
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -1.22,
+     160.49,
+     9.29
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -1.26,
+     160.6,
+     9.34
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -1.28,
+     160.69,
+     9.38
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -3.01,
+     161.79,
+     7.98
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -3,
+     161.82,
+     8
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -3,
+     161.85,
+     8.03
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -3,
+     161.88,
+     8.05
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.99,
+     161.91,
+     8.07
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.99,
+     161.94,
+     8.09
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.99,
+     161.97,
+     8.12
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.98,
+     162,
+     8.13
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.98,
+     162.02,
+     8.15
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.98,
+     162.05,
+     8.17
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.98,
+     162.07,
+     8.19
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.31,
+     160.11,
+     7.59
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.27,
+     160.11,
+     7.63
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.26,
+     160.1,
+     7.69
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.25,
+     160.1,
+     7.75
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.24,
+     160.09,
+     7.81
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.23,
+     160.09,
+     7.87
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.22,
+     160.08,
+     7.93
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.22,
+     160.08,
+     7.94
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.01,
+     160.14,
+     7.38
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.01,
+     160.13,
+     7.45
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.01,
+     160.13,
+     7.52
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.01,
+     160.12,
+     7.58
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.02,
+     160.11,
+     7.64
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.02,
+     160.11,
+     7.7
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.02,
+     160.1,
+     7.75
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.12,
+     160.87,
+     6.69
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.08,
+     160.85,
+     6.75
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -2.04,
+     160.82,
+     6.8
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -1.96,
+     160.78,
+     6.88
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -1.92,
+     160.75,
+     6.94
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -1.89,
+     160.73,
+     7
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -1.85,
+     160.7,
+     7.06
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.12,
+     160.05,
+     8.24
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.11,
+     160.05,
+     8.25
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.1,
+     160.05,
+     8.26
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     0.1,
+     160.05,
+     8.27
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   },
+   {
+    "parte": "cabeca",
+    "de": "corpo",
+    "em": [
+     -0.15,
+     160.14,
+     9.36
+    ],
+    "raio": 4,
+    "inflar": 0.4,
+    "espelho": true
+   }
+  ],
+  "cortes": [
+   {
+    "de": "corpo",
+    "em": [
+     -0.7,
+     163.17,
+     11.07
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.7,
+     163.17,
+     11.07
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.7,
+     162.95,
+     10.71
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.7,
+     162.95,
+     10.71
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.47,
+     170.42,
+     12.43
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.47,
+     170.42,
+     12.43
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.52,
+     168.77,
+     12.74
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.52,
+     168.77,
+     12.74
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.7,
+     168.36,
+     11.55
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.7,
+     168.36,
+     11.55
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.19,
+     167.69,
+     12.28
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.19,
+     167.69,
+     12.28
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.19,
+     166.63,
+     12.46
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.19,
+     166.63,
+     12.46
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.19,
+     168.42,
+     12.56
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.19,
+     168.42,
+     12.56
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.75,
+     169.63,
+     11.97
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.75,
+     169.63,
+     11.97
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.23,
+     166.53,
+     13.02
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.23,
+     166.53,
+     13.02
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.19,
+     168,
+     13.07
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.19,
+     168,
+     13.07
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.23,
+     167.09,
+     13.21
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.23,
+     167.09,
+     13.21
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.7,
+     164.47,
+     11.31
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.7,
+     164.47,
+     11.31
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.7,
+     165.22,
+     11.31
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.7,
+     165.22,
+     11.31
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     1.41,
+     163.75,
+     10.73
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -1.41,
+     163.75,
+     10.73
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -0.7,
+     162.17,
+     10.37
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0.7,
+     162.17,
+     10.37
+    ]
+   }
+  ],
+  "movidos": [
+   {
+    "de": "corpo",
+    "em": [
+     -2.112,
+     165.172,
+     10.561
+    ],
+    "mover": [
+     0.064,
+     0.044,
+     -0.796
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0,
+     163.588,
+     11.617
+    ],
+    "mover": [
+     0,
+     0.044,
+     -0.796
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     0,
+     164.644,
+     11.749
+    ],
+    "mover": [
+     0,
+     0.03,
+     -0.397
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     2.112,
+     165.172,
+     10.561
+    ],
+    "mover": [
+     -0.064,
+     0.044,
+     -0.796
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     -2.112,
+     162.496,
+     9.998
+    ],
+    "mover": [
+     0.028,
+     0.014,
+     -0.399
+    ]
+   },
+   {
+    "de": "corpo",
+    "em": [
+     2.112,
+     162.496,
+     9.998
+    ],
+    "mover": [
+     -0.028,
+     0.014,
+     -0.399
+    ]
+   }
+  ]
+ }
+}
