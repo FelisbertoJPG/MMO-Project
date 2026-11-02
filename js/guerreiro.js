@@ -763,7 +763,7 @@ export class CorpoGuerreiro {
     const folhas = geo.userData.pinturas ?? [], raca = this.raca;
     const cores = { pele: raca?.pele ?? corDaPele(ap) ?? CORES_DO_MODELO.pele, olhos: raca?.olhos ?? OLHOS[ap.olhos][1] ?? CORES_DO_MODELO.olhos, cabelo: CABELOS[ap.cor][1] ?? CORES_DO_MODELO.cabelo };
     folhas.forEach(({ folha, geometry }, i) => {
-      const map = texturaDaFolha(folha, cores, Assets.pinturas, folha.maquiagem ? ap.cores?.maquiagem : null);   // (a maquiagem na cor livre)
+      const map = texturaDaFolha(folha, cores, Assets.pinturas, folha.maquiagem ? ap.cores?.maquiagem : folha.sobrancelha ? ap.cores?.pintada : null);   // (a maquiagem e a sobrancelha desenhada na cor livre)
       let m = this.pinturas[i];
       if (!map) { if (m) m.visible = false; return; }
       if (!m) {

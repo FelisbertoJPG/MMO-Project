@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-02.3",
-  "nota": "Maquiagem: Esfumada derretida (com o rímel escorrido) e Esfumada (mais cheia, sem escorrer)"
+  "versao": "2026-11-02.4",
+  "nota": "Sobrancelhas novas para a Feminino: fina, fina arqueada, reta, angulosa, fio a fio e com corte"
 }

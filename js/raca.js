@@ -132,6 +132,13 @@ const deArquivo = (n, sexo = 2) => Object.values(Assets.corpos ?? {}).find((c) =
 // (modelagem.js `chaveDoCorpo`: humano:arquivo3). O código da aparência NÃO muda (nada no save nem na rede: quem era Feminino vira
 // a modelo 4); sem o arquivo carregado, vale o feminino antigo (o do racas.json, que segue sendo o da Orc e o do "tem feminino")
 export const FEMININA_DE_ARQUIVO = 3;
+/**
+ * As SOBRANCELHAS PINTADAS de um corpo (as edições dele, no modelagem.json): as camadas de triângulos (`sobrancelhas`, a "pintar
+ * triângulos" do editor) e, depois delas, as DESENHADAS (02/11/2026, o dono: "faz variações de sobrancelha mais livres… eu fiz pela
+ * pintura de triângulos, o que me limitou") — as folhas da pintura com `sobrancelha: '<nome>'`. A ordem é o número no save (o dígito
+ * `pintada` da aparência; `sobrancelhaEscolhida` nas edições): sobrancelha nova entra no FIM — no máximo 9 ao todo.
+ */
+export const nomesDasSobrancelhas = (ed) => [...(ed?.sobrancelhas ?? []).map((x) => x.nome), ...new Set((ed?.pinturas ?? []).map((f) => f.sobrancelha).filter(Boolean))];
 export const femininaDeArquivo = (n) => (n === 0 ? deArquivo(0, FEMININA_DE_ARQUIVO) : null);
 /** A raça de número `n` tem o corpo feminino? (só então o jogador escolhe o sexo) */
 export const temFeminino = (n) => !!feminino(n);
@@ -174,7 +181,7 @@ export function racaDe(n, sexo = 0) {
     const ed = Assets.modelagem?.corpos?.[`${n > 0 ? raca?.id : 'humano'}:arquivo${(arq.jogo?.sexo ?? 2) > 2 ? arq.jogo.sexo : ''}`];
     return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, textura: !!arq.uv, pele: null, olhos: null, semCabelo: !!arq.uv, semBarba: true, penteados: arq.uv ? [] : arq.jogo?.penteados ?? [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {},
       // (o BATOM nos lábios marcados — `boca` nas edições dele, corpo-arquivo.js `batomDoArquivo`: o painel mostra a linha)
-      temBoca: !!ed?.boca?.length, pintadas: (ed?.sobrancelhas ?? []).map((x) => x.nome), delineadosDoCorpo: (ed?.delineados ?? []).map((x) => x.nome),
+      temBoca: !!ed?.boca?.length, pintadas: nomesDasSobrancelhas(ed), delineadosDoCorpo: (ed?.delineados ?? []).map((x) => x.nome),
       maquiagens: [...new Set((ed?.pinturas ?? []).map((f) => f.maquiagem).filter(Boolean))] };
   }
   const f = sexo >= 1 ? feminino(n) : null;
