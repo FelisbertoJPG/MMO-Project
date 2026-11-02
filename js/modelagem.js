@@ -68,7 +68,7 @@
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
-import { temFeminino, temArquivo, ORELHA, BUSTO } from './raca.js';
+import { temFeminino, temArquivo, femininaDeArquivo, FEMININA_DE_ARQUIVO, ORELHA, BUSTO } from './raca.js';
 import { pertoNoTriangulo } from './ima.js';
 import { naPele } from './aparencia.js';
 
@@ -108,16 +108,19 @@ export const PARTES = [
 const PARTE = new Map(PARTES.map((p) => [p.id, p]));
 
 /** A chave do corpo da raça `raca` (o dígito da aparência; 0 = humano) no `sexo` dela. */
-export function chaveDoCorpo(raca, sexo) {
+export function chaveDoCorpo(raca, sexo, antiga = false) {
   const id = (raca > 0 && Assets.racas?.[raca - 1]?.id) || 'humano';   // (raça que não existe mais = o humano, como em racaDe)
+  // (o Feminino da Humana é a MODELO 4 — raca.js `femininaDeArquivo`, 02/11/2026: as edições dela; `antiga` = as da feminina
+  // antiga, `humano:feminino` — o rosto da modelo 1 que a Feminino 2 transplanta)
+  if (sexo === 1 && !antiga && id === 'humano' && femininaDeArquivo(0)) return `humano:arquivo${FEMININA_DE_ARQUIVO}`;
   // (o 2, o corpo de ARQUIVO: a chave dele não tem edição — a malha é a do arquivo, e as do masculino não valem nela)
   // (o 3, a Feminino 3: `:arquivo3`)
   if (sexo >= 2 && temArquivo(id === 'humano' ? 0 : raca, sexo)) return `${id}:arquivo${sexo > 2 ? sexo : ''}`;
   return sexo >= 1 && temFeminino(id === 'humano' ? 0 : raca) ? `${id}:feminino` : id;
 }
 /** As edições do corpo (ou null: não há — a malha fica como é). */
-export function edicoesDoCorpo(raca, sexo) {
-  const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
+export function edicoesDoCorpo(raca, sexo, antiga = false) {
+  const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo, antiga)];
   return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.delineados?.length || e.sobrancelhas?.length || e.movidos?.length || e.apagados?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris || e.olhoCor || e.sobrancelha) ? e : null;
 }
 

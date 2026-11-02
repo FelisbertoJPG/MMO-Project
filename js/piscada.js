@@ -44,16 +44,25 @@ export function geometriasDasPalpebras(geo, olhos, casca, pele) {
   const tom = cor ? [cor.getX(pele), cor.getY(pele), cor.getZ(pele)] : [1, 1, 1], uvPele = [uv.getX(pele), uv.getY(pele)];
   const saida = Array.from({ length: ETAPAS }, () => ({ pos: [], nor: [], uv: [], cor: [], ossos: [], pesos: [] }));
   const e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  // (`olhos.tris`: os triângulos do olho dados um a um — o corpo de ARQUIVO sem a peça dos olhos, a Feminino 4 lisa, 02/11/2026:
+  // os pintados da cor do olho, pintura.js `olhoDoCorpo`; sem os achatados — os cortados — e sem repetir o criado, que tem frente e verso)
+  const inicios = olhos.tris ? [...olhos.tris].sort((a, b) => a - b).map((t) => t * 3) : Array.from({ length: olhos.n / 3 }, (_, t) => olhos.de + t * 3);
   for (const lado of [1, -1]) {
     // a tampa da frente do olho deste lado
-    const tris = [];
+    const tris = [], vistos = new Set();
     let primeiro = -1;
-    for (let t = 0; t < olhos.n / 3; t++) {
-      const i = olhos.de + t * 3;
-      if (casca?.[t] || (P.getX(i) + P.getX(i + 1) + P.getX(i + 2)) * lado <= 0) continue;
+    inicios.forEach((i, t) => {
+      if ((!olhos.tris && casca?.[t]) || (P.getX(i) + P.getX(i + 1) + P.getX(i + 2)) * lado <= 0) return;
+      const tri = [0, 1, 2].map((k) => new THREE.Vector3().fromBufferAttribute(P, i + k));
+      if (olhos.tris) {
+        if (e1.subVectors(tri[1], tri[0]).cross(e2.subVectors(tri[2], tri[0])).lengthSq() < 1e-10) return;
+        const meio = tri.reduce((s, p) => s.add(p), new THREE.Vector3()).multiplyScalar(1 / 3), k = `${meio.x.toFixed(3)},${meio.y.toFixed(3)},${meio.z.toFixed(3)}`;
+        if (vistos.has(k)) return;
+        vistos.add(k);
+      }
       if (primeiro < 0) primeiro = i;
-      tris.push([0, 1, 2].map((k) => new THREE.Vector3().fromBufferAttribute(P, i + k)));
-    }
+      tris.push(tri);
+    });
     if (tris.length < 2) continue;
     // a normal dela e a BEIRADA (as arestas de um triângulo só)
     const n = new THREE.Vector3(), arestas = new Map(), nome = (p) => `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}`;

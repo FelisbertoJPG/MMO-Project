@@ -126,14 +126,23 @@ const feminino = (n) => (n > 0 ? Assets.racas?.[n - 1]?.feminino : Assets.humano
 // (o `sexo` do corpo é o `jogo.sexo` do arquivo — 2 se não diz; a Feminino 3, 27/10/2026, é o 3: o modelo INTEIRO,
 // com a textura dele)
 const deArquivo = (n, sexo = 2) => Object.values(Assets.corpos ?? {}).find((c) => (c.jogo?.raca ?? 0) === n && (c.jogo?.sexo ?? 2) === sexo) ?? null;
+// A FEMININA DA HUMANA É A MODELO 4 (02/11/2026, o dono: "substitui o modelo feminino pelo nosso modelo 4 que tanto trabalhamos,
+// tanto no editor quanto em jogo" — e escolheu: a antiga SAI, só a HUMANA, CARECA por enquanto): o Feminino (o 1 do sexo) da raça 0
+// desenha o corpo de ARQUIVO de sexo `FEMININA_DE_ARQUIVO` (a Feminino 4 lisa, `feminino4-lisa`), com as edições DELA
+// (modelagem.js `chaveDoCorpo`: humano:arquivo3). O código da aparência NÃO muda (nada no save nem na rede: quem era Feminino vira
+// a modelo 4); sem o arquivo carregado, vale o feminino antigo (o do racas.json, que segue sendo o da Orc e o do "tem feminino")
+export const FEMININA_DE_ARQUIVO = 3;
+export const femininaDeArquivo = (n) => (n === 0 ? deArquivo(0, FEMININA_DE_ARQUIVO) : null);
 /** A raça de número `n` tem o corpo feminino? (só então o jogador escolhe o sexo) */
 export const temFeminino = (n) => !!feminino(n);
 /** A raça `n` tem o corpo de ARQUIVO (o 3º da linha "Sexo")? */
 export const temArquivo = (n, sexo = 2) => !!deArquivo(n, sexo);
 /** As opções da linha "Sexo" da raça `n` (o lugar na lista é o dígito: 0, 1, 2, 3 — sem buraco: para no 1º que falta). */
 export function sexosDe(n) {
-  const l = [...SEXOS];
-  for (let s = 2; deArquivo(n, s); s++) l.push(deArquivo(n, s).jogo?.rotulo ?? `Feminino ${s}`);
+  const l = [...SEXOS], fem = femininaDeArquivo(n);
+  for (let s = 2; deArquivo(n, s); s++) l.push(deArquivo(n, s) === fem ? `${SEXOS[1]} (${fem.jogo?.rotulo ?? s})` : deArquivo(n, s).jogo?.rotulo ?? `Feminino ${s}`);
+  // (a que já É o Feminino não se repete no fim da lista: no jogo a lista para na Feminino 2; no editor, a Feminino 4 com textura vem depois)
+  while (l.length > 2 && fem && deArquivo(n, l.length - 1) === fem) l.pop();
   return l;
 }
 /** O corpo de arquivo de uma raça já resolvida por `racaDe` (o objeto carregado), ou null. */
@@ -158,10 +167,12 @@ export function racaDe(n, sexo = 0) {
   // nela o penteado que está editando); sem barba, sobrancelha, presas nem busto; as proporções dele só dão a altura e
   // afinam as armaduras. Sem ele, vale o feminino)
   // (o 3 e além: o modelo com TEXTURA — cabelo, olhos e pele já pintados nele: sem penteado nem cores do painel)
-  const arq = sexo >= 2 ? deArquivo(n, sexo) : null;
+  const arq = sexo >= 2 ? deArquivo(n, sexo) : sexo === 1 ? femininaDeArquivo(n) : null;
   if (arq) {
     if (arq.jogo) arq.jogo.penteados = Array.isArray(arq.jogo.penteados) ? arq.jogo.penteados : [];
-    return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, textura: !!arq.uv, pele: null, olhos: null, semCabelo: !!arq.uv, semBarba: true, penteados: arq.uv ? [] : arq.jogo?.penteados ?? [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {} };
+    return { ...raca, feminino: undefined, esculpido: undefined, arquivo: arq.nome, textura: !!arq.uv, pele: null, olhos: null, semCabelo: !!arq.uv, semBarba: true, penteados: arq.uv ? [] : arq.jogo?.penteados ?? [], barbas: [], sobrancelhas: [], proporcoes: arq.jogo?.proporcoes ?? {},
+      // (o BATOM nos lábios marcados — `boca` nas edições dele, corpo-arquivo.js `batomDoArquivo`: o painel mostra a linha)
+      temBoca: !!Assets.modelagem?.corpos?.[`${n > 0 ? raca?.id : 'humano'}:arquivo${(arq.jogo?.sexo ?? 2) > 2 ? arq.jogo.sexo : ''}`]?.boca?.length };
   }
   const f = sexo >= 1 ? feminino(n) : null;
   return f ? { ...raca, ...f, feminino: undefined } : raca;

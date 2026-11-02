@@ -218,8 +218,8 @@ const LINHAS = [
   ['barba', 'Barba', (r) => ['Sem barba', ...barbasDe(r).map(nomeDaBarba)], (r) => !barbasDe(r).length],
   ['sobrancelha', 'Sobrancelhas', (r) => ['Sem sobrancelhas', ...sobrancelhasDe(r).map(nomeDaSobrancelha)], (r) => !sobrancelhasDe(r).length],
   ['olhos', 'Olhos', () => OLHOS.map((p) => p[0]), (r) => !!r?.olhos || !!r?.textura],
-  // (o corpo de ARQUIVO tem o rosto dele: sem batom nem sombra — corpo-arquivo.js)
-  ['batom', 'Batom', () => BATONS.map((b) => b[0]), (r) => !!r?.arquivo],
+  // (o corpo de ARQUIVO tem o rosto dele: sem batom nem sombra — corpo-arquivo.js; o batom sim quando ele tem a boca marcada, `temBoca`)
+  ['batom', 'Batom', () => BATONS.map((b) => b[0]), (r) => !!r?.arquivo && !r.temBoca],
   ['sombra', 'Sombra nos olhos', () => SOMBRAS.map((s) => s[0]), (r) => !!r?.arquivo],
 ];
 /** As raças que o jogador pode escolher: o humano e as `jogavel` do arquivo ({ n, nome }). */

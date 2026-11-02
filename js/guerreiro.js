@@ -32,7 +32,7 @@ import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino, corpoDeArquivo } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
-import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO, folhasAtivas } from './pintura.js';
+import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO, folhasAtivas, olhoDoCorpo } from './pintura.js';
 import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
@@ -302,6 +302,14 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
       let pele = -1;
       for (let i = cabeca.de; i < cabeca.de + cabeca.n && pele < 0; i++) if (naPele(uv.getX(i), uv.getY(i))) pele = i;
       geo.userData.palpebras = geometriasDasPalpebras(geo, faixa(io), cascaDoOlho(pecas[io].geometry), pele);
+    } else if (io < 0 && pecas.at(-1)?.juntas && comModelo?.faixaDoArquivo) {
+      // (o corpo de ARQUIVO sem a peça dos olhos — a Feminino 4 lisa, 02/11/2026, o dono: "sabe onde estão os olhos, né? adiciona
+      // a animação de piscada": o olho são os triângulos pintados da cor dele, os da folha da íris — pintura.js `olhoDoCorpo` —, e a
+      // pálpebra vai na cor de um ponto de pele do corpo dele, um triângulo sem tinta)
+      const olho = olhoDoCorpo(geo, comModelo, edicoes?.pinturas), [t0, t1] = comModelo.faixaDoArquivo;
+      let pele = -1;
+      if (olho?.size) for (let t = t0; t < t1 && pele < 0; t++) if (!olho.has(t) && !comModelo.pintados?.has(t)) pele = t * 3;
+      if (olho?.size) geo.userData.palpebras = geometriasDasPalpebras(geo, { tris: olho }, null, pele);
     }
   }
   // OS CÍLIOS-DELINEADO, a ÍRIS e as CORES DO OLHO (cilios.js, `cilios`, `iris` e `olhoCor` no corpo): sobre o olho como ele ficou
@@ -602,7 +610,7 @@ export class CorpoGuerreiro {
     // O ROSTO DA MODELO 1 no corpo de arquivo (corpo-arquivo.js, `rosto` no arquivo dele): a boca e os olhos da peça `Face`
     // do guerreiro (recortada) e a peça `Eyes`, tingidas como as dela; os OLHOS como os dela (lisos, cílios-delineado, íris,
     // cores — o que este corpo não diz, vale o da modelo 1)
-    const doRosto = arq?.rosto ? edicoesDoCorpo(lida.raca, 1) : null;
+    const doRosto = arq?.rosto ? edicoesDoCorpo(lida.raca, 1, true) : null;   // (as da feminina ANTIGA: o Feminino da Humana agora é a modelo 4)
     // O BATOM no corpo de arquivo SEM o rosto da modelo 1 (corpo-arquivo.js `batomDoArquivo`; sem batom, o Natural): pinta os lábios marcados no corpo
     // (`boca`; modelagem.js) — a fundida é guardada pelo código inteiro, com o dígito do batom
     if (arq && !arq.rosto && edicoes?.boca?.length) edicoes = { ...edicoes, batomNaBoca: batomDoArquivo(arq, aparencia, this.materiais.find((m) => m.vertexColors) ?? this.materiais[0]) };

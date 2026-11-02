@@ -164,6 +164,16 @@ export function naFolha(folha, eixos, p) {
   return [(dx * eixos.u.x + dy * eixos.u.y + dz * eixos.u.z) / folha.largura + 0.5, (dx * eixos.v.x + dy * eixos.v.y + dz * eixos.v.z) / folha.altura + 0.5, dx * eixos.n.x + dy * eixos.n.y + dz * eixos.n.z];
 }
 /**
+ * Os triângulos do OLHO de um corpo sem a peça dos olhos (o corpo de ARQUIVO — a Feminino 4 lisa, 02/11/2026, a piscada): os
+ * pintados da cor do olho em volta da folha `soNoOlho` dele (a íris) que fica no rosto — um Set, ou null.
+ */
+export function olhoDoCorpo(geo, ctx, folhas) {
+  const f = (folhas ?? []).find((x) => x?.soNoOlho && Array.isArray(x.em) && Math.abs(x.em[0]) < 15);
+  if (!f || !ctx?.origem || geo.index) return null;
+  const P = geo.attributes.position.array, Q = ctx.base?.length === P.length ? ctx.base : P, centro = centroDaFolha(f, geo, ctx, Q);
+  return centro ? triangulosDoOlho(geo, ctx, Q, centro, P.length / 9, (t, k) => t * 3 + k) : null;
+}
+/**
  * As folhas do corpo que valem agora: as de MAQUIAGEM (`maquiagem: '<nome>'` — o Esfumado da Feminino 4 lisa, 01/11/2026, o dono:
  * "adiciona a opção no menu Maquiagem → Esfumado") só quando escolhidas (`edicoes.maquiagemEscolhida`, como o delineado).
  */

@@ -80,7 +80,9 @@ export const ANIMACOES = ['greatsword-idle'];
 export const ESCULPIDOS = ['dennis'];
 // OS CORPOS DE ARQUIVO (corpo-arquivo.js; um modelo pronto feito corpo do guerreiro por
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
-export const CORPOS_DE_ARQUIVO = ['feminino2'];
+// (`<nome>:lisa` = só a versão LISA dele — 02/11/2026, a Feminino 4 lisa é o Feminino da Humana, raca.js `femininaDeArquivo`; a com
+// textura fica no editor. Corpo novo entra no FIM: o penteado "malha" acha o corpo pelo lugar aqui)
+export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino4:lisa'];
 // (os que SÓ O EDITOR carrega — a aba Modelo os edita antes de irem para o jogo: o jogo nem baixa o arquivo; 27/10/2026, a
 // Feminino 3 e a 4, até o dono diminuir os triângulos delas. Pronta para o jogo = passar para a lista de cima. 01/11/2026: a
 // Feminino 3 — a "Meshy 2", o modelo antigo — saiu, a pedido; os arquivos dela ficam. A 4 traz junto a versão LISA, o sexo 3)
@@ -230,8 +232,9 @@ export async function carregarModelagem() {
  */
 export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
   const de64 = (s, T) => { const b = Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); return new T(b.buffer, 0, b.byteLength / T.BYTES_PER_ELEMENT); };
-  const corpos = {};
-  await Promise.all(lista.map(async (nome) => {
+  const corpos = {}, inteiros = new Set(lista.filter((n) => !n.endsWith(':lisa')));
+  await Promise.all([...new Set(lista.map((n) => n.replace(/:lisa$/, '')))].map(async (nome) => {
+    const soLisa = !inteiros.has(nome);
     try {
       const r = await fetch(`assets/corpos/${nome}.json`, { cache: 'no-store' });
       if (!r.ok) return;
@@ -262,6 +265,7 @@ export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
         const { uv, normal, textura, ...semTextura } = c;
         corpos[`${nome}-lisa`] = { ...semTextura, nome: `${nome}-lisa`, base: nome, jogo: { ...c.jogo, ...lisa, lisa: undefined } };
       }
+      if (soLisa) delete corpos[nome];   // (o jogo: só a lisa)
     } catch (e) { console.warn(`[corpo] sem assets/corpos/${nome}.json:`, e.message); }
   }));
   return corpos;
