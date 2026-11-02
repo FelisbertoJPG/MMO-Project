@@ -132,6 +132,12 @@ const deArquivo = (n, sexo = 2) => Object.values(Assets.corpos ?? {}).find((c) =
 // (modelagem.js `chaveDoCorpo`: humano:arquivo3). O código da aparência NÃO muda (nada no save nem na rede: quem era Feminino vira
 // a modelo 4); sem o arquivo carregado, vale o feminino antigo (o do racas.json, que segue sendo o da Orc e o do "tem feminino")
 export const FEMININA_DE_ARQUIVO = 3;
+// O MASCULINO DA HUMANA É O "MASCULINO 2" (02/11/2026, o dono: "carrega como modelo do player homem, vou ajustar assim como fiz com o
+// feminino" — e escolheu: JÁ NO JOGO, no lugar do Masculino): o 0 do sexo da raça 0 desenha o corpo de ARQUIVO de sexo
+// `MASCULINO_DE_ARQUIVO` (`masculino1`: a figura 3 do .glb "Low Poly Anatomy" do Meshy, simétrica, sem textura — lisa, na pele do
+// painel), com as edições DELE (modelagem.js `chaveDoCorpo`: humano:arquivo5). Como a Feminina: o código da aparência NÃO muda, ele é
+// CARECA e sem barba por enquanto; sem o arquivo carregado, vale o guerreiro de antes (que segue sendo o da Orc)
+export const MASCULINO_DE_ARQUIVO = 5;
 /**
  * As SOBRANCELHAS PINTADAS de um corpo (as edições dele, no modelagem.json): as camadas de triângulos (`sobrancelhas`, a "pintar
  * triângulos" do editor) e, depois delas, as DESENHADAS (02/11/2026, o dono: "faz variações de sobrancelha mais livres… eu fiz pela
@@ -148,16 +154,17 @@ export const nomesDasSobrancelhas = (ed) => [...(ed?.sobrancelhas ?? []).map((x)
  */
 export const nomesDosDelineados = (ed) => { const l = (ed?.delineados ?? []).map((x) => x.nome); return [...l, ...new Set((ed?.pinturas ?? []).map((f) => f.delineado).filter((n) => n && !l.includes(n)))]; };
 export const femininaDeArquivo = (n) => (n === 0 ? deArquivo(0, FEMININA_DE_ARQUIVO) : null);
+export const masculinoDeArquivo = (n) => (n === 0 ? deArquivo(0, MASCULINO_DE_ARQUIVO) : null);
 /** A raça de número `n` tem o corpo feminino? (só então o jogador escolhe o sexo) */
 export const temFeminino = (n) => !!feminino(n);
 /** A raça `n` tem o corpo de ARQUIVO (o 3º da linha "Sexo")? */
 export const temArquivo = (n, sexo = 2) => !!deArquivo(n, sexo);
 /** As opções da linha "Sexo" da raça `n` (o lugar na lista é o dígito: 0, 1, 2, 3 — sem buraco: para no 1º que falta). */
 export function sexosDe(n) {
-  const l = [...SEXOS], fem = femininaDeArquivo(n);
-  for (let s = 2; deArquivo(n, s); s++) l.push(deArquivo(n, s) === fem ? `${SEXOS[1]} (${fem.jogo?.rotulo ?? s})` : deArquivo(n, s).jogo?.rotulo ?? `Feminino ${s}`);
-  // (a que já É o Feminino não se repete no fim da lista: no jogo a lista para na Feminino 2; no editor, a Feminino 4 com textura vem depois)
-  while (l.length > 2 && fem && deArquivo(n, l.length - 1) === fem) l.pop();
+  const l = [...SEXOS], fem = femininaDeArquivo(n), masc = masculinoDeArquivo(n);
+  for (let s = 2; deArquivo(n, s); s++) l.push(deArquivo(n, s) === fem ? `${SEXOS[1]} (${fem.jogo?.rotulo ?? s})` : deArquivo(n, s) === masc ? `${SEXOS[0]} (${masc.jogo?.rotulo ?? s})` : deArquivo(n, s).jogo?.rotulo ?? `Feminino ${s}`);
+  // (a que já É o Feminino — ou o Masculino — não se repete no fim da lista: no jogo a lista para na Feminino 2; no editor, a Feminino 4 com textura vem depois)
+  while (l.length > 2 && ((fem && deArquivo(n, l.length - 1) === fem) || (masc && deArquivo(n, l.length - 1) === masc))) l.pop();
   return l;
 }
 /** O corpo de arquivo de uma raça já resolvida por `racaDe` (o objeto carregado), ou null. */
@@ -182,7 +189,7 @@ export function racaDe(n, sexo = 0) {
   // nela o penteado que está editando); sem barba, sobrancelha, presas nem busto; as proporções dele só dão a altura e
   // afinam as armaduras. Sem ele, vale o feminino)
   // (o 3 e além: o modelo com TEXTURA — cabelo, olhos e pele já pintados nele: sem penteado nem cores do painel)
-  const arq = sexo >= 2 ? deArquivo(n, sexo) : sexo === 1 ? femininaDeArquivo(n) : null;
+  const arq = sexo >= 2 ? deArquivo(n, sexo) : sexo === 1 ? femininaDeArquivo(n) : masculinoDeArquivo(n);
   if (arq) {
     if (arq.jogo) arq.jogo.penteados = Array.isArray(arq.jogo.penteados) ? arq.jogo.penteados : [];
     // (as edições dele: a boca marcada e as CAMADAS — a sobrancelha pintada, o delineado, a maquiagem —, que o painel oferece)

@@ -82,7 +82,7 @@ export const ESCULPIDOS = ['dennis'];
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
 // (`<nome>:lisa` = só a versão LISA dele — 02/11/2026, a Feminino 4 lisa é o Feminino da Humana, raca.js `femininaDeArquivo`; a com
 // textura fica no editor. Corpo novo entra no FIM: o penteado "malha" acha o corpo pelo lugar aqui)
-export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino4:lisa'];
+export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino4:lisa', 'masculino1'];
 // (os que SÓ O EDITOR carrega — a aba Modelo os edita antes de irem para o jogo: o jogo nem baixa o arquivo; 27/10/2026, a
 // Feminino 3 e a 4, até o dono diminuir os triângulos delas. Pronta para o jogo = passar para a lista de cima. 01/11/2026: a
 // Feminino 3 — a "Meshy 2", o modelo antigo — saiu, a pedido; os arquivos dela ficam. A 4 traz junto a versão LISA, o sexo 3)

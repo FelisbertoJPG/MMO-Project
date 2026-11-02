@@ -68,7 +68,7 @@
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
-import { temFeminino, temArquivo, femininaDeArquivo, FEMININA_DE_ARQUIVO, ORELHA, BUSTO } from './raca.js';
+import { temFeminino, temArquivo, femininaDeArquivo, FEMININA_DE_ARQUIVO, masculinoDeArquivo, MASCULINO_DE_ARQUIVO, ORELHA, BUSTO } from './raca.js';
 import { pertoNoTriangulo } from './ima.js';
 import { naPele } from './aparencia.js';
 
@@ -113,6 +113,8 @@ export function chaveDoCorpo(raca, sexo, antiga = false) {
   // (o Feminino da Humana é a MODELO 4 — raca.js `femininaDeArquivo`, 02/11/2026: as edições dela; `antiga` = as da feminina
   // antiga, `humano:feminino` — o rosto da modelo 1 que a Feminino 2 transplanta)
   if (sexo === 1 && !antiga && id === 'humano' && femininaDeArquivo(0)) return `humano:arquivo${FEMININA_DE_ARQUIVO}`;
+  // (e o Masculino da Humana é o MASCULINO 2 — raca.js `masculinoDeArquivo`, 02/11/2026; `antiga` = as do guerreiro de antes, `humano`)
+  if (!sexo && !antiga && id === 'humano' && masculinoDeArquivo(0)) return `humano:arquivo${MASCULINO_DE_ARQUIVO}`;
   // (o 2, o corpo de ARQUIVO: a chave dele não tem edição — a malha é a do arquivo, e as do masculino não valem nela)
   // (o 3, a Feminino 3: `:arquivo3`)
   if (sexo >= 2 && temArquivo(id === 'humano' ? 0 : raca, sexo)) return `${id}:arquivo${sexo > 2 ? sexo : ''}`;

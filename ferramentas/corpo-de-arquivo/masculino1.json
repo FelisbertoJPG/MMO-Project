@@ -1,0 +1,22 @@
+{
+  "_leiame": "O recorte do CORPO DE ARQUIVO masculino1 (importar.mjs, modo `manter`): o MASCULINO DA HUMANA desde 02/11/2026 (raca.js `masculinoDeArquivo`; o dono: \"carrega como modelo do player homem, vou ajustar assim como fiz com o feminino\"). A entrada é a FIGURA 3 do .glb do Meshy \"Low Poly Anatomy\" (o arquivo trazia 3 homens lado a lado, sem textura nem esqueleto; a 3 tem o corpo mais de guerreiro e a malha fechada), já preparada: girada de frente (+z), 1,90 de altura, o x no plano de simetria e SIMÉTRICA (o lado +x — o esquerdo dele — copiado no outro pelo Blender, bmesh symmetrize: todo ponto tem o par espelhado). Sem textura: o jogo a desenha lisa, na pele do painel. cmPorUnidade = os olhos (y 1,79) na altura dos do guerreiro (171,6 cm): 182 cm de altura. medidas.ombroX = o x da junta do ombro (o braço dele encosta no tronco até perto da axila: medido, a junta caía para dentro); maoX 0,33 (os dedos dos pés vão até 0,31). Rode: node ferramentas/corpo-de-arquivo/importar.mjs ferramentas/corpo-de-arquivo/masculino1.json",
+  "nome": "masculino1",
+  "entrada": "ferramentas/corpo-de-arquivo/masculino1-meshy.glb",
+  "manter": true,
+  "triangulos": 1890,
+  "cmPorUnidade": 95.9, "medidas": { "ombroX": 0.2 },
+  "juntas": {
+    "limiteDoOmbro": 0.12,
+    "ombroAbaixo": 0.05,
+    "tornozelo": 0.1,
+    "maoX": 0.33
+  },
+  "jogo": {
+    "_leiame": "O que o JOGO usa deste corpo: raca (0 = o humano) e sexo (5: o número dele na lista dos corpos de arquivo; no jogo ele é o MASCULINO da Humana — o 0 do dígito do sexo, raca.js `MASCULINO_DE_ARQUIVO`); rotulo = o nome no editor; penteados = nenhum (careca por enquanto); proporcoes = as larguras que afinam as armaduras, MEDIDAS contra o guerreiro na pose T (cortes nas alturas dos ossos, 02/11/2026): peito igual, quadril e coxas +20%, braços +25%, antebraços −15%, canelas +25% de largo e −10% de fundo.",
+    "raca": 0,
+    "sexo": 5,
+    "rotulo": "Masculino 2",
+    "penteados": [],
+    "proporcoes": { "altura": 0.98, "ombros": 1.05, "peitoLargura": 0.98, "peitoFundo": 1.04, "barrigaLargura": 1.04, "quadril": 1.2, "bracos": 1.25, "antebracos": 0.85, "coxas": 1.2, "coxasGrossura": 1.0, "canelas": 1.25, "canelasGrossura": 0.9 }
+  }
+}

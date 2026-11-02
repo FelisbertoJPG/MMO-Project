@@ -146,7 +146,7 @@ for (let i = 0; i < NV; i++) {
   if (Math.abs(P[3 * i]) < 0.012 && P[3 * i + 1] > y0 + 0.3) virilha = Math.min(virilha, P[3 * i + 1]);
   if (Math.abs(P[3 * i]) < 0.05) coroa = Math.max(coroa, P[3 * i + 1]);
 }
-// (o recorte pode dar as alturas à mão — `medidas: { virilha, ombroTopo, pescoco }`, em unidades do arquivo — quando o
+// (o recorte pode dar as alturas à mão — `medidas: { virilha, ombroTopo, pescoco }` e o `ombroX` (o x da junta do ombro), em unidades do arquivo — quando o
 // modelo engana os cortes; CORTES=1 no ambiente imprime a largura do corte do meio por altura, para escolhê-las)
 const med = cfg.medidas ?? {};
 if (med.virilha != null) virilha = med.virilha;
@@ -194,6 +194,9 @@ for (const [L, l, s] of LADOS) {
   const reta = (e) => { const m = amostras.length, sy = amostras.reduce((a, p) => a + p[0], 0), sv = amostras.reduce((a, p) => a + p[e], 0), syy = amostras.reduce((a, p) => a + p[0] * p[0], 0), syv = amostras.reduce((a, p) => a + p[0] * p[e], 0); const b = (m * syv - sy * sv) / (m * syy - sy * sy); return [b, (sv - b * sy) / m]; };
   const [bx, ax] = reta(1), [bz, az] = reta(2), yOmbro = ombroTopo - cj.ombroAbaixo;
   J[n.arm] = [ax + bx * yOmbro, yOmbro, az + bz * yOmbro];
+  // (o x da junta do ombro à mão — `medidas.ombroX`, unidades do arquivo; 02/11/2026, o Masculino 2: o braço dele encosta no tronco até
+  // perto da axila e a reta, medida ali, puxava a junta para dentro — o ombro saía encolhido na pose T)
+  if (med.ombroX != null) J[n.arm][0] = s * med.ombroX;
   // o PULSO: o corte mais fino entre a mão e o meio do braço
   let yPulso = null, fino = Infinity;
   for (let y = ponta + 0.12; y < ombroTopo - 0.3; y += 0.005) { const g = fora(y); if (g && g.max[0] - g.min[0] < fino) { fino = g.max[0] - g.min[0]; yPulso = y; } }
@@ -311,12 +314,13 @@ if (cfg.manter) {
     return new C(bin.buffer.slice(off, off + a.count * n * C.BYTES_PER_ELEMENT));
   };
   const prim = jg.meshes[0].primitives[0];   // (o Meshy: uma malha só, sem giro no nó)
-  let FP = acc(prim.attributes.POSITION), FN = acc(prim.attributes.NORMAL), FUV = acc(prim.attributes.TEXCOORD_0), FI = Uint32Array.from(acc(prim.indices));
+  // (o modelo SEM TEXTURA — o Masculino 2, 02/11/2026: só posição, normal e índices — sai sem UV nem imagem: o jogo o desenha liso, na pele do painel)
+  let FP = acc(prim.attributes.POSITION), FN = acc(prim.attributes.NORMAL), FUV = prim.attributes.TEXCOORD_0 != null ? acc(prim.attributes.TEXCOORD_0) : null, FI = Uint32Array.from(acc(prim.indices));
   // (a malha SIMPLIFICADA — simplificar.mjs, a ferramenta Simplificar da aba Modelo — no lugar da do .glb; a textura é a mesma)
   const simples = path.join(AQUI, `${cfg.nome}-simples.json`);
   if (fs.existsSync(simples)) {
     const s = JSON.parse(fs.readFileSync(simples, 'utf8'));
-    FP = Float32Array.from(s.pos); FN = Float32Array.from(s.normal); FUV = Float32Array.from(s.uv); FI = Uint32Array.from(s.idx);
+    FP = Float32Array.from(s.pos); FN = Float32Array.from(s.normal); FUV = s.uv ? Float32Array.from(s.uv) : null; FI = Uint32Array.from(s.idx);
     console.log(`[corpo] a malha simplificada: ${FI.length / 3} triângulos`);
   }
   const nv = FP.length / 3, nt = I.length / 3;
@@ -393,20 +397,24 @@ if (cfg.manter) {
     qq[0] += falta;
     lista.forEach(([o], e) => { ossoDe[i * 4 + e] = o; peso[i * 4 + e] = qq[e]; });
   }
-  // a TEXTURA de cor do arquivo, ao lado do corpo
-  const tex = jg.textures[jg.materials[0].pbrMetallicRoughness.baseColorTexture.index], img = jg.images[tex.source], bv = jg.bufferViews[img.bufferView];
-  const ext = img.mimeType === 'image/png' ? 'png' : 'jpg', arqTex = `assets/corpos/${cfg.nome}-cor.${ext}`;
-  fs.writeFileSync(path.join(RAIZ, arqTex), bin.subarray(bv.byteOffset ?? 0, (bv.byteOffset ?? 0) + bv.byteLength));
+  // a TEXTURA de cor do arquivo, ao lado do corpo (sem ela: nada — o corpo liso)
+  const idTex = jg.materials?.[0]?.pbrMetallicRoughness?.baseColorTexture?.index;
+  let arqTex = null;
+  if (FUV && idTex != null) {
+    const tex = jg.textures[idTex], img = jg.images[tex.source], bv = jg.bufferViews[img.bufferView];
+    arqTex = `assets/corpos/${cfg.nome}-cor.${img.mimeType === 'image/png' ? 'png' : 'jpg'}`;
+    fs.writeFileSync(path.join(RAIZ, arqTex), bin.subarray(bv.byteOffset ?? 0, (bv.byteOffset ?? 0) + bv.byteLength));
+  }
   const b64 = (a) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64');
   const saida = {
     _leiame: `Corpo de arquivo "${cfg.nome}" (js/corpo-arquivo.js), o MODELO INTEIRO de ${cfg.entrada} (cada triângulo; gerado por ferramentas/corpo-de-arquivo/importar.mjs com \`manter\` — não edite à mão). ossos: onde fica cada osso do guerreiro neste corpo (cm, pose T). pos/normal (Float32, cm, pose T), uv (Float32), idx32 (Uint32), nomes (os ossos dos pesos), ossoDe/peso (Uint8, 4 por vértice; peso em 255 avos), regiao (Uint8 por triângulo, tudo 0), textura (a imagem de cor). Tudo em base64.`,
     nome: cfg.nome, jogo: Object.fromEntries(Object.entries(cfg.jogo ?? {}).filter(([k2]) => k2 !== '_leiame')), ossos: ossosCm, nomes: NOMES,
-    vertices: nv, triangulos: FI.length / 3, textura: arqTex,
-    pos: b64(pos), normal: b64(nor), uv: b64(FUV), idx32: b64(FI), regiao: b64(new Uint8Array(FI.length / 3)), ossoDe: b64(ossoDe), peso: b64(peso),
+    vertices: nv, triangulos: FI.length / 3, ...(arqTex ? { textura: arqTex } : {}),
+    pos: b64(pos), normal: b64(nor), ...(arqTex ? { uv: b64(FUV) } : {}), idx32: b64(FI), regiao: b64(new Uint8Array(FI.length / 3)), ossoDe: b64(ossoDe), peso: b64(peso),
   };
   const arqSaida = path.join(RAIZ, 'assets/corpos', `${cfg.nome}.json`);
   fs.writeFileSync(arqSaida, JSON.stringify(saida) + '\n');
-  console.log(`[corpo] gravado ${path.relative(RAIZ, arqSaida)} e ${arqTex}: ${nv} vértices, ${FI.length / 3} triângulos (o modelo inteiro)${semVizinho ? `; ${semVizinho} sem vizinho na reduzida` : ''} (${(fs.statSync(arqSaida).size / 1048576).toFixed(1)} MB)`);
+  console.log(`[corpo] gravado ${path.relative(RAIZ, arqSaida)}${arqTex ? ` e ${arqTex}` : ' (sem textura: liso)'}: ${nv} vértices, ${FI.length / 3} triângulos (o modelo inteiro)${semVizinho ? `; ${semVizinho} sem vizinho na reduzida` : ''} (${(fs.statSync(arqSaida).size / 1048576).toFixed(1)} MB)`);
   process.exit(0);
 }
 
