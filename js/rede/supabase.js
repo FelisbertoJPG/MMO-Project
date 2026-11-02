@@ -92,7 +92,11 @@ async function renovar(s) {
     if (e instanceof SemRede) return s.access_token;   // offline: segura a sessão
     throw e;
   }
-  if (!r.ok) { guardar(null); return null; }           // recusa explícita: desloga
+  if (!r.ok) {
+    // Limite de ritmo ou serviço indisponível não recusam a sessão: guarda como no offline.
+    if (r.status === 429 || r.status >= 500) return s.access_token;
+    guardar(null); return null;                     // recusa explícita: desloga
+  }
   const nova = daResposta(r.corpo, s);
   guardar(nova);
   return nova.access_token;
