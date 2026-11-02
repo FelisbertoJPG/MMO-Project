@@ -602,7 +602,7 @@ export class CorpoGuerreiro {
     // do guerreiro (recortada) e a peça `Eyes`, tingidas como as dela; os OLHOS como os dela (lisos, cílios-delineado, íris,
     // cores — o que este corpo não diz, vale o da modelo 1)
     const doRosto = arq?.rosto ? edicoesDoCorpo(lida.raca, 1) : null;
-    // O BATOM no corpo de arquivo SEM o rosto da modelo 1 (corpo-arquivo.js `batomDoArquivo`): pinta os lábios marcados no corpo
+    // O BATOM no corpo de arquivo SEM o rosto da modelo 1 (corpo-arquivo.js `batomDoArquivo`; sem batom, o Natural): pinta os lábios marcados no corpo
     // (`boca`; modelagem.js) — a fundida é guardada pelo código inteiro, com o dígito do batom
     if (arq && !arq.rosto && edicoes?.boca?.length) edicoes = { ...edicoes, batomNaBoca: batomDoArquivo(arq, aparencia, this.materiais.find((m) => m.vertexColors) ?? this.materiais[0]) };
     if (arq?.rosto) {

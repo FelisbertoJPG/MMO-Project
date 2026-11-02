@@ -270,10 +270,12 @@ export function inversosDoArquivo(corpo, ordem, inversos, ligacao) {
  * O BATOM nos lábios de um corpo de arquivo SEM o rosto da modelo 1 (01/11/2026; a Feminino 4 lisa — o dono pintou a boca
  * de preto e pediu "liga o batom nos lábios dela"): os triângulos dos lábios são os marcados em `boca` nas edições do corpo
  * (modelagem.js) e ganham a cor do batom escolhido — a fração `pele` dele é a pele de quem veste, como no boca.js. Devolve
- * { uv, tom }: o ponto cinza da paleta e a cor de vértice que dá a cor do batom nele. Sem batom: null (fica a cor pintada).
+ * { uv, tom }: o ponto cinza da paleta e a cor de vértice que dá a cor do batom nele. Sem batom, o NATURAL (`BATOM_DOS_LABIOS`; o
+ * dono: "seta o Natural como default pra modelo feminina 4" — o preto pintado era só a marca da boca).
  */
+const BATOM_DOS_LABIOS = 1;   // (o Natural: a ordem do BATONS, aparencia.js)
 export function batomDoArquivo(corpo, codigo, material) {
-  const a = lerAparencia(codigo), b = BATONS[a.batom];
+  const a = lerAparencia(codigo), b = BATONS[a.batom]?.[1] ? BATONS[a.batom] : BATONS[BATOM_DOS_LABIOS];
   if (!b?.[1]) return null;
   const cor = new THREE.Color(b[1]).lerp(new THREE.Color(corDaPele(a) ?? corpo.jogo?.cores?.pele ?? '#f8bb7f'), b[2] ?? 0);
   const base = corNaPaleta(material?.map, ...UV) ?? CINZA;
