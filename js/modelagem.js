@@ -118,7 +118,7 @@ export function chaveDoCorpo(raca, sexo) {
 /** As edições do corpo (ou null: não há — a malha fica como é). */
 export function edicoesDoCorpo(raca, sexo) {
   const e = Assets.modelagem?.corpos?.[chaveDoCorpo(raca, sexo)];
-  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.delineados?.length || e.movidos?.length || e.apagados?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris || e.olhoCor || e.sobrancelha) ? e : null;
+  return e && (Object.keys(e.partes ?? {}).length || e.puxoes?.length || e.pinturas?.length || e.olhos || e.cortes?.length || e.novos?.length || e.vertices?.length || e.cores?.length || e.delineados?.length || e.sobrancelhas?.length || e.movidos?.length || e.apagados?.length || e.semOlhos || e.olhosLisos || e.luzes?.length || e.cilios || e.iris || e.olhoCor || e.sobrancelha) ? e : null;
 }
 
 // A aba Modelo liga isto: as malhas fundidas passam a guardar o que ela precisa (`userData.modelagem`)
@@ -501,8 +501,8 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   // vértices criados: os pedaços de um triângulo pintado herdam a cor dele)
   // (o DELINEADO escolhido — 01/11/2026, a camada `delineados[n − 1]` do corpo, `delineadoAtivo` —: as cores dele entram por
   // cima das do corpo; os criados pelo dono acham a dele pelo meio, no `resolverNovos` — `ctx.delineado`)
-  const camada = delineadoAtivo(edicoes), coresAgora = camada ? [...camada.cores, ...(edicoes.cores ?? [])] : edicoes.cores ?? [];
-  ctx.delineado = camada?.cores ?? null;
+  const daCamada = camadasAtivas(edicoes).flatMap((c) => c.cores), coresAgora = daCamada.length ? [...daCamada, ...(edicoes.cores ?? [])] : edicoes.cores ?? [];
+  ctx.delineado = daCamada.length ? daCamada : null;
   ctx.pintados = null;
   if (coresAgora.length && !idx) pintarTriangulos(geo, coresAgora, ctx);
   // ---- 2b. os VÉRTICES CRIADOS entram na malha: o triângulo em que cada um cai vira 3 (numa aresta,
@@ -585,6 +585,12 @@ const uvValido = (uv) => Array.isArray(uv) && uv.length === 2 && uv.every(Number
 export function delineadoAtivo(edicoes) {
   const n = edicoes?.delineadoEscolhido ?? 0, d = n > 0 ? edicoes.delineados?.[n - 1] : null;
   return d && Array.isArray(d.cores) && d.cores.length ? { ...d, cores: d.cores.filter((c) => uvValido(c?.uv)) } : null;
+}
+// as CAMADAS de cor escolhidas, na ordem em que valem (a 1ª por cima): a SOBRANCELHA pintada (`sobrancelhas`,
+// `sobrancelhaEscolhida`; 01/11/2026 — a "Sombrancelha grossa" da Feminino 4 lisa) e o DELINEADO; as duas por cima das cores do corpo
+export function camadasAtivas(edicoes) {
+  const uma = (lista, n) => { const d = n > 0 ? lista?.[n - 1] : null; return d && Array.isArray(d.cores) && d.cores.length ? { ...d, cores: d.cores.filter((c) => uvValido(c?.uv)) } : null; };
+  return [uma(edicoes?.sobrancelhas, edicoes?.sobrancelhaEscolhida ?? 0), uma(edicoes?.delineados, edicoes?.delineadoEscolhido ?? 0)].filter(Boolean);
 }
 function pintarTriangulos(geo, cores, ctx) {
   const uv = geo.attributes.uv, cor = geo.attributes.color;
