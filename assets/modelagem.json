@@ -46,8 +46,10 @@
       "puxoes": [],
       "pinturas": [
         {"id":"f1","nome":"Olhos 1","parte":"cabeca","de":"corpo","em":[4.78,176.42,8.54],"dir":[-0.206,0.033,-0.978],"cima":[0.007,0.999,0.033],"largura":6,"altura":6,"prof":3,"px":[240,240],"espelho":true,"soNoOlho":true,"arquivo":"humano-arquivo3-f1"},
-        {"id":"m1","nome":"Esfumado (olho esquerdo)","parte":"cabeca","de":"corpo","em":[5,174.7,8.5],"dir":[-0.206,0.033,-0.978],"cima":[0.007,0.999,0.033],"largura":7,"altura":8,"prof":2.6,"px":[448,512],"virada":0.25,"foraDoOlho":true,"olho":[4.78,176.42,8.54],"maquiagem":"Esfumado","arquivo":"humano-arquivo3-m1"},
-        {"id":"m2","nome":"Esfumado (olho direito)","parte":"cabeca","de":"corpo","em":[-5,174.7,8.5],"dir":[0.206,0.033,-0.978],"cima":[-0.007,0.999,0.033],"largura":7,"altura":8,"prof":2.6,"px":[448,512],"virada":0.25,"foraDoOlho":true,"olho":[-4.78,176.42,8.54],"maquiagem":"Esfumado","arquivo":"humano-arquivo3-m2"},
+        {"id":"m1","nome":"Esfumada derretida (olho esquerdo)","parte":"cabeca","de":"corpo","em":[5,174.7,8.5],"dir":[-0.206,0.033,-0.978],"cima":[0.007,0.999,0.033],"largura":7,"altura":8,"prof":2.6,"px":[448,512],"virada":0.25,"foraDoOlho":true,"olho":[4.78,176.42,8.54],"maquiagem":"Esfumada derretida","arquivo":"humano-arquivo3-m1"},
+        {"id":"m2","nome":"Esfumada derretida (olho direito)","parte":"cabeca","de":"corpo","em":[-5,174.7,8.5],"dir":[0.206,0.033,-0.978],"cima":[-0.007,0.999,0.033],"largura":7,"altura":8,"prof":2.6,"px":[448,512],"virada":0.25,"foraDoOlho":true,"olho":[-4.78,176.42,8.54],"maquiagem":"Esfumada derretida","arquivo":"humano-arquivo3-m2"},
+        {"id":"m3","nome":"Esfumada (olho esquerdo)","parte":"cabeca","de":"corpo","em":[5,174.7,8.5],"dir":[-0.206,0.033,-0.978],"cima":[0.007,0.999,0.033],"largura":7,"altura":8,"prof":2.6,"px":[448,512],"virada":0.25,"foraDoOlho":true,"olho":[4.78,176.42,8.54],"maquiagem":"Esfumada","arquivo":"humano-arquivo3-m3"},
+        {"id":"m4","nome":"Esfumada (olho direito)","parte":"cabeca","de":"corpo","em":[-5,174.7,8.5],"dir":[0.206,0.033,-0.978],"cima":[-0.007,0.999,0.033],"largura":7,"altura":8,"prof":2.6,"px":[448,512],"virada":0.25,"foraDoOlho":true,"olho":[-4.78,176.42,8.54],"maquiagem":"Esfumada","arquivo":"humano-arquivo3-m4"},
         {"id":"f2","nome":"Olhos 2","parte":"cabeca","de":"corpo","em":[71.8,151.39,12.66],"dir":[0.333,0.257,-0.907],"cima":[-0.089,0.966,0.241],"largura":6,"altura":6,"prof":3,"px":[240,240],"espelho":true,"soNoOlho":true,"arquivo":"humano-arquivo3-f2"}
       ],
       "cortes": [

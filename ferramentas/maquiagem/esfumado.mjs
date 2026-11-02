@@ -1,12 +1,15 @@
-// O ESFUMADO (maquiagem gótica; 01/11/2026, o dono: "tenta aplicar esse esfumado ao redor dos olhos… adiciona a opção no menu
-// Maquiagem → Esfumado"). Rodar: node ferramentas/maquiagem/esfumado.mjs assets/pintura/humano-arquivo3-m1.png assets/pintura/humano-arquivo3-m2.png
+// O ESFUMADO (maquiagem gótica — a Esfumada derretida e a Esfumada; 01/11/2026, o dono: "tenta aplicar esse esfumado ao redor dos olhos… adiciona a opção no menu
+// Maquiagem → Esfumado"). Rodar: node ferramentas/maquiagem/esfumado.mjs assets/pintura/humano-arquivo3-m1.png assets/pintura/humano-arquivo3-m2.png assets/pintura/humano-arquivo3-m3.png assets/pintura/humano-arquivo3-m4.png
 // (as folhas m1/m2 da Feminino 4 lisa no modelagem.json: maquiagem "Esfumado", foraDoOlho; pintura.js folhasAtivas). Depois de
 // gerar, o dono pode retocar com o pincel da PINTURA no editor — e aí rodar de novo APAGA o retoque.
 // a imagem de uma folha da pintura por olho — a cor à esquerda (RGBA, o alfa é a forma), o
 // tipo à direita (0 = a cor como está). Coordenadas em cm a partir do centro da folha: X para FORA do rosto (o canto de fora
 // do olho), Y para cima. 64 px por cm.
 import { gravar } from './png.mjs';
-const [, , saida1, saida2] = process.argv;
+// (DOIS tipos — 02/11/2026, o dono marcou a bochecha onde a tinta escorre: "a ideia é ter 2 tipos: Esfumada derretida, e uma Esfumada
+// apenas; a Esfumada não pode ter essa maquiagem derretida e deve ser mais volumosa ao redor dos olhos": os 2 primeiros arquivos são a
+// DERRETIDA — m1/m2, a de antes, com os escorridos —, os 2 seguintes (se vierem) a ESFUMADA — m3/m4, sem escorrido e mais cheia)
+const [, , saida1, saida2, saida3, saida4] = process.argv;
 const PX = 64, LARG = 7, ALT = 8, W = LARG * PX, H = ALT * PX;
 
 // ---- ruído suave (manchas do pincel)
@@ -53,12 +56,20 @@ function escorrido(X, Y, [x0, y0, x1, y1, w0, w1, a0, a1, fase]) {
 }
 
 const ESCURO = [18, 12, 14], CINZA = [50, 39, 39];
-function desenhar(escorridos, semente, espelhar) {
+// (a ESFUMADA: as mesmas manchas mais cheias — a pálpebra mais escura e mais alta (até embaixo da sobrancelha), o canto de fora mais
+// aberto, embaixo mais grosso, mas acabando em y ~175,1 cm: em cima da bochecha que o dono marcou, onde a derretida escorre)
+const MANCHAS_DA_ESFUMADA = [
+  [0.05, 2.3, 3.25, 1.5, 6, 1, 0.78],      // a pálpebra de cima: larga e escura por igual até perto da sobrancelha
+  [2.35, 2.2, 1.95, 1.25, 18, 0.98, 0.66],    // o canto de fora, bem aberto para fora e para cima
+  [0, 1.27, 2.85, 0.86, -4, 0.96, 0.62],      // embaixo do olho: grosso, sem descer para a bochecha (acaba em y ~175,1)
+  [-2.3, 1.7, 1.05, 1.1, 0, 0.9, 0.55],       // o canto de dentro
+];
+function desenhar(escorridos, semente, espelhar, manchas = MANCHAS) {
   const px = new Uint8Array(W * 2 * H * 4);
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
     const X = (i + 0.5) / PX - LARG / 2, Y = ALT / 2 - (j + 0.5) / PX;
     let resto = 1;
-    for (const m of MANCHAS) resto *= 1 - mancha(X, Y, m);
+    for (const m of manchas) resto *= 1 - mancha(X, Y, m);
     let A = 1 - resto;
     // (o pincel: o esfumado não é liso — manchas suaves, mais fortes na beira)
     const n = fbm(X * 1.6 + 7, Y * 1.6 + 3, semente);
@@ -93,4 +104,7 @@ gravar(saida2, desenhar([
   [-0.85, 0.98, -1.02, -3.0, 0.14, 0.07, 0.95, 0.5, 1.3],
   [1.05, 1.08, 1.22, -1.35, 0.1, 0.055, 0.82, 0.36, 3.7],
 ], 11, true));
+// a ESFUMADA (sem escorrido): o olho +x e o −x (virado)
+if (saida3) gravar(saida3, desenhar([], 5, false, MANCHAS_DA_ESFUMADA));
+if (saida4) gravar(saida4, desenhar([], 13, true, MANCHAS_DA_ESFUMADA));
 console.log('ok', W * 2, H);
