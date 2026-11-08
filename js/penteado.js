@@ -65,7 +65,7 @@ import { triangulosDe, raio, raioDe, grudar, lugar, normalLisa, pesos, misturar 
 // ferramentas/penteados/molde-da-colagem.mjs): as malhas de cabelo de ARQUIVO, `assets/penteados/<nome>.json` — { pos (cm, pose T),
 // idx, cranio: o crânio em que ele foi ajustado { topo, l, z } }. A forma `molde` usa o número dele nesta lista: molde novo entra
 // no FIM. Lidos pelo assets.js `carregarPenteados` (o jogo e as abas do editor).
-export const MOLDES = ['lobo-preguicoso', 'desgrenhado', 'preguicoso'];   // (06/11/2026: o 1º e o 3º do .glb Golden Shaggy Hair — ferramentas/penteados/molde-do-glb.mjs)
+export const MOLDES = ['lobo-preguicoso', 'desgrenhado', 'preguicoso', 'longo-com-franja'];   // (06/11/2026: o 1º e o 3º do .glb Golden Shaggy Hair — ferramentas/penteados/molde-do-glb.mjs; 08/11/2026: o "Longo com Franja", o 1º do Midnight Raven Hair, só dos corpos femininos)
 export const MOLDES_LIDOS = new Map();
 // (o cabelo de molde já expelido da pele, por molde, cabeça e réguas — a forma `molde`; os últimos 40)
 const EXPELIDOS = new Map();

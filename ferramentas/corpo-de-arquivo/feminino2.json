@@ -42,7 +42,7 @@
     "raca": 0,
     "rotulo": "Feminino 2",
     "cores": { "pele": "#f8bb7f", "cabelo": "#2a1812", "olhos": "#2f7f95", "roupa": "#232a44" },
-    "penteados": ["coquesDoModelo"],
+    "penteados": ["coquesDoModelo", "longoComFranja"],
     "proporcoes": { "altura": 0.93, "ombros": 0.9, "peitoLargura": 0.88, "peitoFundo": 0.95, "barrigaLargura": 0.82, "quadril": 1.05, "bracos": 0.8, "antebracos": 0.8, "coxas": 0.95, "canelas": 0.88 }
   },
   "regioes": {
