@@ -268,9 +268,11 @@ function sumirPele(P, ini, some) {
 // nuca (a normal para trás) desce até CABELO_NUCA. Só o MOLDE: os penteados de código não são cascas fechadas (sob uma crista ou um
 // moicano se veria o buraco). Na fundida pronta (com as edições do corpo): o corpo de arquivo ou a peça `head` do guerreiro
 const CABELO_COBRE = 3, CABELO_ALTURA = 10, CABELO_NUCA = 15, CABELO_FRENTE = 0.35;
-function esconderCouroCabeludo(geo, peles, cabelo) {
+function esconderCouroCabeludo(geo, peles, cabelo, ctx = null) {
   const P = geo.attributes.position.array;
   let n = 0;
+  // (o que sumiu fica no ctx da modelagem: a aba Modelo refaz a vista pelo `aplicarModelagem`, que o some de novo)
+  if (ctx) ctx.couroCabeludo = [];
   for (const [ini, fim] of peles) {
     let topo = -Infinity;
     for (let i = ini; i < fim; i++) if (Math.abs(P[i * 3]) < 15) topo = Math.max(topo, P[i * 3 + 1]);
@@ -279,6 +281,7 @@ function esconderCouroCabeludo(geo, peles, cabelo) {
       return normal.z < CABELO_FRENTE && (y > topo - CABELO_ALTURA || (normal.z < -0.4 && y > topo - CABELO_NUCA));
     });
     sumirPele(P, ini, some);
+    ctx?.couroCabeludo.push([ini, some]);
     n += some.length;
   }
   geo.attributes.position.needsUpdate = true;
@@ -389,8 +392,9 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // (onde cada forma do cabelo cai na malha fundida: a aba Cabelo do editor acende a escolhida e acha a clicada)
   const formasDoCabelo = cabelo?.userData.formas.map(([a, b]) => [doCorpo + a, doCorpo + b]) ?? null;
   // (o COURO CABELUDO debaixo do cabelo de MOLDE some — `esconderCouroCabeludo`, depois das edições: onde cai o cabelo e onde cai a pele
-  // da cabeça, o corpo de arquivo ou a peça `head`; a aba Modelo do editor vê a malha inteira)
-  const cobreCabeca = cabelo && !modelagemAberta() && PENTEADOS[penteado?.id]?.formas?.some((f) => f[0] === 'molde') ? {
+  // da cabeça, o corpo de arquivo ou a peça `head`. Também na aba Modelo do editor — 08/11/2026, o dono marcou lá os triângulos que
+  // "passam pelo cabelo", e no jogo eles já sumiam: o editor mostra o que o jogo mostra; para mexer na cabeça, "sem cabelo")
+  const cobreCabeca = cabelo && PENTEADOS[penteado?.id]?.formas?.some((f) => f[0] === 'molde') ? {
     cabelo: cabelo.userData.partes.cabelo.map((v) => doCorpo + v),
     peles: fixa ? [[doCorpo - fixa, doCorpo]] : (() => { const l = []; let de = 0; lista.forEach((g, i) => { const n = g.attributes.position.count; if (/^head(_tingido)?$/.test(pecas[i].name)) l.push([de, de + n]); de += n; }); return l; })(),
   } : null;
@@ -464,7 +468,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     geo = acrescentarTriangulos(geo, comModelo);
   }
   // (o couro cabeludo debaixo do cabelo de molde, no corpo como ficou — o transplante e os criados entram no FIM: as faixas valem)
-  if (geo && cobreCabeca && !geo.index && cobreCabeca.cabelo[1] > cobreCabeca.cabelo[0]) esconderCouroCabeludo(geo, cobreCabeca.peles, cobreCabeca.cabelo);
+  if (geo && cobreCabeca && !geo.index && cobreCabeca.cabelo[1] > cobreCabeca.cabelo[0]) esconderCouroCabeludo(geo, cobreCabeca.peles, cobreCabeca.cabelo, fixa ? comModelo : null);   // (a lista no ctx só no corpo de arquivo: no do guerreiro com busto, a PELE NOVA, abaixo, tira peças do meio e os números andam)
   // OS PLANOS DO ROSTO (acima), no rosto como ficou — antes das folhas, que tomam a luz da pele de baixo
   if (geo && !geo.index) {
     const rosto = [];

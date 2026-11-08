@@ -592,6 +592,15 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   }
   // ---- 3. os CORTES: o triângulo some (os do dono e os divididos pelos vértices criados)
   if (cortes.length) cortarTriangulos(geo, cortes, ctx, mexeu);
+  // ---- 4. o COURO CABELUDO debaixo do cabelo de molde (guerreiro.js `esconderCouroCabeludo` guarda em `ctx.couroCabeludo` o que
+  // sumiu, [início, deslocamentos]): a aba Modelo do editor refaz a vista daqui, a partir da malha de antes — sem isto ele voltava
+  // lá, e o dono via furar o cabelo o que no jogo já sumia (08/11/2026). Na fundida, este passo vem antes da conta: não faz nada
+  for (const [ini, some] of ctx?.couroCabeludo ?? []) for (const k of some) {
+    const j = (ini + k) * 3;
+    if (j + 8 >= P.length) continue;
+    for (let e = 0; e < 3; e++) { const m = (P[j + e] + P[j + 3 + e] + P[j + 6 + e]) / 3; P[j + e] = P[j + 3 + e] = P[j + 6 + e] = m; }
+    mexeu[ini + k] = mexeu[ini + k + 1] = mexeu[ini + k + 2] = 1;
+  }
   if (!mexeu.includes(1)) return false;
   pos.needsUpdate = true;
   normaisDasFacesMexidas(geo, mexeu);
