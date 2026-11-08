@@ -193,56 +193,96 @@ function moldarCouro(geo, pecas, faixas, originais, ini, fim, ordem) {
   const chaveP = `${arq.name}|${[...faixas.keys()].map((i) => pecas[i].name).sort().join(',')}`;
   let some = peleCoberta.get(chaveP);
   if (!some) {
-    some = [];
-    const tris = [];
-    for (const [, [a, b]] of faixas) for (let k = a; k + 2 < b; k += 3) tris.push(k);
-    const grade = new Map(), C = 3, ch = (x, y, z) => ((x + 512) * 1024 + (y + 512)) * 1024 + (z + 512);
-    tris.forEach((k, t) => {
-      const lo = [0, 1, 2].map((e) => Math.floor(Math.min(P[k * 3 + e], P[k * 3 + 3 + e], P[k * 3 + 6 + e]) / C)), hi = [0, 1, 2].map((e) => Math.floor(Math.max(P[k * 3 + e], P[k * 3 + 3 + e], P[k * 3 + 6 + e]) / C));
-      for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) { const c = ch(x, y, z); let l = grade.get(c); if (!l) grade.set(c, (l = [])); l.push(t); }
-    });
-    const o = new THREE.Vector3(), dir = new THREE.Vector3(), A = new THREE.Vector3(), B = new THREE.Vector3(), Cc = new THREE.Vector3(), alvo = new THREE.Vector3(), raio = new THREE.Ray();
-    const visto = new Uint32Array(tris.length);
-    let selo = 0;
-    const coberto = () => {
-      // (o segmento de o até o + dir·COURO_COBRE: os triângulos de couro das casas que ele atravessa)
-      const sel = ++selo, fimR = o.clone().addScaledVector(dir, COURO_COBRE);
-      const lo = [o.x, o.y, o.z].map((v, e) => Math.floor(Math.min(v, [fimR.x, fimR.y, fimR.z][e]) / C)), hi = [o.x, o.y, o.z].map((v, e) => Math.floor(Math.max(v, [fimR.x, fimR.y, fimR.z][e]) / C));
-      raio.set(o, dir);
-      for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) for (const t of grade.get(ch(x, y, z)) ?? []) {
-        if (visto[t] === sel) continue;
-        visto[t] = sel;
-        const k = tris[t];
-        A.fromArray(P, k * 3); B.fromArray(P, k * 3 + 3); Cc.fromArray(P, k * 3 + 6);
-        if (raio.intersectTriangle(A, B, Cc, false, alvo) && alvo.distanceTo(o) <= COURO_COBRE) return true;
-      }
-      return false;
-    };
-    for (let k = ini; k + 2 < fim; k += 3) {
-      A.fromArray(P, k * 3); B.fromArray(P, k * 3 + 3); Cc.fromArray(P, k * 3 + 6);
-      dir.subVectors(B, A).cross(alvo.subVectors(Cc, A)).normalize();
-      if (!dir.lengthSq()) continue;
-      // (cada canto: o couro por FORA da pele — o raio sai um pouco de dentro: o rente também conta — ou por DENTRO dela, onde o
-      // músculo furou o couro: o raio volta pela normal)
-      let todos = true;
-      for (const V of [A, B, Cc]) {
-        o.copy(V).addScaledVector(dir, -0.2);
-        if (coberto()) continue;
-        o.copy(V).addScaledVector(dir, 0.2); dir.negate();
-        const dentro = coberto();
-        dir.negate();
-        if (!dentro) { todos = false; break; }
-      }
-      if (todos) some.push(k - ini);
-    }
+    some = peleCobertaPor(P, ini, fim, [...faixas.values()], COURO_COBRE);
     if (peleCoberta.size > 80) peleCoberta.delete(peleCoberta.keys().next().value);
     peleCoberta.set(chaveP, some);
   }
+  sumirPele(P, ini, some);
+  geo.attributes.position.needsUpdate = true; si.needsUpdate = true; sw.needsUpdate = true;
+}
+
+/**
+ * A PELE COBERTA (o couro, 06/11/2026; o cabelo, 08/11/2026): os triângulos da pele [ini, fim) — vértices, sem índice — com a malha
+ * das `faixas` ([de, até) em vértices) a até `alcance` cm por FORA dos TRÊS cantos (um raio pela normal; sai um pouco de dentro: o
+ * rente também conta) ou por DENTRO deles (a pele furou a malha de cima: o raio volta pela normal). `aceita(A, B, C, normal)` — sem
+ * mexer nos vetores — escolhe os triângulos da pele que entram na conta. Devolve os deslocamentos (em vértices, a partir de `ini`).
+ */
+function peleCobertaPor(P, ini, fim, faixas, alcance, aceita = null) {
+  const some = [], tris = [];
+  for (const [a, b] of faixas) for (let k = a; k + 2 < b; k += 3) tris.push(k);
+  const grade = new Map(), C = 3, ch = (x, y, z) => ((x + 512) * 1024 + (y + 512)) * 1024 + (z + 512);
+  tris.forEach((k, t) => {
+    const lo = [0, 1, 2].map((e) => Math.floor(Math.min(P[k * 3 + e], P[k * 3 + 3 + e], P[k * 3 + 6 + e]) / C)), hi = [0, 1, 2].map((e) => Math.floor(Math.max(P[k * 3 + e], P[k * 3 + 3 + e], P[k * 3 + 6 + e]) / C));
+    for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) { const c = ch(x, y, z); let l = grade.get(c); if (!l) grade.set(c, (l = [])); l.push(t); }
+  });
+  const o = new THREE.Vector3(), dir = new THREE.Vector3(), A = new THREE.Vector3(), B = new THREE.Vector3(), Cc = new THREE.Vector3(), alvo = new THREE.Vector3(), raio = new THREE.Ray();
+  const visto = new Uint32Array(tris.length);
+  let selo = 0;
+  const coberto = () => {
+    // (o segmento de o até o + dir·alcance: os triângulos de cima das casas que ele atravessa)
+    const sel = ++selo, fimR = o.clone().addScaledVector(dir, alcance);
+    const lo = [o.x, o.y, o.z].map((v, e) => Math.floor(Math.min(v, [fimR.x, fimR.y, fimR.z][e]) / C)), hi = [o.x, o.y, o.z].map((v, e) => Math.floor(Math.max(v, [fimR.x, fimR.y, fimR.z][e]) / C));
+    raio.set(o, dir);
+    for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) for (const t of grade.get(ch(x, y, z)) ?? []) {
+      if (visto[t] === sel) continue;
+      visto[t] = sel;
+      const k = tris[t];
+      A.fromArray(P, k * 3); B.fromArray(P, k * 3 + 3); Cc.fromArray(P, k * 3 + 6);
+      if (raio.intersectTriangle(A, B, Cc, false, alvo) && alvo.distanceTo(o) <= alcance) return true;
+    }
+    return false;
+  };
+  for (let k = ini; k + 2 < fim; k += 3) {
+    A.fromArray(P, k * 3); B.fromArray(P, k * 3 + 3); Cc.fromArray(P, k * 3 + 6);
+    dir.subVectors(B, A).cross(alvo.subVectors(Cc, A)).normalize();
+    if (!dir.lengthSq() || (aceita && !aceita(A, B, Cc, dir))) continue;
+    // (cada canto: a malha de cima por FORA da pele — o raio sai um pouco de dentro: o rente também conta — ou por DENTRO dela,
+    // onde a pele a furou: o raio volta pela normal)
+    let todos = true;
+    for (const V of [A.clone(), B.clone(), Cc.clone()]) {
+      o.copy(V).addScaledVector(dir, -0.2);
+      if (coberto()) continue;
+      o.copy(V).addScaledVector(dir, 0.2); dir.negate();
+      const dentro = coberto();
+      dir.negate();
+      if (!dentro) { todos = false; break; }
+    }
+    if (todos) some.push(k - ini);
+  }
+  return some;
+}
+/** Some com os triângulos da pele (os deslocamentos de `peleCobertaPor`): cada um vira um ponto no meio dele, como o cortado da aba Modelo. */
+function sumirPele(P, ini, some) {
   for (const k of some) {
     const j = (ini + k) * 3;
     for (let e = 0; e < 3; e++) { const m = (P[j + e] + P[j + 3 + e] + P[j + 6 + e]) / 3; P[j + e] = P[j + 3 + e] = P[j + 6 + e] = m; }
   }
-  geo.attributes.position.needsUpdate = true; si.needsUpdate = true; sw.needsUpdate = true;
+}
+
+// O COURO CABELUDO SOME DEBAIXO DO CABELO (08/11/2026; o dono, com o Longo com Franja posto na Feminino: "a cabeça ficou com uma
+// parte de trás exposta… se tem cabelo, as malhas da cabeça não renderizam"). O cabelo de MOLDE é uma casca de triângulos grandes: a
+// expulsão (penteado.js `PeleEmVolta.expelir`) tira da pele os PONTOS dele, mas o calombo do crânio ainda furava o MEIO de um
+// triângulo no cocuruto. Como a pele debaixo do couro (`peleCobertaPor`): o triângulo da cabeça com cabelo a até CABELO_COBRE cm por
+// fora dos três cantos — ou por dentro, onde furou — vira um ponto. Só o alto e a nuca: acima de CABELO_ALTURA cm abaixo do topo, e
+// sem o que olha para a frente (a normal passa de CABELO_FRENTE: a testa, debaixo da franja — entre as mechas se veria o buraco); a
+// nuca (a normal para trás) desce até CABELO_NUCA. Só o MOLDE: os penteados de código não são cascas fechadas (sob uma crista ou um
+// moicano se veria o buraco). Na fundida pronta (com as edições do corpo): o corpo de arquivo ou a peça `head` do guerreiro
+const CABELO_COBRE = 3, CABELO_ALTURA = 10, CABELO_NUCA = 15, CABELO_FRENTE = 0.35;
+function esconderCouroCabeludo(geo, peles, cabelo) {
+  const P = geo.attributes.position.array;
+  let n = 0;
+  for (const [ini, fim] of peles) {
+    let topo = -Infinity;
+    for (let i = ini; i < fim; i++) if (Math.abs(P[i * 3]) < 15) topo = Math.max(topo, P[i * 3 + 1]);
+    const some = peleCobertaPor(P, ini, fim, [cabelo], CABELO_COBRE, (A, B, C, normal) => {
+      const y = (A.y + B.y + C.y) / 3;
+      return normal.z < CABELO_FRENTE && (y > topo - CABELO_ALTURA || (normal.z < -0.4 && y > topo - CABELO_NUCA));
+    });
+    sumirPele(P, ini, some);
+    n += some.length;
+  }
+  geo.attributes.position.needsUpdate = true;
+  geo.userData.couroCabeludo = n;   // (quantos sumiram: para conferir)
 }
 
 // A MALHA FUNDIDA (03/10/2026). O arquivo traz ~50 peças, cada uma uma SkinnedMesh
@@ -348,6 +388,12 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   }) : null;
   // (onde cada forma do cabelo cai na malha fundida: a aba Cabelo do editor acende a escolhida e acha a clicada)
   const formasDoCabelo = cabelo?.userData.formas.map(([a, b]) => [doCorpo + a, doCorpo + b]) ?? null;
+  // (o COURO CABELUDO debaixo do cabelo de MOLDE some — `esconderCouroCabeludo`, depois das edições: onde cai o cabelo e onde cai a pele
+  // da cabeça, o corpo de arquivo ou a peça `head`; a aba Modelo do editor vê a malha inteira)
+  const cobreCabeca = cabelo && !modelagemAberta() && PENTEADOS[penteado?.id]?.formas?.some((f) => f[0] === 'molde') ? {
+    cabelo: cabelo.userData.partes.cabelo.map((v) => doCorpo + v),
+    peles: fixa ? [[doCorpo - fixa, doCorpo]] : (() => { const l = []; let de = 0; lista.forEach((g, i) => { const n = g.attributes.position.count; if (/^head(_tingido)?$/.test(pecas[i].name)) l.push([de, de + n]); de += n; }); return l; })(),
+  } : null;
   let geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
   // (O COURO no corpo de arquivo — `moldarCouro`, abaixo: onde cada peça dele cai na fundida e os pontos dela como o guerreiro os tem)
   const couro = new Map(), couroOriginal = new Map();
@@ -417,6 +463,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     // (os triângulos CRIADOS entram no fim: outra geometria, com o ctx crescido junto)
     geo = acrescentarTriangulos(geo, comModelo);
   }
+  // (o couro cabeludo debaixo do cabelo de molde, no corpo como ficou — o transplante e os criados entram no FIM: as faixas valem)
+  if (geo && cobreCabeca && !geo.index && cobreCabeca.cabelo[1] > cobreCabeca.cabelo[0]) esconderCouroCabeludo(geo, cobreCabeca.peles, cobreCabeca.cabelo);
   // OS PLANOS DO ROSTO (acima), no rosto como ficou — antes das folhas, que tomam a luz da pele de baixo
   if (geo && !geo.index) {
     const rosto = [];
