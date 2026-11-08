@@ -5,7 +5,7 @@ import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { categoriaDaPeca } from './categorias.js';
 import { carregarPinturas } from './pintura.js';
-import { usarPenteados } from './penteado.js';
+import { usarPenteados, MOLDES, MOLDES_LIDOS } from './penteado.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
 // a gaveta dele. Um .glb em assets/dungeon/ que NÃO esteja aqui existe no disco
@@ -82,7 +82,9 @@ export const ESCULPIDOS = ['dennis'];
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
 // (`<nome>:lisa` = só a versão LISA dele — 02/11/2026, a Feminino 4 lisa é o Feminino da Humana, raca.js `femininaDeArquivo`; a com
 // textura fica no editor. Corpo novo entra no FIM: o penteado "malha" acha o corpo pelo lugar aqui)
-export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino4:lisa', 'masculino1'];
+// (08/11/2026: o MASCULINO JOVEM, `masculino3`, saiu da lista do editor para a do jogo — é o Masculino da Humana, raca.js
+// `MASCULINO_DE_ARQUIVO`; o `masculino1` segue como o "Masculino Adulto")
+export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino4:lisa', 'masculino1', 'masculino3'];
 // (os que SÓ O EDITOR carrega — a aba Modelo os edita antes de irem para o jogo: o jogo nem baixa o arquivo; 27/10/2026, a
 // Feminino 3 e a 4, até o dono diminuir os triângulos delas. Pronta para o jogo = passar para a lista de cima. 01/11/2026: a
 // Feminino 3 — a "Meshy 2", o modelo antigo — saiu, a pedido; os arquivos dela ficam. A 4 traz junto a versão LISA, o sexo 3)
@@ -210,12 +212,28 @@ export async function carregarEmpunhadura() {
 /** A MODELAGEM (assets/modelagem.json, modelagem.js): { corpos: { <chave do corpo>: as edições da malha dele } } ({ corpos: {} } sem o arquivo). */
 /** Os PENTEADOS DO ARQUIVO (assets/penteados.json, gravado pela aba Cabelo do editor; penteado.js `usarPenteados`): { penteados: {} } sem ele. */
 export async function carregarPenteados() {
+  await carregarMoldes();
   try {
     const r = await fetch('assets/penteados.json', { cache: 'no-store' });
     if (!r.ok) return { penteados: {} };
     const j = await r.json();
     return { penteados: j?.penteados && typeof j.penteados === 'object' && !Array.isArray(j.penteados) ? j.penteados : {} };
   } catch { return { penteados: {} }; }
+}
+// OS MOLDES dos penteados (penteado.js `MOLDES`, a forma `molde`; 06/11/2026, o "Lobo preguiçoso"): `assets/penteados/<nome>.json`,
+// lidos uma vez; o que falta ou vem torto fica de fora (o penteado dele não desenha nada)
+async function carregarMoldes() {
+  await Promise.all(MOLDES.filter((n) => !MOLDES_LIDOS.has(n)).map(async (nome) => {
+    try {
+      const r = await fetch(`assets/penteados/${nome}.json`, { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json(), c = j?.cranio;
+      const bom = Array.isArray(j?.pos) && Array.isArray(j?.idx) && j.pos.length % 3 === 0 && j.idx.length % 3 === 0 && j.idx.every((i) => Number.isInteger(i) && i >= 0 && i < j.pos.length / 3)
+        && c && [c.topo, c.l, c.z].every(Number.isFinite) && c.l > 0;
+      if (bom) MOLDES_LIDOS.set(nome, { pos: Float32Array.from(j.pos), idx: Uint32Array.from(j.idx), cranio: { topo: c.topo, l: c.l, z: c.z } });
+      else console.warn(`[penteados] o molde ${nome} veio torto`);
+    } catch { /* fica sem */ }
+  }));
 }
 
 export async function carregarModelagem() {

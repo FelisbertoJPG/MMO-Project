@@ -61,6 +61,144 @@ import { texelClaro } from './casca.js';
 import { Assets, CORPOS_DE_ARQUIVO } from './assets.js';   // (o cabelo dos corpos de arquivo: a forma `malha`; só lido ao desenhar)
 import { triangulosDe, raio, raioDe, grudar, lugar, normalLisa, pesos, misturar } from './ima.js';
 
+// OS MOLDES (06/11/2026, o "Lobo preguiçoso": o cabelo do busto do Meshy, colado no Masculino jovem e levado para cá por
+// ferramentas/penteados/molde-da-colagem.mjs): as malhas de cabelo de ARQUIVO, `assets/penteados/<nome>.json` — { pos (cm, pose T),
+// idx, cranio: o crânio em que ele foi ajustado { topo, l, z } }. A forma `molde` usa o número dele nesta lista: molde novo entra
+// no FIM. Lidos pelo assets.js `carregarPenteados` (o jogo e as abas do editor).
+export const MOLDES = ['lobo-preguicoso', 'desgrenhado', 'preguicoso'];   // (06/11/2026: o 1º e o 3º do .glb Golden Shaggy Hair — ferramentas/penteados/molde-do-glb.mjs)
+export const MOLDES_LIDOS = new Map();
+// (o cabelo de molde já expelido da pele, por molde, cabeça e réguas — a forma `molde`; os últimos 40)
+const EXPELIDOS = new Map();
+/**
+ * A PELE EM VOLTA DA CABEÇA (06/11/2026, a forma `molde`): os triângulos dela (`tris`: os do ímã, no lugar final) numa grade, para
+ * achar depressa a pele mais perto de um ponto, com o lado de fora (a normal da face). `expelir(pos, idx, folga)`: o que está DENTRO
+ * da pele — ou a menos de `folga` cm dela — sai pela normal dali, e o empurrão se espalha pelos vizinhos da malha (cada passo leva
+ * `LEVA` do que o vizinho andou, enfraquecido `CAI`): a mecha anda junta, dobrando para fora, em vez de cada ponto achatar na pele.
+ * Repete até ninguém ficar dentro (no máximo `VOLTAS`). Medido no Lobo preguiçoso no Masculino jovem: dos 858 pontos, 163 estavam
+ * dentro (até 4,8 cm, na nuca); depois, nenhum, 3 triângulos achatados (eram 22, empurrando ponto a ponto), ~230 ms.
+ */
+const CEL = 2.5, ALCANCE = 6, VOLTAS = 8, PASSOS = 10, LEVA = 0.5, CAI = 0.9;
+// (até GRUDA cm da pele, o ponto do molde vai com os ossos DELA — a mecha na nuca, com o pescoço —; de 1 cm até lá, passa aos poucos para a cabeça)
+const GRUDA = 2.5;
+export class PeleEmVolta {
+  // (`alcance`: até quantos cm se procura a pele — além, `sinal` devolve null; o couro da armadura, guerreiro.js, procura mais longe)
+  constructor(tris, alcance = ALCANCE) {
+    this.alcance = alcance;
+    const t = (this.t = new Float32Array(tris.length * 12)), grade = (this.grade = new Map());
+    this.n = tris.length;
+    tris.forEach((tri, i) => {
+      const [a, b, c] = tri.map((k) => k.p), o = i * 12, ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z, vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      t.set([a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, nx / l, ny / l, nz / l], o);
+      const lo = [0, 1, 2].map((e) => Math.floor(Math.min(t[o + e], t[o + 3 + e], t[o + 6 + e]) / CEL)), hi = [0, 1, 2].map((e) => Math.floor(Math.max(t[o + e], t[o + 3 + e], t[o + 6 + e]) / CEL));
+      for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) {
+        const k = this.chave(x, y, z);
+        let lista = grade.get(k);
+        if (!lista) grade.set(k, (lista = []));
+        lista.push(i);
+      }
+    });
+    this.tris = tris;
+    this.visto = new Uint32Array(tris.length); this.selo = 0; this.q = [0, 0, 0]; this.u = 0; this.v = 0; this.r = { s: 0, nx: 0, ny: 0, nz: 0, i: -1, bar: [1, 0, 0] };
+  }
+  // os OSSOS da pele mais perto de um ponto e a distância com sinal até ela: { s, w } — ou null (pele a mais de ALCANCE cm)
+  ossosPerto(px, py, pz) {
+    const g = this.sinal(px, py, pz);
+    return g ? { s: g.s, w: pesos({ tri: this.tris[g.i], bar: g.bar }) } : null;
+  }
+  chave(x, y, z) { return ((x + 512) * 1024 + (y + 512)) * 1024 + (z + 512); }
+  // o ponto do triângulo i mais perto de (px, py, pz), em this.q (Ericson, "Real-Time Collision Detection")
+  perto(i, px, py, pz) {
+    const t = this.t, q = this.q, o = i * 12, ax = t[o], ay = t[o + 1], az = t[o + 2], abx = t[o + 3] - ax, aby = t[o + 4] - ay, abz = t[o + 5] - az, acx = t[o + 6] - ax, acy = t[o + 7] - ay, acz = t[o + 8] - az;
+    const em = (u, v) => { q[0] = ax + abx * u + acx * v; q[1] = ay + aby * u + acy * v; q[2] = az + abz * u + acz * v; this.u = u; this.v = v; };
+    const apx = px - ax, apy = py - ay, apz = pz - az, d1 = abx * apx + aby * apy + abz * apz, d2 = acx * apx + acy * apy + acz * apz;
+    if (d1 <= 0 && d2 <= 0) return em(0, 0);
+    const bpx = px - t[o + 3], bpy = py - t[o + 4], bpz = pz - t[o + 5], d3 = abx * bpx + aby * bpy + abz * bpz, d4 = acx * bpx + acy * bpy + acz * bpz;
+    if (d3 >= 0 && d4 <= d3) return em(1, 0);
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) return em(d1 / (d1 - d3), 0);
+    const cpx = px - t[o + 6], cpy = py - t[o + 7], cpz = pz - t[o + 8], d5 = abx * cpx + aby * cpy + abz * cpz, d6 = acx * cpx + acy * cpy + acz * cpz;
+    if (d6 >= 0 && d5 <= d6) return em(0, 1);
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) return em(0, d2 / (d2 - d6));
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) { const w = (d4 - d3) / (d4 - d3 + (d5 - d6)); return em(1 - w, w); }
+    const den = 1 / (va + vb + vc);
+    return em(vb * den, vc * den);
+  }
+  // a distância COM SINAL à pele mais perto (+ = fora) e a normal dali, em this.r — ou null (pele a mais de ALCANCE cm)
+  sinal(px, py, pz) {
+    const sel = ++this.selo, R = this.alcance, q = this.q, t = this.t;
+    let melhor = R * R, achado = -1, bx = 0, by = 0, bz = 0, bu = 0, bv = 0;
+    const x0 = Math.floor((px - R) / CEL), x1 = Math.floor((px + R) / CEL), y0 = Math.floor((py - R) / CEL), y1 = Math.floor((py + R) / CEL), z0 = Math.floor((pz - R) / CEL), z1 = Math.floor((pz + R) / CEL);
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+      const lista = this.grade.get(this.chave(x, y, z));
+      if (!lista) continue;
+      for (const i of lista) {
+        if (this.visto[i] === sel) continue;
+        this.visto[i] = sel;
+        this.perto(i, px, py, pz);
+        const d = (q[0] - px) ** 2 + (q[1] - py) ** 2 + (q[2] - pz) ** 2;
+        if (d < melhor) { melhor = d; achado = i; bx = q[0]; by = q[1]; bz = q[2]; bu = this.u; bv = this.v; }
+      }
+    }
+    if (achado < 0) return null;
+    const r = this.r, o = achado * 12;
+    r.nx = t[o + 9]; r.ny = t[o + 10]; r.nz = t[o + 11]; r.s = (px - bx) * r.nx + (py - by) * r.ny + (pz - bz) * r.nz;
+    r.i = achado; r.bar = [1 - bu - bv, bu, bv]; r.qx = bx; r.qy = by; r.qz = bz;
+    return r;
+  }
+  expelir(pos, idx, folga) {
+    const n = pos.length / 3, viz = Array.from({ length: n }, () => []);
+    for (let t = 0; t + 2 < idx.length; t += 3) for (const [a, b] of [[0, 1], [1, 2], [2, 0]]) {
+      const i = idx[t + a], j = idx[t + b];
+      if (!viz[i].includes(j)) viz[i].push(j);
+      if (!viz[j].includes(i)) viz[j].push(i);
+    }
+    let d = new Float32Array(n * 3), d2 = new Float32Array(n * 3);
+    // (só quem está a menos de ALCANCE da pele pode encostar nela: os outros andam se um vizinho os levar)
+    const vigiar = [];
+    for (let i = 0; i < n; i++) if (this.sinal(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2])) vigiar.push(i);
+    for (let volta = 0; volta < VOLTAS; volta++) {
+      let algum = false;
+      for (const i of vigiar) {
+        const g = this.sinal(pos[i * 3] + d[i * 3], pos[i * 3 + 1] + d[i * 3 + 1], pos[i * 3 + 2] + d[i * 3 + 2]);
+        if (g && g.s < folga) { const k = folga - g.s; d[i * 3] += g.nx * k; d[i * 3 + 1] += g.ny * k; d[i * 3 + 2] += g.nz * k; algum = true; }
+      }
+      if (!algum) break;
+      for (let p = 0; p < PASSOS; p++) {
+        for (let i = 0; i < n; i++) {
+          const v = viz[i];
+          let mx = 0, my = 0, mz = 0;
+          for (const j of v) { mx += d[j * 3]; my += d[j * 3 + 1]; mz += d[j * 3 + 2]; }
+          const f = v.length ? CAI / v.length : 0, x = d[i * 3], y = d[i * 3 + 1], z = d[i * 3 + 2];
+          mx *= f; my *= f; mz *= f;
+          // (o vizinho só LEVA: quem já andou mais que a média dos vizinhos fica como está)
+          if (mx * mx + my * my + mz * mz > x * x + y * y + z * z) { d2[i * 3] = x + (mx - x) * LEVA; d2[i * 3 + 1] = y + (my - y) * LEVA; d2[i * 3 + 2] = z + (mz - z) * LEVA; }
+          else { d2[i * 3] = x; d2[i * 3 + 1] = y; d2[i * 3 + 2] = z; }
+        }
+        [d, d2] = [d2, d];
+      }
+    }
+    for (let i = 0; i < pos.length; i++) pos[i] += d[i];
+    return pos;
+  }
+}
+/**
+ * O CRÂNIO de uma cabeça, dos pontos presos a ela ([x, y, z], cm): o topo (dos que têm |x| < 15) e, na faixa de 8 a 4 cm abaixo
+ * dele — acima das orelhas —, a meia largura `l` e o meio do fundo `z`; ou null. A MESMA conta do
+ * ferramentas/penteados/molde-da-colagem.mjs (que mede o crânio em que o molde foi ajustado): mudou uma, mude a outra.
+ */
+export function medirCranio(pts) {
+  let topo = -Infinity;
+  for (const p of pts) if (Math.abs(p[0]) < 15) topo = Math.max(topo, p[1]);
+  if (!Number.isFinite(topo)) return null;
+  let l = 0, z0 = Infinity, z1 = -Infinity;
+  for (const p of pts) if (p[1] > topo - 8 && p[1] < topo - 4) { l = Math.max(l, Math.abs(p[0])); z0 = Math.min(z0, p[2]); z1 = Math.max(z1, p[2]); }
+  return l > 0 ? { topo, l, z: (z0 + z1) / 2 } : null;
+}
+
 // quem não escolheu a cor ("Original"): o castanho do cabelo do modelo, medido na textura
 // dele — é a cor em que a barba e as sobrancelhas ficam
 const COR_PADRAO = '#62423c';
@@ -244,6 +382,10 @@ export const MEDIDAS = {
     ['altura', 'altura', 1, 0.5, 1.6, 0.01], ['fundo', 'fundo', 1, 0.5, 1.6, 0.01], ['x', 'para o lado (cm)', 0, -10, 10, 0.1], ['y', 'para cima (cm)', 0, -10, 10, 0.1],
     ['z', 'para a frente (cm)', 0, -10, 10, 0.1], ['giro', 'giro (graus)', 0, -45, 45, 0.5], ['inclina', 'inclinação (graus, + para trás)', 0, -45, 45, 0.5],
     ['tomBaixo', 'tom embaixo', 0.8, 0.3, 1.5, 0.01], ['tomCima', 'tom em cima', 1.08, 0.3, 1.5, 0.01]],
+  molde: [['molde', 'qual molde (nº em MOLDES)', 0, 0, 9, 1], ['escala', 'tamanho', 1, 0.5, 1.6, 0.01], ['largura', 'largura', 1, 0.5, 1.6, 0.01],
+    ['altura', 'altura', 1, 0.5, 1.6, 0.01], ['fundo', 'fundo', 1, 0.5, 1.6, 0.01], ['x', 'para o lado (cm)', 0, -10, 10, 0.1], ['y', 'para cima (cm)', 0, -10, 10, 0.1],
+    ['z', 'para a frente (cm)', 0, -10, 10, 0.1], ['giro', 'giro (graus)', 0, -45, 45, 0.5], ['inclina', 'inclinação (graus, + para trás)', 0, -45, 45, 0.5],
+    ['folga', 'longe da pele (cm)', 0.4, 0, 3, 0.05], ['tomBaixo', 'tom embaixo', 0.8, 0.3, 1.5, 0.01], ['tomCima', 'tom em cima', 1.08, 0.3, 1.5, 0.01]],
 };
 /** Uma forma NOVA do cabelo, com as medidas de exemplo (as de `MEDIDAS`). */
 export const formaNova = (forma) => [forma, Object.fromEntries((MEDIDAS[forma] ?? []).map(([k, , p]) => [k, JSON.parse(JSON.stringify(p))]))];
@@ -515,6 +657,52 @@ const FORMAS = {
       // (a ordem dos cantos é a do modelo: já virada para fora)
       for (let t = 0; t < cab.idx.length; t += 3) r.v.push(cantos[cab.idx[t]], cantos[cab.idx[t + 1]], cantos[cab.idx[t + 2]]);
     });
+  },
+
+  // O MOLDE (06/11/2026, o "Lobo preguiçoso"): uma malha de cabelo de ARQUIVO (`MOLDES`, número `molde`), levada do crânio em
+  // que foi ajustada ao crânio de QUEM a veste (`c.cabeca()`: o topo no topo, o fundo no fundo e a largura acima das orelhas na
+  // proporção — vale para corpos de proporções e tamanhos diferentes); as réguas por cima disso (`escala` e por eixo, em volta do
+  // topo; `giro`, `inclina`; andar `x`, `y`, `z` cm) e, no fim, o que ficou dentro da pele — ou a menos de `folga` cm dela — é
+  // EXPELIDO levando a mecha junto (`PeleEmVolta.expelir`; o dono: "a parte desgrenhada ficou pra dentro da nuca… deveria ser
+  // expelido porém manter a malha colada": empurrar cada ponto sozinho achatava as mechas compridas na pele e a nuca sumia).
+  // O resultado fica guardado por molde, cabeça e réguas (`EXPELIDOS`): mudar a cor ou a roupa não refaz a conta. O tom, de
+  // `tomBaixo` a `tomCima`.
+  molde(m, c, { molde = 0, escala = 1, largura = 1, altura = 1, fundo = 1, x = 0, y = 0, z = 0, giro = 0, inclina = 0, folga = 0.4, tomBaixo = 0.8, tomCima = 1.08 }) {
+    const nome = MOLDES[Math.round(molde)], md = MOLDES_LIDOS.get(nome), cab = !c.elmo && md ? c.cabeca() : null;
+    if (!cab) return;
+    const P = md.pos, chave = `${nome}|${cab.marca}|${[escala, largura, altura, fundo, x, y, z, giro, inclina, folga].join()}`;
+    let fim = EXPELIDOS.get(chave);
+    if (!fim) {
+      // (no lugar FINAL — o da pele de quem veste —; daí para fora da pele)
+      const s = cab.cranio.l / md.cranio.l, de = new THREE.Vector3(0, md.cranio.topo, md.cranio.z), para = new THREE.Vector3(0, cab.cranio.topo, cab.cranio.z).add(new THREE.Vector3(x, y, z));
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler((inclina * Math.PI) / 180, (giro * Math.PI) / 180, 0, 'YXZ')), p = new THREE.Vector3();
+      fim = new Float32Array(P.length);
+      for (let i = 0; i < P.length; i += 3) {
+        p.set(P[i], P[i + 1], P[i + 2]).sub(de);
+        p.set(p.x * s * escala * largura, p.y * s * escala * altura, p.z * s * escala * fundo).applyQuaternion(q).add(para).toArray(fim, i);
+      }
+      cab.expelir(fim, md.idx, folga);
+      // (OS OSSOS de cada ponto: perto da pele, os DELA — a mecha que desce pela nuca vai com o pescoço, ao andar e quando a aba
+      // Modelo muda o tamanho da cabeça: só com o osso da cabeça, ela encolhia para dentro do pescoço e a nuca ficava sem cabelo —;
+      // longe, até GRUDA cm, passando aos poucos para a cabeça)
+      const ossos = [];
+      for (let i = 0; i < P.length; i += 3) {
+        const g = cab.ossosPerto(fim[i], fim[i + 1], fim[i + 2]), t = g ? entre((Math.abs(g.s) - 1) / (GRUDA - 1)) : 1;
+        ossos.push(t >= 1 ? c.CABECA : t <= 0 ? g.w : misturar([[g.w, 1 - t], [c.CABECA, t]]));
+      }
+      fim = { pos: fim, ossos };
+      if (EXPELIDOS.size > 40) EXPELIDOS.delete(EXPELIDOS.keys().next().value);
+      EXPELIDOS.set(chave, fim);
+    }
+    let baixo = Infinity, cima = -Infinity;
+    for (let i = 1; i < P.length; i += 3) { baixo = Math.min(baixo, P[i]); cima = Math.max(cima, P[i]); }
+    // (os pontos já estão no lugar final — o da pele de quem veste —, cada um com os ossos dele: entram direto, sem o `naCabeca`)
+    const cantos = [];
+    for (let i = 0; i < P.length; i += 3) {
+      const f = (P[i + 1] - baixo) / Math.max(1e-6, cima - baixo);
+      cantos.push({ p: new THREE.Vector3(fim.pos[i], fim.pos[i + 1], fim.pos[i + 2]), cor: c.tom(tomBaixo + (tomCima - tomBaixo) * f), w: fim.ossos[i / 3] });
+    }
+    for (let t = 0; t + 2 < md.idx.length; t += 3) m.v.push(cantos[md.idx[t]], cantos[md.idx[t + 1]], cantos[md.idx[t + 2]]);
   },
 
   // A BOLA (26/10/2026, os dois coques): o coque REDONDO e facetado do low poly — um icosaedro dividido `detalhe` vezes
@@ -995,11 +1183,11 @@ const FRENTE = new THREE.Vector3(0, 0, 1), TRAS = new THREE.Vector3(0, 0, -1);
  *  - `modelo`: uma geometria já pronta da malha fundida (os atributos saem do mesmo tipo:
  *    o `mergeGeometries` recusa tipos diferentes); `mapa`: a textura do corpo.
  */
-export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, pecaDaBarba, pecaDaSobrancelha, pecaDoRosto, pecaDaCabeca, ordem, deformador, escala, rosto, largo, modelo, mapa }) {
+export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, pecaDaBarba, pecaDaSobrancelha, pecaDoRosto, pecaDaCabeca, corpo, ordem, deformador, escala, rosto, largo, modelo, mapa }) {
   const formas = [...(PENTEADOS[id]?.formas ?? []), ...(BARBAS[barba]?.formas ?? []), ...(SOBRANCELHAS[sobrancelha]?.formas ?? [])];
   if (!formas.length) return null;
   const base = new THREE.Color(cor ?? COR_PADRAO), cabeca = Math.max(0, ordem.indexOf('Head'));
-  let tris = null, daBarba = null, daSobrancelha = null, pele = null, cranio = null, quinas = null;
+  let tris = null, daBarba = null, daSobrancelha = null, pele = null, cranio = null, quinas = null, daCabeca;
   // um canto da malha como a raça o deixa (as proporções), e o do ROSTO (antes, a arcada e o queixo)
   const movido = (k) => deformador(k.p.clone(), k.o, k.w);
   const doRosto = (k) => deformador(rosto ? rosto(k.p.clone()) : k.p.clone(), k.o, k.w);
@@ -1057,6 +1245,22 @@ export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, 
     },
     // a pele do ROSTO (a peça `Face`: é presa à cabeça — pelo pescoço, a barba esticaria ao virar o rosto)
     pele: () => pele ??= pecaDoRosto ? triangulosDe([pecaDoRosto], ordem) : [],
+    // A CABEÇA DE QUEM VESTE, no lugar FINAL (06/11/2026, a forma `molde`): no corpo de ARQUIVO (`corpo`, a peça dele: a raça não a
+    // deforma) a malha dele como é; no do guerreiro, a cabeça, o rosto e o apoio como a raça os deixa. { cranio (`medirCranio`, dos
+    // cantos presos à Head), paraFora(p, folga): o ponto dentro da pele — ou a menos de `folga` cm dela — vai para fora pela normal
+    // da face mais perto; antes(p): o ponto antes do osso da cabeça (o `firme` o leva de volta) } — ou null
+    cabeca() {
+      if (daCabeca !== undefined) return daCabeca;
+      const fontes = corpo ? [corpo] : [pecaDaCabeca, pecaDoRosto, ...(apoio ?? [])].filter(Boolean);
+      const tris = triangulosDe(fontes, ordem).map((t) => t.map((k) => ({ ...k, p: corpo ? k.p.clone() : movido(k) })));
+      const naHead = (k) => k.o.reduce((s, o, j) => s + (o === cabeca ? k.w[j] : 0), 0) >= 0.5;
+      const cranio = medirCranio(tris.flatMap((t) => t.filter(naHead).map((k) => [k.p.x, k.p.y, k.p.z])));
+      if (!cranio) return (daCabeca = null);
+      const pele = new PeleEmVolta(tris.filter((t) => t.some((k) => k.p.y > cranio.topo - 50 && Math.abs(k.p.x) < 30)));
+      // (a identidade desta cabeça, para guardar o cabelo já expelido: o crânio e quanto de pele há em volta)
+      const marca = `${cranio.topo.toFixed(2)},${cranio.l.toFixed(2)},${cranio.z.toFixed(2)},${pele.n}`;
+      return (daCabeca = { cranio, marca, expelir: (pos, idx, folga) => pele.expelir(pos, idx, folga), ossosPerto: (x, y, z) => pele.ossosPerto(x, y, z) });
+    },
     // a barba do modelo em triângulos presos à pele, e a parte de cada um
     barba: () => daBarba ??= presos(pecaDaBarba).map((t) => ({ cantos: t, parte: parteDaBarba(Math.abs(t[0].p.x + t[1].p.x + t[2].p.x) / 3, (t[0].p.y + t[1].p.y + t[2].p.y) / 3, (t[0].p.z + t[1].p.z + t[2].p.z) / 3) })),
     // as sobrancelhas do modelo, idem

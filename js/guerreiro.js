@@ -30,7 +30,8 @@ import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS, naPele, corDaPele } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino, corpoDeArquivo } from './raca.js';
-import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado } from './penteado.js';
+import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado, PeleEmVolta } from './penteado.js';
+import { triangulosDe, pesos } from './ima.js';
 import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO, folhasAtivas, olhoDoCorpo, ordemDaFolha } from './pintura.js';
 import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
@@ -107,6 +108,142 @@ const APOIO = /^(neck|Trapezius|Shoulder|Upper_Torso|Lower_Torso|hips)(_tingido)
 // desenho NÃO usa as peças do pacote, e sim a casca pintada sobre o corpo
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
+
+// O COURO QUE SE MOLDA AO CORPO (06/11/2026; o dono: "minha ideia é as atuais armaduras se modelarem ao corpo do player. As de couro
+// no caso"): no CORPO DE ARQUIVO, as peças do conjunto de COURO — o Batedor: as `A1_` do modelo e a casca pintada do couro (a Túnica,
+// `couro` no `vestir`) — deixam de ser as do guerreiro só afinadas pelas proporções. Cada ponto mede, NO GUERREIRO, a que distância
+// (com sinal) está da pele dele; no corpo de arquivo vai à pele mais perto de onde as proporções e as juntas o puseram, a essa
+// distância (pelo menos COURO_FOLGA: a calça e a bota do guerreiro eram a própria pele), e passa aos OSSOS da pele dali — veste como
+// a pele. O deslocamento é ALISADO pelos vizinhos da peça (as fivelas e as bordas não amassam) e, no fim, o que ficou dentro da pele
+// sai. Guardado por corpo e peça (`couroMoldado`).
+const COURO = /^A1_/, PELE_DO_GUERREIRO = /^(head|Face|neck|Trapezius|Shoulder|Upper_Torso|Lower_Torso|hips|arm|Forearm|Hand|thigh|shin|Feet)$/;
+// (COURO_FOLGA 0,8 cm: com 0,3 a pele facetada do corpo de arquivo furava o couro entre os pontos dele — o peito, a barriga, as coxas)
+const COURO_FOLGA = 0.8, COURO_ALCANCE = 12, COURO_ALISA = 6;
+const couroMoldado = new Map(), peleCoberta = new Map();
+// (até quantos cm por fora do triângulo de pele o couro o cobre: a pele debaixo sai)
+const COURO_COBRE = 4;
+let peleDoGuerreiro = null;
+export const ehCouro = (p) => COURO.test(p.name) || !!p.couro;
+// (para conferir: quantas peças de couro já foram moldadas e o que a última fusão de corpo de arquivo viu)
+export const couroVisto = { moldadas: () => couroMoldado.size, cobertos: () => [...peleCoberta.values()].map((l) => l.length), ultima: null };
+function moldarCouro(geo, pecas, faixas, originais, ini, fim, ordem) {
+  const arq = pecas.at(-1), base = arq.peleDoGuerreiro;
+  if (!base?.length) return;
+  // a pele do guerreiro (no modelo, como as peças foram feitas): uma vez
+  const chaveG = base.map((p) => p.geometry.uuid).join();
+  if (peleDoGuerreiro?.chave !== chaveG) peleDoGuerreiro = { chave: chaveG, pele: new PeleEmVolta(triangulosDe(base, ordem), COURO_ALCANCE) };
+  const pg = peleDoGuerreiro.pele, P = geo.attributes.position.array, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  let pc = null;   // (a pele do corpo de arquivo, na fundida: só se alguma peça não estiver guardada)
+  const peleDoCorpo = () => {
+    if (pc) return pc;
+    const canto = (i) => ({ p: new THREE.Vector3(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]), o: [0, 1, 2, 3].map((k) => si.getComponent(i, k)), w: [0, 1, 2, 3].map((k) => sw.getComponent(i, k)) });
+    const tris = [];
+    for (let i = ini; i + 2 < fim; i += 3) tris.push([canto(i), canto(i + 1), canto(i + 2)]);
+    return (pc = new PeleEmVolta(tris, COURO_ALCANCE));
+  };
+  for (const [i, [a, b]] of faixas) {
+    const chave = `${arq.name}|${pecas[i].name}|${b - a}`;
+    let feito = couroMoldado.get(chave);
+    if (!feito) {
+      const O = originais.get(i), n = b - a, d = new Float32Array(n * 3), ossos = [];
+      const pele = peleDoCorpo();
+      // 1. cada ponto: a distância à pele do guerreiro e, no corpo, a pele mais perto de onde ele está agora
+      for (let k = 0; k < n; k++) {
+        const g = pg.sinal(O[k * 3], O[k * 3 + 1], O[k * 3 + 2]), dist = g ? g.s : null;
+        const j = a + k, t = pele.sinal(P[j * 3], P[j * 3 + 1], P[j * 3 + 2]);
+        if (!t) { ossos.push(null); continue; }
+        ossos.push(pesos({ tri: pele.tris[t.i], bar: t.bar }));
+        if (dist === null) continue;
+        const fora = dist < -0.5 ? dist : Math.max(dist, COURO_FOLGA);
+        d[k * 3] = t.qx + t.nx * fora - P[j * 3]; d[k * 3 + 1] = t.qy + t.ny * fora - P[j * 3 + 1]; d[k * 3 + 2] = t.qz + t.nz * fora - P[j * 3 + 2];
+      }
+      // 2. o ALISAR: os cantos no mesmo lugar são um ponto só; cada passo, metade do deslocamento vem dos vizinhos
+      const lugar = new Map(), de = new Int32Array(n);
+      for (let k = 0; k < n; k++) { const c = `${O[k * 3].toFixed(3)},${O[k * 3 + 1].toFixed(3)},${O[k * 3 + 2].toFixed(3)}`; if (!lugar.has(c)) lugar.set(c, lugar.size); de[k] = lugar.get(c); }
+      const m = lugar.size, viz = Array.from({ length: m }, () => new Set()), soma = new Float32Array(m * 3), conta = new Float32Array(m);
+      for (let k = 0; k + 2 < n; k += 3) for (const [x, y] of [[0, 1], [1, 2], [2, 0]]) { viz[de[k + x]].add(de[k + y]); viz[de[k + y]].add(de[k + x]); }
+      for (let k = 0; k < n; k++) { for (let e = 0; e < 3; e++) soma[de[k] * 3 + e] += d[k * 3 + e]; conta[de[k]]++; }
+      let D = soma.map((v, q) => v / Math.max(1, conta[Math.floor(q / 3)])), D2 = new Float32Array(m * 3);
+      for (let passo = 0; passo < COURO_ALISA; passo++) {
+        for (let q = 0; q < m; q++) {
+          const v = viz[q];
+          for (let e = 0; e < 3; e++) { let s = 0; for (const r of v) s += D[r * 3 + e]; D2[q * 3 + e] = v.size ? 0.5 * D[q * 3 + e] + (0.5 * s) / v.size : D[q * 3 + e]; }
+        }
+        [D, D2] = [D2, D];
+      }
+      // 3. no lugar novo; o que ficou dentro da pele sai até a folga
+      const pos = new Float32Array(n * 3);
+      for (let k = 0; k < n; k++) {
+        const j = a + k;
+        for (let e = 0; e < 3; e++) pos[k * 3 + e] = P[j * 3 + e] + D[de[k] * 3 + e];
+        const t = pele.sinal(pos[k * 3], pos[k * 3 + 1], pos[k * 3 + 2]);
+        if (t && t.s < COURO_FOLGA && t.s > -3) { pos[k * 3] += t.nx * (COURO_FOLGA - t.s); pos[k * 3 + 1] += t.ny * (COURO_FOLGA - t.s); pos[k * 3 + 2] += t.nz * (COURO_FOLGA - t.s); }
+      }
+      feito = { pos, ossos };
+      if (couroMoldado.size > 80) couroMoldado.delete(couroMoldado.keys().next().value);
+      couroMoldado.set(chave, feito);
+    }
+    P.set(feito.pos, a * 3);
+    feito.ossos.forEach((w, k) => { if (w) { si.setXYZW(a + k, ...w.o); sw.setXYZW(a + k, ...w.p); } });
+  }
+  // 4. A PELE DEBAIXO DO COURO SAI (como no guerreiro, em que a calça e a bota são a pele): o músculo do corpo de arquivo saía
+  // por entre os pontos do couro — 1 a 2,5 cm entre um e outro, que a folga não cobria sem inchar a roupa. O triângulo da pele com
+  // couro a até COURO_COBRE cm por fora dos TRÊS cantos (um raio pela normal dele) vira um ponto, como o cortado da aba Modelo; na
+  // beirada da roupa, onde algum canto não tem couro em cima, fica. Guardado pelo corpo e pelas peças de couro que ele veste
+  const chaveP = `${arq.name}|${[...faixas.keys()].map((i) => pecas[i].name).sort().join(',')}`;
+  let some = peleCoberta.get(chaveP);
+  if (!some) {
+    some = [];
+    const tris = [];
+    for (const [, [a, b]] of faixas) for (let k = a; k + 2 < b; k += 3) tris.push(k);
+    const grade = new Map(), C = 3, ch = (x, y, z) => ((x + 512) * 1024 + (y + 512)) * 1024 + (z + 512);
+    tris.forEach((k, t) => {
+      const lo = [0, 1, 2].map((e) => Math.floor(Math.min(P[k * 3 + e], P[k * 3 + 3 + e], P[k * 3 + 6 + e]) / C)), hi = [0, 1, 2].map((e) => Math.floor(Math.max(P[k * 3 + e], P[k * 3 + 3 + e], P[k * 3 + 6 + e]) / C));
+      for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) { const c = ch(x, y, z); let l = grade.get(c); if (!l) grade.set(c, (l = [])); l.push(t); }
+    });
+    const o = new THREE.Vector3(), dir = new THREE.Vector3(), A = new THREE.Vector3(), B = new THREE.Vector3(), Cc = new THREE.Vector3(), alvo = new THREE.Vector3(), raio = new THREE.Ray();
+    const visto = new Uint32Array(tris.length);
+    let selo = 0;
+    const coberto = () => {
+      // (o segmento de o até o + dir·COURO_COBRE: os triângulos de couro das casas que ele atravessa)
+      const sel = ++selo, fimR = o.clone().addScaledVector(dir, COURO_COBRE);
+      const lo = [o.x, o.y, o.z].map((v, e) => Math.floor(Math.min(v, [fimR.x, fimR.y, fimR.z][e]) / C)), hi = [o.x, o.y, o.z].map((v, e) => Math.floor(Math.max(v, [fimR.x, fimR.y, fimR.z][e]) / C));
+      raio.set(o, dir);
+      for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) for (const t of grade.get(ch(x, y, z)) ?? []) {
+        if (visto[t] === sel) continue;
+        visto[t] = sel;
+        const k = tris[t];
+        A.fromArray(P, k * 3); B.fromArray(P, k * 3 + 3); Cc.fromArray(P, k * 3 + 6);
+        if (raio.intersectTriangle(A, B, Cc, false, alvo) && alvo.distanceTo(o) <= COURO_COBRE) return true;
+      }
+      return false;
+    };
+    for (let k = ini; k + 2 < fim; k += 3) {
+      A.fromArray(P, k * 3); B.fromArray(P, k * 3 + 3); Cc.fromArray(P, k * 3 + 6);
+      dir.subVectors(B, A).cross(alvo.subVectors(Cc, A)).normalize();
+      if (!dir.lengthSq()) continue;
+      // (cada canto: o couro por FORA da pele — o raio sai um pouco de dentro: o rente também conta — ou por DENTRO dela, onde o
+      // músculo furou o couro: o raio volta pela normal)
+      let todos = true;
+      for (const V of [A, B, Cc]) {
+        o.copy(V).addScaledVector(dir, -0.2);
+        if (coberto()) continue;
+        o.copy(V).addScaledVector(dir, 0.2); dir.negate();
+        const dentro = coberto();
+        dir.negate();
+        if (!dentro) { todos = false; break; }
+      }
+      if (todos) some.push(k - ini);
+    }
+    if (peleCoberta.size > 80) peleCoberta.delete(peleCoberta.keys().next().value);
+    peleCoberta.set(chaveP, some);
+  }
+  for (const k of some) {
+    const j = (ini + k) * 3;
+    for (let e = 0; e < 3; e++) { const m = (P[j + e] + P[j + 3 + e] + P[j + 6 + e]) / 3; P[j + e] = P[j + 3 + e] = P[j + 6 + e] = m; }
+  }
+  geo.attributes.position.needsUpdate = true; si.needsUpdate = true; sw.needsUpdate = true;
+}
 
 // A MALHA FUNDIDA (03/10/2026). O arquivo traz ~50 peças, cada uma uma SkinnedMesh
 // com o próprio Skeleton de 54 ossos: vestido, um guerreiro eram ~30 chamadas de
@@ -212,6 +349,13 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // (onde cada forma do cabelo cai na malha fundida: a aba Cabelo do editor acende a escolhida e acha a clicada)
   const formasDoCabelo = cabelo?.userData.formas.map(([a, b]) => [doCorpo + a, doCorpo + b]) ?? null;
   let geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
+  // (O COURO no corpo de arquivo — `moldarCouro`, abaixo: onde cada peça dele cai na fundida e os pontos dela como o guerreiro os tem)
+  const couro = new Map(), couroOriginal = new Map();
+  if (fixa) couroVisto.ultima = { pele: pecas.at(-1).peleDoGuerreiro?.length ?? null, indice: !!geo?.index, couro: pecas.filter(ehCouro).map((p) => p.name) };
+  if (geo && fixa && pecas.at(-1).peleDoGuerreiro && !geo.index) {
+    let de = 0;
+    lista.forEach((g, i) => { const n = g.attributes.position.count; if (i < pecas.length - 1 && ehCouro(pecas[i])) { couro.set(i, [de, de + n]); couroOriginal.set(i, g.attributes.position.array.slice()); } de += n; });
+  }
   // A MODELAGEM (modelagem.js), só quando o corpo tem edição (ou a aba Modelo do editor está
   // aberta): de onde veio cada vértice (`origem`) e onde ele estava no MODELO, antes da raça
   // (`antes`: é onde o pincel guarda o centro), e as juntas no espaço da malha (os pivôs). A BOCA
@@ -254,6 +398,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     }
     geo.attributes.position.needsUpdate = true;
   }
+  // (o COURO se molda à pele do corpo de arquivo — depois das proporções e das juntas: é de onde ele parte)
+  if (geo && couro.size) moldarCouro(geo, pecas, couro, couroOriginal, doCorpo - fixa, doCorpo, ordem);
   // (O ROSTO DA MODELO 1 no corpo de arquivo — corpo-arquivo.js: as edições dela na boca e nos olhos, o lugar e a costura —,
   // ANTES das edições deste corpo: o `base` da aba Modelo já o tem)
   const transplante = pecas.at(-1)?.transplante;
@@ -596,7 +742,8 @@ export class CorpoGuerreiro {
     // sozinho não diz: o couro não tem elmo.) Com ele, a raça não estica as orelhas
     const elmo = usadas.some((o) => ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'cabeca') || !!desenho('cabeca', armadura[0]);
     // os nossos desenhos entram como mais peças da malha fundida
-    LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas)); });
+    // (a casca do conjunto de COURO — a Túnica do Batedor — se molda ao corpo de arquivo: `moldarCouro`)
+    LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas).map((p) => (String(d.conjunto) === '1' ? { ...p, couro: true } : p))); });
     // a APARÊNCIA: as peças de pele e de olhos tingidas
     if (aparenciaValida(aparencia)) for (let i = usadas.length - 1; i >= 0; i--) {
       if (!usadas[i].isSkinnedMesh) continue;
@@ -662,6 +809,10 @@ export class CorpoGuerreiro {
       // (o transplante do rosto: os buracos dele e as edições da modelo 1 que caem na boca e nos olhos)
       if (arq.rosto) pecaArq.transplante = { buracos: arq.rosto, fem: edicoesDoRosto(doRosto) };
       usadas.push(pecaArq);
+      // (o penteado de MOLDE mede o crânio DESTE corpo — penteado.js `cabeca()`; 06/11/2026, o "Lobo preguiçoso")
+      if (penteado) penteado.corpo = pecaArq;
+      // (e o COURO se molda a ele, medindo a distância de cada ponto à pele do GUERREIRO — `moldarCouro`)
+      pecaArq.peleDoGuerreiro = this.pecas.filter((o) => PELE_DO_GUERREIRO.test(o.name));
     }
     // o material: o com cor de vértice, se alguma peça tem (ver geometriaFundida)
     // (uma peça TINGIDA tem cor mas guarda o material da original, que pode ser o sem cor

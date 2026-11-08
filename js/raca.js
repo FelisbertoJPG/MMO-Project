@@ -137,7 +137,12 @@ export const FEMININA_DE_ARQUIVO = 3;
 // `MASCULINO_DE_ARQUIVO` (`masculino1`: a figura 3 do .glb "Low Poly Anatomy" do Meshy, simétrica, sem textura — lisa, na pele do
 // painel), com as edições DELE (modelagem.js `chaveDoCorpo`: humano:arquivo5). Como a Feminina: o código da aparência NÃO muda, ele é
 // CARECA e sem barba por enquanto; sem o arquivo carregado, vale o guerreiro de antes (que segue sendo o da Orc)
-export const MASCULINO_DE_ARQUIVO = 5;
+// (08/11/2026, o dono: "põe o masculino jovem como masculino padrão e move o masculino atual pra 'Masculino Adulto'": o 0 do sexo
+// da Humana agora é o MASCULINO JOVEM — `masculino3`, o corpo + o busto unidos, edições em humano:arquivo7 —, e o de antes, o
+// `masculino1`, segue escolhível no dígito dele, o 5, com o rótulo "Masculino Adulto" (`MASCULINO_ADULTO`). Quem era Masculino vira o
+// jovem: o código da aparência não muda)
+export const MASCULINO_DE_ARQUIVO = 7;
+export const MASCULINO_ADULTO = 5;
 /**
  * As SOBRANCELHAS PINTADAS de um corpo (as edições dele, no modelagem.json): as camadas de triângulos (`sobrancelhas`, a "pintar
  * triângulos" do editor) e, depois delas, as DESENHADAS (02/11/2026, o dono: "faz variações de sobrancelha mais livres… eu fiz pela
@@ -159,12 +164,26 @@ export const masculinoDeArquivo = (n) => (n === 0 ? deArquivo(0, MASCULINO_DE_AR
 export const temFeminino = (n) => !!feminino(n);
 /** A raça `n` tem o corpo de ARQUIVO (o 3º da linha "Sexo")? */
 export const temArquivo = (n, sexo = 2) => !!deArquivo(n, sexo);
-/** As opções da linha "Sexo" da raça `n` (o lugar na lista é o dígito: 0, 1, 2, 3 — sem buraco: para no 1º que falta). */
+/**
+ * Os NOMES dos corpos da raça `n`, pelo dígito do sexo (o lugar na lista é o dígito: 0, 1, 2… 9; o corpo que não carregou fica
+ * como buraco — `undefined`). O editor lê daqui o nome de cada um (`sexosDe(n)[s]`); a linha "Sexo" do painel é `sexosDoPainel`.
+ */
 export function sexosDe(n) {
   const l = [...SEXOS], fem = femininaDeArquivo(n), masc = masculinoDeArquivo(n);
-  for (let s = 2; deArquivo(n, s); s++) l.push(deArquivo(n, s) === fem ? `${SEXOS[1]} (${fem.jogo?.rotulo ?? s})` : deArquivo(n, s) === masc ? `${SEXOS[0]} (${masc.jogo?.rotulo ?? s})` : deArquivo(n, s).jogo?.rotulo ?? `Feminino ${s}`);
-  // (a que já É o Feminino — ou o Masculino — não se repete no fim da lista: no jogo a lista para na Feminino 2; no editor, a Feminino 4 com textura vem depois)
-  while (l.length > 2 && ((fem && deArquivo(n, l.length - 1) === fem) || (masc && deArquivo(n, l.length - 1) === masc))) l.pop();
+  for (let s = 2; s <= 9; s++) {
+    const c = deArquivo(n, s);
+    if (c) l[s] = c === fem ? `${SEXOS[1]} (${c.jogo?.rotulo ?? s})` : c === masc ? `${SEXOS[0]} (${c.jogo?.rotulo ?? s})` : c.jogo?.rotulo ?? `Feminino ${s}`;
+  }
+  return l;
+}
+/**
+ * As opções da linha "Sexo" do painel da raça `n`: [dígito, nome], na ordem dos dígitos — sem os buracos e sem o corpo que já É o
+ * Feminino ou o Masculino (08/11/2026: o Masculino Adulto, o 5, vem depois de um buraco no jogo — o 4 é a Feminino 4 com textura, só
+ * do editor —, por isso o painel anda por esta lista, não pelo lugar no `sexosDe`).
+ */
+export function sexosDoPainel(n) {
+  const fem = femininaDeArquivo(n), masc = masculinoDeArquivo(n), l = [];
+  sexosDe(n).forEach((nome, s) => { if (nome && (s < 2 || (deArquivo(n, s) !== fem && deArquivo(n, s) !== masc))) l.push([s, nome]); });
   return l;
 }
 /** O corpo de arquivo de uma raça já resolvida por `racaDe` (o objeto carregado), ou null. */

@@ -11,6 +11,8 @@
 #       num ponto e reduz cada grupo (protegido não muda; com a simetria, os dois lados por igual)
 #   blender --background --factory-startup --python blender.py -- simetrizar <entrada.json> <saida.glb>
 #       a SIMETRIA (simetria.mjs): { pos, idx, lado } — o lado copiado no outro pelo x = 0 (1 = o +x), buracos fechados; grava o .glb com as normais
+#   blender --background --factory-startup --python blender.py -- uniao <entrada.json> <saida.json>
+#       a UNIÃO de duas malhas (fundir-uniao.mjs): { a: { pos, idx }, b: { pos, idx } } — os furinhos de b fechados e o booleano exato; fica o lado de fora das duas; grava { pos, idx }
 import bpy, sys, json, math
 
 args = sys.argv[sys.argv.index('--') + 1:]
@@ -222,3 +224,68 @@ elif modo == 'simetrizar':
     bm.to_mesh(me); bm.free()
     for pl in me.polygons: pl.use_smooth = True   # (liso: o .glb não repete o ponto por face)
     bpy.ops.export_scene.gltf(filepath=saida, export_format='GLB', export_normals=True, export_texcoords=False, export_materials='NONE', export_yup=True, use_selection=False)
+
+elif modo == 'uniao':
+    import bmesh
+    d = json.load(open(args[1], encoding='utf-8'))
+    def malha(nome, m, fechar):
+        pos, idx = m['pos'], m['idx']
+        me = bpy.data.meshes.new(nome)
+        me.from_pydata([pos[i:i + 3] for i in range(0, len(pos), 3)], [], [idx[i:i + 3] for i in range(0, len(idx), 3)])
+        me.update()
+        ob = bpy.data.objects.new(nome, me)
+        bpy.context.scene.collection.objects.link(ob)
+        if fechar:
+            bm = bmesh.new(); bm.from_mesh(me)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+            # (fecha até não sobrar nada: o buraco; a beira que se toca, num ponto; a aresta de mais de duas faces, onde duas superfícies se tocam, num ponto. Sempre na
+            # mesma ordem, pelo número do ponto: com a ordem do conjunto do Python, cada rodada dava outra malha)
+            from mathutils import Vector
+            for volta in range(12):
+                bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
+                bm.verts.ensure_lookup_table(); bm.verts.index_update()
+                borda = set(v for e in bm.edges if e.is_boundary for v in e.verts)
+                while borda:
+                    v0 = min(borda, key=lambda v: v.index); borda.discard(v0); grupo = {v0}; fila = [v0]
+                    while fila:
+                        v = fila.pop()
+                        for e in v.link_edges:
+                            if e.is_boundary:
+                                o = e.other_vert(v)
+                                if o in borda: borda.discard(o); grupo.add(o); fila.append(o)
+                    bmesh.ops.pointmerge(bm, verts=sorted(grupo, key=lambda v: v.index), merge_co=sum((v.co for v in sorted(grupo, key=lambda v: v.index)), Vector()) / len(grupo))
+                bmesh.ops.dissolve_degenerate(bm, edges=bm.edges[:], dist=1e-5)
+                bmesh.ops.triangulate(bm, faces=bm.faces[:])
+                bm.edges.ensure_lookup_table(); bm.edges.index_update()
+                ruins = sorted((e for e in bm.edges if len(e.link_faces) > 2), key=lambda e: e.index)
+                if ruins:
+                    bmesh.ops.collapse(bm, edges=ruins[:1], uvs=False)
+                    bmesh.ops.dissolve_degenerate(bm, edges=bm.edges[:], dist=1e-5)
+                    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+                if not ruins and not any(e.is_boundary for e in bm.edges): break
+            bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+            print('[corpo] %s: %d faces, depois de fechar %d arestas abertas e %d com mais de duas faces' % (nome, len(bm.faces), sum(1 for e in bm.edges if e.is_boundary), sum(1 for e in bm.edges if len(e.link_faces) > 2)))
+            bm.to_mesh(me); bm.free()
+        return ob
+    A = malha('corpo', d['a'], False); B = malha('peca', d['b'], True)
+    if d.get('corte'):
+        # (a peça só acima da linha do dono: o sólido do corte é o que fica)
+        C = malha('corte', d['corte'], False)
+        bpy.context.view_layer.objects.active = B; B.select_set(True)
+        c = B.modifiers.new('corte', 'BOOLEAN'); c.operation = 'INTERSECT'; c.object = C; c.solver = 'EXACT'; c.use_self = False; c.use_hole_tolerant = False
+        bpy.ops.object.modifier_apply(modifier='corte')
+        B.select_set(False)
+        print('[corpo] a peça cortada na linha: %d faces' % len(B.data.polygons))
+    bpy.context.view_layer.objects.active = A; A.select_set(True)
+    u = A.modifiers.new('uniao', 'BOOLEAN'); u.operation = 'UNION'; u.object = B; u.solver = 'EXACT'; u.use_self = False; u.use_hole_tolerant = False
+    bpy.ops.object.modifier_apply(modifier='uniao')
+    me = A.data
+    bm = bmesh.new(); bm.from_mesh(me)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    bm.to_mesh(me); bm.free()
+    pos = [c for v in me.vertices for c in v.co]; idx = [i for p in me.polygons for i in p.vertices]
+    # as peças à parte (os olhos): só fechadas, sem entrar no booleano
+    for n, x in enumerate(d.get('extras', [])):
+        o = malha('extra%d' % n, x, True).data; base = len(pos) // 3
+        pos += [c for v in o.vertices for c in v.co]; idx += [i + base for p in o.polygons for i in p.vertices]
+    json.dump({ 'pos': pos, 'idx': idx }, open(args[2], 'w', encoding='utf-8'))

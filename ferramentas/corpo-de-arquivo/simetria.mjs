@@ -3,7 +3,8 @@
 // carrega a ferramenta de espelhar, evita espelhar na mão… corrige definindo o centro do rosto e espelhando só ele; o corpo tá certo"):
 // prepara a `entrada` do recorte a partir do .glb ORIGINAL do Meshy, pelo bloco `simetria` do recorte:
 //
-//   node ferramentas/corpo-de-arquivo/simetria.mjs <recorte.json> [--medir]     (depois: importar.mjs <recorte.json>)
+//   node ferramentas/corpo-de-arquivo/simetria.mjs <recorte.json> [--medir] [--malha]     (depois: importar.mjs <recorte.json>)
+//   (--malha: em cima da <nome>-simples.json, a malha de agora, e não do .glb original: para o corpo que já tem pedaço colado ou unido)
 //
 // O Meshy não faz a cabeça em cima do plano do corpo: a do Masculino olha ~6° para o lado (as orelhas centradas, o nariz a ~1 cm do meio).
 // Espelhar tudo num plano só copia meio nariz fora do centro — sai com DOIS. Então:
@@ -49,13 +50,23 @@ function figuras(P, I) {
     return { tris, mn, mx };
   }).sort((a, b) => a.mn[0] - b.mn[0]);
 }
-const { P: P0, I: I0 } = lerGlb(path.resolve(RAIZ, S.original));
-const fig = figuras(P0, I0)[S.figura ?? 0];
-if (!fig) { console.error('[simetria] essa figura não existe no .glb'); process.exit(1); }
-const usados = [...new Set(fig.tris.flatMap((t) => [I0[t * 3], I0[t * 3 + 1], I0[t * 3 + 2]]))], novo = new Map(usados.map((v, i) => [v, i]));
-const esc = (S.altura ?? 1.9) / (fig.mx[1] - fig.mn[1]), cx = (fig.mn[0] + fig.mx[0]) / 2, cz = (fig.mn[2] + fig.mx[2]) / 2, s180 = S.girar180 ? -1 : 1;
-const pos = usados.map((v) => [s180 * (P0[v * 3] - cx) * esc - (S.x ?? 0), (P0[v * 3 + 1] - fig.mn[1]) * esc, s180 * (P0[v * 3 + 2] - cz) * esc]);
-const idx = fig.tris.flatMap((t) => [novo.get(I0[t * 3]), novo.get(I0[t * 3 + 1]), novo.get(I0[t * 3 + 2])]);
+// (--malha, 02/11/2026; o dono, com o Masculino jovem: "aplica a simetria" DEPOIS da união com o busto: a fonte é a `-simples.json` do corpo, e o resultado volta para ela.
+// O .glb original não tem o busto: partir dele apagaria o que foi encaixado. Quem roda guarda antes uma cópia da -simples, que o git não tem)
+const NA_MALHA = args.includes('--malha'), SIMPLES = path.join(AQUI, `${cfg.nome}-simples.json`);
+let pos, idx;
+if (NA_MALHA) {
+  const s = JSON.parse(fs.readFileSync(SIMPLES, 'utf8'));
+  pos = Array.from({ length: s.pos.length / 3 }, (_, v) => [s.pos[v * 3], s.pos[v * 3 + 1], s.pos[v * 3 + 2]]);
+  idx = s.idx;
+} else {
+  const { P: P0, I: I0 } = lerGlb(path.resolve(RAIZ, S.original));
+  const fig = figuras(P0, I0)[S.figura ?? 0];
+  if (!fig) { console.error('[simetria] essa figura não existe no .glb'); process.exit(1); }
+  const usados = [...new Set(fig.tris.flatMap((t) => [I0[t * 3], I0[t * 3 + 1], I0[t * 3 + 2]]))], novo = new Map(usados.map((v, i) => [v, i]));
+  const esc = (S.altura ?? 1.9) / (fig.mx[1] - fig.mn[1]), cx = (fig.mn[0] + fig.mx[0]) / 2, cz = (fig.mn[2] + fig.mx[2]) / 2, s180 = S.girar180 ? -1 : 1;
+  pos = usados.map((v) => [s180 * (P0[v * 3] - cx) * esc - (S.x ?? 0), (P0[v * 3 + 1] - fig.mn[1]) * esc, s180 * (P0[v * 3 + 2] - cz) * esc]);
+  idx = fig.tris.flatMap((t) => [novo.get(I0[t * 3]), novo.get(I0[t * 3 + 1]), novo.get(I0[t * 3 + 2])]);
+}
 
 // ------------------------------------------------------------ a cabeça
 const C = S.cabeca;
@@ -129,6 +140,13 @@ const ent = path.join(TRAB, 'simetria.json');
 fs.writeFileSync(ent, JSON.stringify({ pos: final.flat(), idx, lado: S.lado ?? 1 }));
 const base = 'C:/Program Files/Blender Foundation', versoes = fs.existsSync(base) ? fs.readdirSync(base).filter((d) => fs.existsSync(path.join(base, d, 'blender.exe'))).sort() : [];
 if (!versoes.length) { console.error('[simetria] Blender não encontrado'); process.exit(1); }
-const saida = execFileSync(path.join(base, versoes.at(-1), 'blender.exe'), ['--background', '--factory-startup', '--python', path.join(AQUI, 'blender.py'), '--', 'simetrizar', ent, path.resolve(RAIZ, cfg.entrada)], { encoding: 'utf8', maxBuffer: 64 << 20 });
+const destino = NA_MALHA ? path.join(TRAB, 'simetria.glb') : path.resolve(RAIZ, cfg.entrada);
+const saida = execFileSync(path.join(base, versoes.at(-1), 'blender.exe'), ['--background', '--factory-startup', '--python', path.join(AQUI, 'blender.py'), '--', 'simetrizar', ent, destino], { encoding: 'utf8', maxBuffer: 64 << 20 });
 for (const l of saida.split('\n')) if (l.startsWith('[corpo]')) console.log(l);
-console.log(`[simetria] gravado ${cfg.entrada}; agora: node ferramentas/corpo-de-arquivo/importar.mjs ${recorte}`);
+if (NA_MALHA) {
+  const b = fs.readFileSync(destino), n = b.readUInt32LE(12), j = JSON.parse(b.toString('utf8', 20, 20 + n)), bin = b.subarray(20 + n + 8);
+  const acc = (i) => { const a = j.accessors[i], bv = j.bufferViews[a.bufferView], off = bin.byteOffset + (bv.byteOffset ?? 0) + (a.byteOffset ?? 0), K = { 5126: Float32Array, 5125: Uint32Array, 5123: Uint16Array }[a.componentType]; return new K(bin.buffer.slice(off, off + a.count * (a.type === 'VEC3' ? 3 : 1) * K.BYTES_PER_ELEMENT)); };
+  const p = j.meshes[0].primitives[0], red = (v) => +v.toFixed(6);
+  fs.writeFileSync(SIMPLES, JSON.stringify({ _leiame: 'A malha do corpo com a simetria aplicada por cima dela (simetria.mjs --malha), nas unidades do arquivo; o importar.mjs a usa no lugar da do .glb.', pos: Array.from(acc(p.attributes.POSITION), red), normal: Array.from(acc(p.attributes.NORMAL), red), idx: Array.from(acc(p.indices)) }));
+  console.log(`[simetria] gravado ${path.basename(SIMPLES)}; agora: node ferramentas/corpo-de-arquivo/importar.mjs ${recorte}`);
+} else console.log(`[simetria] gravado ${cfg.entrada}; agora: node ferramentas/corpo-de-arquivo/importar.mjs ${recorte}`);

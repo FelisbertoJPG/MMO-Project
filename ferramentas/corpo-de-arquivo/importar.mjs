@@ -178,7 +178,8 @@ const zColuna = (y) => (doMeio(y)?.min[2] ?? cintura.min[2]) + 0.45 * fundo;
 J.Hips = [0, yHips, zColuna(yHips)];
 for (const nome of ['Spine003', 'Spine002', 'Spine001', 'Spine']) { const y = yHips + fy(nome) * (yNeck - yHips); J[nome] = [0, y, zColuna(y)]; }
 J.Neck = [0, yNeck, zColuna(yNeck)];
-J.Head = [0, pesc + 0.03, doMeio(pesc).c[2]];
+// (`medidas.cabecaZ`, à mão: o z da junta da cabeça. No pescoço inclinado do Masculino, o meio do corte deixava a junta 3,3 cm atrás da do guerreiro e o rosto saía pela frente do capacete)
+J.Head = [0, pesc + 0.03, med.cabecaZ ?? doMeio(pesc).c[2]];
 const pontaDaCabeca = [0, coroa, J.Head[2]];
 const pontas = {};   // a ponta dos ossos das pontas (mão, dedo do pé)
 for (const [L, l, s] of LADOS) {
@@ -217,6 +218,12 @@ for (const [L, l, s] of LADOS) {
   const pe = perna(y0 + 0.012);
   J[n.toe] = [pe.meio[0], y0 + 0.045, pe.min[2] + 0.7 * (pe.max[2] - pe.min[2])];
   pontas[n.toe] = [pe.meio[0], y0 + 0.02, pe.max[2]];
+}
+// (`juntasIguais`, o modelo simétrico: o lado -x repete o +x. As juntas saem dos cortes da cópia REDUZIDA, que não é simétrica: no Masculino jovem, o ombro de um
+// lado ficava 2,4 cm à frente do outro, e os braços giravam em volta de pontos diferentes)
+if (cfg.juntasIguais) {
+  const espelho = (p) => [-p[0], p[1], p[2]], [a, b] = LADOS.map(([L, l]) => nomesDoLado(L, l));
+  for (const c of Object.keys(a)) { J[b[c]] = espelho(J[a[c]]); if (pontas[a[c]]) pontas[b[c]] = espelho(pontas[a[c]]); }
 }
 
 // ------------------------------------------------------------ 3. os pesos (Blender, pose A)

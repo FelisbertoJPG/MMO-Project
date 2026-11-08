@@ -27,7 +27,10 @@
  * puxões e ANTES dos cortes (o triângulo de baixo ainda inteiro); o triângulo entra no FIM da malha
  * (`acrescentarTriangulos`, que devolve outra geometria), com os pesos, a cor e a UV do vértice que
  * mais pesa em cada canto, com as DUAS faces (dois triângulos, um de cada lado: tapando um buraco
- * entre peças que apontam para lados opostos não há "para fora" certo, e o lado de trás some).
+ * entre peças que apontam para lados opostos não há "para fora" certo, e o lado de trás some). `colagem`: o nome do pedaço de
+ * que ele veio (02/11/2026; o "copiar malha" da aba cola triângulos de outro corpo e usa o nome para trazer o pedaço inteiro de volta).
+ * `linhaDaParte`: { x, z, r: [...], y: [...], f: [...] } — a linha desenhada na base do pescoço, em volta do meio (x, z), o raio e a altura em ângulos iguais, e `f`: 1 onde a volta
+ * anda, 0 onde a base fica presa (a nuca). É o limite das partes "Pescoço" e "Pescoço e cabeça" (`pesosDaParte`); o editor a tira dos traços e das marcas e a grava com o corpo.
  * `movidos`: [{ de, em, mover: [x, y, z], espelho }] — os VÉRTICES MOVIDOS (24/10/2026; a ferramenta
  * "mover" da aba): o vértice que o `em` marca no MODELO — um do corpo (o `antes` dele), um criado
  * (`vertices`) ou o canto de um triângulo criado — anda `mover` cm (`moverVertices`, `movidoEm`).
@@ -92,7 +95,9 @@ export const PARTES = [
   { id: 'olhos', nome: 'Olhos', origem: 'olhos', lados: true },
   { id: 'orelhas', nome: 'Orelhas', lugar: 'orelha', lados: true },
   { id: 'presas', nome: 'Presas', origem: 'presas', lados: true },
-  { id: 'pescoco', nome: 'Pescoço', ossos: /^Neck$/, pivo: ['Neck'] },
+  // (o pescoço divide o peso com a cabeça e o ombro: `regiao` o faz andar inteiro — `pesosDaParte`; sem `pivo`, cresce em volta do meio dele)
+  { id: 'pescoco', nome: 'Pescoço', regiao: 'pescoco' },
+  { id: 'pescocoCabeca', nome: 'Pescoço e cabeça', regiao: 'pescocoCabeca', pivo: ['Neck'] },
   { id: 'ombros', nome: 'Ombros', ossos: /^Collar[LR]$/, pivo: ['CollarL', 'CollarR'], lados: true },
   { id: 'peito', nome: 'Peito', ossos: /^Spine(001)?$/, pivo: ['Spine001'] },
   { id: 'busto', nome: 'Busto e top', lugar: 'busto', lados: true },
@@ -113,7 +118,8 @@ export function chaveDoCorpo(raca, sexo, antiga = false) {
   // (o Feminino da Humana é a MODELO 4 — raca.js `femininaDeArquivo`, 02/11/2026: as edições dela; `antiga` = as da feminina
   // antiga, `humano:feminino` — o rosto da modelo 1 que a Feminino 2 transplanta)
   if (sexo === 1 && !antiga && id === 'humano' && femininaDeArquivo(0)) return `humano:arquivo${FEMININA_DE_ARQUIVO}`;
-  // (e o Masculino da Humana é o MASCULINO 2 — raca.js `masculinoDeArquivo`, 02/11/2026; `antiga` = as do guerreiro de antes, `humano`)
+  // (e o Masculino da Humana é um corpo de arquivo — raca.js `masculinoDeArquivo`: desde 08/11/2026 o MASCULINO JOVEM, humano:arquivo7;
+  // o Masculino Adulto, o 5, cai na linha de baixo, humano:arquivo5; `antiga` = as do guerreiro de antes, `humano`)
   if (!sexo && !antiga && id === 'humano' && masculinoDeArquivo(0)) return `humano:arquivo${MASCULINO_DE_ARQUIVO}`;
   // (o 2, o corpo de ARQUIVO: a chave dele não tem edição — a malha é a do arquivo, e as do masculino não valem nela)
   // (o 3, a Feminino 3: `:arquivo3`)
@@ -170,7 +176,50 @@ export function pesosDaParte(id, geo, ctx) {
     }
     return w;
   }
-  const marca = ctx.ordem.map((nome) => p.ossos.test(nome)), si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  const si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  if (p.regiao) {
+    // O PESCOÇO INTEIRO (02/11/2026, o dono: "a parte Pescoço sozinha quase não anda"): o peso do osso Neck não passa de 0,83 no Masculino jovem e fica
+    // perto de 0,4 no anel do pescoço, então ele andava menos da metade do arrasto. E não serve de régua: no pé do pescoço, 0,1 fica ao lado de 0,6, e a
+    // malha dobrava. Então o Neck só MEDE o pescoço (a largura e onde ele nasce, em quem é bem dele); o que anda sai da POSIÇÃO: inteiro no pescoço, sumindo
+    // pelo ombro e pelo peito, e no alto, pelo Head, até a cabeça (o queixo fica parado). Vale só para mexer nas partes: a animação segue com os pesos dos ossos
+    const s = THREE.MathUtils.smoothstep, N = ctx.ordem.indexOf('Neck'), H = ctx.ordem.indexOf('Head'), A = ctx.antes, P = geo.attributes.position.array;
+    const noX = (i) => Math.abs(A[i * 3] ?? P[i * 3]), noY = (i) => A[i * 3 + 1] ?? P[i * 3 + 1];   // (os triângulos criados não estão no `antes`)
+    const daCabeca = new Float32Array(n), xs = [], ys = [];
+    for (let i = 0; i < n; i++) {
+      let pn = 0;
+      for (let k = 0; k < 4; k++) {
+        const o = si.getComponent(i, k);
+        if (o === N) pn += sw.getComponent(i, k); else if (o === H) daCabeca[i] += sw.getComponent(i, k);
+      }
+      if (pn > 0.3) { xs.push(noX(i)); ys.push(noY(i)); }
+    }
+    // PELA LINHA (02/11/2026, o dono: "é o pescoço e cabeça que a linha delimita", "a nuca tá muito bem encaixada, só a parte do gogó tá flutuando e preciso puxar pra trás"): com a
+    // linha desenhada em volta da base do pescoço (`linhaDaParte`), dela para cima anda inteiro e só a pele logo abaixo acompanha, sem abrir fresta. Onde o dono NÃO marcou (`f` = 0, a nuca),
+    // a base fica presa: lá o andar começa na linha e vai crescendo até o alto do pescoço, e a nuca inclina em vez de sair do encaixe
+    const L = ctx.linhaDaParte;
+    if (L) {
+      const M = L.r.length, DA_LINHA = 3, NA_NUCA = 8;   // (cm: até onde a pele acompanha, abaixo da linha; e até onde o andar cresce, na parte presa)
+      for (let i = 0; i < n; i++) {
+        const dx = (A[i * 3] ?? P[i * 3]) - L.x, dz = (A[i * 3 + 2] ?? P[i * 3 + 2]) - L.z, t = ((Math.atan2(dz, dx) + Math.PI) / (2 * Math.PI)) * M, a = Math.floor(t) % M, b = (a + 1) % M, u = t - Math.floor(t);
+        const alto = noY(i) - (L.y[a] + (L.y[b] - L.y[a]) * u), raio = L.r[a] + (L.r[b] - L.r[a]) * u;
+        // (o limite abre com a altura: o pescoço sobe inclinado para a frente, e o ombro, que é da mesma altura da linha, fica de fora)
+        const limite = raio + 1.5 + Math.max(0, alto), solto = L.f ? L.f[a] + (L.f[b] - L.f[a]) * u : 1, h = daCabeca[i];
+        // (o Pescoço sozinho: a parte presa não anda, a cabeça fica onde está e a nuca não tem por que sair do lugar)
+        const f = (s(alto, -DA_LINHA, 0) * solto + (p.regiao === 'pescoco' ? 0 : s(alto, 0, NA_NUCA) * (1 - solto))) * (1 - s(Math.hypot(dx, dz), limite, limite + DA_LINHA));
+        w[i] = p.regiao === 'pescoco' ? f * (1 - s(h, 0.35, 0.8)) : Math.max(f, s(h, 0.05, 0.3) * solto + s(h, 0.4, 0.95) * (1 - solto));
+      }
+      return w;
+    }
+    if (!xs.length) return w;
+    xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
+    const largura = xs[Math.floor(xs.length * 0.95)], pe = ys[Math.floor(ys.length * 0.05)];
+    for (let i = 0; i < n; i++) {
+      const f = (1 - s(noX(i), largura, largura * 2)) * s(noY(i), pe - 5, pe + 2.5);
+      w[i] = p.regiao === 'pescoco' ? f * (1 - s(daCabeca[i], 0.35, 0.8)) : Math.max(f, s(daCabeca[i], 0.05, 0.3));
+    }
+    return w;
+  }
+  const marca = ctx.ordem.map((nome) => p.ossos.test(nome));
   for (let i = 0; i < n; i++) {
     let s = 0;
     for (let k = 0; k < 4; k++) if (marca[si.getComponent(i, k)]) s += sw.getComponent(i, k);
@@ -182,6 +231,11 @@ export function pesosDaParte(id, geo, ctx) {
 // os pivôs de uma parte: [o do lado +x, o do −x] (sem lados, os dois iguais)
 function pivosDaParte(p, w, P, ctx) {
   if (p.tudo) return [new THREE.Vector3(), new THREE.Vector3()];
+  // (pela linha: cresce a partir do meio dela, e a base fica onde está)
+  if (p.regiao === 'pescocoCabeca' && ctx.linhaDaParte) {
+    const L = ctx.linhaDaParte, o = new THREE.Vector3(L.x, L.y.reduce((t, y) => t + y, 0) / L.y.length, L.z);
+    return [o, o];
+  }
   const a = p.pivo && ctx.juntas?.get(p.pivo[0]), b = p.pivo && ctx.juntas?.get(p.pivo[1] ?? p.pivo[0]);
   if (a && b) return [a, b];
   // sem junta: o meio do que é da parte (de cada lado)
@@ -442,6 +496,7 @@ export function aplicarModelagem(geo, edicoes, ctx) {
   if (!edicoes) return false;
   const pos = geo.attributes.position, P = pos.array, n = pos.count, idx = geo.index, nt = (idx ? idx.count : n) / 3;
   const mexeu = new Uint8Array(n);
+  if (edicoes.linhaDaParte) ctx.linhaDaParte = edicoes.linhaDaParte;
   const pesos = new Map(), pesosDe = (id) => pesos.get(id) ?? pesos.set(id, pesosDaParte(id, geo, ctx)).get(id);
   // ---- 0. o FORMATO das sobrancelhas (o arco e a ponta afinada — `edicoes.sobrancelha`), antes de mexer nelas como parte
   if (edicoes.sobrancelha) moldarSobrancelhas(P, ctx, edicoes.sobrancelha, mexeu);
@@ -849,6 +904,8 @@ function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null, movido
     soldados.push({ de, em });
     return em;
   };
+  // (o mesmo ponto é canto de vários triângulos: um pedaço colado inteiro, com 15 mil, procurava cada um umas 6 vezes na malha toda)
+  const lugares = new Map(), lugarDe = (de, em) => { const k = `${de}|${em}`; if (!lugares.has(k)) lugares.set(k, lugarNoModelo({ de, em }, geo, ctx)); return lugares.get(k); };
   novos.forEach((x) => {
     const n = x.n, umLado = !!x.umLado;
     if (!Array.isArray(x?.cantos) || x.cantos.length !== 3 || !x.cantos.every((c) => Array.isArray(c?.em) && c.em.length === 3)) return;
@@ -859,10 +916,12 @@ function resolverNovos(geo, novos, ctx, P, cores = null, cortados = null, movido
         // (o canto onde está de fato — do lado espelhado, o x ao contrário — e soldado aos já vistos;
         // o canto a menos da SOLDA do meio É do meio: o espelho o mantém — colado num vértice do corpo
         // em x = −0,05, o outro lado ia para +0,05, a 0,1 cm, e as duas metades nunca se juntavam)
-        const em = c.i != null || c.lugar ? c.em : soldar(c.de, lado && Math.abs(c.em[0]) >= SOLDA ? [-c.em[0], c.em[1], c.em[2]] : c.em);
+        // (o de um pedaço COLADO — `colagem`, o "copiar malha" da aba — não solda: diminuído, as arestas pequenas dele juntavam e a
+        // forma se perdia a cada ajuste; e os cantos iguais do pedaço já caem no mesmo ponto)
+        const em = c.i != null || c.lugar ? c.em : x.colagem ? (lado ? [-c.em[0], c.em[1], c.em[2]] : c.em) : soldar(c.de, lado && Math.abs(c.em[0]) >= SOLDA ? [-c.em[0], c.em[1], c.em[2]] : c.em);
         const doCorpo = c.i == null && !c.lugar ? noVertice(c.de, em) : -1;
         const vi = !(c.sobe > 0) ? doCorpo : -1;   // (o afastado precisa do triângulo: a normal dele)
-        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : vi >= 0 ? [vi, vi, vi, 1, 0, 0] : c.lugar ?? lugarNoModelo({ de: c.de, em }, geo, ctx);
+        const l = c.i != null ? [c.i, c.i, c.i, 1, 0, 0] : vi >= 0 ? [vi, vi, vi, 1, 0, 0] : c.lugar ?? lugarDe(c.de, em);
         if (!l) break;
         const [i, j, k, u, v, s] = l;
         fonte.push(u >= v && u >= s ? i : v >= s ? j : k);

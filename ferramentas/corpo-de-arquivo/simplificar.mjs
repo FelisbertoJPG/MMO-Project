@@ -99,7 +99,10 @@ console.log(`[corpo] simplificando ${cfg.nome}: ${nt} triângulos → ${alvo}${s
 const TRABALHO = path.join(os.tmpdir(), `corpo-de-arquivo-${cfg.nome}`);
 fs.mkdirSync(TRABALHO, { recursive: true });
 const ent = path.join(TRABALHO, 'simplificar-entrada.json'), sai = path.join(TRABALHO, 'simplificar-saida.json');
-fs.writeFileSync(ent, JSON.stringify({ pos: [...fonte.pos], uv: [...fonte.uv], idx: [...fonte.idx], cats, alvo, simetria }));
+// (a malha da UNIÃO e da SIMETRIA — o Masculino jovem, 05/11/2026 — vem sem `uv`: vai uma de zeros, como a do .glb sem textura;
+// antes o script quebrava aqui, "fonte.uv is not iterable", e o editor não mudava nada)
+const uv = fonte.uv ?? new Array((fonte.pos.length / 3) * 2).fill(0);
+fs.writeFileSync(ent, JSON.stringify({ pos: [...fonte.pos], uv: [...uv], idx: [...fonte.idx], cats, alvo, simetria }));
 const base = 'C:/Program Files/Blender Foundation';
 const versoes = fs.existsSync(base) ? fs.readdirSync(base).filter((d) => fs.existsSync(path.join(base, d, 'blender.exe'))).sort() : [];
 if (!versoes.length) { console.error('[corpo] Blender não encontrado'); process.exit(1); }

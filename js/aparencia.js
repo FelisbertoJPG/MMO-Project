@@ -33,7 +33,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { tela, pontoNaTela, retanguloNaTela } from './tela.js';
-import { racaDe, proporcoesDe, sexosDe, temFeminino, temArquivo, esculpidoDe } from './raca.js';
+import { racaDe, proporcoesDe, sexosDoPainel, temFeminino, temArquivo, esculpidoDe, MASCULINO_ADULTO, MASCULINO_DE_ARQUIVO } from './raca.js';
 import { penteadosDe, nomeDoPenteado, barbasDe, nomeDaBarba, sobrancelhasDe, nomeDaSobrancelha } from './penteado.js';
 
 export const PELES = [
@@ -225,7 +225,8 @@ export function tingir(peca, codigo) {
 const LINHAS = [
   ['raca', 'Raça', () => racasDoPainel().map((r) => r.nome), () => racasDoPainel().length < 2],
   // (o sexo só aparece para a raça que TEM o corpo feminino no arquivo — ou o corpo de ARQUIVO, o 3º: raca.js)
-  ['sexo', 'Sexo', (r, a) => sexosDe(a.raca), (r, a) => sexosDe(a.raca).length < 2],
+  // (a linha anda pelos DÍGITOS de `sexosDoPainel` — 08/11/2026: o Masculino Adulto é o 5, depois de buracos —, como a raça)
+  ['sexo', 'Sexo', (r, a) => sexosDoPainel(a.raca).map((x) => x[1]), (r, a) => sexosDoPainel(a.raca).length < 2],
   ['pele', 'Pele', () => PELES.map((p) => p[0]), (r) => !!r?.pele || !!r?.textura],
   ['cabelo', 'Cabelo', (r) => ['Sem cabelo', ...penteadosDe(r).map(nomeDoPenteado)], (r) => !penteadosDe(r).length],
   ['cor', 'Cor do cabelo e da barba', () => CABELOS.map((p) => p[0]), (r) => !!r?.textura],
@@ -320,7 +321,8 @@ export class EditorDeAparencia {
   mudar(parcial) {
     const p = this.game.player, antes = lerAparencia(p.aparencia), a = { ...antes, ...parcial };
     // (trocou de raça: o sexo só vale se ela tem o corpo — o 2, o de arquivo; sem ele, o feminino)
-    if (a.sexo >= 2 && !temArquivo(a.raca, a.sexo)) a.sexo = a.sexo > 2 && temArquivo(a.raca, 2) ? 2 : 1;
+    // (o Masculino Adulto e o jovem — corpos de arquivo MASCULINOS — voltam ao Masculino)
+    if (a.sexo >= 2 && !temArquivo(a.raca, a.sexo)) a.sexo = a.sexo === MASCULINO_ADULTO || a.sexo === MASCULINO_DE_ARQUIVO ? 0 : a.sexo > 2 && temArquivo(a.raca, 2) ? 2 : 1;
     if (a.sexo === 1 && !temFeminino(a.raca)) a.sexo = 0;
     // O número do cabelo, da barba e da sobrancelha é o lugar na lista de CADA raça (e de cada
     // corpo dela). Trocou de raça ou de sexo: fica o MESMO corte, se o outro o tem (a "Longa"
@@ -350,8 +352,10 @@ export class EditorDeAparencia {
       if (k === 'pele') { this.lista.appendChild(this.reguaDaPele(a)); continue; }
       const ops = opcoes(raca, a), linha = document.createElement('div');
       // a raça anda pela lista das jogáveis (o número dela é o lugar no arquivo, não na lista)
-      const agora = k === 'raca' ? Math.max(0, racas.findIndex((r) => r.n === a.raca)) : a[k];
-      const valor = (i) => (k === 'raca' ? racas[i].n : i);
+      // (o sexo também: o lugar na lista não é o dígito — raca.js `sexosDoPainel`)
+      const sexos = k === 'sexo' ? sexosDoPainel(a.raca) : null;
+      const agora = k === 'raca' ? Math.max(0, racas.findIndex((r) => r.n === a.raca)) : sexos ? Math.max(0, sexos.findIndex((x) => x[0] === a.sexo)) : a[k];
+      const valor = (i) => (k === 'raca' ? racas[i].n : sexos ? sexos[i][0] : i);
       // (a COR LIVRE — 02/11/2026: o quadradinho abre a roda de cores; no batom sempre, nas camadas com uma escolhida)
       const comCor = k in COR_LIVRE && (k === 'batom' || a[k] > 0);
       const corAgora = a.cores?.[k] ?? (k === 'batom' ? BATONS[a.batom]?.[1] ?? (raca?.temBoca ? BATONS[1][1] : null) : null);

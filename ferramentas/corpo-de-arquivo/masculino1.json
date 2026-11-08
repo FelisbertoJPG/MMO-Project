@@ -11,7 +11,8 @@
   "manter": true,
   "triangulos": 5586,
   "cmPorUnidade": 95.9,
-  "medidas": { "ombroX": 0.205, "ombroTopo": 1.636, "pescoco": 1.72 },
+  "_pescoco": "pescoco: a junta da cabeça fica 0,03 acima dele. O pescoço deste modelo é tão largo quanto o maxilar: o corte mais estreito caía em 1,72, na boca, e a cabeça girava em volta do nariz, com 35% do rosto pesado no pescoço (o rosto entortava na animação e os capacetes subiam 6 cm). 1,653 e cabecaZ 0,0016 = a junta em y 161,3 e z 0,15 cm, a mesma do guerreiro, que tem os olhos na mesma altura e o crânio centrado no mesmo z: os capacetes não andam. Mudou as juntas? Rode o guardar-forma.mjs depois: os pesos novos deslocam pontos do ombro.",
+  "medidas": { "ombroX": 0.205, "ombroTopo": 1.636, "pescoco": 1.653, "cabecaZ": 0.0016 },
   "juntas": {
     "limiteDoOmbro": 0.12,
     "ombroAbaixo": 0.05,
@@ -19,10 +20,10 @@
     "maoX": 0.38
   },
   "jogo": {
-    "_leiame": "O que o JOGO usa deste corpo: raca (0 = o humano) e sexo (5: o número dele na lista dos corpos de arquivo; no jogo ele é o MASCULINO da Humana — o 0 do dígito do sexo, raca.js `MASCULINO_DE_ARQUIVO`); rotulo = o nome no editor; penteados = nenhum (careca por enquanto); proporcoes = as larguras que afinam as armaduras, MEDIDAS contra o guerreiro na pose T (cortes nas alturas dos ossos; a figura 1 do Human Figure, 02/11/2026): peito e barriga +17%, quadril +29%, braços +21%, antebraços −14%, coxas +18%, canelas +25%.",
+    "_leiame": "O que o JOGO usa deste corpo: raca (0 = o humano) e sexo (5: o número dele na lista dos corpos de arquivo; no jogo ele é o MASCULINO ADULTO da Humana — o 5 do dígito do sexo, raca.js `MASCULINO_ADULTO`; até 08/11/2026 era o Masculino, o 0); rotulo = o nome na linha Sexo; penteados = nenhum (careca por enquanto); proporcoes = as larguras que afinam as armaduras, MEDIDAS contra o guerreiro na pose T (cortes nas alturas dos ossos; a figura 1 do Human Figure, 02/11/2026): peito e barriga +17%, quadril +29%, braços +21%, antebraços −14%, coxas +18%, canelas +25%.",
     "raca": 0,
     "sexo": 5,
-    "rotulo": "Masculino 2",
+    "rotulo": "Masculino Adulto",
     "penteados": [],
     "proporcoes": { "altura": 0.96, "ombros": 1.08, "peitoLargura": 1.17, "peitoFundo": 0.97, "barrigaLargura": 1.16, "quadril": 1.29, "bracos": 1.21, "antebracos": 0.86, "coxas": 1.18, "coxasGrossura": 1.06, "canelas": 1.25, "canelasGrossura": 0.96 }
   }

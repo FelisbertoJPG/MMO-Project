@@ -3,9 +3,14 @@
 // RGBA — o alfa é a forma —, o tipo à direita, 0 = a cor como está), ESPELHADA no outro olho. Coordenadas em cm a partir do centro da folha
 // (o arco da sobrancelha da Feminino 4 lisa, medido na "Sombrancelha grossa" do dono): X para FORA do rosto (a cauda), Y para cima.
 // 64 px por cm. As folhas s1…s6 do corpo humano:arquivo3 no assets/modelagem.json (`sobrancelha: '<nome>'`: raca.js nomesDasSobrancelhas).
-// Rodar: node ferramentas/maquiagem/sobrancelhas.mjs assets/pintura   (grava humano-arquivo3-s1.png … s6.png; APAGA retoque feito à mão)
+// Rodar: node ferramentas/maquiagem/sobrancelhas.mjs assets/pintura   (grava humano-arquivo3-s1.png … s7.png; APAGA retoque feito à mão)
+//   --corpo humano-arquivo7   o começo do nome das imagens (o corpo; sem ele, a Feminino 4: humano-arquivo3)
+//   --so s7                   só esses estilos (separados por vírgula) — o resto fica como está, com os retoques
+// (05/11/2026, o Masculino jovem: `node ferramentas/maquiagem/sobrancelhas.mjs assets/pintura --corpo humano-arquivo7 --so s7`)
 import { gravar } from './png.mjs';
 const pasta = process.argv[2] ?? '.';
+const opcao = (k) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : null; };
+const CORPO = opcao('corpo') ?? 'humano-arquivo3', SO = opcao('so')?.split(',') ?? null;
 const PX = 64, LARG = 8.25, ALT = 3.25, W = Math.round(LARG * PX), H = Math.round(ALT * PX);
 
 const passo = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -87,9 +92,14 @@ const ESTILOS = [
   ['s4', 'Angulosa', cheia({ pts: [[-3.05, -0.05], [0.95, 0.66], [3.55, -0.7]], reta: true, w: [[0, 0.42], [0.55, 0.3], [1, 0.04]], a: [[0, 0.8], [0.06, 0.96], [1, 0.92]] })],
   ['s5', 'Fio a fio', fios({ pts: NATURAL, w: [[0, 0.46], [0.3, 0.4], [0.8, 0.25], [1, 0.08]], semente: 7 })],
   ['s6', 'Com corte', cheia({ pts: NATURAL, w: [[0, 0.4], [0.3, 0.36], [0.8, 0.24], [1, 0.07]], a: [[0, 0.7], [0.1, 0.95], [1, 0.92]], corte: 0.66 })],
+  // (05/11/2026, o Masculino jovem; o dono, com fotos de um personagem de anime: "faz uma sobrancelha grossa, estilo essa aqui"):
+  // GROSSA e quase reta, baixa sobre o olho — a cabeça larga e firme um pouco abaixo do pico (o ar sério), o pico a ~60% do caminho
+  // e a cauda descendo de leve e afinando; 3,5 mm abaixo do arco das outras (nas fotos ela quase encosta na pálpebra)
+  ['s7', 'Grossa', cheia({ pts: [[-3.0, -0.49], [-1.6, -0.25], [0.2, -0.05], [1.6, -0.07], [2.7, -0.37], [3.45, -0.77]], w: [[0, 0.7], [0.2, 0.74], [0.6, 0.6], [0.85, 0.38], [1, 0.12]], a: [[0, 0.72], [0.05, 0.96], [1, 0.94]] })],
 ];
 
 for (const [id, nome, forma] of ESTILOS) {
+  if (SO && !SO.includes(id)) continue;
   const px = new Uint8Array(W * 2 * H * 4);
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
     const X = (i + 0.5) / PX - LARG / 2, Y = ALT / 2 - (j + 0.5) / PX, [al, dentro] = forma(X, Y), o = (j * W * 2 + i) * 4;
@@ -98,6 +108,6 @@ for (const [id, nome, forma] of ESTILOS) {
     px[o] = cor[0]; px[o + 1] = cor[1]; px[o + 2] = cor[2]; px[o + 3] = Math.round(Math.min(1, al) * 255);
     px[(j * W * 2 + W + i) * 4 + 3] = 255;   // (o tipo: nada de tinta do personagem)
   }
-  gravar(`${pasta}/humano-arquivo3-${id}.png`, { W: W * 2, H, bpp: 4, px });
+  gravar(`${pasta}/${CORPO}-${id}.png`, { W: W * 2, H, bpp: 4, px });
   console.log(id, nome);
 }
