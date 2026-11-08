@@ -4,14 +4,17 @@
 // (`pecas/modelos/`, `SOLTOS` no modelagempagina.js), de onde a "copiar malha ⧉" o cola na cabeça de um corpo. Depois de o dono o
 // pôr no lugar e salvar, o molde sai da colagem: `molde-da-colagem.mjs` (o caminho do Lobo preguiçoso).
 //
-//   node ferramentas/penteados/pedaco-do-glb.mjs <arquivo.glb> <nº do pedaço, da esquerda: 1, 2…> <saida.glb>
+//   node ferramentas/penteados/pedaco-do-glb.mjs <arquivo.glb> <nº do pedaço, da esquerda: 1, 2…> <saida.glb> [--vista]
 //
 // Os pedaços são os do molde-do-glb.mjs (os pontos repetidos soldados; da esquerda para a direita). O pedaço sai como veio (sem
 // girar nem mudar de tamanho), só centrado em x e z; só a posição e os triângulos (a aba calcula as normais).
+// `--vista` (08/11/2026, o "Platinum Winds Ponytail": as mechas soltas, 10 e 54 pedaços, e a cabeça junto): o nº é o da VISTA — os
+// pedaços juntados pela faixa de x (o Meshy põe frente, costas e perfil lado a lado), todos, até as mechas pequenas.
 import fs from 'node:fs';
 
-const [GLB, PEDACO, SAIDA] = process.argv.slice(2);
-if (!GLB || !(Number(PEDACO) >= 1) || !SAIDA?.endsWith('.glb')) { console.error('uso: node pedaco-do-glb.mjs <arquivo.glb> <nº do pedaço> <saida.glb>'); process.exit(1); }
+const VISTA = process.argv.includes('--vista');
+const [GLB, PEDACO, SAIDA] = process.argv.slice(2).filter((a) => a !== '--vista');
+if (!GLB || !(Number(PEDACO) >= 1) || !SAIDA?.endsWith('.glb')) { console.error('uso: node pedaco-do-glb.mjs <arquivo.glb> <nº do pedaço> <saida.glb> [--vista]'); process.exit(1); }
 
 const b = fs.readFileSync(GLB), jl = b.readUInt32LE(12), j = JSON.parse(b.subarray(20, 20 + jl).toString()), bin = b.subarray(20 + jl + 8);
 const acc = (i) => {
@@ -28,9 +31,16 @@ for (let v = 0; v < n; v++) { const k = [0, 1, 2].map((e) => Math.round(P[v * 3 
 for (let t = 0; t < I.length; t += 3) { const a = raiz(I[t]); par[raiz(I[t + 1])] = a; par[raiz(I[t + 2])] = a; }
 const grupos = new Map();
 for (let t = 0; t < I.length; t += 3) { const r = raiz(I[t]); if (!grupos.has(r)) grupos.set(r, []); grupos.get(r).push(t); }
-const pedacos = [...grupos.values()].filter((l) => l.length > 30).map((l) => ({ l, x: Math.min(...l.map((t) => P[I[t] * 3])) })).sort((a, c) => a.x - c.x);
+let pedacos = [...grupos.values()].filter((l) => VISTA || l.length > 30).map((l) => ({ l, x: Math.min(...l.flatMap((t) => [0, 1, 2].map((k) => P[I[t + k] * 3]))), x1: Math.max(...l.flatMap((t) => [0, 1, 2].map((k) => P[I[t + k] * 3]))) })).sort((a, c) => a.x - c.x);
+// (as VISTAS: os pedaços cuja faixa de x encosta na da vista que está crescendo — um vão de 1% da largura toda separa)
+if (VISTA) {
+  const folga = (Math.max(...pedacos.map((p) => p.x1)) - pedacos[0].x) * 0.01, vistas = [];
+  for (const p of pedacos) { const v = vistas.at(-1); if (v && p.x <= v.x1 + folga) { v.l.push(...p.l); v.x1 = Math.max(v.x1, p.x1); v.n++; } else vistas.push({ l: [...p.l], x: p.x, x1: p.x1, n: 1 }); }
+  console.log(`[pedaço] ${vistas.length} vista(s): ${vistas.map((v) => `${v.n} pedaço(s), x ${v.x.toFixed(3)} a ${v.x1.toFixed(3)}`).join(' · ')}`);
+  pedacos = vistas;
+}
 const escolhido = pedacos[Number(PEDACO) - 1];
-if (!escolhido) { console.error(`[pedaço] o .glb tem ${pedacos.length} pedaço(s)`); process.exit(1); }
+if (!escolhido) { console.error(`[pedaço] o .glb tem ${pedacos.length} ${VISTA ? 'vista' : 'pedaço'}(s)`); process.exit(1); }
 
 const novoDe = new Map(), pts = [], idx = [];
 for (const t of escolhido.l) {
@@ -59,4 +69,4 @@ const cab = Buffer.alloc(12), cj = Buffer.alloc(8), cb = Buffer.alloc(8);
 cab.writeUInt32LE(0x46546c67, 0); cab.writeUInt32LE(2, 4); cab.writeUInt32LE(12 + 8 + js.length + 8 + dados.length, 8);
 cj.writeUInt32LE(js.length, 0); cj.writeUInt32LE(0x4e4f534a, 4); cb.writeUInt32LE(dados.length, 0); cb.writeUInt32LE(0x004e4942, 4);
 fs.writeFileSync(SAIDA, Buffer.concat([cab, cj, js, cb, dados]));
-console.log(`[pedaço] ${SAIDA}: o pedaço ${PEDACO} de ${pedacos.length}, ${ind.length / 3} triângulos, ${pos.length / 3} pontos; ${((pmax[1] - pmin[1]) * 100).toFixed(1)} de altura × ${((pmax[0] - pmin[0]) * 100).toFixed(1)} de largura (em cm, na aba)`);
+console.log(`[pedaço] ${SAIDA}: ${VISTA ? 'a vista' : 'o pedaço'} ${PEDACO} de ${pedacos.length}, ${ind.length / 3} triângulos, ${pos.length / 3} pontos; ${((pmax[1] - pmin[1]) * 100).toFixed(1)} de altura × ${((pmax[0] - pmin[0]) * 100).toFixed(1)} de largura (em cm, na aba)`);
