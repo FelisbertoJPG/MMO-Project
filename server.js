@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { atenderLan, iniciarDescoberta } from './rede-local.mjs';
-import { criarMundo } from './servidor-mundo.mjs';
+import { criarMundo, gravarJson } from './servidor-mundo.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT) || 5173;
@@ -42,14 +42,9 @@ function progresso(req, res) {
     req.setEncoding('utf8');
     req.on('data', (c) => { body += c; if (body.length > 1e6) req.destroy(); });
     req.on('end', () => {
-      try { JSON.parse(body); } catch { return json(400, { erro: 'JSON inválido' }); }
-      // Grava num temporário e renomeia: um desligamento no meio não corrompe o save
-      fs.mkdirSync(saveDir, { recursive: true });
-      const tmp = saveFile + '.tmp';
-      fs.writeFile(tmp, body, (err) => {
-        if (err) return json(500, { erro: err.message });
-        fs.rename(tmp, saveFile, (err2) => err2 ? json(500, { erro: err2.message }) : json(200, { ok: true }));
-      });
+      let dados;
+      try { dados = JSON.parse(body); } catch { return json(400, { erro: 'JSON inválido' }); }
+      gravarJson(saveFile, dados, (err) => err ? json(500, { erro: err.message }) : json(200, { ok: true }));
     });
     return;
   }
