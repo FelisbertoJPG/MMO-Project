@@ -9,6 +9,6 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node testes/mundo.test.mjs"
+    "test": "node testes/mundo.test.mjs && node testes/sessao.test.mjs"
   }
 }
