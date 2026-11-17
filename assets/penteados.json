@@ -4,46 +4,25 @@
     "loboPreguicoso": {
       "nome": "Lobo preguiçoso",
       "formas": [
-        [
-          "molde",
-          {
-            "molde": 0
-          }
-        ]
+        ["molde", {"molde":0}]
       ]
     },
     "desgrenhado": {
       "nome": "Desgrenhado",
       "formas": [
-        [
-          "molde",
-          {
-            "molde": 1
-          }
-        ]
+        ["molde", {"molde":1,"z":3,"altura":1.01}]
       ]
     },
     "preguicoso": {
       "nome": "Preguiçoso",
       "formas": [
-        [
-          "molde",
-          {
-            "molde": 2,
-            "escala": 0.85
-          }
-        ]
+        ["molde", {"molde":2,"escala":0.85}]
       ]
     },
     "longoComFranja": {
       "nome": "Longo com Franja",
       "formas": [
-        [
-          "molde",
-          {
-            "molde": 3
-          }
-        ]
+        ["molde", {"molde":3}]
       ]
     }
   }

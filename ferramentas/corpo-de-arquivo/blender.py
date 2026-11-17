@@ -13,6 +13,8 @@
 #       a SIMETRIA (simetria.mjs): { pos, idx, lado } — o lado copiado no outro pelo x = 0 (1 = o +x), buracos fechados; grava o .glb com as normais
 #   blender --background --factory-startup --python blender.py -- uniao <entrada.json> <saida.json>
 #       a UNIÃO de duas malhas (fundir-uniao.mjs): { a: { pos, idx }, b: { pos, idx } } — os furinhos de b fechados e o booleano exato; fica o lado de fora das duas; grava { pos, idx }
+#   blender --background --factory-startup --python blender.py -- reduzirmalha <entrada.json> <saida.json> <triângulos>
+#       uma malha solta { pos, idx } (cm) soldada e reduzida até <triângulos> (o reduzir-malha.mjs, os modelos soltos do editor)
 import bpy, sys, json, math
 
 args = sys.argv[sys.argv.index('--') + 1:]
@@ -289,3 +291,29 @@ elif modo == 'uniao':
         o = malha('extra%d' % n, x, True).data; base = len(pos) // 3
         pos += [c for v in o.vertices for c in v.co]; idx += [i + base for p in o.polygons for i in p.vertices]
     json.dump({ 'pos': pos, 'idx': idx }, open(args[2], 'w', encoding='utf-8'))
+
+elif modo == 'reduzirmalha':
+    # A MALHA SOLTA REDUZIDA (08/11/2026; ferramentas/penteados/reduzir-malha.mjs — o "reduzir" da aba Modelo do editor, num modelo
+    # solto como o busto de cabelo): { pos, idx } (cm, y para cima) → solda os pontos repetidos e reduz até `alvo` triângulos (o colapso
+    # de arestas, que guarda o formato); grava { pos, idx } no mesmo espaço
+    d = json.load(open(args[1], encoding='utf-8')); alvo = int(args[3])
+    P, I = d['pos'], d['idx']
+    me = bpy.data.meshes.new('solto')
+    me.from_pydata([paraB(P[i:i + 3]) for i in range(0, len(P), 3)], [], [I[i:i + 3] for i in range(0, len(I), 3)])
+    me.update()
+    obj = bpy.data.objects.new('solto', me); bpy.context.scene.collection.objects.link(obj)
+    bpy.context.view_layer.objects.active = obj; obj.select_set(True)
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles(threshold=0.001)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    antes = triangulos(obj)
+    if antes > alvo:
+        c = obj.modifiers.new('junta', 'DECIMATE'); c.decimate_type = 'COLLAPSE'; c.ratio = alvo / antes; c.use_collapse_triangulate = True
+        bpy.ops.object.modifier_apply(modifier='junta')
+    t = obj.modifiers.new('tri', 'TRIANGULATE'); bpy.ops.object.modifier_apply(modifier='tri')
+    pos = []
+    for v in obj.data.vertices: pos += [round(x, 4) for x in deB(v.co)]
+    idx = []
+    for p in obj.data.polygons: idx += list(p.vertices)
+    json.dump({'pos': pos, 'idx': idx}, open(args[2], 'w', encoding='utf-8'))
+    print('[corpo] reduzirmalha: %d -> %d triângulos' % (antes, triangulos(obj)))

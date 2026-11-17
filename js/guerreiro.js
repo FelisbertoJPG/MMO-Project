@@ -30,9 +30,9 @@ import { pecasDaCasca, desenhoDe } from './casca.js';
 import { Gear } from './gear.js';
 import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS, naPele, corDaPele } from './aparencia.js';
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino, corpoDeArquivo } from './raca.js';
-import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado, PeleEmVolta } from './penteado.js';
+import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado, PeleEmVolta, aplicarMalhaDoCabelo, formasDoPenteado, malhaDoPenteado } from './penteado.js';
 import { triangulosDe, pesos } from './ima.js';
-import { ORIGENS, origemDaPeca, edicoesDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
+import { ORIGENS, origemDaPeca, edicoesDoCorpo, chaveDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO, folhasAtivas, olhoDoCorpo, ordemDaFolha } from './pintura.js';
 import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
@@ -394,7 +394,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // (o COURO CABELUDO debaixo do cabelo de MOLDE some — `esconderCouroCabeludo`, depois das edições: onde cai o cabelo e onde cai a pele
   // da cabeça, o corpo de arquivo ou a peça `head`. Também na aba Modelo do editor — 08/11/2026, o dono marcou lá os triângulos que
   // "passam pelo cabelo", e no jogo eles já sumiam: o editor mostra o que o jogo mostra; para mexer na cabeça, "sem cabelo")
-  const cobreCabeca = cabelo && PENTEADOS[penteado?.id]?.formas?.some((f) => f[0] === 'molde') ? {
+  const cobreCabeca = cabelo && formasDoPenteado(penteado?.id, penteado?.chave)?.some((f) => f[0] === 'molde') ? {
     cabelo: cabelo.userData.partes.cabelo.map((v) => doCorpo + v),
     peles: fixa ? [[doCorpo - fixa, doCorpo]] : (() => { const l = []; let de = 0; lista.forEach((g, i) => { const n = g.attributes.position.count; if (/^head(_tingido)?$/.test(pecas[i].name)) l.push([de, de + n]); de += n; }); return l; })(),
   } : null;
@@ -467,6 +467,10 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     // (os triângulos CRIADOS entram no fim: outra geometria, com o ctx crescido junto)
     geo = acrescentarTriangulos(geo, comModelo);
   }
+  // (A MALHA DO CABELO editada no PINCEL da aba Cabelo — a `malha` do penteado, 09/11/2026: só nos pontos do cabelo, depois das edições do
+  // corpo, antes do couro cabeludo sumir debaixo dele; o corpo não muda)
+  const malhaDoCabelo = malhaDoPenteado(penteado?.id, penteado?.chave);
+  if (geo && malhaDoCabelo && formasDoCabelo && !geo.index) aplicarMalhaDoCabelo(geo, malhaDoCabelo, formasDoCabelo, ordem);
   // (o couro cabeludo debaixo do cabelo de molde, no corpo como ficou — o transplante e os criados entram no FIM: as faixas valem)
   if (geo && cobreCabeca && !geo.index && cobreCabeca.cabelo[1] > cobreCabeca.cabelo[0]) esconderCouroCabeludo(geo, cobreCabeca.peles, cobreCabeca.cabelo, fixa ? comModelo : null);   // (a lista no ctx só no corpo de arquivo: no do guerreiro com busto, a PELE NOVA, abaixo, tira peças do meio e os números andam)
   // OS PLANOS DO ROSTO (acima), no rosto como ficou — antes das folhas, que tomam a luz da pele de baixo
@@ -852,7 +856,7 @@ export class CorpoGuerreiro {
     const peca = (nome) => this.pecas.find((o) => o.name === nome);
     // (no corpo de arquivo, só o cabelo — os penteados da lista dele —, e o Original é a cor do cabelo do modelo)
     const penteado = PENTEADOS[cabelo]?.formas || BARBAS[barba]?.formas || SOBRANCELHAS[sobrancelha]?.formas ? {
-      id: cabelo, barba, sobrancelha, cor: CABELOS[ap.cor][1] ?? (arq ? arq.jogo?.cores?.cabelo : null), elmo, pecaDaBarba: peca('Beard'), pecaDaSobrancelha: peca('Eye_Brows'), pecaDoRosto: peca('Face'), pecaDaCabeca: peca('head'),
+      id: cabelo, chave: chaveDoCorpo(ap.raca, ap.sexo), barba, sobrancelha, cor: CABELOS[ap.cor][1] ?? (arq ? arq.jogo?.cores?.cabelo : null), elmo, pecaDaBarba: peca('Beard'), pecaDaSobrancelha: peca('Eye_Brows'), pecaDoRosto: peca('Face'), pecaDaCabeca: peca('head'),
       apoio: usadas.filter((o) => APOIO.test(o.name) || (ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'peito') || (doPeito && o.name.startsWith(`casca_${doPeito.id}_`))),
     } : null;
     // a peça do CORPO DE ARQUIVO entra por ÚLTIMO (a fundida a deixa fora das proporções da raça)

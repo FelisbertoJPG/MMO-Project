@@ -67,8 +67,19 @@ import { triangulosDe, raio, raioDe, grudar, lugar, normalLisa, pesos, misturar 
 // no FIM. Lidos pelo assets.js `carregarPenteados` (o jogo e as abas do editor).
 export const MOLDES = ['lobo-preguicoso', 'desgrenhado', 'preguicoso', 'longo-com-franja'];   // (06/11/2026: o 1º e o 3º do .glb Golden Shaggy Hair — ferramentas/penteados/molde-do-glb.mjs; 08/11/2026: o "Longo com Franja", o 1º do Midnight Raven Hair, só dos corpos femininos)
 export const MOLDES_LIDOS = new Map();
+// OS MOLDES DO ARQUIVO (08/11/2026; o dono: "ponha ele automático na lista de cabelo quando eu exportar pro modelo e salvar"):
+// `assets/penteados/moldes.json` — { moldes: [{ molde, id, nome }] }, escrito pelo ferramentas/penteados/penteado-da-colagem.mjs (a
+// aba Modelo do editor o chama ao virar uma colagem em penteado). O assets.js põe cada `molde` no FIM de `MOLDES` (na ordem do
+// arquivo: a ordem é o número da forma) e a entrada aqui; `usarPenteados` cria o penteado `id` ("nome", a forma `molde`) — o do
+// penteados.json de mesmo id, se a aba Cabelo o ajustar, vale por cima.
+export const PENTEADOS_DE_MOLDE = [];
 // (o cabelo de molde já expelido da pele, por molde, cabeça e réguas — a forma `molde`; os últimos 40)
 const EXPELIDOS = new Map();
+/** Esquece o molde `nome` (lido e já expelido): a próxima leitura o busca de novo — a aba Cabelo do editor, depois de gravar a malha dele (09/11/2026). */
+export function esquecerMolde(nome) {
+  MOLDES_LIDOS.delete(nome);
+  for (const k of [...EXPELIDOS.keys()]) if (k.startsWith(`${nome}|`)) EXPELIDOS.delete(k);
+}
 /**
  * A PELE EM VOLTA DA CABEÇA (06/11/2026, a forma `molde`): os triângulos dela (`tris`: os do ímã, no lugar final) numa grade, para
  * achar depressa a pele mais perto de um ponto, com o lado de fora (a normal da face). `expelir(pos, idx, folga)`: o que está DENTRO
@@ -420,7 +431,7 @@ export const MEDIDAS = {
     ['altura', 'altura', 1, 0.5, 1.6, 0.01], ['fundo', 'fundo', 1, 0.5, 1.6, 0.01], ['x', 'para o lado (cm)', 0, -10, 10, 0.1], ['y', 'para cima (cm)', 0, -10, 10, 0.1],
     ['z', 'para a frente (cm)', 0, -10, 10, 0.1], ['giro', 'giro (graus)', 0, -45, 45, 0.5], ['inclina', 'inclinação (graus, + para trás)', 0, -45, 45, 0.5],
     ['tomBaixo', 'tom embaixo', 0.8, 0.3, 1.5, 0.01], ['tomCima', 'tom em cima', 1.08, 0.3, 1.5, 0.01]],
-  molde: [['molde', 'qual molde (nº em MOLDES)', 0, 0, 9, 1], ['escala', 'tamanho', 1, 0.5, 1.6, 0.01], ['largura', 'largura', 1, 0.5, 1.6, 0.01],
+  molde: [['molde', 'qual molde (nº em MOLDES)', 0, 0, 99, 1], ['escala', 'tamanho', 1, 0.5, 1.6, 0.01], ['largura', 'largura', 1, 0.5, 1.6, 0.01],
     ['altura', 'altura', 1, 0.5, 1.6, 0.01], ['fundo', 'fundo', 1, 0.5, 1.6, 0.01], ['x', 'para o lado (cm)', 0, -10, 10, 0.1], ['y', 'para cima (cm)', 0, -10, 10, 0.1],
     ['z', 'para a frente (cm)', 0, -10, 10, 0.1], ['giro', 'giro (graus)', 0, -45, 45, 0.5], ['inclina', 'inclinação (graus, + para trás)', 0, -45, 45, 0.5],
     ['folga', 'longe da pele (cm)', 0.4, 0, 3, 0.05], ['tomBaixo', 'tom embaixo', 0.8, 0.3, 1.5, 0.01], ['tomCima', 'tom em cima', 1.08, 0.3, 1.5, 0.01]],
@@ -432,7 +443,28 @@ export const formaNova = (forma) => [forma, Object.fromEntries((MEDIDAS[forma] ?
 const medidaBoa = (v, fundo = 0) => (typeof v === 'number' ? Number.isFinite(v) : typeof v === 'boolean' || (Array.isArray(v) && fundo < 2 && v.length <= 200 && v.every((x) => medidaBoa(x, fundo + 1))));
 /** Um penteado do arquivo está em ordem? (o id só de letras, como nas listas das raças; as formas, as do cabelo) */
 export const penteadoValido = (id, p) => /^[A-Za-z]{1,30}$/.test(id) && !!p && typeof p.nome === 'string' && p.nome.length <= 40 && Array.isArray(p.formas) && p.formas.length <= 80
-  && p.formas.every((f) => Array.isArray(f) && f.length === 2 && f[0] in MEDIDAS && f[1] && typeof f[1] === 'object' && !Array.isArray(f[1]) && Object.entries(f[1]).every(([k, v]) => /^\w{1,30}$/.test(k) && medidaBoa(v)));
+  && p.formas.every((f) => Array.isArray(f) && f.length === 2 && f[0] in MEDIDAS && f[1] && typeof f[1] === 'object' && !Array.isArray(f[1]) && Object.entries(f[1]).every(([k, v]) => /^\w{1,30}$/.test(k) && medidaBoa(v)))
+  && (p.malha === undefined || malhaValida(p.malha));
+/** A `malha` de um penteado (as edições do PINCEL da aba Cabelo — `aplicarMalhaDoCabelo`) bem formada. */
+const num3 = (v, lim) => Array.isArray(v) && v.length === 3 && v.every((x) => Number.isFinite(x) && Math.abs(x) <= lim);
+export const malhaValida = (m) => !!m && typeof m === 'object' && !Array.isArray(m) && Object.keys(m).every((k) => k === 'puxoes' || k === 'cortes')
+  && (m.puxoes === undefined || (Array.isArray(m.puxoes) && m.puxoes.length <= 4000 && m.puxoes.every((x) => !!x && num3(x.em, 50) && Number.isFinite(x.raio) && x.raio > 0 && x.raio <= 20
+    && (x.inflar === undefined ? num3(x.mover, 50) : Number.isFinite(x.inflar) && Math.abs(x.inflar) <= 20 && x.mover === undefined) && (x.espelho === undefined || typeof x.espelho === 'boolean'))))
+  && (m.cortes === undefined || (Array.isArray(m.cortes) && m.cortes.length <= 40000 && m.cortes.every((c) => !!c && Number.isInteger(c.forma) && c.forma >= 0 && c.forma < 80 && Number.isInteger(c.t) && c.t >= 0 && c.t < 1e6)));
+/**
+ * A VERSÃO DE CADA CORPO (17/11/2026; o dono: "o Masculino tem o 'desgrenhado' dele enquanto o feminino tem a versão dela à parte"):
+ * `corpos: { <chave do corpo — modelagem.js chaveDoCorpo>: { formas, malha? } }` no penteado do arquivo. O corpo que tem versão usa a
+ * dele (tamanho, posição, proporção e o MOLDE — o formato: um molde próprio, no fim de MOLDES); o que não tem, a base. Entrada torta sai.
+ */
+const CHAVE_DO_CORPO = /^[a-z0-9_-]{1,40}(:feminino|:arquivo\d?)?$/;
+export const corposValidos = (cs) => (cs && typeof cs === 'object' && !Array.isArray(cs)
+  ? Object.fromEntries(Object.entries(cs).filter(([k, v]) => CHAVE_DO_CORPO.test(k) && v && typeof v === 'object' && penteadoValido('versao', { nome: 'versao', ...v })).slice(0, 40)
+    .map(([k, v]) => [k, { formas: JSON.parse(JSON.stringify(v.formas)), ...(v.malha ? { malha: JSON.parse(JSON.stringify(v.malha)) } : {}) }]))
+  : {});
+/** As formas do penteado `id` no corpo `chave` (a versão dele, ou a base). */
+export const formasDoPenteado = (id, chave = null) => (chave && PENTEADOS[id]?.corpos?.[chave]?.formas) || PENTEADOS[id]?.formas;
+/** A `malha` (o pincel antigo da aba Cabelo) do penteado no corpo: a da versão dele, ou a da base. */
+export const malhaDoPenteado = (id, chave = null) => (chave && PENTEADOS[id]?.corpos?.[chave] ? PENTEADOS[id].corpos[chave].malha : PENTEADOS[id]?.malha);
 /** Os penteados como o CÓDIGO os desenha (a aba Cabelo compara com eles: "voltar ao do código"). */
 export const PENTEADOS_DO_CODIGO = JSON.parse(JSON.stringify(PENTEADOS));
 /**
@@ -443,9 +475,13 @@ export const PENTEADOS_DO_CODIGO = JSON.parse(JSON.stringify(PENTEADOS));
 export function usarPenteados(dados) {
   for (const id of Object.keys(PENTEADOS)) delete PENTEADOS[id];
   Object.assign(PENTEADOS, JSON.parse(JSON.stringify(PENTEADOS_DO_CODIGO)));
+  for (const { molde, id, nome } of PENTEADOS_DE_MOLDE) if (id && !PENTEADOS[id] && MOLDES.includes(molde)) PENTEADOS[id] = { nome, formas: [['molde', { molde: MOLDES.indexOf(molde) }]] };
   const tortos = [];
   for (const [id, p] of Object.entries(dados?.penteados ?? {})) {
-    if (penteadoValido(id, p)) PENTEADOS[id] = { nome: p.nome, formas: JSON.parse(JSON.stringify(p.formas)) };
+    if (penteadoValido(id, p)) {
+      const corpos = corposValidos(p.corpos);
+      PENTEADOS[id] = { nome: p.nome, formas: JSON.parse(JSON.stringify(p.formas)), ...(p.malha ? { malha: JSON.parse(JSON.stringify(p.malha)) } : {}), ...(Object.keys(corpos).length ? { corpos } : {}) };
+    }
     else tortos.push(id);
   }
   if (tortos.length) console.warn('[penteados] ignorei os do arquivo que vieram tortos:', tortos.join(', '));
@@ -1221,8 +1257,8 @@ const FRENTE = new THREE.Vector3(0, 0, 1), TRAS = new THREE.Vector3(0, 0, -1);
  *  - `modelo`: uma geometria já pronta da malha fundida (os atributos saem do mesmo tipo:
  *    o `mergeGeometries` recusa tipos diferentes); `mapa`: a textura do corpo.
  */
-export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, pecaDaBarba, pecaDaSobrancelha, pecaDoRosto, pecaDaCabeca, corpo, ordem, deformador, escala, rosto, largo, modelo, mapa }) {
-  const formas = [...(PENTEADOS[id]?.formas ?? []), ...(BARBAS[barba]?.formas ?? []), ...(SOBRANCELHAS[sobrancelha]?.formas ?? [])];
+export function geometriaDoPenteado({ id, chave, barba, sobrancelha, cor, elmo, apoio, pecaDaBarba, pecaDaSobrancelha, pecaDoRosto, pecaDaCabeca, corpo, ordem, deformador, escala, rosto, largo, modelo, mapa }) {
+  const formas = [...(formasDoPenteado(id, chave) ?? []), ...(BARBAS[barba]?.formas ?? []), ...(SOBRANCELHAS[sobrancelha]?.formas ?? [])];
   if (!formas.length) return null;
   const base = new THREE.Color(cor ?? COR_PADRAO), cabeca = Math.max(0, ordem.indexOf('Head'));
   let tris = null, daBarba = null, daSobrancelha = null, pele = null, cranio = null, quinas = null, daCabeca;
@@ -1335,9 +1371,67 @@ export function geometriaDoPenteado({ id, barba, sobrancelha, cor, elmo, apoio, 
   g.setAttribute('skinIndex', si); g.setAttribute('skinWeight', sw);
   g.computeVertexNormals();   // sem índice: normal por face
   // o que é o cabelo, a barba e as sobrancelhas (os vértices de cada um, [de, até]: a modelagem os edita à parte)
-  const ate = (k) => (k > 0 ? fim[k - 1] : 0), nc = PENTEADOS[id]?.formas?.length ?? 0, nb = nc + (BARBAS[barba]?.formas?.length ?? 0);
+  const ate = (k) => (k > 0 ? fim[k - 1] : 0), nc = formasDoPenteado(id, chave)?.length ?? 0, nb = nc + (BARBAS[barba]?.formas?.length ?? 0);
   g.userData.partes = { cabelo: [0, ate(nc)], barba: [ate(nc), ate(nb)], sobrancelhas: [ate(nb), n] };
   // … e cada FORMA do cabelo, [de, até] (a aba Cabelo do editor acende a escolhida e acha a que foi clicada)
   g.userData.formas = Array.from({ length: nc }, (_, i) => [ate(i), fim[i]]);
   return g;
+}
+
+/**
+ * A MALHA DO CABELO EDITADA (09/11/2026; o PINCEL da aba Cabelo do editor — o dono: "as ferramentas que tem no modelo, porém na aba de
+ * cabelos, exclusivas nela pro cabelo… mexer no cabelo não influencia o corpo do player"): a `malha` do penteado aplicada SÓ nos pontos do
+ * cabelo da malha fundida (`faixas`: [início, fim) de cada forma), depois das edições do corpo — o corpo não muda. Os lugares e os raios
+ * estão no CRÂNIO de quem veste (`cranioDaMalha`: x / l, (y − topo) / l, (z − meio) / l — o 1 é a meia largura dele): o mesmo penteado vale
+ * em outro corpo. puxoes: { em, raio, mover | inflar, espelho }, na ordem, como os da aba Modelo ((1 − d²/r²)², do lado do centro);
+ * cortes: { forma, t } — o triângulo t da forma vira um ponto (o mesmo nº em qualquer corpo: a forma tem os mesmos triângulos).
+ */
+export function cranioDaMalha(geo, faixas, ordem) {
+  const P = geo.attributes.position?.array, si = geo.attributes.skinIndex?.array, sw = geo.attributes.skinWeight?.array, cabeca = ordem?.indexOf('Head') ?? -1;
+  if (!P || !si || !sw || cabeca < 0) return null;
+  const n = P.length / 3, ehCabelo = new Uint8Array(n), pts = [];
+  for (const [a, b] of faixas ?? []) ehCabelo.fill(1, a, Math.min(b, n));
+  for (let v = 0; v < n; v++) {
+    if (ehCabelo[v]) continue;
+    let w = 0;
+    for (let j = 0; j < 4; j++) if (si[v * 4 + j] === cabeca) w += sw[v * 4 + j];
+    if (w >= 0.5) pts.push([P[v * 3], P[v * 3 + 1], P[v * 3 + 2]]);
+  }
+  return medirCranio(pts);
+}
+export function aplicarMalhaDoCabelo(geo, malha, faixas, ordem, cranio = cranioDaMalha(geo, faixas, ordem)) {
+  if (!malha || !faixas?.length || !cranio || geo.index) return null;
+  const P = geo.attributes.position.array, l = cranio.l, n = P.length / 3;
+  const noCorpo = (v) => [v[0] * l, cranio.topo + v[1] * l, cranio.z + v[2] * l];
+  for (const x of malha.puxoes ?? []) {
+    const c = noCorpo(x.em), r2 = (x.raio * l) ** 2, ce = x.espelho && Math.abs(c[0]) > 0.05 ? [-c[0], c[1], c[2]] : null;
+    const doOutro = (i) => !!ce && P[i * 3] * c[0] < 0;
+    const peso = (i) => {
+      const C = doOutro(i) ? ce : c, q = ((P[i * 3] - C[0]) ** 2 + (P[i * 3 + 1] - C[1]) ** 2 + (P[i * 3 + 2] - C[2]) ** 2) / r2;
+      return q < 1 ? (1 - q) ** 2 : 0;
+    };
+    if (x.inflar === undefined) {
+      const d = x.mover.map((v) => v * l), novo = [];
+      for (const [a, b] of faixas) for (let i = a; i < Math.min(b, n); i++) { const f = peso(i); if (f) novo.push([i, d[0] * (doOutro(i) ? -1 : 1) * f, d[1] * f, d[2] * f]); }
+      for (const [i, dx, dy, dz] of novo) { P[i * 3] += dx; P[i * 3 + 1] += dy; P[i * 3 + 2] += dz; }
+      continue;
+    }
+    // (inflar: pela normal LISA do lugar — a média das faces de quem está no mesmo ponto —, para a malha não abrir entre os triângulos)
+    const k = x.inflar * l, chave = (i) => `${Math.round(P[i * 3] * 500)},${Math.round(P[i * 3 + 1] * 500)},${Math.round(P[i * 3 + 2] * 500)}`, normais = new Map(), mexer = [];
+    for (const [a, b] of faixas) for (let t = a; t + 2 < Math.min(b, n); t += 3) {
+      if (!(peso(t) || peso(t + 1) || peso(t + 2))) continue;
+      const ux = P[t * 3 + 3] - P[t * 3], uy = P[t * 3 + 4] - P[t * 3 + 1], uz = P[t * 3 + 5] - P[t * 3 + 2], vx = P[t * 3 + 6] - P[t * 3], vy = P[t * 3 + 7] - P[t * 3 + 1], vz = P[t * 3 + 8] - P[t * 3 + 2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      for (let j = 0; j < 3; j++) { const kk = chave(t + j), m = normais.get(kk) ?? [0, 0, 0]; m[0] += nx; m[1] += ny; m[2] += nz; normais.set(kk, m); mexer.push(t + j); }
+    }
+    const novo = mexer.map((i) => { const m = normais.get(chave(i)), h = Math.hypot(...m) || 1, f = peso(i) * k; return [i, (m[0] / h) * f, (m[1] / h) * f, (m[2] / h) * f]; });
+    for (const [i, dx, dy, dz] of novo) { P[i * 3] += dx; P[i * 3 + 1] += dy; P[i * 3 + 2] += dz; }
+  }
+  for (const c of malha.cortes ?? []) {
+    const fx = faixas[c.forma], v = fx ? fx[0] + c.t * 3 : -1;
+    if (!fx || v + 2 >= Math.min(fx[1], n)) continue;
+    for (let e = 0; e < 3; e++) { const m = (P[v * 3 + e] + P[v * 3 + 3 + e] + P[v * 3 + 6 + e]) / 3; P[v * 3 + e] = P[v * 3 + 3 + e] = P[v * 3 + 6 + e] = m; }
+  }
+  geo.attributes.position.needsUpdate = true;
+  return cranio;
 }

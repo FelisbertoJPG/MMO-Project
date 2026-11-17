@@ -5,7 +5,7 @@ import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { categoriaDaPeca } from './categorias.js';
 import { carregarPinturas } from './pintura.js';
-import { usarPenteados, MOLDES, MOLDES_LIDOS } from './penteado.js';
+import { usarPenteados, MOLDES, MOLDES_LIDOS, PENTEADOS_DE_MOLDE } from './penteado.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
 // a gaveta dele. Um .glb em assets/dungeon/ que NÃO esteja aqui existe no disco
@@ -212,6 +212,7 @@ export async function carregarEmpunhadura() {
 /** A MODELAGEM (assets/modelagem.json, modelagem.js): { corpos: { <chave do corpo>: as edições da malha dele } } ({ corpos: {} } sem o arquivo). */
 /** Os PENTEADOS DO ARQUIVO (assets/penteados.json, gravado pela aba Cabelo do editor; penteado.js `usarPenteados`): { penteados: {} } sem ele. */
 export async function carregarPenteados() {
+  await lerMoldesDoArquivo();
   await carregarMoldes();
   try {
     const r = await fetch('assets/penteados.json', { cache: 'no-store' });
@@ -219,6 +220,22 @@ export async function carregarPenteados() {
     const j = await r.json();
     return { penteados: j?.penteados && typeof j.penteados === 'object' && !Array.isArray(j.penteados) ? j.penteados : {} };
   } catch { return { penteados: {} }; }
+}
+// OS MOLDES DO ARQUIVO (08/11/2026; penteado.js `PENTEADOS_DE_MOLDE`): `assets/penteados/moldes.json` — cada { molde, id, nome } vai para
+// o FIM de `MOLDES` (a ordem do arquivo é o número da forma: nunca reordenar) e o penteado dele nasce no `usarPenteados`. O torto fica de fora
+async function lerMoldesDoArquivo() {
+  try {
+    const r = await fetch('assets/penteados/moldes.json', { cache: 'no-store' });
+    if (!r.ok) return;
+    const l = (await r.json())?.moldes;
+    for (const m of Array.isArray(l) ? l : []) {
+      // (o molde da VERSÃO de um corpo — a aba Cabelo, 17/11/2026 — vem SEM id: só entra em MOLDES, não nasce penteado)
+      if (/^[a-z0-9-]{1,40}$/.test(m?.molde ?? '') && m.id === undefined) { if (!MOLDES.includes(m.molde)) MOLDES.push(m.molde); continue; }
+      if (!/^[a-z0-9-]{1,40}$/.test(m?.molde ?? '') || !/^[A-Za-z]{1,30}$/.test(m?.id ?? '') || typeof m.nome !== 'string' || !m.nome.trim() || m.nome.length > 40) { console.warn('[penteados] molde torto em moldes.json:', m); continue; }
+      if (!MOLDES.includes(m.molde)) MOLDES.push(m.molde);
+      if (!PENTEADOS_DE_MOLDE.some((x) => x.id === m.id)) PENTEADOS_DE_MOLDE.push({ molde: m.molde, id: m.id, nome: m.nome.trim() });
+    }
+  } catch { /* sem o arquivo: só os moldes do código */ }
 }
 // OS MOLDES dos penteados (penteado.js `MOLDES`, a forma `molde`; 06/11/2026, o "Lobo preguiçoso"): `assets/penteados/<nome>.json`,
 // lidos uma vez; o que falta ou vem torto fica de fora (o penteado dele não desenha nada)
