@@ -79,8 +79,10 @@ const EXPELIDOS = new Map();
  */
 const CEL = 2.5, ALCANCE = 6, VOLTAS = 8, PASSOS = 10, LEVA = 0.5, CAI = 0.9;
 // (o meio dos triângulos na testa: só os com um canto a menos de RENTE cm de pele virada para a FRENTE — normal z > PELE_DE_FRENTE, a
-// regra do guerreiro.js `CABELO_FRENTE`: a pele que não some debaixo do cabelo —, provados a cada ~AMOSTRA cm)
-const RENTE = 2.5, AMOSTRA = 1, PELE_DE_FRENTE = 0.35;
+// regra do guerreiro.js `CABELO_FRENTE`: a pele que não some debaixo do cabelo —, provados a cada ~AMOSTRA cm. Só empurra pela TESTA: a
+// pele a menos de TESTA_LARGO cm do meio, de normal z > TESTA_Z, com a amostra no máximo TESTA_FUNDO cm dentro; cada ponto anda no
+// máximo TESTA_MAX cm, somadas as TESTA_VOLTAS)
+const RENTE = 2.5, AMOSTRA = 1, PELE_DE_FRENTE = 0.35, TESTA_LARGO = 5, TESTA_Z = 0.8, TESTA_FUNDO = 1.5, TESTA_MAX = 1, TESTA_VOLTAS = 4;
 
 // (até GRUDA cm da pele, o ponto do molde vai com os ossos DELA — a mecha na nuca, com o pescoço —; de 1 cm até lá, passa aos poucos para a cabeça)
 const GRUDA = 2.5;
@@ -169,31 +171,16 @@ export class PeleEmVolta {
     // entrava 0,2 a 0,8 cm na testa, na linha do meio. A testa fica, de propósito, debaixo da franja (guerreiro.js `esconderCouroCabeludo`:
     // a pele virada para a frente) — no resto do couro, que some, o furo não aparece. O triângulo rente à pele DE FRENTE é provado por
     // dentro, numa grade de ~AMOSTRA cm; a amostra dentro — ou a menos de `folga` — leva os três cantos PARA A FRENTE (+z), só o que
-    // falta. Pela normal da testa, que olha para cima, a franja SUBIA e descobria a testa)
+    // falta. Pela normal da testa, que olha para cima, a franja SUBIA e descobria a testa. Vem DEPOIS da expulsão, abaixo)
     const trisRentes = [];
     for (let t = 0; t + 2 < idx.length; t += 3) if (rente[idx[t]] || rente[idx[t + 1]] || rente[idx[t + 2]]) trisRentes.push(t);
-    const kz = new Float32Array(n);
+    const kz = new Float32Array(n), kzTot = new Float32Array(n);
     for (let volta = 0; volta < VOLTAS; volta++) {
       let algum = false;
       for (const i of vigiar) {
         const g = this.sinal(pos[i * 3] + d[i * 3], pos[i * 3 + 1] + d[i * 3 + 1], pos[i * 3 + 2] + d[i * 3 + 2]);
         if (g && g.s < folga) { const k = folga - g.s; d[i * 3] += g.nx * k; d[i * 3 + 1] += g.ny * k; d[i * 3 + 2] += g.nz * k; algum = true; }
       }
-      kz.fill(0);
-      for (const t of trisRentes) {
-        const a = idx[t], b = idx[t + 1], c = idx[t + 2], P = (v, e) => pos[v * 3 + e] + d[v * 3 + e];
-        const m = Math.min(6, Math.ceil(Math.max(...[[a, b], [b, c], [c, a]].map(([u, v]) => Math.hypot(P(u, 0) - P(v, 0), P(u, 1) - P(v, 1), P(u, 2) - P(v, 2)))) / AMOSTRA));
-        if (m < 2) continue;   // (o pequeno: os cantos bastam)
-        for (let i = 0; i <= m; i++) for (let j = 0; i + j <= m; j++) {
-          if ((i === 0 && j === 0) || i === m || j === m) continue;   // (os cantos já foram)
-          const wa = i / m, wb = j / m, wc = 1 - wa - wb;
-          const g = this.sinal(wa * P(a, 0) + wb * P(b, 0) + wc * P(c, 0), wa * P(a, 1) + wb * P(b, 1) + wc * P(c, 1), wa * P(a, 2) + wb * P(b, 2) + wc * P(c, 2));
-          if (!g || g.s >= folga || g.nz <= PELE_DE_FRENTE) continue;
-          const z = (folga - g.s) / g.nz;   // (andando em z, quanto falta para ficar a `folga` da pele)
-          for (const v of [a, b, c]) if (z > kz[v]) kz[v] = z;
-        }
-      }
-      for (let v = 0; v < n; v++) if (kz[v] > 0) { d[v * 3 + 2] += kz[v]; algum = true; }
       if (!algum) break;
       for (let p = 0; p < PASSOS; p++) {
         for (let i = 0; i < n; i++) {
@@ -208,6 +195,29 @@ export class PeleEmVolta {
         }
         [d, d2] = [d2, d];
       }
+    }
+    // (A TESTA, DEPOIS da expulsão e SEM o alisamento — 17/11/2026, o dono: o Desgrenhado ficou com "pedaços de franja distorcidos…
+    // tipo um topete". Dentro do laço, a prova da testa mantinha as VOLTAS rodando e o alisamento espalhava pelas mechas os empurrões
+    // grandes da nuca: 280 pontos andavam, até 9,8 cm, e a testa ainda furava 1,65 cm. Aqui, no Masculino jovem: 18 pontos, até 1 cm;
+    // a testa que fura, de 0,61 para 0,32 cm)
+    for (let volta = 0; volta < TESTA_VOLTAS; volta++) {
+      kz.fill(0);
+      for (const t of trisRentes) {
+        const a = idx[t], b = idx[t + 1], c = idx[t + 2], P = (v, e) => pos[v * 3 + e] + d[v * 3 + e];
+        const m = Math.min(6, Math.ceil(Math.max(...[[a, b], [b, c], [c, a]].map(([u, v]) => Math.hypot(P(u, 0) - P(v, 0), P(u, 1) - P(v, 1), P(u, 2) - P(v, 2)))) / AMOSTRA));
+        if (m < 2) continue;   // (o pequeno: os cantos bastam)
+        for (let i = 0; i <= m; i++) for (let j = 0; i + j <= m; j++) {
+          if ((i === 0 && j === 0) || i === m || j === m) continue;   // (os cantos já foram)
+          const wa = i / m, wb = j / m, wc = 1 - wa - wb;
+          const g = this.sinal(wa * P(a, 0) + wb * P(b, 0) + wc * P(c, 0), wa * P(a, 1) + wb * P(b, 1) + wc * P(c, 1), wa * P(a, 2) + wb * P(b, 2) + wc * P(c, 2));
+          if (!g || g.s >= folga || g.s < -TESTA_FUNDO || g.nz <= TESTA_Z || Math.abs(g.qx) > TESTA_LARGO) continue;
+          const z = (folga - g.s) / g.nz;   // (andando em z, quanto falta para ficar a `folga` da pele)
+          for (const v of [a, b, c]) if (z > kz[v]) kz[v] = z;
+        }
+      }
+      let algum = false;
+      for (let v = 0; v < n; v++) if (kz[v] > 0 && kzTot[v] < TESTA_MAX) { const k = Math.min(kz[v], TESTA_MAX - kzTot[v]); kzTot[v] += k; d[v * 3 + 2] += k; algum = true; }
+      if (!algum) break;
     }
     for (let i = 0; i < pos.length; i++) pos[i] += d[i];
     return pos;
