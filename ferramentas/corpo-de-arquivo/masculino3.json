@@ -37,7 +37,8 @@
       "preguicoso",
       "raboDeCavalo",
       "preguicosoB",
-      "preguicosoC"
+      "preguicosoC",
+      "curtoPreguicoso"
     ],
     "proporcoes": { "altura": 0.98, "ombros": 1.05, "peitoLargura": 1.28, "peitoFundo": 0.89, "barrigaLargura": 0.93, "quadril": 1.19, "bracos": 0.82, "antebracos": 0.78, "coxas": 1.09, "coxasGrossura": 0.89, "canelas": 1.05, "canelasGrossura": 0.87 }
   }
