@@ -11,7 +11,10 @@
       "nome": "Desgrenhado",
       "formas": [
         ["molde", {"molde":1,"z":3,"altura":1.01}]
-      ]
+      ],
+      "corpos": {
+        "humano:arquivo3": {"formas":[["molde",{"molde":1,"z":3,"altura":1.01,"escala":1.03}]]}
+      }
     },
     "preguicoso": {
       "nome": "Preguiçoso",
