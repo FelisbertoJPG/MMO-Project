@@ -1,7 +1,7 @@
 import { tela } from './tela.js';
 import * as THREE from 'three';
 import { ITEMS, ICON_PANELA, RARIDADES } from './items.js';
-import { custoDoNivel, curva, VITALIDADE, RESISTENCIA_VIGOR, RESISTENCIA_CARGA, FORCA } from './ficha.js';
+import { custoDoNivel, vigorDoNivel, cargaDoNivel, bonusForcaDoNivel, pontosDisponiveis } from './ficha.js';
 import { RECEITAS, podeCozinhar, listaDaReceita, NA_PANELA } from './receitas.js';
 import { fmtTime } from './inventory.js';
 
@@ -210,27 +210,26 @@ export class UI {
     const p = this.game.player;
     const cost = this.levelCost();
     const can = p.souls >= cost;
-    // quanto o PRÓXIMO ponto rende (ficha.js: cada atributo rende menos a cada ponto)
-    const mais = (faixas, v) => curva(v + 1, faixas) - curva(v, faixas);
+    // o que o PRÓXIMO nível dá (ficha.js: cada nível aumenta tudo um pouco)
     const n = (x) => (Math.round(x * 10) / 10).toString().replace('.', ',');
-    const attrs = [
-      ['vigor', 'Vitalidade', `Vida máx.: ${p.maxHp} <i>(próximo: +${n(mais(VITALIDADE, p.vigor))})</i>`],
-      ['endurance', 'Resistência', `Vigor máx.: ${p.maxStamina} · Carga: ${p.cargaMax} <i>(próximo: +${n(mais(RESISTENCIA_VIGOR, p.endurance))} / +${n(mais(RESISTENCIA_CARGA, p.endurance))})</i>`],
-      ['strength', 'Força', `Bônus de força: +${Math.round(p.bonusForca * 100)}% × escala da arma <i>(próximo: +${n(mais(FORCA, p.strength) * 100)}%)</i>`],
+    const prox = p.level + 1;
+    const linhas = [
+      ['Vida máx.', p.maxHp, p.maxHpNoNivel(prox)],
+      ['Vigor máx.', p.maxStamina, vigorDoNivel(prox)],
+      ['Carga', n(p.cargaMax), n(cargaDoNivel(prox))],
+      ['Bônus de força', `+${n(p.bonusForca * 100)}%`, `+${n(bonusForcaDoNivel(prox) * 100)}%`],
     ];
+    const pontos = pontosDisponiveis(p.level, p.habilidades);
     this.levelup.innerHTML = `<div class="lv-head"><span>Nível <b>${p.level}</b></span><span>Almas <b>${p.souls}</b></span><span>Custo <b style="color:${can ? '#c8a86a' : '#8a3a3a'}">${cost}</b></span></div>` +
-      attrs.map(([k, label, desc]) => `<div>${label}<div class="desc">${desc}</div></div><b style="font-family:Cinzel;font-weight:400">${p[k]}</b><button data-attr="${k}" ${can ? '' : 'disabled'}>+</button>`).join('');
-    this.levelup.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-      const c = this.levelCost();
-      if (p.souls < c) return;
-      p.souls -= c;
-      p[b.dataset.attr]++;
-      p.level++;
-      p.hp = p.maxHp; p.stamina = p.maxStamina;
+      linhas.map(([rotulo, agora, depois]) => `<div>${rotulo}</div><b class="lv-agora">${agora}</b><span class="lv-depois">→ ${depois}</span>`).join('') +
+      `<div class="lv-pontos">Pontos de habilidade disponíveis <b>${pontos}</b></div>` +
+      `<button class="lv-subir" ${can ? '' : 'disabled'}>Subir para o nível ${prox}</button>`;
+    this.levelup.querySelector('.lv-subir').addEventListener('click', () => {
+      if (!p.subirDeNivel()) return;
       this.displaySouls = p.souls;
       this.game.sfx.heal();
       this.renderLevelUp();
-    }));
+    });
   }
 
   /** Troca o texto de `el` só quando muda (`chave` guarda o último). */

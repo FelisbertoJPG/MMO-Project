@@ -270,7 +270,7 @@ await teste('PERSONAGEM: save torto é RECUSADO e não apaga o bom', async () =>
     'isto não é json',
     JSON.stringify({ versao: 2 }),
     JSON.stringify({ ...SAVE(), jogador: { ...SAVE().jogador, nivel: 9999 } }),
-    JSON.stringify({ ...SAVE(), jogador: { ...SAVE().jogador, vigor: 99 } }),            // atributos que não batem com o nível
+    JSON.stringify({ ...SAVE(), jogador: { ...SAVE().jogador, vigor: 0 } }),             // atributo de compatibilidade fora do limite
     JSON.stringify({ ...SAVE(), jogador: { ...SAVE().jogador, almas: -5 } }),
     JSON.stringify({ ...SAVE(), inventario: { ...SAVE().inventario, itens: [['x'.repeat(80), 1]] } }),
     JSON.stringify({ ...SAVE(), lixo: 'x'.repeat(300 * 1024) }),                          // grande demais
@@ -280,6 +280,35 @@ await teste('PERSONAGEM: save torto é RECUSADO e não apaga o bom', async () =>
     assert.equal(r.status, 400, `aceitou: ${corpo.slice(0, 60)}`);
   }
   assert.equal((await (await fetch(url)).json()).personagem.jogador.almas, 420, 'o save bom se perdeu');
+});
+
+await teste('PERSONAGEM: jogador.habilidades tem de ter a forma certa e caber no nível', async () => {
+  const url = `${BASE}/__mundo/personagem?b=${beto.bilhete}`;
+  // SAVE() é nível 3: libera 2 pontos
+  const com = (habilidades, resto = {}) => JSON.stringify({ ...SAVE(), jogador: { ...SAVE().jogador, ...resto, habilidades } });
+  const barra = [null, null, null, null];
+  const bons = [
+    JSON.stringify(SAVE()),                                                      // save sem o campo: árvore vazia
+    com({ v: 1, nos: {}, barra }),
+    com({ v: 1, nos: { 'fogo.bola': 1, 'fogo.pele': 1 }, barra: ['fogo.bola', null, null, null] }),
+    com({ v: 1, nos: {}, barra }, { vigor: 99 }),                                // a soma dos atributos não é mais exigida
+  ];
+  for (const corpo of bons) assert.ok((await fetch(url, { method: 'POST', body: corpo })).ok, `recusou: ${corpo.slice(80, 240)}`);
+  const ruins = [
+    com(null),
+    com([]),
+    com({ v: 2, nos: {}, barra }),
+    com({ v: 1, nos: [], barra }),
+    com({ v: 1, nos: {}, barra: [null, null, null] }),
+    com({ v: 1, nos: {}, barra: [1, null, null, null] }),
+    com({ v: 1, nos: { 'Fogo Bola': 1 }, barra }),
+    com({ v: 1, nos: { 'fogo.bola': 0 }, barra }),
+    com({ v: 1, nos: { 'fogo.bola': 1.5 }, barra }),
+    com({ v: 1, nos: { 'fogo.bola': '1' }, barra }),
+    com({ v: 1, nos: { 'fogo.bola': 2, 'fogo.pele': 1 }, barra }),               // 3 pontos gastos no nível 3
+  ];
+  for (const corpo of ruins) assert.equal((await fetch(url, { method: 'POST', body: corpo })).status, 400, `aceitou: ${corpo.slice(80, 240)}`);
+  assert.ok((await fetch(url, { method: 'POST', body: JSON.stringify(SAVE()) })).ok);
 });
 
 await teste('os DADOS não saem pelo servidor estático (nem disfarçados)', async () => {

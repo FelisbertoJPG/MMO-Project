@@ -7,8 +7,8 @@ import { tela } from './tela.js';
 import { VEU } from './veu.js';
 import { DURACAO as DURACAO_REFEICAO, objetoDaRefeicao } from './refeicao.js';
 import {
-  curva, VIDA_BASE, VITALIDADE, VIGOR_BASE, RESISTENCIA_VIGOR, CARGA_BASE, RESISTENCIA_CARGA,
-  FORCA, ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES,
+  vidaDoNivel, vigorDoNivel, cargaDoNivel, bonusForcaDoNivel, forcaDoNivel, custoDoNivel, habilidadesVazias,
+  ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES,
 } from './ficha.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { ITEMS, UNARMED, TORCH_LIFE } from './items.js';
@@ -54,7 +54,8 @@ export class Player {
     this.torchLight.shadow.intensity = 0.65;
     game.scene.add(this.torchLight);
 
-    this.level = 1; this.vigor = 10; this.endurance = 10; this.strength = 10;
+    this.level = 1;
+    this.habilidades = habilidadesVazias();   // a árvore de habilidades (ficha.js); por enquanto só acumula pontos
     this.aparencia = APARENCIA_PADRAO;   // o rosto e o cabelo (aparencia.js); vai no save e no corpo que viaja
     this.souls = 0;
     this.receitas = new Set();    // receitas descobertas na panela (receitas.js), pelo id
@@ -88,11 +89,24 @@ export class Player {
     for (const id of this.inv.equipped.rings) if (id) v += ITEMS[id].effect[key] ?? 0;
     return v;
   }
-  // AS CONTAS DA FICHA (ficha.js): cada atributo rende menos a cada ponto, a força vale o
-  // quanto a ARMA aproveita dela, e a armadura defende mas pesa
-  get maxHp() { return Math.round((VIDA_BASE + curva(this.vigor, VITALIDADE)) * (1 + this.ringEffect('hpMul'))); }
-  get maxStamina() { return Math.round(VIGOR_BASE + curva(this.endurance, RESISTENCIA_VIGOR)); }
-  get cargaMax() { return Math.round((CARGA_BASE + curva(this.endurance, RESISTENCIA_CARGA)) * 10) / 10; }
+  // AS CONTAS DA FICHA (ficha.js): o nível aumenta tudo um pouco, a força vale o quanto a
+  // ARMA aproveita dela, e a armadura defende mas pesa
+  maxHpNoNivel(n) { return Math.round(vidaDoNivel(n) * (1 + this.ringEffect('hpMul'))); }
+  get maxHp() { return this.maxHpNoNivel(this.level); }
+  get maxStamina() { return vigorDoNivel(this.level); }
+  get cargaMax() { return cargaDoNivel(this.level); }
+  /**
+   * SUBIR DE NÍVEL: paga as almas e sobe, com a vida e o vigor cheios. A REGRA mora aqui
+   * e não na tela: quem oferece a ação (hoje a fogueira) só chama. Devolve se subiu.
+   */
+  subirDeNivel() {
+    const custo = custoDoNivel(this.level);
+    if (this.souls < custo) return false;
+    this.souls -= custo;
+    this.level++;
+    this.hp = this.maxHp; this.stamina = this.maxStamina;
+    return true;
+  }
   /** As peças de armadura vestidas (as definições, de ITEMS). */
   get armaduras() { return LUGARES.map((l) => this.inv.equipped.armadura[l]).filter(Boolean).map((id) => ITEMS[id]); }
   /** O peso carregado: as duas mãos (o escudo nas costas conta) e a armadura. */
@@ -107,10 +121,12 @@ export class Player {
   /** A absorção da armadura vestida (soma das peças). */
   get absorcao() { return this.armaduras.reduce((s, a) => s + a.absorcao, 0); }
   get defense() { return Math.min(DEFESA_MAX, this.absorcao + this.ringEffect('defense') + (this.buffs.fortaleza > 0 ? 0.15 : 0)); }
-  /** O bônus de força (antes da escala da arma): +30% no 20, +60% no 40. */
-  get bonusForca() { return curva(this.strength, FORCA); }
+  /** O bônus de força (antes da escala da arma): +0,5% por nível acima do 1. */
+  get bonusForca() { return bonusForcaDoNivel(this.level); }
+  /** A força que conta para o `requisito` das armas: vem do nível (10 no 1, 20 no 31). */
+  get forcaEfetiva() { return forcaDoNivel(this.level); }
   /** Quanto a força multiplica o dano de uma ARMA: a escala dela, e o requisito. */
-  forcaNaArma(w) { return (1 + this.bonusForca * ESCALA[w.escala ?? 'E']) * (this.strength < (w.requisito ?? 0) ? SEM_REQUISITO : 1); }
+  forcaNaArma(w) { return (1 + this.bonusForca * ESCALA[w.escala ?? 'E']) * (this.forcaEfetiva < (w.requisito ?? 0) ? SEM_REQUISITO : 1); }
   get damageMul() { return this.forcaNaArma(this.weapon) * (this.buffs.resin > 0 ? 1.35 : 1) * (this.buffs.furia > 0 ? 1.2 : 1); }
   /** O código do corpo pela armadura vestida (guerreiro.js): um dígito por lugar. */
   get codigoDaArmadura() {

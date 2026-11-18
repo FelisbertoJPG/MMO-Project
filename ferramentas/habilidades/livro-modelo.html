@@ -1,0 +1,413 @@
+<title>Livro de Habilidades</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: um grimório do jogo. Índice de capítulos à esquerda e a página aberta à direita. */
+:root {
+  color-scheme: dark;
+  --ink: #0d0b09;
+  --painel: #16120e;
+  --painel-alto: #1f1912;
+  --ouro: #c8a86a;
+  --ouro-fraco: #7d6a45;
+  --texto: #e2d9c8;
+  --texto-fraco: #a39a88;
+  --fio: #3a3226;
+  --alerta: #ffb56b;
+  --bom: #8fc77a;
+  --ruim: #e58a78;
+  --el: #c8a86a;
+  --serif: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  --corpo: 'EB Garamond', Georgia, serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ink); color: var(--texto); font-family: var(--corpo); font-size: 18px; line-height: 1.45; }
+a { color: var(--ouro); }
+a:hover { color: #fff3d6; }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--alerta); outline-offset: 2px; }
+
+.livro {
+  max-width: 1240px; margin: 0 auto;
+  padding-block: 26px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: 228px minmax(0, 1fr); gap: 36px; align-items: start;
+}
+.indice { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 18px); display: grid; gap: 16px; max-height: calc(100vh - 36px); overflow-y: auto; padding-right: 4px; }
+.marca { font-family: var(--serif); font-weight: 700; font-size: 20px; line-height: 1.15; letter-spacing: 1.5px; color: var(--ouro); text-decoration: none; }
+.busca label { display: block; color: var(--texto-fraco); font-size: 15.5px; margin-bottom: 3px; }
+.busca input { width: 100%; min-height: 40px; padding: 6px 10px; background: var(--painel); border: 1px solid var(--ouro-fraco); }
+.capitulos { display: grid; gap: 14px; }
+.grupo { display: grid; gap: 1px; min-width: 0; }
+.grupo h2 { margin: 0 0 3px; font-family: var(--serif); font-size: 12px; font-weight: 500; letter-spacing: 1.5px; color: var(--texto-fraco); }
+.grupo a { display: flex; align-items: center; gap: 8px; padding: 4px 8px; color: var(--texto); text-decoration: none; border-left: 2px solid transparent; }
+.grupo a:hover { background: var(--painel); color: #fff3d6; }
+.grupo a[aria-current="page"] { background: var(--painel-alto); border-left-color: var(--ouro); color: var(--ouro); font-weight: 600; }
+.ponto { width: 9px; height: 9px; flex: none; transform: rotate(45deg); background: var(--el); }
+
+.pagina { min-width: 0; display: grid; gap: 26px; }
+.cabeca { display: grid; gap: 6px; border-bottom: 1px solid var(--ouro-fraco); padding-bottom: 14px; }
+.selo { margin: 0; color: var(--texto-fraco); font-size: 16px; }
+h1 { margin: 0; font-family: var(--serif); font-weight: 700; font-size: clamp(28px, 4.5vw, 40px); line-height: 1.12; letter-spacing: 1.5px; color: var(--el); text-wrap: balance; }
+.intro { margin: 0; max-width: 68ch; font-size: 19px; }
+.secao { display: grid; gap: 12px; min-width: 0; }
+.secao > h2 { margin: 0; font-family: var(--serif); font-size: 17px; font-weight: 700; letter-spacing: 1px; color: var(--ouro); }
+.secao > p { margin: 0; max-width: 68ch; }
+.nota { margin: 0; padding: 10px 14px; background: var(--painel); border: 1px solid var(--ouro-fraco); max-width: 76ch; }
+.nota.alerta { border-color: var(--alerta); color: var(--alerta); }
+
+.numeros { display: flex; flex-wrap: wrap; gap: 12px 36px; margin: 0; }
+.numeros div { display: grid; }
+.numeros dt { order: 2; color: var(--texto-fraco); font-size: 16px; }
+.numeros dd { order: 1; margin: 0; font-family: var(--serif); font-size: 30px; line-height: 1.15; color: var(--ouro); font-variant-numeric: tabular-nums; }
+
+.ficha { display: grid; grid-template-columns: minmax(150px, 280px) minmax(0, 1fr); gap: 5px 20px; margin: 0; max-width: 820px; }
+.ficha dt { color: var(--texto-fraco); }
+.ficha dd { margin: 0; min-width: 0; }
+
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 12px; }
+.carta { display: grid; gap: 7px; align-content: start; padding: 12px 13px; background: var(--painel); border: 1px solid var(--fio); min-width: 0; }
+.carta.suprema { border: 2px solid var(--ouro-fraco); }
+.carta.realce { outline: 2px solid var(--ouro); outline-offset: 2px; }
+.carta h3 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.15; color: var(--texto); overflow-wrap: anywhere; }
+.carta .onde { margin: 0; color: var(--texto-fraco); font-size: 15px; }
+.carta p { margin: 0; }
+.etiquetas { display: flex; flex-wrap: wrap; gap: 5px; }
+.etiqueta { padding: 0 7px; font-size: 14.5px; border: 1px solid var(--ouro-fraco); color: var(--ouro); }
+.etiqueta.forte { background: var(--painel-alto); border-color: var(--ouro); }
+.niveis { margin: 0; padding-left: 22px; color: var(--texto-fraco); font-size: 16.5px; font-variant-numeric: tabular-nums; }
+.dados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 12px; margin: 0; font-size: 16px; }
+.dados div { display: flex; justify-content: space-between; gap: 6px; min-width: 0; }
+.dados dt { color: var(--texto-fraco); }
+.dados dd { margin: 0; font-variant-numeric: tabular-nums; }
+.pede { margin: 0; color: var(--texto-fraco); font-size: 15.5px; font-style: italic; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 3px 11px; background: var(--painel); border: 1px solid var(--ouro-fraco); color: var(--texto); text-decoration: none; }
+.chip:hover { border-color: var(--ouro); color: #fff3d6; }
+
+.rolagem { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 9px; border: 1px solid var(--fio); text-align: center; font-size: 16px; }
+th { font-family: var(--serif); font-size: 12.5px; font-weight: 500; letter-spacing: .5px; color: var(--ouro); background: var(--painel); white-space: nowrap; }
+th.nome { text-align: left; font-family: var(--corpo); font-size: 17px; font-weight: 600; letter-spacing: 0; color: var(--texto); white-space: normal; min-width: 150px; }
+.matriz td { min-width: 96px; padding: 0; height: 52px; }
+.matriz td a { display: flex; align-items: center; justify-content: center; height: 100%; min-height: 52px; padding: 4px 6px; text-decoration: none; color: var(--texto); line-height: 1.1; }
+.matriz td a:hover { background: var(--painel-alto); color: var(--ouro); }
+.matriz td.vazia { background: var(--painel); color: var(--texto-fraco); }
+.fraco { color: var(--bom); font-weight: 600; }
+.forte-contra { color: var(--ruim); font-weight: 600; }
+
+.lista { display: grid; margin: 0; padding: 0; list-style: none; }
+.lista li { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--fio); }
+.lista b { font-family: var(--serif); font-size: 13px; color: var(--ouro); padding-top: 4px; }
+.lista strong { display: block; font-weight: 600; }
+.lista span { color: var(--texto-fraco); }
+.resultado { display: grid; gap: 1px; width: 100%; padding: 9px 11px; text-align: left; background: var(--painel); border: 1px solid var(--fio); cursor: pointer; }
+.resultado:hover { border-color: var(--ouro); }
+.resultado strong { font-size: 19px; font-weight: 600; }
+.resultado span { color: var(--texto-fraco); font-size: 16px; }
+.resultados { display: grid; gap: 7px; }
+
+@media (max-width: 860px) {
+  .livro { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .indice { position: static; max-height: none; overflow: visible; padding-right: 0; }
+  .capitulos { display: flex; gap: 18px; overflow-x: auto; padding-bottom: 8px; }
+  .grupo { display: flex; align-items: center; gap: 2px; flex: none; }
+  .grupo h2 { display: none; }
+  .grupo a { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; min-height: 38px; }
+  .grupo a[aria-current="page"] { border-bottom-color: var(--ouro); }
+}
+@media (max-width: 560px) {
+  .ficha { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+  .ficha dd { margin-bottom: 8px; }
+  .grade { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<div class="livro">
+  <aside class="indice">
+    <a class="marca" href="#inicio">Livro de Habilidades</a>
+    <div class="busca">
+      <label for="busca">Procurar habilidade</label>
+      <input id="busca" type="search" autocomplete="off" placeholder="Ex.: vórtice">
+    </div>
+    <nav class="capitulos" id="capitulos" aria-label="Capítulos do livro"></nav>
+  </aside>
+  <main class="pagina" id="pagina"></main>
+</div>
+
+<script>
+const D = __DADOS__;
+const DIAGRAMA = 'https://claude.ai/artifact/MAZiMrNtDx8KqNAhaXBFVg';
+const M = D.modelo_de_arvore;
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (n) => String(n).replace('.', ',');
+const plural = (n, um, varios) => `${num(n)} ${n === 1 ? um : varios}`;
+const semAcento = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const EL = new Map(D.elementos.map((e) => [e.id, e]));
+const nomeEl = (id) => EL.get(id)?.nome ?? id;
+const rotaReacao = (r) => `reacao-${r.id.replaceAll('_', '-')}`;
+const TIPO = { ativa: 'Ativa', passiva: 'Passiva', suprema: 'Suprema', maestria: 'Maestria', atributo: 'Atributo' };
+const CAMINHO = { base: 'Base', magia: 'Manipular', defesa: 'Defesa', arma: 'Imbuir' };
+const FORMA = { imbuir: 'Na arma', orb: 'Projétil', bomb: 'Explosão', shock: 'Onda', zona: 'Área', vortice: 'Vórtice', cadeia: 'Em cadeia', linha: 'Em linha' };
+const ROTULOS = [['dano', 'Dano'], ['poise', 'Postura'], ['raio', 'Raio', ' m'], ['alcance', 'Alcance', ' m'], ['duracao', 'Duração', ' s'], ['saltos', 'Saltos'], ['imobiliza', 'Prende', ' s'], ['atordoa', 'Atordoa', ' s'], ['congela_apos', 'Congela após', ' s'], ['cura_aliados', 'Cura'], ['cura_aliados_por_seg', 'Cura por s'], ['eter', 'Éter'], ['recarga', 'Recarga', ' s'], ['conjuracao', 'Conjuração', ' s']];
+
+// ---------- o índice de tudo que existe no livro
+const INDICE = [];
+const NO = new Map();
+const ONDE = new Map();
+function registrar(n, onde, rota) {
+  NO.set(n.id, n);
+  ONDE.set(n.id, onde);
+  INDICE.push({ id: n.id, nome: n.nome, desc: n.desc, onde, rota, no: true });
+}
+for (const n of M.fogo.base) registrar(n, 'Fogo · Base', 'fogo');
+for (const l of M.fogo.linhas) for (const n of l.escolhas) registrar(n, `Fogo · Linha ${l.linha} · ${CAMINHO[n.coluna]}`, 'fogo');
+for (const n of M.guardadas_para_depois) registrar(n, 'Fogo · Guardada para depois', 'ideias');
+for (const [el, nos] of Object.entries(D.arvores_elementais)) for (const n of nos) registrar(n, `${nomeEl(el)} · Tier ${n.tier}`, el);
+for (const r of D.reacoes) {
+  INDICE.push({ id: r.id, nome: r.nome, desc: r.desc, onde: `Reação de ${r.elementos.map(nomeEl).join(' + ')}`, rota: rotaReacao(r) });
+  for (const n of r.arvore.nos) registrar(n, `Árvore ${r.arvore.nome} · Tier ${n.tier}`, rotaReacao(r));
+}
+for (const r of D.racas) {
+  if (r.inato) INDICE.push({ id: `inato-${r.id}`, nome: r.inato.nome, desc: r.inato.desc, onde: `${r.nome} · Inato`, rota: 'racas' });
+  for (const n of r.arvore) registrar(n, `${r.nome} · Tier ${n.tier}`, 'racas');
+}
+const totalDeHabilidades = INDICE.filter((x) => x.no && x.rota !== 'ideias').length;
+
+function resultados(texto) {
+  const q = semAcento(texto).trim();
+  if (!q) return [];
+  return INDICE.filter((x) => semAcento(`${x.nome} ${x.desc} ${x.onde}`).includes(q))
+    .sort((a, b) => Number(semAcento(b.nome).includes(q)) - Number(semAcento(a.nome).includes(q)));
+}
+
+// ---------- peças da página
+function cabeca(selo, titulo, intro, cor) {
+  return `<header class="cabeca"${cor ? ` style="--el:${esc(cor)}"` : ''}><p class="selo">${esc(selo)}</p><h1>${esc(titulo)}</h1>${intro ? `<p class="intro">${esc(intro)}</p>` : ''}</header>`;
+}
+const secao = (titulo, corpo) => `<section class="secao"><h2>${esc(titulo)}</h2>${corpo}</section>`;
+const ficha = (pares) => `<dl class="ficha">${pares.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl>`;
+const chipEl = (id) => `<a class="chip" href="#${esc(id)}" style="--el:${esc(EL.get(id)?.cor)}"><i class="ponto"></i>${esc(nomeEl(id))}</a>`;
+
+function requisitos(n) {
+  const r = [];
+  const minimos = Object.entries(n.requer_minimo ?? {}).map(([id, q]) => `${q} em ${NO.get(id)?.nome ?? id}`);
+  if (minimos.length) r.push(`Pede ${minimos.join(' e ')}`);
+  if (n.requer?.length) r.push(`Nasce de ${n.requer.map((id) => NO.get(id)?.nome ?? id).join(' ou ')}`);
+  if (n.requer_em_cada) r.push(`Pede ${n.requer_em_cada} pontos em cada elemento`);
+  if (n.evolui_de) r.push(`Ocupa o lugar de ${NO.get(n.evolui_de)?.nome ?? n.evolui_de} na barra`);
+  return r;
+}
+function carta(n) {
+  const suprema = n.tipo === 'suprema' || n.ativa?.suprema;
+  const ranks = n.ranks ?? 1, total = n.custo * ranks;
+  const tipo = n.evolui_de ? 'Evolução' : TIPO[n.tipo] ?? n.tipo;
+  const custo = ranks > 1 ? `${total} pontos em ${ranks} níveis` : plural(total, 'ponto', 'pontos');
+  const dados = n.ativa ? ROTULOS.filter(([k]) => n.ativa[k] !== undefined).map(([k, r, u = '']) => `<div><dt>${esc(r)}</dt><dd>${esc(num(n.ativa[k]))}${esc(u)}</dd></div>`).join('') : '';
+  const pede = requisitos(n);
+  return `<article class="carta${suprema ? ' suprema' : ''}" data-no="${esc(n.id)}">
+    <div class="etiquetas"><span class="etiqueta">${esc(tipo)}</span>${suprema && n.tipo !== 'suprema' ? '<span class="etiqueta forte">Suprema</span>' : ''}${n.ativa?.forma ? `<span class="etiqueta">${esc(FORMA[n.ativa.forma] ?? n.ativa.forma)}</span>` : ''}</div>
+    <h3>${esc(n.nome)}</h3>
+    <p class="onde">${esc(ONDE.get(n.id))} · ${esc(custo)}</p>
+    ${n.desc ? `<p>${esc(n.desc)}</p>` : ''}
+    ${n.por_ponto ? `<ol class="niveis">${n.por_ponto.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>` : ''}
+    ${dados ? `<dl class="dados">${dados}</dl>` : ''}
+    ${pede.map((t) => `<p class="pede">${esc(t)}.</p>`).join('')}
+  </article>`;
+}
+const grade = (nos) => `<div class="grade">${nos.map(carta).join('')}</div>`;
+const reacoesDe = (el) => D.reacoes.filter((r) => r.elementos.includes(el));
+const chipsDeReacao = (lista) => `<div class="chips">${lista.map((r) => `<a class="chip" href="#${esc(rotaReacao(r))}">${esc(r.nome)}</a>`).join('')}</div>`;
+const abertas = () => D.decisoes_em_aberto.filter((x) => x.status !== 'decidido');
+
+// ---------- os capítulos
+function inicio() {
+  const convertidos = D.elementos.filter((e) => !D.arvores_elementais[e.id]).length;
+  return cabeca('Lubelion Online · guia de desenvolvimento', 'Livro de Habilidades', 'Tudo o que já foi decidido sobre elementos, reações e raças. Nada deste livro está no jogo ainda, e os números são provisórios.')
+    + `<dl class="numeros"><div><dt>elementos</dt><dd>${D.elementos.length}</dd></div><div><dt>reações</dt><dd>${D.reacoes.length}</dd></div><div><dt>habilidades e passivas</dt><dd>${totalDeHabilidades}</dd></div><div><dt>elementos no modelo aprovado</dt><dd>${convertidos} de ${D.elementos.length}</dd></div></dl>`
+    + secao('Como vamos trabalhar', `<p>${esc(D.ordem_de_trabalho.regra)}</p>`)
+    + secao('Elementos', `<div class="chips">${D.elementos.map((e) => chipEl(e.id)).join('')}</div>`)
+    + secao('O que falta decidir', listaDeDecisoes(abertas()));
+}
+
+function regras() {
+  const R = D.regras, O = R.pontos.orcamento_de_referencia, E = R.eter, B = R.barra_de_habilidades, K = R.marcas, A = R.arvore_de_reacao, P = D.personagens, G = E.ganho.golpe_corpo_a_corpo, T = M.regras, N = R.pontos.por_nivel;
+  return cabeca('Capítulo', 'Regras', 'Como pontos, barras, marcas e personagens funcionam juntos.')
+    + secao('Níveis e pontos', `<p>${esc(R.pontos.por_que)}</p>` + ficha([
+      ['Cada nível dá', `${plural(N.pontos_de_habilidade, 'ponto', 'pontos')} de habilidade, +${N.vida} de vida, +${N.vigor} de vigor, +${num(N.carga)} de carga e +${num(N.forca_percentual)}% de força`],
+      ['Onde sobe', R.pontos.onde_sobe],
+      ['Árvore de um elemento', plural(O.uma_arvore_elemental, 'ponto', 'pontos')],
+      ['Árvore da raça', plural(O.arvore_da_raca, 'ponto', 'pontos')],
+      ['Árvore de uma reação', plural(O.arvore_de_reacao, 'ponto', 'pontos')],
+      ['Mínimo para a habilidade de uma reação', plural(O.minimo_para_a_habilidade_de_uma_reacao, 'ponto', 'pontos')],
+      ['Dois elementos completos, reação e raça', plural(O.dois_elementos_completos_com_reacao_e_raca, 'ponto', 'pontos')],
+    ]))
+    + secao('Árvore de um elemento', ficha([
+      ['Maestria', `${T.maestria.pontos} pontos: ${T.maestria.rende_por_ponto.join(' e ')} por ponto`],
+      ['Com Maestria 5', `Abrem ${T.maestria.abre_com_5_pontos.join(', ')}`],
+      ['Linhas', `${T.linhas} linhas de ${T.limite_de_pontos_por_linha} pontos`],
+      ['Abrir uma linha', T.abrir_linha],
+      ['Abrir uma escolha', T.abrir_no],
+      ['Pontos numa escolha', T.ranks],
+      ['Última linha', T.ultima_linha],
+    ]))
+    + secao('Barra de Éter', `<p>${esc(E._nota)}</p>` + ficha([
+      ['Máximo', E.maximo_base], ['Começa em', E.comeca_em],
+      ['Golpe corpo a corpo', `${Math.round(G.fracao_do_dano * 100)}% do dano, de ${G.minimo} a ${G.maximo} de Éter`],
+      ['Golpe recebido', `+${E.ganho.golpe_recebido}`], ['Bloqueio', `+${E.ganho.bloqueio}`], ['Reação disparada', `+${E.ganho.reacao_disparada}`],
+      ['Magias enchem a barra?', E.magias_geram_eter ? 'Sim' : 'Não'],
+      ['Fora de combate', `Depois de ${E.em_combate_ate_seg_depois_do_ultimo_golpe} s sem luta, perde ${E.fora_de_combate_perde_por_seg} por segundo`],
+      ['Ao descansar', 'Zera'],
+    ]))
+    + secao('Barra de habilidades', `<p>${esc(B._nota)}</p>` + ficha([
+      ['Espaços', `${B.espacos} (teclas 1 a ${B.teclas.length})`],
+      ['Supremas na barra', `No máximo ${B.maximo_de_supremas_na_barra}`],
+      ['Recarga global', `${num(B.recarga_global_seg)} s`],
+      ['Recarga de cada habilidade', 'Começa quando a conjuração termina'],
+      ['Trocar habilidades', 'Só fora de combate, e a recarga reinicia'],
+    ]))
+    + secao('Marcas e reações', `<p>${esc(K.regra)}</p>` + ficha([
+      ['Duração da marca', `${K.duracao_seg} s`],
+      ['Intervalo no mesmo alvo', `${num(K.intervalo_entre_reacoes_no_mesmo_alvo_seg)} s entre reações`],
+      ['Itens que já marcam', K.fontes_que_ja_existem.join(', ')],
+      ['Árvore da reação', `Abre com Maestria ${A.abre_com_maestria_em_cada_elemento} nos dois elementos`],
+      ['Em chefes', R.chefes_e_controle],
+    ]))
+    + secao('Personagens', `<p>${esc(P._nota)}</p>` + ficha([
+      ['Por conta', `Até ${P.limite_por_conta} personagens`],
+      ['Nome', `Único no servidor, ${P.nome.comparacao}`],
+      ['Identificador', `${P.identificador.exemplo}: ${P.identificador.uso}`],
+      ['Raça', `Travada depois de criar, ${P.raca.ativar_a_trava}`],
+      ['Recomeço', `Apaga personagens e saves e mantém ${P.recomeco.mantem}`],
+    ]));
+}
+
+function elementoNoModelo(e) {
+  const builds = Object.entries(M.exemplos_de_build).map(([nome, itens]) => [nome[0].toUpperCase() + nome.slice(1).replace('guardiao', 'guardião'), itens.map((i) => { const [id, q] = i.split(':'); return `${NO.get(`fogo.${id}`)?.nome} ${q}`; }).join(' · ')]);
+  return `<p class="nota">Modelo aprovado. <a href="${DIAGRAMA}" target="_blank" rel="noopener">Abrir o diagrama para testar os pontos</a>.</p>`
+    + secao('Base', grade(M.fogo.base))
+    + M.fogo.linhas.map((l) => secao(l.linha === M.fogo.linhas.length ? `Linha ${l.linha} · Suprema` : `Linha ${l.linha}`, grade(l.escolhas))).join('')
+    + secao('Exemplos de build', ficha(builds));
+}
+function elementoAntigo(e) {
+  const nos = D.arvores_elementais[e.id];
+  const tiers = [...new Set(nos.map((n) => n.tier))];
+  return `<p class="nota alerta">Rascunho no formato antigo. Este elemento ainda será convertido para o modelo aprovado do Fogo.</p>`
+    + tiers.map((t) => secao(`Tier ${t}`, grade(nos.filter((n) => n.tier === t)))).join('');
+}
+function elemento(e) {
+  return cabeca('Elemento', e.nome, e.identidade, e.cor)
+    + (D.arvores_elementais[e.id] ? elementoAntigo(e) : elementoNoModelo(e))
+    + secao(`Reações com ${e.nome}`, chipsDeReacao(reacoesDe(e.id)));
+}
+
+function reacoes() {
+  const achar = (a, b) => D.reacoes.find((r) => r.elementos.includes(a) && r.elementos.includes(b));
+  const topo = D.elementos.map((e) => `<th scope="col">${esc(e.nome)}</th>`).join('');
+  const linhas = D.elementos.map((a) => `<tr><th scope="row">${esc(a.nome)}</th>${D.elementos.map((b) => {
+    if (a.id === b.id) return '<td class="vazia">·</td>';
+    const r = achar(a.id, b.id);
+    return `<td><a href="#${esc(rotaReacao(r))}">${esc(r.nome)}</a></td>`;
+  }).join('')}</tr>`).join('');
+  return cabeca('Capítulo', 'Reações', 'Qualquer jogador dispara a reação ao combinar dois elementos. Maestria 5 nos dois abre a árvore própria daquele par.')
+    + secao('Tabela de combinações', `<div class="rolagem"><table class="matriz"><thead><tr><th></th>${topo}</tr></thead><tbody>${linhas}</tbody></table></div>`)
+    + secao('Todas as reações', `<div class="rolagem"><table><thead><tr><th class="nome">Reação</th><th>Elementos</th><th class="nome">Árvore</th><th class="nome">Efeito</th></tr></thead><tbody>${D.reacoes.map((r) => `<tr><th class="nome" scope="row"><a href="#${esc(rotaReacao(r))}">${esc(r.nome)}</a></th><td>${esc(r.elementos.map(nomeEl).join(' + '))}</td><td>${esc(r.arvore.nome)}</td><td style="text-align:left">${esc(r.desc)}</td></tr>`).join('')}</tbody></table></div>`);
+}
+function reacao(r) {
+  return cabeca(`Reação de ${r.elementos.map(nomeEl).join(' + ')}`, r.nome, r.desc)
+    + (r.aguardando_ideia_do_dono ? '<p class="nota alerta">Efeito provisório, aguardando a ideia do dono.</p>' : '')
+    + secao('Elementos', `<div class="chips">${r.elementos.map(chipEl).join('')}</div>`)
+    + secao(`Árvore ${r.arvore.nome}`, grade(r.arvore.nos))
+    + `<p><a href="#reacoes">Voltar para todas as reações</a></p>`;
+}
+
+function racas() {
+  return cabeca('Capítulo', 'Raças', 'Cada raça tem um bônus inato, afinidades e uma árvore própria de 10 pontos.')
+    + D.racas.map((r) => secao(r.nome, `<p>${esc(r.fantasia)}</p>`
+      + (r.jogavel ? ficha([
+        ['Afinidade', r.afinidade.length ? `${r.afinidade.map(nomeEl).join(' e ')} (+10% de dano)` : 'Nenhuma'],
+        ['Inato', `${r.inato.nome}: ${r.inato.desc}`],
+      ]) + grade(r.arvore) : ''))).join('');
+}
+
+function inimigos() {
+  const NOMES = { minion: 'Esqueleto Desperto', warrior: 'Guerreiro Esqueleto', rogue: 'Ladino Esqueleto', mage: 'Necromante Esqueleto', carrasco: 'O Carrasco da Masmorra', dragao: 'Wyrm' };
+  const tabela = D.resistencias_dos_inimigos;
+  const celula = (v) => `<td class="${v > 1 ? 'fraco' : v < 1 ? 'forte-contra' : ''}">${v > 1 ? '▲ ' : v < 1 ? '▼ ' : ''}${esc(num(v))}</td>`;
+  return cabeca('Capítulo', 'Inimigos', 'Quanto cada inimigo recebe de cada elemento. Acima de 1 ele é fraco, abaixo de 1 ele resiste.')
+    + `<div class="rolagem"><table><thead><tr><th class="nome">Inimigo</th><th>Físico</th>${D.elementos.map((e) => `<th>${esc(e.nome)}</th>`).join('')}</tr></thead><tbody>${Object.entries(tabela).filter(([k]) => !k.startsWith('_')).map(([k, t]) => `<tr><th class="nome" scope="row">${esc(NOMES[k] ?? k)}${t.chefe ? ' (chefe)' : ''}</th>${celula(t.fisico)}${D.elementos.map((e) => celula(t[e.id])).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+
+function listaDeDecisoes(lista) {
+  return `<ul class="lista">${lista.map((x) => `<li><b>${esc(x.id)}</b><div><strong>${esc(x.tema)}</strong><span>${esc(x.decisao ?? x.observacao ?? (x.recomendacao ? `Recomendação: ${x.recomendacao}` : ''))}</span></div></li>`).join('')}</ul>`;
+}
+function decisoes() {
+  return cabeca('Capítulo', 'Decisões', 'O que ainda está em aberto e o que já foi combinado.')
+    + secao('Em aberto', listaDeDecisoes(abertas()))
+    + secao('Decididas', listaDeDecisoes(D.decisoes_em_aberto.filter((x) => x.status === 'decidido')));
+}
+
+function ideias() {
+  return cabeca('Capítulo', 'Ideias', 'O que fica fora da primeira versão, guardado para desenvolver depois.')
+    + D.ideias_para_depois.map((i) => secao(`${i.id} · ${i.nome}`, ficha([['Requisito', i.requisito], ['Libera', i.libera]].filter(([, v]) => v))
+      + (i.combo ? `<div class="rolagem"><table><thead><tr><th>Golpe</th><th>Elemento</th><th class="nome">Efeito</th></tr></thead><tbody>${i.combo.map((c) => `<tr><td>${c.golpe}</td><td>${esc(nomeEl(c.elemento))}</td><td style="text-align:left">${esc(c.efeito)}</td></tr>`).join('')}</tbody></table></div>` : '')
+      + `<ul class="lista">${i.a_definir.map((t) => `<li><b>Definir</b><div>${esc(t)}</div></li>`).join('')}</ul>`)).join('')
+    + secao('Escolhas do Fogo guardadas', `<p>Saíram da árvore quando ela foi reduzida e podem voltar em outro lugar.</p>` + grade(M.guardadas_para_depois));
+}
+
+const ROTAS = new Map([['inicio', inicio], ['regras', regras], ['reacoes', reacoes], ['racas', racas], ['inimigos', inimigos], ['decisoes', decisoes], ['ideias', ideias]]);
+for (const e of D.elementos) ROTAS.set(e.id, () => elemento(e));
+for (const r of D.reacoes) ROTAS.set(rotaReacao(r), () => reacao(r));
+const NAV = [
+  ['Livro', [['inicio', 'Início'], ['regras', 'Regras']]],
+  ['Elementos', D.elementos.map((e) => [e.id, e.nome, e.cor])],
+  ['Sistemas', [['reacoes', 'Reações'], ['racas', 'Raças'], ['inimigos', 'Inimigos']]],
+  ['Desenvolvimento', [['decisoes', 'Decisões'], ['ideias', 'Ideias']]],
+];
+
+// ---------- liga a página
+const pagina = document.getElementById('pagina');
+const busca = document.getElementById('busca');
+let realcar = null;
+
+document.getElementById('capitulos').innerHTML = NAV.map(([grupo, itens]) => `<div class="grupo"><h2>${esc(grupo)}</h2>${itens.map(([rota, nome, cor]) => `<a href="#${esc(rota)}" data-rota="${esc(rota)}"${cor ? ` style="--el:${esc(cor)}"` : ''}>${cor ? '<i class="ponto"></i>' : ''}${esc(nome)}</a>`).join('')}</div>`).join('');
+
+const rotaAtual = () => { const h = location.hash.slice(1); return ROTAS.has(h) ? h : 'inicio'; };
+
+function desenhar() {
+  const q = busca.value.trim();
+  const rota = rotaAtual();
+  const capitulo = rota.startsWith('reacao-') ? 'reacoes' : rota;
+  for (const a of document.querySelectorAll('[data-rota]')) {
+    if (a.dataset.rota === capitulo) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  }
+  if (q) {
+    const achados = resultados(q);
+    pagina.innerHTML = cabeca('Busca', `Resultados para ${q}`, achados.length ? plural(achados.length, 'item encontrado', 'itens encontrados') : 'Nada encontrado. Tente outro nome ou elemento.')
+      + `<div class="resultados">${achados.map((x, i) => `<button class="resultado" type="button" data-i="${i}"><strong>${esc(x.nome)}</strong><span>${esc(x.onde)}</span>${x.desc ? `<span>${esc(x.desc)}</span>` : ''}</button>`).join('')}</div>`;
+    for (const b of pagina.querySelectorAll('.resultado')) {
+      b.addEventListener('click', () => {
+        const x = achados[Number(b.dataset.i)];
+        busca.value = '';
+        realcar = x.no ? x.id : null;
+        if (location.hash.slice(1) === x.rota) desenhar(); else location.hash = x.rota;
+      });
+    }
+    return;
+  }
+  pagina.innerHTML = ROTAS.get(rota)();
+  const alvo = realcar && [...pagina.querySelectorAll('[data-no]')].find((c) => c.dataset.no === realcar);
+  realcar = null;
+  if (alvo) { alvo.classList.add('realce'); alvo.scrollIntoView({ block: 'center' }); } else window.scrollTo(0, 0);
+}
+
+busca.addEventListener('input', desenhar);
+window.addEventListener('hashchange', desenhar);
+desenhar();
+</script>

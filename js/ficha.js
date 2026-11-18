@@ -1,50 +1,69 @@
 /**
- * A FICHA (04/10/2026) — as REGRAS de nível, atributos, equipamento e carga, todas aqui:
- * mudar o equilíbrio é mudar um número deste arquivo, não caçar contas pelo jogo.
+ * A FICHA (04/10/2026; a 3 é de 18/11/2026) — as REGRAS de nível, equipamento e carga,
+ * todas aqui: mudar o equilíbrio é mudar um número deste arquivo, não caçar contas pelo jogo.
  *
- * A ideia: os níveis AJUDAM, o equipamento DECIDE. Cada atributo rende menos a cada
- * ponto (as `faixas`: até 20 rende bem, de 21 a 40 metade, depois quase nada), a força
- * só vale o quanto a ARMA aproveita dela (`escala`, de E a A) e arma pesada pede força
- * mínima (`requisito`). A armadura absorve o golpe, mas pesa: a RESISTÊNCIA dá a carga
- * que se aguenta, e passar dela deixa o rolamento lento e o fôlego curto.
- *
- * Com 20 em cada atributo (nível 31) e sem armadura, o Carrasco ainda mata em ~4 golpes;
- * com a média, em ~6; com a pesada, em ~7–8 (e aí é preciso resistência para carregá-la).
+ * A ideia: os níveis AJUDAM, o equipamento DECIDE. Não há mais atributos para escolher:
+ * cada nível acima do 1 aumenta TUDO um pouco (vida, vigor, carga e o bônus de força) e
+ * libera 1 ponto de habilidade. A força só vale o quanto a ARMA aproveita dela (`escala`,
+ * de E a A) e arma pesada pede força mínima (`requisito`), medida pela força que o nível
+ * dá (`forcaDoNivel`). A armadura absorve o golpe, mas pesa: passar da carga deixa o
+ * rolamento lento e o fôlego curto.
  *
  * `FICHA` é a REVISÃO destas regras gravada no save (`jogador.ficha`): save de outra
  * revisão não é aberto (`fichaAtual` em save.js) — o personagem recomeça do zero. É o
  * reset de todos os jogadores quando o sistema muda tanto que o progresso antigo não
- * serve mais (a 2 é esta: o progresso da 1 ficava imortal com 20 em cada atributo).
+ * serve mais (a 2: o progresso da 1 ficava imortal com 20 em cada atributo; a 3: os
+ * atributos saíram, e o nível passou a valer por tudo).
  */
-export const FICHA = 2;
+export const FICHA = 3;
 
-export const ATRIBUTO_INICIAL = 10;
+// O QUE CADA NÍVEL ACIMA DO 1 DÁ (nível 1 → nível 31)
+export const VIDA_BASE = 200, VIDA_POR_NIVEL = 2;              // 200 → 260
+export const VIGOR_BASE = 90, VIGOR_POR_NIVEL = 1;             // 90 → 120
+export const CARGA_BASE = 30, CARGA_POR_NIVEL = 0.2;           // 30 → 36
+export const BONUS_FORCA_POR_NIVEL = 0.005;                    // +0% → +15%, × a escala da arma
+// a FORÇA que conta para o `requisito` das armas: 1 a cada 3 níveis (10 → 20)
+export const FORCA_BASE = 10, NIVEIS_POR_FORCA = 3;
+
+export const vidaDoNivel = (n) => VIDA_BASE + VIDA_POR_NIVEL * (n - 1);
+export const vigorDoNivel = (n) => VIGOR_BASE + VIGOR_POR_NIVEL * (n - 1);
+export const cargaDoNivel = (n) => Math.round((CARGA_BASE + CARGA_POR_NIVEL * (n - 1)) * 10) / 10;
+export const bonusForcaDoNivel = (n) => Math.round(BONUS_FORCA_POR_NIVEL * (n - 1) * 1e4) / 1e4;
+export const forcaDoNivel = (n) => FORCA_BASE + (n - 1) / NIVEIS_POR_FORCA;
 
 /**
- * Quanto um atributo rende: soma, ponto a ponto desde o inicial, o ganho da faixa em
- * que o ponto cai. `faixas` = [[até, ganho por ponto], ...] em ordem.
+ * SÓ COMPATIBILIDADE: os três campos que o save continua gravando (`vigor`, `endurance`,
+ * `strength`). O jogo não os lê mais; existem porque o `saveTorto()` e o
+ * `personagem_valido()` de ANTES da migration 0005 exigem que somem 29 + nível, e o jogo
+ * pode ir ao ar antes de a migration rodar. Depois dela, podem sair do save.
  */
-export function curva(pontos, faixas) {
-  let total = 0, de = ATRIBUTO_INICIAL;
-  for (const [ate, ganho] of faixas) {
-    if (pontos <= de) break;
-    total += (Math.min(pontos, ate) - de) * ganho;
-    de = ate;
-  }
-  return total;
+export const atributosDeCompatibilidade = (n) => ({ vigor: 9 + n, endurance: 10, strength: 10 });
+
+// AS HABILIDADES: cada nível acima do 1 libera 1 ponto. A árvore ainda não existe no jogo:
+// por enquanto o jogador só acumula. `nos` = { id da habilidade: PONTOS gastos nela } (uma
+// suprema, que custa 3, grava 3); `barra` = os 4 atalhos (o id, ou null).
+export const VERSAO_HABILIDADES = 1;
+export const VAGAS_DA_BARRA = 4;
+const ID_HABILIDADE = /^[a-z][a-z0-9_.-]{0,59}$/;
+export const habilidadesVazias = () => ({ v: VERSAO_HABILIDADES, nos: {}, barra: Array(VAGAS_DA_BARRA).fill(null) });
+export const pontosGastos = (h) => Object.values(h.nos).reduce((s, n) => s + n, 0);
+export const pontosDisponiveis = (nivel, h) => Math.max(0, nivel - 1 - pontosGastos(h));
+
+/**
+ * As habilidades que vieram do save, conferidas (a forma é a do `saveTorto()` do servidor
+ * e a do `personagem_valido()` do banco). Save sem o campo, ou com ele torto, abre com a
+ * árvore vazia: nenhum ponto se perde, porque os disponíveis saem do nível.
+ */
+export function habilidadesDoSave(h, nivel) {
+  const objeto = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (!objeto(h) || h.v !== VERSAO_HABILIDADES || !objeto(h.nos)) return habilidadesVazias();
+  if (!Array.isArray(h.barra) || h.barra.length !== VAGAS_DA_BARRA) return habilidadesVazias();
+  const bons = Object.entries(h.nos).every(([id, n]) => ID_HABILIDADE.test(id) && Number.isInteger(n) && n >= 1 && n <= 999);
+  if (!bons || pontosGastos(h) > nivel - 1) return habilidadesVazias();
+  if (!h.barra.every((id) => id === null || (typeof id === 'string' && ID_HABILIDADE.test(id)))) return habilidadesVazias();
+  return { v: h.v, nos: { ...h.nos }, barra: [...h.barra] };
 }
 
-// VITALIDADE → vida (200 no 10; 300 no 20; 400 no 40)
-export const VIDA_BASE = 200;
-export const VITALIDADE = [[20, 10], [40, 5], [99, 1.5]];
-// RESISTÊNCIA → vigor (90 → 130 → 170) e CARGA máxima (30 → 45 → 61)
-export const VIGOR_BASE = 90;
-export const RESISTENCIA_VIGOR = [[20, 4], [40, 2], [99, 0.5]];
-export const CARGA_BASE = 30;
-export const RESISTENCIA_CARGA = [[20, 1.5], [40, 0.8], [99, 0.3]];
-// FORÇA → o bônus de dano, que a arma aproveita na proporção da escala dela
-// (+30% no 20, +60% no 40, numa arma de escala B)
-export const FORCA = [[20, 0.03], [40, 0.015], [99, 0.004]];
 export const ESCALA = { A: 1.2, B: 1.0, C: 0.75, D: 0.5, E: 0.25 };
 // abaixo do requisito de força da arma: golpes fracos
 export const SEM_REQUISITO = 0.6;

@@ -77,7 +77,7 @@ export const ANIMACOES = ['greatsword-idle'];
 // OS ESCULPIDOS PELO CONTORNO (esculpido.js; feitos de fotos por ferramentas/contorno/esculpir.mjs):
 // assets/esculpidos/<nome>.glb, com o esqueleto do manequim UAL em outras proporções. Faltando
 // um, ele só não aparece.
-export const ESCULPIDOS = ['dennis'];
+export const ESCULPIDOS = [];
 // OS CORPOS DE ARQUIVO (corpo-arquivo.js; um modelo pronto feito corpo do guerreiro por
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
 // (`<nome>:lisa` = só a versão LISA dele — 02/11/2026, a Feminino 4 lisa é o Feminino da Humana, raca.js `femininaDeArquivo`; a com

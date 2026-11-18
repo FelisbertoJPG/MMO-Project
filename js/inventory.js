@@ -177,7 +177,7 @@ export class Inventory {
     q('.d-type').textContent = TYPE_LABEL[def.type] + (def.twoHanded ? ' (duas mãos)' : '') + (def.lugar ? ` — ${NOME_DO_LUGAR[def.lugar]}` : '');
     let stats = def.stats ? { ...def.stats } : {};
     if (def.type === 'weapon') {
-      const fraco = p.strength < (def.requisito ?? 0);
+      const fraco = p.forcaEfetiva < (def.requisito ?? 0);
       stats = {
         'Dano': `${def.damage} → ${Math.round(def.damage * p.forcaNaArma(def))}`,
         'Escala (força)': `${def.escala ?? 'E'} (+${pct(p.bonusForca * ESCALA[def.escala ?? 'E'])})`,
@@ -213,7 +213,7 @@ export class Inventory {
     const rows = [
       ['Nível', p.level], ['Almas', p.souls],
       ['Vida', `${Math.ceil(p.hp)} / ${p.maxHp}`], ['Vigor', p.maxStamina],
-      ['Força', p.strength], ['Mão direita', w.name], ['Dano da arma', Math.round(w.damage * p.damageMul)],
+      ['Força', String(Math.round(p.forcaEfetiva * 10) / 10).replace('.', ',')], ['Mão direita', w.name], ['Dano da arma', Math.round(w.damage * p.damageMul)],
       ['Mão esquerda', this.equipped.left ? ITEMS[this.equipped.left].name : '—'],
       ...LUGARES.map((l) => [NOME_DO_LUGAR[l], this.equipped.armadura[l] ? ITEMS[this.equipped.armadura[l]].name : '—']),
       ['Equilíbrio', p.poise], ['Defesa', pct(p.defense)],

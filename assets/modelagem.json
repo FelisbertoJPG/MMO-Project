@@ -845,19 +845,6 @@
         {"de":"corpo","em":[-5.65,170.93,-1.9]}
       ]
     },
-    "denis": {
-      "partes": {
-        "corpo": {"tamanho":0.98}
-      },
-      "puxoes": [
-        {"parte":"cabeca","de":"corpo","em":[-5.49,181.64,10.8],"raio":4,"mover":[-33.5,32.99,0.77],"espelho":true},
-        {"parte":"cabeca","de":"corpo","em":[5.53,182.92,9.73],"raio":4,"mover":[-7.89,-1.39,-88.63],"espelho":true},
-        {"parte":"cabeca","de":"corpo","em":[-0.44,175.13,14.87],"raio":4,"mover":[1.46,-7.06,0.3],"espelho":true},
-        {"parte":"cabeca","de":"corpo","em":[0.23,155.66,14.35],"raio":4,"mover":[-0.08,-5.75,-2.07],"espelho":true},
-        {"parte":"cabeca","de":"corpo","em":[0.27,159.8,15.32],"raio":4,"mover":[0.6,-4.06,0.33],"espelho":true},
-        {"parte":"cabeca","de":"corpo","em":[12.12,170.36,-3.16],"raio":4,"mover":[11.68,23.22,-4.75],"espelho":true}
-      ]
-    },
     "goblin": {
       "partes": {
         "corpo": {"tamanho":0.5}

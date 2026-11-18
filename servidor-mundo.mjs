@@ -482,21 +482,38 @@ function lerNomeDoMapa(raiz) {
  * O que há de errado com este save? `null` = nada. Confere a FORMA e os
  * LIMITES — é o que impede um arquivo torto de travar o jogo de quem o abre
  * depois, e um nível 9999 escrito à mão de passar sem ninguém notar.
+ * As MESMAS contas de `masmorra.personagem_valido()` (migration 0005): mudou aqui, mude lá.
  */
 export function saveTorto(d) {
   const inteiro = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
-  if (!d || typeof d !== 'object' || Array.isArray(d)) return 'save inválido';
+  const objeto = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  const idDeHabilidade = (v) => typeof v === 'string' && /^[a-z][a-z0-9_.-]{0,59}$/.test(v);
+  if (!objeto(d)) return 'save inválido';
   if (d.versao !== 1) return 'versão de save desconhecida';
   const j = d.jogador, inv = d.inventario, m = d.mundo;
-  if (!j || typeof j !== 'object' || !inv || typeof inv !== 'object' || !m || typeof m !== 'object') return 'save incompleto';
+  if (!objeto(j) || !objeto(inv) || !objeto(m)) return 'save incompleto';
   if (!inteiro(j.nivel, 1, 999)) return 'nível fora do limite';
+  // os três atributos não valem mais nada no jogo (ficha.js `atributosDeCompatibilidade`):
+  // a soma deixou de ser exigida, só o limite continua
   for (const k of ['vigor', 'endurance', 'strength']) if (!inteiro(j[k], 1, 999)) return `atributo "${k}" fora do limite`;
-  // cada nível é um ponto num atributo: os três somam 30 no nível 1
-  if (j.vigor + j.endurance + j.strength !== 29 + j.nivel) return 'os atributos não batem com o nível';
   if (!inteiro(j.almas, 0, 1e9)) return 'almas fora do limite';
+  // a árvore de habilidades: save sem o campo vale como árvore vazia
+  const h = j.habilidades;
+  if (h !== undefined) {
+    if (!objeto(h) || h.v !== 1 || !objeto(h.nos)) return 'habilidades inválidas';
+    if (!Array.isArray(h.barra) || h.barra.length !== 4) return 'barra de habilidades inválida';
+    if (!h.barra.every((id) => id === null || idDeHabilidade(id))) return 'barra de habilidades inválida';
+    let gastos = 0;
+    for (const [id, pontos] of Object.entries(h.nos)) {
+      if (!idDeHabilidade(id) || !inteiro(pontos, 1, 999)) return 'habilidade inválida';
+      gastos += pontos;
+    }
+    if (gastos > j.nivel - 1) return 'pontos de habilidade demais para o nível';
+  }
   if (!Array.isArray(inv.itens) || inv.itens.length > 200) return 'inventário inválido';
   for (const it of inv.itens) {
-    if (!Array.isArray(it) || typeof it[0] !== 'string' || it[0].length > 40 || !inteiro(it[1], 0, 999)) return 'item inválido no inventário';
+    // (o tamanho em caracteres de verdade, como o `length` do SQL: um emoji conta 1)
+    if (!Array.isArray(it) || typeof it[0] !== 'string' || [...it[0]].length > 40 || !inteiro(it[1], 0, 999)) return 'item inválido no inventário';
   }
   return null;
 }

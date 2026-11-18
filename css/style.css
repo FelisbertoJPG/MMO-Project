@@ -374,6 +374,11 @@ body.sem-chat #chat:not(.escrevendo) { display: none; }
 #levelup .lv-head b { color: var(--gold); font-family: var(--serif); font-weight: 400; }
 #levelup button { padding: 2px 12px; font-size: 16px; }
 #levelup .desc { color: var(--text-dim); font-size: 13px; }
+#levelup .lv-agora { font-family: var(--serif); font-weight: 400; text-align: right; }
+#levelup .lv-depois { color: var(--gold); font-family: var(--serif); }
+#levelup .lv-pontos { grid-column: 1 / -1; display: flex; justify-content: space-between; border-top: 1px solid #2c261d; padding-top: 8px; margin-top: 4px; }
+#levelup .lv-pontos b { color: var(--gold); font-family: var(--serif); font-weight: 400; }
+#levelup .lv-subir { grid-column: 1 / -1; padding: 8px 12px; }
 .pause-panel { text-align: center; }
 #graficos-opcoes { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 14px 0 4px; }
 #graficos-opcoes span { color: var(--text-dim); font-size: 14px; margin-right: 6px; }

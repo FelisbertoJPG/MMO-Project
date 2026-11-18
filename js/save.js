@@ -4,7 +4,7 @@ import { RECEITAS } from './receitas.js';
 import { req } from './rede/supabase.js';
 import { temSaveEmArquivo } from './hospedagem.js';
 import { CELL, NASCER } from './world.js';
-import { FICHA, LUGARES } from './ficha.js';
+import { FICHA, LUGARES, atributosDeCompatibilidade, habilidadesDoSave } from './ficha.js';
 import { aparenciaValida } from './aparencia.js';
 
 // Progresso do jogador. Os inimigos comuns NÃO entram: eles renascem a cada
@@ -130,7 +130,9 @@ export function coletar(game) {
     jogador: {
       ficha: FICHA,   // a revisão das regras (ficha.js): save de outra não é aberto
       aparencia: p.aparencia,   // o rosto e o cabelo (aparencia.js)
-      nivel: p.level, vigor: p.vigor, endurance: p.endurance, strength: p.strength,
+      nivel: p.level,
+      ...atributosDeCompatibilidade(p.level),   // só para as validações de antes da migration 0005 (ver ficha.js)
+      habilidades: { v: p.habilidades.v, nos: { ...p.habilidades.nos }, barra: [...p.habilidades.barra] },
       almas, vida: p.dead ? null : Math.ceil(p.hp), pos,
       fogueira: p.fogueira,
       mapa: MAPA_REV,
@@ -195,8 +197,9 @@ export function aplicarProgresso(game, s) {
   inv.beltIdx = s.inventario.cintoIdx ?? 0;
   if (!inv.belt[inv.beltIdx]) inv.cycleQuick();
 
-  // Atributos
-  p.level = j.nivel; p.vigor = j.vigor; p.endurance = j.endurance; p.strength = j.strength;
+  // O nível e a árvore de habilidades (save sem o campo abre com a árvore vazia)
+  p.level = j.nivel;
+  p.habilidades = habilidadesDoSave(j.habilidades, j.nivel);
   if (aparenciaValida(j.aparencia)) p.aparencia = j.aparencia;
   p.receitas = new Set((Array.isArray(j.receitas) ? j.receitas : []).filter((id) => typeof id === 'string' && RECEITAS.some((r) => r.id === id)));
   p.souls = j.almas;

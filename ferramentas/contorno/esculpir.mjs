@@ -31,7 +31,7 @@
 // a mediana da foto colorida em cada região (`foto #rrggbb`), o ponto de partida para escolher.
 //
 // Uso (da raiz do jogo):
-//   node ferramentas/contorno/esculpir.mjs ferramentas/contorno/dennis.json ["<pasta das fotos>"] [--conferir=<pasta>]
+//   node ferramentas/contorno/esculpir.mjs ferramentas/contorno/<nome>.json ["<pasta das fotos>"] [--conferir=<pasta>]
 // (sem a pasta, vale a `fotos` do recorte)
 // Grava assets/esculpidos/<nome>.glb. Com --conferir, grava na pasta as fotos com a silhueta e
 // as caixas (vistas-<nome>.png) e o resultado desenhado de 4 lados (resultado-<nome>.png).

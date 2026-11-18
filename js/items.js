@@ -124,7 +124,7 @@ function armaduras() {
   const CONJ = {
     1: { nome: 'do Batedor', cor: '#8a5a32', borda: '#3a2210', desc: 'Couro curtido de um batedor da estrada. Leve: quase não atrapalha o rolamento.' },
     2: { nome: 'do Sentinela', cor: '#8a8f96', borda: '#2a2e34', desc: 'Malha e placas de um sentinela da masmorra. Protege bem sem pesar demais.' },
-    3: { nome: 'do Cavaleiro Caído', cor: '#4e5866', borda: '#c8a24a', desc: 'Placas pesadas de uma ordem que desafiou o Carrasco. Segura muito, mas pede resistência para ser carregada.' },
+    3: { nome: 'do Cavaleiro Caído', cor: '#4e5866', borda: '#c8a24a', desc: 'Placas pesadas de uma ordem que desafiou o Carrasco. Segura muito, mas pesa: leva tempo até ter carga para ela.' },
   };
   // [nome, nome no couro] — o peito de couro é a TÚNICA (pintada: assets/armaduras.json, casca.js)
   const PECA = { cabeca: ['Elmo', 'Capacete'], peito: ['Peitoral', 'Túnica'], bracos: ['Braçadeiras', 'Braçadeiras'], pernas: ['Grevas', 'Calças'] };

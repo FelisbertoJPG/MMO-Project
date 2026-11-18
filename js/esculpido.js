@@ -2,8 +2,8 @@
 // (ferramentas/contorno/esculpir.mjs → assets/esculpidos/<nome>.glb), sem o arquivo original.
 //
 // O esqueleto do arquivo é o do manequim UAL com OUTRAS PROPORÇÕES: os mesmos 65 ossos, os
-// mesmos nomes e os mesmos giros de repouso — só os comprimentos mudam (o Dennis é "chibi":
-// cabeça grande, pernas curtas). Então as animações do jogo servem direto, sem manequim
+// mesmos nomes e os mesmos giros de repouso — só os comprimentos mudam (um corpo "chibi", por
+// exemplo: cabeça grande, pernas curtas). Então as animações do jogo servem direto, sem manequim
 // invisível nem retarget por quadro: cada clipe do UAL é ADAPTADO uma vez (`clipeAdaptado`,
 // dividido por todos os bonecos do mesmo modelo) — os giros ficam como estão (o giro local de
 // cada osso dá a mesma pose em qualquer comprimento) e só o deslocamento do quadril e da raiz
@@ -13,8 +13,8 @@
 // boneco parado (`Idle_Loop`), ele fica em pé ao lado do corpo, com a palma no meio dele; daí
 // em diante acompanha a mão em toda animação.
 //
-// No jogo ele é uma RAÇA JOGÁVEL (`PersonagemEsculpido`, abaixo: o corpo de quem escolhe a
-// raça dele). A vitrine do acampamento (16/10, o boneco passando pelas animações ao lado da
+// No jogo ele pode ser uma RAÇA JOGÁVEL (`PersonagemEsculpido`, abaixo: o corpo de quem escolhe a
+// raça dele; hoje nenhuma raça usa, a lista `ESCULPIDOS` do assets.js está vazia). A vitrine do acampamento (16/10, o boneco passando pelas animações ao lado da
 // fogueira) saiu quando ele virou raça; o `CorpoEsculpido` sozinho, com o mixer dele, serve
 // para um NPC.
 import * as THREE from 'three';
@@ -258,7 +258,7 @@ export class PersonagemEsculpido {
  * (Game.preaquecer) um boneco de cada esculpido no meio do mapa, com o material de quem joga
  * com ele: o shader compila no carregamento, e não quando o primeiro chega. Devolve quem os tira.
  * Os MATERIAIS do aquecimento ficam vivos (até o próximo aquecimento): o `dispose` deles fazia o
- * three.js apagar o programa recém-compilado, e quem virava Dennis compilava tudo de novo
+ * three.js apagar o programa recém-compilado, e quem virava a raça esculpida compilava tudo de novo
  * (medido em 17/10/2026: 2 programas "Esculpido", com e sem ossos, na troca de raça).
  */
 let aquecidos = [];
