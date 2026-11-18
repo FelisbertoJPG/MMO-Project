@@ -1,6 +1,7 @@
 {
-  "_leiame": "Os MOLDES DO ARQUIVO (js/assets.js `lerMoldesDoArquivo`, js/penteado.js `PENTEADOS_DE_MOLDE`): cada molde (assets/penteados/<molde>.json) vai para o FIM da lista MOLDES do código, NESTA ORDEM (é o número da forma `molde`: nunca reordene nem apague do meio), e nasce o penteado `id` com o `nome`. Escrito pelo ferramentas/penteados/penteado-da-colagem.mjs (a aba Modelo do editor, \"virar penteado\").",
+  "_leiame": "Os MOLDES DO ARQUIVO (js/assets.js `lerMoldesDoArquivo`, js/penteado.js `PENTEADOS_DE_MOLDE`): cada molde (assets/penteados/<molde>.json) vai para o FIM da lista MOLDES do código, NESTA ORDEM (é o número da forma `molde`: nunca reordene nem apague do meio), e nasce o penteado `id` com o `nome` (sem `id`: só o molde — a versão de um corpo). Escrito pelo ferramentas/penteados/penteado-da-colagem.mjs (a aba Modelo do editor, \"virar penteado\"), pelo penteado-salvo-como.mjs (a aba Cabelo, \"salvar como\") e pela rota molde-gravar do editor.",
   "moldes": [
-    {"molde":"rabo-de-cavalo","id":"raboDeCavalo","nome":"Rabo de cavalo"}
+    {"molde":"rabo-de-cavalo","id":"raboDeCavalo","nome":"Rabo de cavalo"},
+    {"molde":"preguicoso-2","id":"preguicosoB","nome":"Preguiçoso 2"}
   ]
 }

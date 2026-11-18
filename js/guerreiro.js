@@ -207,7 +207,7 @@ function moldarCouro(geo, pecas, faixas, originais, ini, fim, ordem) {
  * rente também conta) ou por DENTRO deles (a pele furou a malha de cima: o raio volta pela normal). `aceita(A, B, C, normal)` — sem
  * mexer nos vetores — escolhe os triângulos da pele que entram na conta. Devolve os deslocamentos (em vértices, a partir de `ini`).
  */
-function peleCobertaPor(P, ini, fim, faixas, alcance, aceita = null) {
+function peleCobertaPor(P, ini, fim, faixas, alcance, aceita = null, { tambem = null, soDeFora = false } = {}) {
   const some = [], tris = [];
   for (const [a, b] of faixas) for (let k = a; k + 2 < b; k += 3) tris.push(k);
   const grade = new Map(), C = 3, ch = (x, y, z) => ((x + 512) * 1024 + (y + 512)) * 1024 + (z + 512);
@@ -216,6 +216,7 @@ function peleCobertaPor(P, ini, fim, faixas, alcance, aceita = null) {
     for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++) { const c = ch(x, y, z); let l = grade.get(c); if (!l) grade.set(c, (l = [])); l.push(t); }
   });
   const o = new THREE.Vector3(), dir = new THREE.Vector3(), A = new THREE.Vector3(), B = new THREE.Vector3(), Cc = new THREE.Vector3(), alvo = new THREE.Vector3(), raio = new THREE.Ray();
+  const fora = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();   // (a normal da pele; as arestas do triângulo de cima)
   const visto = new Uint32Array(tris.length);
   let selo = 0;
   const coberto = () => {
@@ -228,7 +229,11 @@ function peleCobertaPor(P, ini, fim, faixas, alcance, aceita = null) {
       visto[t] = sel;
       const k = tris[t];
       A.fromArray(P, k * 3); B.fromArray(P, k * 3 + 3); Cc.fromArray(P, k * 3 + 6);
-      if (raio.intersectTriangle(A, B, Cc, false, alvo) && alvo.distanceTo(o) <= alcance) return true;
+      if (!raio.intersectTriangle(A, B, Cc, false, alvo) || alvo.distanceTo(o) > alcance) continue;
+      // (`soDeFora`: só a malha de cima VIRADA PARA FORA — a que aparece. A camada de dentro do cabelo, virada para a cabeça, não se
+      // desenha vista de fora: escondendo a pele por ela, via-se através da cabeça — 17/11/2026, a nuca do Preguiçoso cortado)
+      if (soDeFora && e1.subVectors(B, A).cross(e2.subVectors(Cc, A)).dot(fora) <= 0) continue;
+      return true;
     }
     return false;
   };
@@ -236,20 +241,35 @@ function peleCobertaPor(P, ini, fim, faixas, alcance, aceita = null) {
     A.fromArray(P, k * 3); B.fromArray(P, k * 3 + 3); Cc.fromArray(P, k * 3 + 6);
     dir.subVectors(B, A).cross(alvo.subVectors(Cc, A)).normalize();
     if (!dir.lengthSq() || (aceita && !aceita(A, B, Cc, dir))) continue;
+    fora.copy(dir);
     // (cada canto: a malha de cima por FORA da pele — o raio sai um pouco de dentro: o rente também conta — ou por DENTRO dela,
     // onde a pele a furou: o raio volta pela normal)
-    let todos = true;
-    for (const V of [A.clone(), B.clone(), Cc.clone()]) {
+    const cantos = [A.clone(), B.clone(), Cc.clone()];
+    let todos = cantosCobertos(cantos);
+    // (`tambem(A, B, C, normal)`: outra direção — um Vector3 novo — em que o triângulo também tem de estar coberto; null = só a normal. Aí
+    // vale mais que os cantos: o meio dele e o de cada aresta, nas duas direções — o cabelo espetado deixa ver entre as mechas)
+    if (todos && tambem) {
+      // (dos cantos CLONADOS: o `coberto` reaproveita A, B e Cc para o triângulo de cima)
+      const [a, b, c] = cantos, d = tambem(a, b, c, fora);
+      if (d) {
+        const meios = [a.clone().add(b).multiplyScalar(0.5), b.clone().add(c).multiplyScalar(0.5), c.clone().add(a).multiplyScalar(0.5), a.clone().add(b).add(c).divideScalar(3)];
+        todos = cantosCobertos(meios) && (dir.copy(d), cantosCobertos([...cantos, ...meios]));
+      }
+    }
+    if (todos) some.push(k - ini);
+  }
+  return some;
+  function cantosCobertos(vs) {
+    for (const V of vs) {
       o.copy(V).addScaledVector(dir, -0.2);
       if (coberto()) continue;
       o.copy(V).addScaledVector(dir, 0.2); dir.negate();
       const dentro = coberto();
       dir.negate();
-      if (!dentro) { todos = false; break; }
+      if (!dentro) return false;
     }
-    if (todos) some.push(k - ini);
+    return true;
   }
-  return some;
 }
 /** Some com os triângulos da pele (os deslocamentos de `peleCobertaPor`): cada um vira um ponto no meio dele, como o cortado da aba Modelo. */
 function sumirPele(P, ini, some) {
@@ -276,10 +296,14 @@ function esconderCouroCabeludo(geo, peles, cabelo, ctx = null) {
   for (const [ini, fim] of peles) {
     let topo = -Infinity;
     for (let i = ini; i < fim; i++) if (Math.abs(P[i * 3]) < 15) topo = Math.max(topo, P[i * 3 + 1]);
+    // (A NUCA VISTA DE BAIXO — 17/11/2026, o dono, com o Preguiçoso cortado curto atrás: "a nuca continua sem a textura, tá um vão". O
+    // raio pela normal da nuca, que olha para trás, ainda achava o cabelo do alto passando atrás dela, a menos de CABELO_COBRE cm: a pele
+    // sumia e, de baixo, via-se através da cabeça. Na nuca — abaixo do alto — o cabelo tem de cobrir os cantos também num raio inclinado
+    // 45° PARA BAIXO: o cabelo que desce por trás cobre; o que termina acima, não)
     const some = peleCobertaPor(P, ini, fim, [cabelo], CABELO_COBRE, (A, B, C, normal) => {
       const y = (A.y + B.y + C.y) / 3;
       return normal.z < CABELO_FRENTE && (y > topo - CABELO_ALTURA || (normal.z < -0.4 && y > topo - CABELO_NUCA));
-    });
+    }, { soDeFora: true, tambem: (A, B, C, normal) => (normal.z < -0.4 ? new THREE.Vector3(normal.x, normal.y - 1, normal.z).normalize() : null) });
     sumirPele(P, ini, some);
     ctx?.couroCabeludo.push([ini, some]);
     n += some.length;
