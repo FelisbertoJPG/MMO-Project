@@ -23,12 +23,12 @@ elementos e as outras 20 reações vêm depois, seguindo a mesma regra.
   barra de 4 espaços (D10), luz, trevas e elétrico sem afinidade (D11) e personagens (D12).
 - [x] **Dennis removido do jogo (D8).** O Goblin passou a ser o dígito 3 das raças.
 - [x] **Sistema de níveis no jogo (D1):** cada nível libera 1 ponto de habilidade e dá +2 de vida,
-  +1 de vigor, +0,2 de carga e +0,5% de força. Pronto no código, falta publicar.
+  +1 de vigor, +0,2 de carga e +0,5% de força. Publicado na versão 2026-11-18.2.
 - [x] **Modelo da árvore aprovado (D14, D15, D17):** Maestria de 5 pontos (dá dano e resistência ao elemento),
   2 linhas comuns de 3 pontos e 1 linha de suprema. O Fogo já está em `modelo_de_arvore`.
-- [ ] **Rodar a migration dos elementos (D18):** `supabase/migrations/0005_habilidades.sql` está
-  escrita, mas ainda não foi executada. Cria os 7 elementos com a Maestria, as 21 reações como
-  registro e todas as habilidades do Fogo.
+- [x] **Migration dos elementos (D18):** `supabase/migrations/0005_habilidades.sql`, já rodada pelo
+  dono. Cria os 7 elementos com a Maestria, as 21 reações como registro e todas as habilidades
+  do Fogo.
 - [x] **A habilidade nova não substitui a original (D16):** a Rajada e a Bola de Fogo ficam
   disponíveis juntas.
 - [x] **Reação do Caos (D13):** por enquanto existe só como registro na tabela.
