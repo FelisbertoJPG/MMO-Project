@@ -4,6 +4,7 @@ import { initGear } from './gear.js';
 import { Ceu } from './ceu.js';
 import { Retrato } from './retrato.js';
 import { EditorDeAparencia } from './aparencia.js';
+import { TelaPerfis } from './perfis.js';
 import { assarRefeicoes } from './refeicao.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
@@ -154,6 +155,8 @@ class Game {
     // `sessao`: a partida compartilhada (co-op/PvP). null = sozinho.
     this.sessao = null;
     this.online = new Online(this);
+    this.perfil = null;                  // o personagem escolhido na tela de entrada (js/perfis.js); sem conta, null
+    this.telaPerfis = new TelaPerfis(this);
     this.salaUI = new SalaUI(this);
     // o chat de voz com quem está junto (rede/voz.js; as opções ficam no menu de pausa)
     this.voz = new Voz(this);
@@ -262,7 +265,8 @@ class Game {
         ev.currentTarget.textContent = 'Apagar o progresso e começar do zero?';
         return;
       }
-      if (this.progresso) { apagarProgresso(this.online); this.progresso = null; }
+      if (this.progresso) { apagarProgresso(this.online, this.perfil); this.progresso = null; }
+      this.vestirPerfil();
       this.start();
     });
     document.getElementById('continue-btn').addEventListener('click', () => this.continuar());
@@ -426,27 +430,74 @@ class Game {
   salvar(opts) { return salvarProgresso(this, opts); }
 
   // ---------- Tela de título: conta e progresso ----------
-  /** Lê o progresso DE QUEM ESTÁ JOGANDO e arruma os botões e a linha da conta. */
+  /** Arruma a tela de entrada para quem está aqui: a conta, os personagens dela e o servidor. */
   async prepararTitulo() {
-    const contBt = document.getElementById('continue-btn'), novoBt = document.getElementById('start-btn');
+    this.mostrarConta();
+    this.prepararMundo();
+    // (sem `await`: a tela de entrada não espera a lista, que tem o próprio "Lendo…")
+    if (this.temConta()) this.telaPerfis.carregar();
+    else { this.telaPerfis.limpar(); await this.prepararJornada(); }
+  }
+
+  /** Quem está aqui passa pela tela de perfis? (`?teste=Nome`, o teste local, conta como logado) */
+  temConta() { return this.online.estado !== 'deslogado' || new URLSearchParams(location.search).has('teste'); }
+
+  /** O personagem da tela de perfis mudou (`null` = nenhum). */
+  escolherPerfil(perfil) {
+    this.perfil = perfil;
+    this.liberarEntrada();
+    this.prepararJornada();
+  }
+
+  /** O corpo do personagem escolhido: quem ainda não tem save entra com a aparência da criação. */
+  vestirPerfil() {
+    const c = this.perfil?.aparencia;
+    if (!c || c === this.player.aparencia) return;
+    this.player.aparencia = c;
+    this.player.refreshEquipment();
+  }
+
+  /**
+   * Lê o progresso da JORNADA de quem está jogando e arruma os botões dela (só com
+   * `?jornada` na URL). Falhou em ler: mostra o erro e NÃO deixa começar — um jogo novo
+   * gravaria por cima do progresso que não se conseguiu ler.
+   */
+  async prepararJornada() {
+    const contBt = document.getElementById('continue-btn'), novoBt = document.getElementById('start-btn'), dica = document.getElementById('jornada-dica');
     contBt.classList.add('hidden');
     novoBt.disabled = true;
-    this.progresso = await lerProgresso(this.online);
+    this.progresso = null;
     this.confirmouNovo = false;
+    if (!new URLSearchParams(location.search).has('jornada')) return;
+    const perfil = this.perfil;
+    if (this.temConta() && !perfil) { dica.textContent = 'Escolha um personagem para jogar a Jornada.'; return; }
+    const lido = await lerProgresso(this.online, perfil);
+    if (perfil !== this.perfil) return;   // trocou de personagem enquanto lia
+    if (lido?.erro) {
+      dica.textContent = `${lido.erro} `;
+      const a = Object.assign(document.createElement('a'), { href: '#', textContent: 'Tentar de novo' });
+      a.addEventListener('click', (e) => { e.preventDefault(); this.prepararJornada(); });
+      dica.append(a);
+      return;
+    }
+    this.progresso = lido;
     novoBt.disabled = false;
     novoBt.textContent = this.progresso ? 'Novo Jogo' : 'Iniciar Jornada';
     if (this.progresso) {
       const d = this.progresso.dados;
       const quando = new Date(d.salvoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-      const de = this.progresso.origem === 'adotado' ? ' · deste computador' : this.progresso.origem === 'nuvem' ? ' · da nuvem' : '';
+      const de = this.progresso.origem === 'nuvem' ? ' · da nuvem' : '';
       contBt.innerHTML = `Continuar <small>nível ${d.jogador.nivel} · ${quando}${de}</small>`;
       contBt.classList.remove('hidden');
     }
     document.getElementById('jornada-dica').innerHTML = temSaveEmArquivo()
       ? 'O seu mundo, no seu ritmo. O progresso fica neste computador. Chame um amigo pela tecla <b>O</b>.'
       : 'O seu mundo, no seu ritmo. O progresso fica neste navegador — e na sua conta, se entrar com uma.';
-    this.mostrarConta();
-    this.prepararMundo();
+  }
+
+  /** "Entrar em Lubelion" só com o servidor no ar E um personagem escolhido. */
+  liberarEntrada() {
+    if (!this.entrando) document.getElementById('mmo-btn').disabled = !this.servidorPronto || !this.perfil;
   }
 
   // ---------- Tela de título: o MUNDO ONLINE ----------
@@ -481,10 +532,11 @@ class Game {
    * por que não dá para entrar. Libera o "Entrar em Lubelion".
    */
   async prepararMundo() {
-    const bt = document.getElementById('mmo-btn'), st = document.getElementById('mmo-status');
+    const st = document.getElementById('mmo-status');
     const base = this.enderecoDoMundo();
     document.getElementById('mmo-onde').textContent = base || (temSaveEmArquivo() ? 'este computador' : serveOMundo() ? 'este endereço' : 'nenhum ainda');
-    bt.disabled = true;
+    this.servidorPronto = false;
+    this.liberarEntrada();
     const mostrar = (estado, texto) => { st.dataset.estado = estado; st.textContent = texto; };
     if (!this.haMundo()) { mostrar('erro', 'Servidor ainda não está no ar'); return; }
     mostrar('espera', 'Procurando o servidor…');
@@ -516,7 +568,8 @@ class Game {
     if (info.jogadores >= info.max) { mostrar('espera', `Servidor cheio · ${quantos}`); return; }
     mostrar('ok', `Servidor online · ${quantos}`);
     // a conta logada, mas fora do jogo (Supabase fora, schema não exposto…): o motivo já está no painel
-    bt.disabled = !this.online.ativo && !teste;
+    this.servidorPronto = this.online.ativo || teste;
+    this.liberarEntrada();
   }
 
   bindMundo() {
@@ -677,19 +730,20 @@ class Game {
    * (ou nada, se é a primeira vez — aí ele nasce no acampamento, com a adaga).
    */
   async entrarNoMundo() {
-    if (this.state !== 'title' || this.entrando) return;
+    if (this.state !== 'title' || this.entrando || !this.perfil) return;
     const bt = document.getElementById('mmo-btn'), aviso = document.getElementById('entrada-aviso');
     this.entrando = true;
     bt.disabled = true;
     bt.textContent = 'Entrando…';
     aviso.textContent = '';
-    const r = await Mundo.entrar(this, { base: this.enderecoDoMundo(), obterToken: this.tokenDoMundo() });
+    const r = await Mundo.entrar(this, { base: this.enderecoDoMundo(), obterToken: this.tokenDoMundo(), perfil: this.perfil });
     this.entrando = false;
     if (!r.ok) { bt.disabled = false; bt.textContent = 'Entrar em Lubelion'; aviso.textContent = r.error; return; }
     this.modo = 'mmo';
     this.sessao = r.mundo;
     // personagem de outra ficha (ficha.js) recomeça do zero: é o reset de todos
     const salvo = fichaAtual(r.mundo.personagem);
+    this.vestirPerfil();
     if (salvo) aplicarProgresso(this, salvo);
     this.world.destrancarCela();   // no mundo de todos ninguém acorda preso
     this.entrarNoJogo();
@@ -853,11 +907,10 @@ class Game {
   /** Volta de onde parou: o mundo como estava, o jogador se levantando. */
   continuar() {
     if (this.state !== 'title' || !this.progresso) return;
+    this.vestirPerfil();
     aplicarProgresso(this, this.progresso.dados);
     this.entrarNoJogo();
     this.online.comecarPartida();
-    // O save sem conta passou a ser da conta: grava já com o dono novo
-    if (this.progresso.origem === 'adotado') { this.salvar({ nuvem: true }); this.ui.toast('O progresso deste computador agora é da sua conta.'); }
     this.snapCamera();
     this.ui.centerMessage('Masmorra dos Esquecidos', 'info', 3000);
     // Salvo antes de a chave cair (os primeiros segundos): ela cai agora, se ainda faz falta
@@ -890,8 +943,8 @@ class Game {
     this.player.startOutside();
     this.snapCamera();
     this.ui.centerMessage('Acampamento dos Recém-chegados', 'info', 3000);
-    // o personagem NOVO escolhe o rosto antes de sair andando
-    this.after(1.2, () => { if (!this.menu) this.openMenu('aparencia'); });
+    // o personagem NOVO escolhe o rosto antes de sair andando (quem passou pela tela de criação já escolheu)
+    if (!this.perfil?.aparencia) this.after(1.2, () => { if (!this.menu) this.openMenu('aparencia'); });
   }
 
   /**
@@ -1434,8 +1487,13 @@ class Game {
       this.time += dt;
       // Câmera lenta sobre o prisioneiro deitado na cela
       const a = this.time * 0.15;
-      this.camera.position.set(START_POS.x + Math.sin(a) * 3, 4.4, START_POS.z + Math.cos(a) * 3);
-      this.camera.lookAt(START_POS.x, 0.3, START_POS.z);
+      // (criando um personagem, js/perfis.js: a câmera do painel de Aparência, no rosto)
+      if (this.criandoPerfil) this.editorAparencia.camera(this.camera);
+      else {
+        if (this.camera.view?.enabled) this.camera.clearViewOffset();
+        this.camera.position.set(START_POS.x + Math.sin(a) * 3, 4.4, START_POS.z + Math.cos(a) * 3);
+        this.camera.lookAt(START_POS.x, 0.3, START_POS.z);
+      }
       this.player.model.update(dt);
       this.world.update(dt, this.camera);
       this.effects.update(dt);

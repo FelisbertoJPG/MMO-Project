@@ -245,7 +245,9 @@ function criarEtiqueta(texto) {
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.shadowColor = 'black'; g.shadowBlur = 6;
   g.fillStyle = '#dfe8ff';
-  g.fillText(texto.slice(0, 24), 128, 24);
+  const t = texto.slice(0, 24), larg = g.measureText(t).width;
+  if (larg > 244) g.font = `${Math.floor(28 * 244 / larg)}px Georgia, serif`;   // (`Nome #CÓDIGO` longo encolhe para caber)
+  g.fillText(t, 128, 24);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));

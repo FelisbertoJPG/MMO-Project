@@ -87,6 +87,12 @@ export const SOMBRAS = [
   ['Esfumada roxa', '#33183f', 0.85], ['Esfumada cinza', '#3c3c44', 0.8], ['Dourada', '#9a7432', 0.7],
 ];
 export const APARENCIA_PADRAO = '01010';
+/**
+ * A TRAVA DE RAÇA — o ponto ÚNICO para ligá-la (decisão do dono, 18/11/2026: DESLIGADA até os
+ * modelos das raças ficarem prontos). Com `true`, a raça só se escolhe ao CRIAR o personagem:
+ * o painel do menu de pausa deixa de mostrar a linha da raça (`EditorDeAparencia.desenhar`).
+ */
+export const RACA_TRAVADA = false;
 // (a EXTENSÃO depois do `~` — 02/11/2026, o dono: "deixa escolher a sobrancelha pintada no jogo, delineado e maquiagem, além de cores
 // pra cada um — livre — e mais cores de batom, dá a roda de cores pro player": só com os 13 dígitos; 3 dígitos — a sobrancelha
 // PINTADA, o DELINEADO e a MAQUIAGEM do corpo de arquivo (0 = sem; n = a n-ésima camada/maquiagem dele) — e 4 cores LIVRES, o
@@ -252,6 +258,8 @@ const hsvDe = (hex) => {
 };
 /** As raças que o jogador pode escolher: o humano e as `jogavel` do arquivo ({ n, nome }). */
 const racasDoPainel = () => [{ n: 0, nome: 'Humano' }, ...Assets.racas.map((r, i) => ({ n: i + 1, nome: r.nome, jogavel: r.jogavel })).filter((r) => r.jogavel)];
+/** O nome da raça de um código de aparência (a tela dos perfis). */
+export const nomeDaRaca = (codigo) => { const n = lerAparencia(aparenciaValida(codigo) ? codigo : APARENCIA_PADRAO).raca; return racasDoPainel().find((r) => r.n === n)?.nome ?? 'Humano'; };
 
 /**
  * O EDITOR DE PERSONAGEM no jogo (`game.menu = 'aparencia'`): um painel com ◀ ▶ por
@@ -305,7 +313,10 @@ export class EditorDeAparencia {
   /** a distância da câmera vezes `k` (< 1 aproxima) */
   aproximar(k) { this.dist = THREE.MathUtils.clamp(this.dist * k, DIST_MIN, DIST_MAX); }
 
-  abrir() {
+  /** `criando`: o painel está na criação de personagem (js/perfis.js), sem o botão "Pronto". */
+  abrir({ criando = false } = {}) {
+    this.criando = criando;
+    this.el.classList.toggle('criacao', criando);
     this.el.classList.remove('hidden');
     this.rodaAberta = null;
     this.game.player.esconderCorpo?.(false);   // (a primeira pessoa esconde o corpo da câmera)
@@ -348,6 +359,7 @@ export class EditorDeAparencia {
       // (a raça ESCULPIDA — um corpo feito de fotos, esculpido.js — já vem pintada e vestida:
       // só a linha da raça; o resto do código fica guardado para quando voltar ao humano)
       if (k !== 'raca' && esculpidoDe(raca)) continue;
+      if (k === 'raca' && RACA_TRAVADA && !this.criando) continue;   // (a trava de raça: ver RACA_TRAVADA)
       // (a PELE é uma régua — o tom livre, do bege ao quase preto: o corpo muda ao SOLTAR; arrastando, só a amostra)
       if (k === 'pele') { this.lista.appendChild(this.reguaDaPele(a)); continue; }
       const ops = opcoes(raca, a), linha = document.createElement('div');

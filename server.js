@@ -17,16 +17,19 @@ const types = {
   '.svg': 'image/svg+xml',
 };
 
-const saveDir = path.join(root, 'saves');
+// `SAVES_DIR`: outra pasta para os saves (os testes automáticos não tocam nos de verdade)
+const saveDir = process.env.SAVES_DIR ? path.resolve(process.env.SAVES_DIR) : path.join(root, 'saves');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Um save por CONTA (`?conta=<id do Supabase>`) e um sem conta (`progresso.json`,
-// quem joga offline). O id é conferido por formato: ele vira nome de arquivo.
+// Um save da Jornada por PERSONAGEM (`?perfil=<id>`) e um sem conta (`progresso.json`,
+// quem joga offline). `?conta=<id>` é o arquivo de antes dos perfis. Os ids são
+// conferidos por formato: eles viram nome de arquivo.
 function progresso(req, res) {
   const json = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
-  const conta = new URL(req.url, 'http://x').searchParams.get('conta');
+  const q = new URL(req.url, 'http://x').searchParams, conta = q.get('conta'), perfil = q.get('perfil');
   if (conta && !UUID.test(conta)) return json(400, { erro: 'conta inválida' });
-  const saveFile = path.join(saveDir, conta ? `conta-${conta.toLowerCase()}.json` : 'progresso.json');
+  if (perfil && !UUID.test(perfil)) return json(400, { erro: 'perfil inválido' });
+  const saveFile = path.join(saveDir, perfil ? `perfil-${perfil.toLowerCase()}.json` : conta ? `conta-${conta.toLowerCase()}.json` : 'progresso.json');
   if (req.method === 'GET') {
     return fs.readFile(saveFile, 'utf8', (err, txt) => {
       if (err) return json(404, { erro: 'sem progresso salvo' });

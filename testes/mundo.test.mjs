@@ -22,6 +22,8 @@ const PORTA = 58731;
 const BASE = `http://127.0.0.1:${PORTA}`;
 const PASTA = fs.mkdtempSync(path.join(os.tmpdir(), 'mundo-teste-'));
 const MAPA = JSON.parse(fs.readFileSync(path.join(RAIZ, 'assets', 'mapa.json'), 'utf8')).ativo;
+/** A versão do protocolo (`VERSAO_MUNDO` do servidor). */
+const V = 2;
 
 let filho = null;
 function subir(mais = {}) {
@@ -44,9 +46,25 @@ async function esperar(cond, ms = 2000) {
   return false;
 }
 
-/** Um jogador de teste: entra, ouve (guardando tudo o que chega) e fala. */
-async function jogador(nome) {
-  const r = await fetch(`${BASE}/__mundo/entrar`, { method: 'POST', body: JSON.stringify({ token: `teste:${nome}`, v: 1, mapa: MAPA }) });
+/** Fala com a lista de personagens do modo de teste: `{status, ...resposta}`. */
+async function perfis(conta, corpo) {
+  const r = await fetch(`${BASE}/__mundo/perfis`, { method: 'POST', body: JSON.stringify({ token: `teste:${conta}`, ...corpo }) });
+  return { status: r.status, ...(await r.json()) };
+}
+/** O personagem `nome` da conta `conta` (cria na primeira vez). */
+async function perfilDe(conta, nome = conta) {
+  const achado = (await perfis(conta, { acao: 'listar' })).perfis.find((p) => p.nome === nome);
+  if (achado) return achado;
+  const r = await perfis(conta, { acao: 'criar', nome });
+  assert.ok(r.ok, `criar ${nome}: ${r.erro}`);
+  return r.perfil;
+}
+const pedirEntrada = (conta, personagem) => fetch(`${BASE}/__mundo/entrar`, { method: 'POST', body: JSON.stringify({ token: `teste:${conta}`, v: V, mapa: MAPA, personagem }) });
+
+/** Um jogador de teste: entra com um personagem, ouve (guardando tudo o que chega) e fala. */
+async function jogador(nome, conta = nome) {
+  const perfil = await perfilDe(conta, nome);
+  const r = await pedirEntrada(conta, perfil.id);
   const entrada = await r.json();
   assert.ok(entrada.ok, `entrar(${nome}): ${entrada.erro}`);
   const j = { nome, id: entrada.id, bilhete: entrada.bilhete, entrada, recados: [], fechado: false };
@@ -100,20 +118,20 @@ let ana, beto, caio;
 await teste('/__mundo/info diz quem é, a versão e o mapa', async () => {
   const i = await (await fetch(`${BASE}/__mundo/info`)).json();
   assert.equal(i.quem, 'masmorra-do-carrasco');
-  assert.equal(i.v, 1);
+  assert.equal(i.v, V);
   assert.equal(i.mapa, MAPA);
   assert.equal(i.jogadores, 0);
 });
 
 await teste('entrar RECUSA token ruim, versão errada e mapa errado', async () => {
   const tenta = async (corpo) => { const r = await fetch(`${BASE}/__mundo/entrar`, { method: 'POST', body: JSON.stringify(corpo) }); return [r.status, (await r.json()).ok]; };
-  assert.deepEqual(await tenta({ token: 'teste:x', v: 1, mapa: MAPA }), [400, false], 'nome curto demais');
+  assert.deepEqual(await tenta({ token: 'teste:x', v: V, mapa: MAPA }), [400, false], 'nome curto demais');
   // token que o Supabase não conhece: 401. Sem internet para perguntar, 502 —
   // de um jeito ou de outro, NÃO entra (este é o único ponto do teste que usa a rede)
-  const [status, entrou] = await tenta({ token: 'um-token-qualquer', v: 1, mapa: MAPA });
+  const [status, entrou] = await tenta({ token: 'um-token-qualquer', v: V, mapa: MAPA });
   assert.ok((status === 401 || status === 502) && entrou === false, `token inventado: ${status}`);
   assert.deepEqual(await tenta({ token: 'teste:Ana', v: 999, mapa: MAPA }), [409, false], 'versão');
-  assert.deepEqual(await tenta({ token: 'teste:Ana', v: 1, mapa: 'outro-mapa' }), [409, false], 'mapa');
+  assert.deepEqual(await tenta({ token: 'teste:Ana', v: V, mapa: 'outro-mapa' }), [409, false], 'mapa');
   assert.equal((await fetch(`${BASE}/__mundo/entrar`, { method: 'POST', body: 'isto não é json' })).status, 400);
 });
 
@@ -309,6 +327,96 @@ await teste('PERSONAGEM: jogador.habilidades tem de ter a forma certa e caber no
   ];
   for (const corpo of ruins) assert.equal((await fetch(url, { method: 'POST', body: corpo })).status, 400, `aceitou: ${corpo.slice(80, 240)}`);
   assert.ok((await fetch(url, { method: 'POST', body: JSON.stringify(SAVE()) })).ok);
+});
+
+await teste('PERFIS: nome de 3 a 16 letras e números, único sem olhar maiúscula nem acento', async () => {
+  const criar = (conta, nome) => perfis(conta, { acao: 'criar', nome });
+  for (const ruim of ['ab', 'x'.repeat(17), 'com espaco', 'traço-no-meio', 'ponto.final', 'Кирилл', '', 42]) {
+    const r = await criar('Nomes', ruim);
+    assert.equal(r.erro, 'nome_invalido', `aceitou o nome ${JSON.stringify(ruim)}`);
+  }
+  const joao = await criar('Nomes', 'João');
+  assert.ok(joao.ok, joao.erro);
+  assert.match(joao.perfil.codigo, /^[2-9A-HJ-NP-Z]{6}$/, 'código fora do alfabeto (sem 0, O, 1, I)');
+  for (const igual of ['joao', 'JOAO', 'Joãó', 'jOãO']) {
+    assert.equal((await criar('OutraConta', igual)).erro, 'nome_em_uso', `${igual} passou por cima de João`);
+  }
+  assert.equal((await perfis('OutraConta', { acao: 'nome', nome: 'joao' })).livre, false, 'a tela diria que o nome está livre');
+  assert.equal((await perfis('OutraConta', { acao: 'nome', nome: 'Kael99' })).livre, true);
+});
+
+await teste('PERFIS: no máximo 4 por conta, e o 5º é recusado pelo servidor', async () => {
+  for (const nome of ['Quatro1', 'Quatro2', 'Quatro3', 'Quatro4']) assert.ok((await perfis('Lotada', { acao: 'criar', nome })).ok);
+  const quinto = await perfis('Lotada', { acao: 'criar', nome: 'Quatro5' });
+  assert.equal(quinto.status, 409);
+  assert.equal(quinto.erro, 'limite_de_personagens');
+  assert.equal((await perfis('Lotada', { acao: 'listar' })).perfis.length, 4);
+});
+
+await teste('ENTRAR: personagem de outra conta é recusado, e id torto nem chega ao disco', async () => {
+  const daLia = await perfilDe('Lia');
+  const r = await pedirEntrada('Rui', daLia.id);
+  assert.equal(r.status, 403, 'entrou com o personagem da outra conta');
+  assert.equal((await r.json()).ok, false);
+  for (const torto of [undefined, null, 42, '', '../../estado', '..\\..\\estado', 'a'.repeat(36), daLia.id.toUpperCase(), `${daLia.id}/../x`, `${daLia.id}.json`]) {
+    assert.equal((await pedirEntrada('Lia', torto)).status, 400, `aceitou o id ${JSON.stringify(torto)}`);
+  }
+  // um id bem formado que não existe também não entra
+  assert.equal((await pedirEntrada('Lia', '00000000-0000-4000-8000-000000000000')).status, 403);
+});
+
+await teste('PERFIS: dois personagens da mesma conta têm progressos separados', async () => {
+  const um = await jogador('Primeiro', 'Dupla');
+  assert.equal(um.entrada.nome, 'Primeiro', 'o nome no mundo é o do personagem');
+  const url = (j) => `${BASE}/__mundo/personagem?b=${j.bilhete}`;
+  const save = SAVE(); save.jogador.almas = 111;
+  assert.ok((await fetch(url(um), { method: 'POST', body: JSON.stringify(save) })).ok);
+  // entrar com o outro personagem da mesma conta derruba a sessão do primeiro
+  const dois = await jogador('Segundo', 'Dupla');
+  assert.ok(await um.chegou('expulso'), 'duas sessões da mesma conta ao mesmo tempo');
+  assert.notEqual(dois.id, um.id);
+  assert.equal(dois.entrada.personagem, null, 'o segundo personagem herdou o progresso do primeiro');
+  const outro = SAVE(); outro.jogador.almas = 222;
+  assert.ok((await fetch(url(dois), { method: 'POST', body: JSON.stringify(outro) })).ok);
+  dois.desligar();
+  const volta = await jogador('Primeiro', 'Dupla');
+  assert.equal(volta.entrada.personagem.jogador.almas, 111, 'o primeiro perdeu o progresso dele');
+  volta.desligar();
+});
+
+await teste('PERFIS: apagar pede o nome certo, é definitivo e o nome fica livre na hora', async () => {
+  const p = await perfilDe('Apaga', 'Efemero');
+  const j = await jogador('Efemero', 'Apaga');
+  assert.ok((await fetch(`${BASE}/__mundo/personagem?b=${j.bilhete}`, { method: 'POST', body: JSON.stringify(SAVE()) })).ok);
+  j.desligar();
+  assert.equal((await perfis('Apaga', { acao: 'apagar', id: p.id, nome: 'Outro' })).erro, 'confirmacao_errada');
+  assert.equal((await perfis('Lia', { acao: 'apagar', id: p.id, nome: 'Efemero' })).erro, 'personagem_nao_encontrado', 'apagou o personagem de outra conta');
+  assert.ok((await perfis('Apaga', { acao: 'apagar', id: p.id, nome: 'efemero' })).ok);
+  assert.equal((await pedirEntrada('Apaga', p.id)).status, 403, 'o personagem apagado ainda entra');
+  assert.ok(await esperar(() => !fs.existsSync(path.join(PASTA, 'personagens', `${p.id}.json`))), 'o save ficou no disco');
+  assert.ok((await perfis('Lia', { acao: 'criar', nome: 'Efemero' })).ok, 'o nome não ficou livre');
+});
+
+await teste('PERFIS: save ilegível NÃO vira personagem novo', async () => {
+  const p = await perfilDe('Quebrado');
+  const arq = path.join(PASTA, 'personagens', `${p.id}.json`);
+  fs.mkdirSync(path.dirname(arq), { recursive: true });
+  fs.writeFileSync(arq, '{ metade de um save');
+  const r = await pedirEntrada('Quebrado', p.id);
+  assert.equal(r.status, 500, 'entrou com o save estragado');
+  assert.equal(fs.readFileSync(arq, 'utf8'), '{ metade de um save', 'mexeu no arquivo');
+  fs.rmSync(arq);
+});
+
+await teste('CHAT do mundo: o nome e o código são os do servidor, não os do recado', async () => {
+  const ze = await jogador('ZeDoChat');
+  await ze.falar('chat', { texto: '  oi, gente  ', nome: 'Impostor', codigo: 'AAAAAA' });
+  assert.ok(await caio.chegou('chat', (r) => r.de === ze.id), 'a mensagem não chegou');
+  const c = caio.ultimo('chat').carga;
+  assert.deepEqual(c, { nome: 'ZeDoChat', codigo: ze.entrada.codigo, texto: 'oi, gente' });
+  // a conta nunca viaja: quem está no mundo só conhece o personagem
+  assert.ok(!JSON.stringify(caio.recados).includes('teste-zedochat'), 'o id da conta vazou para os outros jogadores');
+  ze.desligar();
 });
 
 await teste('os DADOS não saem pelo servidor estático (nem disfarçados)', async () => {

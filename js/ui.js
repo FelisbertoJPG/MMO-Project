@@ -245,7 +245,7 @@ export class UI {
     this.texto('hp', this.hpNum, `${Math.max(0, Math.ceil(p.hp))} / ${Math.round(p.maxHp)}`);
     this.texto('st', this.stNum, `${Math.max(0, Math.floor(p.stamina))} / ${Math.round(p.maxStamina)}`);
     this.texto('nv', this.nivelEl, `Nv ${p.level ?? 1}`);
-    this.texto('nome', this.nomeEl, (game.sessao?.meuNome || game.online?.nome || 'Aventureiro').split('@')[0]);
+    this.texto('nome', this.nomeEl, (game.sessao?.meuNome || game.perfil?.nome || game.online?.nome || 'Aventureiro').split('@')[0]);
     const hpPct = THREE.MathUtils.clamp(p.hp / p.maxHp, 0, 1) * 100;
     this.hpFill.style.width = `${hpPct}%`;
     this.hpTrail.style.width = `${hpPct}%`;

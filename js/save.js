@@ -11,18 +11,19 @@ import { aparenciaValida } from './aparencia.js';
 // fogueira, então continuar é como acordar depois de um descanso. O que fica é
 // o que o jogador conquistou — atributos, almas, itens, portas, baús, tochas, chefes.
 //
-// ONDE MORA (01/10/2026: um save POR CONTA):
-//   • sem conta  → `saves/progresso.json` (rota `/__save` do server.js);
-//   • com conta  → `saves/conta-<id>.json` E `masmorra.saves` na nuvem, para
+// ONDE MORA (18/11/2026: um save POR PERSONAGEM, os perfis de `rede/perfis.js`):
+//   • sem conta     → `saves/progresso.json` (rota `/__save` do server.js): um só;
+//   • com personagem → `saves/perfil-<id>.json` E `masmorra.saves` na nuvem, para
 //     continuar de outro computador. Ao abrir, vence o MAIS NOVO dos dois
 //     (`salvoEm`). Local grava sempre (é barato); a nuvem no máximo a cada
 //     `NUVEM_MS`, ou na hora em momentos marcantes (fogueira, chefe, fechar).
-//   • o primeiro login num computador que tem um save SEM conta e nenhum da
-//     conta ADOTA aquele save — é o progresso de quem jogava antes de ter conta.
+//
+// FALHAR EM LER NÃO É "NÃO TEM SAVE": `lerProgresso` responde `{erro}`, a tela mostra
+// o aviso e não deixa começar — um jogo novo gravaria por cima do progresso de verdade.
 //
 // SEM O NOSSO SERVIDOR (02/10/2026: o jogo no GitHub Pages, ver `hospedagem.js`)
 // não existe `/__save`: o "local" passa a ser o `localStorage` do navegador, com
-// as mesmas regras (um por conta, um sem conta, vence o mais novo, adoção). Lá o
+// as mesmas regras (um por personagem, um sem conta, vence o mais novo). Lá o
 // endereço da página é fixo, então o motivo de o save ser arquivo — o launcher
 // subir o jogo em outra porta, e cada porta ter o seu `localStorage` — não vale.
 const URL_SAVE = '/__save';
@@ -35,7 +36,7 @@ const MATA_X = 25.5 * CELL, MATA_ANDOU = 14 * CELL;
 const NUVEM_MS = 60_000;
 let ultimaNuvem = 0;
 
-const urlLocal = (conta) => (conta ? `${URL_SAVE}?conta=${encodeURIComponent(conta)}` : URL_SAVE);
+const urlLocal = (perfil) => (perfil ? `${URL_SAVE}?perfil=${encodeURIComponent(perfil.id)}` : URL_SAVE);
 const valido = (d) => (d?.versao === VERSAO ? d : null);
 /**
  * O save é da FICHA de agora (ficha.js `FICHA`: a revisão das regras de nível e
@@ -44,44 +45,55 @@ const valido = (d) => (d?.versao === VERSAO ? d : null);
  * Não é "falhou em ler": o save foi lido, e é de propósito que ele não vale mais.
  */
 export const fichaAtual = (d) => (d?.jogador?.ficha === FICHA ? d : null);
-const chaveNavegador = (conta) => `masmorra:save:${conta ?? 'sem-conta'}`;
+const chaveNavegador = (perfil) => `masmorra:save:${perfil ? `perfil-${perfil.id}` : 'sem-conta'}`;
 
-async function lerLocal(conta) {
+/** O que foi lido vale? Save de versão desconhecida é ilegível; o de outra FICHA é o recomeço de propósito. */
+const conferido = (d) => (d === null || d === undefined ? { ok: true, dados: null } : valido(d) ? { ok: true, dados: fichaAtual(d) } : { ok: false });
+
+/** `{ok: true, dados}` (dados null = não há save) ou `{ok: false}` (não consegui ler). */
+async function lerLocal(perfil) {
   if (!temSaveEmArquivo()) {
-    try { return fichaAtual(valido(JSON.parse(localStorage.getItem(chaveNavegador(conta))))); } catch { return null; }
+    try { return conferido(JSON.parse(localStorage.getItem(chaveNavegador(perfil)))); } catch { return { ok: false }; }
   }
   try {
-    const r = await fetch(urlLocal(conta), { cache: 'no-store' });
-    return r.ok ? fichaAtual(valido(await r.json())) : null;
-  } catch { return null; }
+    const r = await fetch(urlLocal(perfil), { cache: 'no-store' });
+    // 404 = ainda não há save; 403 = este computador não guarda saves (quem abriu o jogo pela rede)
+    if (r.status === 404 || r.status === 403) return { ok: true, dados: null };
+    return r.ok ? conferido(await r.json()) : { ok: false };
+  } catch { return { ok: false }; }
 }
 
-async function lerNuvem(conta) {
-  const r = await req(`saves?select=dados&dono=eq.${encodeURIComponent(conta)}`);
-  return r.ok && Array.isArray(r.dados) ? fichaAtual(valido(r.dados[0]?.dados)) : null;
+async function lerNuvem(perfil) {
+  const r = await req(`saves?select=dados&personagem=eq.${encodeURIComponent(perfil.id)}`);
+  return r.ok && Array.isArray(r.dados) ? conferido(r.dados[0]?.dados) : { ok: false };
 }
+
+const NAO_LEU = { erro: 'Não consegui ler o progresso deste personagem.' };
 
 /**
- * Lê o progresso de quem está jogando (`online.contaId`, ou ninguém).
- * Devolve `{dados, origem}` — origem: 'local' | 'nuvem' | 'adotado' — ou null.
+ * Lê o progresso da Jornada de `perfil` (ou o único de quem joga sem conta).
+ * Devolve `{dados, origem}` — origem: 'local' | 'nuvem' —, null (não há save) ou `{erro}`.
  */
-export async function lerProgresso(online) {
-  const conta = online?.contaId ?? null;
-  if (!conta) { const d = await lerLocal(null); return d ? { dados: d, origem: 'local' } : null; }
-  const [local, nuvem] = await Promise.all([lerLocal(conta), online.ativo ? lerNuvem(conta) : null]);
-  if (local || nuvem) {
-    const maisNovo = !nuvem || (local && local.salvoEm >= nuvem.salvoEm) ? local : nuvem;
-    return { dados: maisNovo, origem: maisNovo === local ? 'local' : 'nuvem' };
+export async function lerProgresso(online, perfil = null) {
+  if (!perfil) {
+    const l = await lerLocal(null);
+    if (!l.ok) return NAO_LEU;
+    return l.dados ? { dados: l.dados, origem: 'local' } : null;
   }
-  const semConta = await lerLocal(null);
-  return semConta ? { dados: semConta, origem: 'adotado' } : null;
+  // personagem da nuvem sem a nuvem respondendo: o save mais novo pode estar lá
+  if (perfil.nuvem && !online?.ativo) return NAO_LEU;
+  const [l, n] = await Promise.all([lerLocal(perfil), perfil.nuvem ? lerNuvem(perfil) : { ok: true, dados: null }]);
+  if (!l.ok || !n.ok) return NAO_LEU;
+  const local = l.dados, nuvem = n.dados;
+  if (!local && !nuvem) return null;
+  const maisNovo = !nuvem || (local && local.salvoEm >= nuvem.salvoEm) ? local : nuvem;
+  return { dados: maisNovo, origem: maisNovo === local ? 'local' : 'nuvem' };
 }
 
-export async function apagarProgresso(online) {
-  const conta = online?.contaId ?? null;
-  if (temSaveEmArquivo()) await fetch(urlLocal(conta), { method: 'DELETE' }).catch(() => {});
-  else { try { localStorage.removeItem(chaveNavegador(conta)); } catch { } }
-  if (conta && online.ativo) await req(`saves?dono=eq.${encodeURIComponent(conta)}`, { method: 'DELETE' });
+export async function apagarProgresso(online, perfil = null) {
+  if (temSaveEmArquivo()) await fetch(urlLocal(perfil), { method: 'DELETE' }).catch(() => {});
+  else { try { localStorage.removeItem(chaveNavegador(perfil)); } catch { } }
+  if (perfil?.nuvem && online?.ativo) await req(`saves?personagem=eq.${encodeURIComponent(perfil.id)}`, { method: 'DELETE' });
 }
 
 /**
@@ -96,21 +108,21 @@ export function salvarProgresso(game, { aoSair = false, nuvem = false } = {}) {
   // MUNDO ONLINE: o personagem só existe no servidor de mundo (`rede/mundo.js`) —
   // nada de arquivo local nem de `masmorra.saves`, que são da Jornada.
   if (game.modo === 'mmo') return game.sessao?.salvar(coletar(game), { aoSair, nuvem });
-  const online = game.online, conta = online?.contaId ?? null;
+  const online = game.online, perfil = game.perfil ?? null;
   const dados = coletar(game);
   const txt = JSON.stringify(dados);
   let local;
   if (!temSaveEmArquivo()) {
     // gravar no navegador é na hora: não há pedido para sobreviver ao fechamento
-    try { localStorage.setItem(chaveNavegador(conta), txt); } catch (e) { console.warn('Não consegui salvar o progresso no navegador:', e); }
-  } else if (aoSair && navigator.sendBeacon) navigator.sendBeacon(urlLocal(conta), new Blob([txt], { type: 'application/json' }));
+    try { localStorage.setItem(chaveNavegador(perfil), txt); } catch (e) { console.warn('Não consegui salvar o progresso no navegador:', e); }
+  } else if (aoSair && navigator.sendBeacon) navigator.sendBeacon(urlLocal(perfil), new Blob([txt], { type: 'application/json' }));
   else {
-    local = fetch(urlLocal(conta), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: txt })
+    local = fetch(urlLocal(perfil), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: txt })
       .catch((e) => console.warn('Não consegui salvar o progresso:', e));
   }
-  if (conta && online.ativo && (aoSair || nuvem || Date.now() - ultimaNuvem > NUVEM_MS)) {
+  if (perfil?.nuvem && online.ativo && (aoSair || nuvem || Date.now() - ultimaNuvem > NUVEM_MS)) {
     ultimaNuvem = Date.now();
-    req('saves', { method: 'POST', body: { dono: conta, dados, salvo_em: dados.salvoEm }, prefer: 'resolution=merge-duplicates', keepalive: aoSair })
+    req('saves', { method: 'POST', body: { personagem: perfil.id, dados, salvo_em: dados.salvoEm }, prefer: 'resolution=merge-duplicates', keepalive: aoSair })
       .then((r) => { if (!r.ok) console.warn('[save] nuvem recusou:', r.error); });
   }
   return local;

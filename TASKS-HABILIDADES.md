@@ -61,6 +61,10 @@ elementos e as outras 20 reações vêm depois, seguindo a mesma regra.
 
 Mexe no banco e no login, então pode andar em paralelo com as etapas de combate.
 
+**Situação:** publicada na versão 2026-11-18.3, com a migration
+`supabase/migrations/0006_perfis_de_personagem.sql` já rodada pelo dono. Falta testar com uma
+conta real. A trava de raça continua desligada.
+
 - [ ] **Recomeço:** a migration apaga `masmorra.personagens` e `masmorra.saves`, porque os
   personagens atuais não precisam ser preservados. Os logins ficam: são os mesmos do Duel Academy.
 - [ ] **Até 4 personagens por conta:** `masmorra.personagens` tem hoje o `dono` como chave

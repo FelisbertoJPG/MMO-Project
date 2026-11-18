@@ -68,7 +68,7 @@ export class Sala {
     this.papel = papel;                 // 'anfitriao' | 'convidado'
     this.codigo = codigo;
     this.meuId = meuId(this.online);
-    this.meuNome = this.online?.jogador?.nome || 'Morto-vivo';
+    this.meuNome = game.perfil?.nome || this.online?.jogador?.nome || 'Morto-vivo';
     this.estado = 'conectando';         // 'conectando' | 'esperando' | 'juntos' | 'erro'
     this.erro = '';
     this.canos = [];                    // transportes abertos

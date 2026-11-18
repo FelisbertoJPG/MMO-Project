@@ -128,6 +128,13 @@
         <!-- LOGADO: entrar no mundo -->
         <div id="entrada" class="hidden">
           <div class="bem-vindo">Bem-vindo, <b id="entrada-nome"></b></div>
+          <!-- OS PERSONAGENS DA CONTA (js/perfis.js): escolher, criar e apagar -->
+          <div id="perfis">
+            <div id="perfis-titulo"></div>
+            <div id="perfis-lista"></div>
+            <div id="perfis-erro" class="hidden"><span id="perfis-erro-texto"></span><button type="button" id="perfis-tentar">Tentar de novo</button></div>
+            <button type="button" id="perfis-criar" class="hidden">Criar personagem</button>
+          </div>
           <div id="entrada-aviso"></div>
           <button id="mmo-btn" class="principal" disabled>Entrar em Lubelion</button>
           <a href="#" id="conta-sair">Trocar de conta</a>
@@ -207,6 +214,17 @@
     </div>
   </div>
 
+  <!-- CRIAR PERSONAGEM (js/perfis.js): o nome, ao lado do painel de Aparência -->
+  <div id="perfil-novo" class="hidden">
+    <form id="perfil-form" autocomplete="off" novalidate>
+      <div class="perfil-novo-titulo">Novo personagem</div>
+      <label for="perfil-nome">Nome</label>
+      <input id="perfil-nome" maxlength="16" autocomplete="off" spellcheck="false" autocapitalize="words">
+      <div id="perfil-nome-aviso" class="perfil-aviso"></div>
+      <div class="perfil-novo-dica">De 3 a 16 letras e números, sem espaços.</div>
+      <div class="conta-botoes"><button type="button" id="perfil-voltar">Voltar</button><button type="submit" id="perfil-confirmar">Criar</button></div>
+    </form>
+  </div>
   <!-- O EDITOR DE PERSONAGEM (js/aparencia.js): pele, cabelo, barba, olhos; a câmera vai ao rosto -->
   <div id="aparencia" class="hidden">
     <div class="aparencia-titulo">Aparência</div>

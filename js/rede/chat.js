@@ -15,12 +15,19 @@
  * mensagem nova entra embaixo e as mais velhas sobem. **Enter** abre a linha de
  * escrever, Enter manda, Esc desiste.
  *
+ * **No Mundo online (18/11/2026), o que se escreve vai pelo servidor de mundo** e aparece
+ * com o nome do PERSONAGEM (`Kael #7K3F9Q`), para quem está no mundo. Pelo chat global não
+ * dá: cada mensagem de lá leva o id da conta e o nome dela, e pôr o personagem junto ligaria
+ * os dois à vista de todos (o código de denúncia só a moderação liga à conta). As mensagens
+ * do chat global continuam chegando na mesma caixa.
+ *
  * A entrega tem dois caminhos, como no Duel Academy: o Realtime avisa em menos
  * de um segundo ("chegou algo, releia"), e uma releitura a cada `RESERVA_MS`
  * cobre o socket caído ou o token vencido.
  */
 import { SUPABASE_URL, SUPABASE_KEY, tokenValido, req, contaId } from './supabase.js';
 import { ouvirMudancas } from './realtime.js';
+import { rotuloDoPerfil } from './perfis.js';
 
 /** O teto do texto: o MESMO do banco — aqui só evita a viagem. */
 export const MAX_TEXTO = 500;
@@ -91,6 +98,17 @@ export class ChatGlobal {
     this.adicionar(linha);
   }
 
+  /** Uma mensagem do chat do MUNDO: o nome e o código vêm carimbados pelo servidor. */
+  mostrarDoMundo(c, minha) {
+    if (typeof c?.texto !== 'string' || typeof c.nome !== 'string') return;
+    const linha = document.createElement('div');
+    linha.className = `chat-msg${minha ? ' minha' : ''}`;
+    const nome = document.createElement('b');
+    nome.textContent = `${rotuloDoPerfil({ nome: c.nome.slice(0, 16), codigo: typeof c.codigo === 'string' ? c.codigo.slice(0, 6) : '' })}: `;
+    linha.append(nome, document.createTextNode(c.texto.slice(0, MAX_TEXTO)));
+    this.adicionar(linha);
+  }
+
   /** Um aviso do próprio jogo na caixa (erro ao mandar, por exemplo). */
   avisar(texto) {
     const linha = document.createElement('div');
@@ -126,6 +144,7 @@ export class ChatGlobal {
     // Enter com a linha vazia só fecha (ninguém quer um erro vermelho por isso)
     if (!texto) return this.fecharEscrita();
     this.fecharEscrita();
+    if (this.game.sessao?.enviarChat?.(texto.slice(0, MAX_TEXTO))) return;   // no Mundo online (ver o cabeçalho)
     const r = await rpcPublico('enviar_mensagem', { p_para: null, p_texto: texto.slice(0, MAX_TEXTO) });
     if (!r.ok) { this.avisar(`(não foi: ${r.error})`); return; }
     this.ler();

@@ -31,9 +31,11 @@
  *
  * **Onde mora o personagem** (`this.saves`, dito pelo servidor ao entrar):
  *   • `'disco'` — no servidor de mundo (`/__mundo/personagem`), quando ele tem disco;
- *   • `'nuvem'` — no Supabase (`masmorra.personagens`, migration 0002), quando o
+ *   • `'nuvem'` — no Supabase (`masmorra.personagens.dados`, migration 0006), quando o
  *     servidor roda numa plataforma que apaga o disco (o Render). Aí quem lê e
  *     grava é ESTE arquivo, com o token da conta, como o save da Jornada.
+ * Quem entra é o PERSONAGEM escolhido na tela de perfis (`js/perfis.js`): `eu` é o id
+ * dele, e é o que os outros jogadores conhecem (a conta nunca viaja).
  * Nos dois, falhar em LER nunca vira "personagem novo": entrar com um
  * personagem zerado gravaria por cima do de verdade no primeiro save.
  *
@@ -45,6 +47,7 @@ import { lerQuebra, TIPO, instantaneo, limparInstantaneo, retratoDoInimigo, lerR
 import { transporteMundo } from './transporte.js';
 import { req } from './supabase.js';
 import { ENVIO_MS, BATIDA_MS } from './fantasmas.js';
+import { rotuloDoPerfil } from './perfis.js';
 import { Assets } from '../assets.js';
 import { ITEMS } from '../items.js';
 import { JogadorRemoto } from '../remoto.js';
@@ -52,7 +55,7 @@ import { Enemy, ENEMY_TYPES } from '../enemies.js';
 import { flatDist } from '../combat.js';
 
 /** Tem de bater com a do `servidor-mundo.mjs`: versões diferentes não se entendem. */
-export const VERSAO_MUNDO = 1;
+export const VERSAO_MUNDO = 2;
 
 const MUNDO_MS = 100;              // o simulador manda o retrato dos inimigos 10× por segundo
 const TIQUE_MS = 1000;             // …e cuida dos relógios (renascer, chefes) uma vez por segundo
@@ -81,15 +84,15 @@ const lerVet = (a) => (Array.isArray(a) && a.length === 3 && a.every(Number.isFi
 
 export class Mundo {
   /**
-   * Entra no mundo: `{ok, mundo}` ou `{ok: false, error}`. `obterToken` devolve
-   * o token da conta (é chamado de novo a cada reentrada: o token renova).
-   * O cano só abre em `ligar()`, depois de o jogo pôr o personagem de pé.
+   * Entra no mundo com o personagem `perfil`: `{ok, mundo}` ou `{ok: false, error}`.
+   * `obterToken` devolve o token da conta (é chamado de novo a cada reentrada: o token
+   * renova). O cano só abre em `ligar()`, depois de o jogo pôr o personagem de pé.
    */
-  static async entrar(game, { base = '', obterToken }) {
-    const d = await Mundo.pedirEntrada(base, obterToken);
+  static async entrar(game, { base = '', obterToken, perfil }) {
+    const d = await Mundo.pedirEntrada(base, obterToken, perfil);
     if (!d.ok) return d;
     if (d.saves === 'nuvem') {
-      const r = await Mundo.lerDaNuvem(game.online);
+      const r = await Mundo.lerDaNuvem(game.online, perfil);
       if (!r.ok) {
         // desiste da vaga que o servidor acabou de dar
         fetch(`${base}/__mundo/sair?b=${d.bilhete}`, { method: 'POST', keepalive: true }).catch(() => {});
@@ -97,33 +100,34 @@ export class Mundo {
       }
       d.personagem = r.personagem;
     }
-    return { ok: true, mundo: new Mundo(game, base, d, obterToken) };
+    return { ok: true, mundo: new Mundo(game, base, d, obterToken, perfil) };
   }
 
   /**
-   * O personagem desta conta no Supabase: `{ok, personagem}` (null = ainda não
-   * tem) ou `{ok: false, error}`. "Não consegui ler" e "não tem" são respostas
-   * DIFERENTES de propósito — ver o cabeçalho.
+   * O progresso deste personagem no Supabase: `{ok, personagem}` (null = ainda não
+   * entrou no mundo) ou `{ok: false, error}`. "Não consegui ler" e "não tem" são
+   * respostas DIFERENTES de propósito — ver o cabeçalho.
    */
-  static async lerDaNuvem(online) {
-    const conta = online?.contaId;
-    if (!conta || !online.ativo) return { ok: false, error: 'neste mundo o personagem fica na sua conta: entre com uma conta' };
-    const r = await req(`personagens?select=dados&dono=eq.${encodeURIComponent(conta)}`);
-    if (r.status === 404) return { ok: false, error: 'a tabela dos personagens não existe no Supabase (falta rodar a migration 0002)' };
+  static async lerDaNuvem(online, perfil) {
+    if (!perfil?.nuvem || !online?.ativo) return { ok: false, error: 'neste mundo o personagem fica na sua conta: entre com uma conta' };
+    const r = await req(`personagens?select=dados&id=eq.${encodeURIComponent(perfil.id)}`);
+    if (r.status === 404) return { ok: false, error: 'a tabela dos personagens não existe no Supabase (falta rodar a migration 0006)' };
     if (!r.ok || !Array.isArray(r.dados)) return { ok: false, error: `não consegui ler o seu personagem (${r.error ?? 'resposta inesperada'}) — tente de novo` };
+    // a linha do personagem existe sempre: sem ela, ele foi apagado (e não é "novo")
+    if (!r.dados.length) return { ok: false, error: 'este personagem não existe mais — volte à tela de personagens' };
     const dados = r.dados[0]?.dados ?? null;
     if (dados && dados.versao !== 1) return { ok: false, error: 'o seu personagem foi gravado por uma versão mais nova do jogo — atualize a página' };
     return { ok: true, personagem: dados };
   }
 
-  static async pedirEntrada(base, obterToken) {
+  static async pedirEntrada(base, obterToken, perfil) {
     const token = await obterToken();
     if (!token) return { ok: false, error: 'entre com uma conta para jogar online' };
     let r;
     try {
       r = await fetch(`${base}/__mundo/entrar`, {
         method: 'POST', headers: { 'content-type': 'text/plain' },
-        body: JSON.stringify({ token, v: VERSAO_MUNDO, mapa: Assets.mapaNome }),
+        body: JSON.stringify({ token, v: VERSAO_MUNDO, mapa: Assets.mapaNome, personagem: perfil?.id }),
       });
     } catch { return { ok: false, error: 'o servidor do mundo não respondeu' }; }
     const d = await r.json().catch(() => null);
@@ -140,12 +144,14 @@ export class Mundo {
     } catch { return null; }
   }
 
-  constructor(game, base, entrada, obterToken) {
+  constructor(game, base, entrada, obterToken, perfil) {
     this.game = game;
     this.base = base;
     this.obterToken = obterToken;
+    this.perfil = perfil;
     this.eu = entrada.id;
     this.meuNome = entrada.nome;
+    this.meuCodigo = entrada.codigo;
     this.bilhete = entrada.bilhete;
     /** O save que o servidor guardava (null = personagem novo). */
     this.personagem = entrada.personagem ?? null;
@@ -158,6 +164,7 @@ export class Mundo {
     this.simulador = null;
     this.pronto = false;               // já soube quem simula (até lá, ninguém mexe nos inimigos)
     this.nomes = new Map();            // id → nome, de quem o SERVIDOR diz que está no mundo
+    this.codigos = new Map();          // id → o código público dele (`Kael #7K3F9Q`)
     this.remotos = new Map();          // id → JogadorRemoto (nasce no primeiro `pos` dele)
     this.mortos = new Map();           // netId → quando renasce (relógio do servidor)
     this.quebrados = new Map();        // índice do quebrável (decor.json) → quando volta inteiro
@@ -181,7 +188,11 @@ export class Mundo {
   /** Os outros jogadores que já apareceram (bonecos sólidos). */
   get outros() { return [...this.remotos.values()]; }
   /** Para o painel: todos os que o servidor diz que estão no mundo, eu inclusive. */
-  get presentes() { return [...this.nomes].map(([id, nome]) => ({ id, nome, eu: id === this.eu, simula: id === this.simulador })); }
+  get presentes() { return [...this.nomes].map(([id]) => ({ id, nome: this.rotulo(id), eu: id === this.eu, simula: id === this.simulador })); }
+  /** Como este jogador é identificado para os outros: `Kael #7K3F9Q`. */
+  rotulo(id) { return rotuloDoPerfil({ nome: this.nomes.get(id), codigo: this.codigos.get(id) }); }
+  /** O chat do mundo: o servidor entrega a todos, com o nome e o código carimbados por ele. */
+  enviarChat(texto) { if (this.estado === 'fora') return false; this.cano?.enviar('chat', { texto }); return true; }
   /** O chat de voz (rede/voz.js): a sinalização vai pelo cano, e o servidor a entrega só ao `para`. */
   enviarVoz(para, carga) { if (this.estado !== 'fora') this.cano?.enviar(TIPO.VOZ, carga); }
   /** Relógio do SERVIDOR, em ms: o mesmo para todos os jogadores. */
@@ -225,7 +236,7 @@ export class Mundo {
     this.cano?.fechar();
     for (;;) {
       if (this.estado === 'fora') break;
-      const d = await Mundo.pedirEntrada(this.base, this.obterToken);
+      const d = await Mundo.pedirEntrada(this.base, this.obterToken, this.perfil);
       if (d.ok) {
         this.bilhete = d.bilhete;
         this.desvio = (d.agora ?? Date.now()) - Date.now();
@@ -275,12 +286,17 @@ export class Mundo {
 
   /** O save no Supabase (`masmorra.personagens`): o da rotina no máximo a cada `NUVEM_MS`. */
   salvarNaNuvem(dados, aoSair, ja) {
-    const online = this.game.online, conta = online?.contaId;
-    if (!conta || !online.ativo) return;
+    const online = this.game.online;
+    if (!this.perfil?.nuvem || !online?.ativo) return;
     if (!aoSair && !ja && Date.now() - this.ultimaNuvem < NUVEM_MS) return;
     this.ultimaNuvem = Date.now();
-    return req('personagens', { method: 'POST', body: { dono: conta, dados, salvo_em: dados.salvoEm }, prefer: 'resolution=merge-duplicates', keepalive: aoSair })
-      .then((r) => { if (!r.ok) throw new Error(r.error ?? `HTTP ${r.status}`); this.gravou(); })
+    // UPDATE, e nunca "cria se não existir": personagem apagado não volta sozinho
+    return req(`personagens?id=eq.${encodeURIComponent(this.perfil.id)}&select=id`, { method: 'PATCH', body: { dados, salvo_em: dados.salvoEm }, prefer: 'return=representation', keepalive: aoSair })
+      .then((r) => {
+        if (!r.ok) throw new Error(r.error ?? `HTTP ${r.status}`);
+        if (Array.isArray(r.dados) && !r.dados.length) throw new Error('o personagem não existe mais');
+        this.gravou();
+      })
       .catch((e) => { this.ultimaNuvem = 0; this.naoGravou(e); });   // falhou: a próxima tentativa não espera o minuto
   }
 
@@ -313,6 +329,7 @@ export class Mundo {
       case TIPO.ACAO: if (this.souSim) this.receberAcao(c, de); return;
       case TIPO.EVENTO: return this.receberEvento(c, de);
       case TIPO.VOZ: if (this.nomes.has(de)) this.game.voz?.receber(de, c); return;
+      case 'chat': this.game.online?.chat?.mostrarDoMundo(c, de === this.eu); return;
     }
   }
 
@@ -320,8 +337,9 @@ export class Mundo {
     if (typeof c.eu === 'string') this.eu = c.eu;
     if (Number.isFinite(c.agora)) this.desvio = c.agora - Date.now();
     this.nomes.clear();
+    this.codigos.clear();
     for (const j of Array.isArray(c.jogadores) ? c.jogadores.slice(0, 64) : []) {
-      if (typeof j?.id === 'string') this.nomes.set(j.id, this.limparNome(j.nome));
+      if (typeof j?.id === 'string') this.guardarNome(j);
     }
     // quem saiu enquanto eu estava fora do ar
     for (const id of [...this.remotos.keys()]) if (!this.nomes.has(id)) this.tirarRemoto(id);
@@ -331,12 +349,16 @@ export class Mundo {
   }
 
   limparNome(n) { return typeof n === 'string' && n.trim() ? n.trim().slice(0, 24) : 'Morto-vivo'; }
+  guardarNome(j) {
+    this.nomes.set(j.id, this.limparNome(j.nome));
+    if (typeof j.codigo === 'string' && /^[2-9A-HJ-NP-Z]{6}$/.test(j.codigo)) this.codigos.set(j.id, j.codigo);
+  }
 
   entrou(c) {
     if (typeof c.id !== 'string' || c.id === this.eu) return;
     const novo = !this.nomes.has(c.id);
-    this.nomes.set(c.id, this.limparNome(c.nome));
-    this.remotos.get(c.id)?.nomear(this.nomes.get(c.id));
+    this.guardarNome(c);
+    this.remotos.get(c.id)?.nomear(this.rotulo(c.id));
     if (novo) this.game.ui.toast(`${this.nomes.get(c.id)} entrou no mundo.`);
   }
 
@@ -344,6 +366,7 @@ export class Mundo {
     if (typeof c.id !== 'string' || !this.nomes.has(c.id)) return;
     this.game.ui.toast(`${this.nomes.get(c.id)} saiu do mundo.`);
     this.nomes.delete(c.id);
+    this.codigos.delete(c.id);
     this.tirarRemoto(c.id);
   }
 
@@ -372,7 +395,7 @@ export class Mundo {
     if (!inst) return;
     let r = this.remotos.get(de);
     if (!r) {
-      r = new JogadorRemoto(this.game, { id: de, nome: this.nomes.get(de), aparencia: 'aliado' });
+      r = new JogadorRemoto(this.game, { id: de, nome: this.rotulo(de), aparencia: 'aliado' });
       this.remotos.set(de, r);
       this.atualizarAlvos();
     }

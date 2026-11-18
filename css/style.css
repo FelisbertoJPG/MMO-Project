@@ -258,6 +258,46 @@ body.sem-chat #chat:not(.escrevendo) { display: none; }
 #conta-sair { color: var(--text-dim); font-size: 13px; text-decoration: none; border-bottom: 1px dotted var(--gold-dim); }
 #conta-sair:hover { color: var(--gold); }
 
+/* OS PERSONAGENS DA CONTA (js/perfis.js) */
+#perfis { width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+#perfis-titulo { font-size: 13px; letter-spacing: 1px; color: var(--text-dim); text-align: center; }
+#perfis-titulo:empty { display: none; }
+#perfis-lista { display: flex; flex-direction: column; gap: 6px; }
+.perfil-linha { display: flex; gap: 6px; align-items: stretch; }
+#login .perfil-cartao { flex: 1; min-width: 0; margin: 0; padding: 7px 10px; text-align: left; display: flex; flex-direction: column; gap: 1px;
+  background: rgba(0,0,0,.45); border: 1px solid #3a3226; color: var(--text); }
+#login .perfil-cartao.ativo { border-color: var(--gold); background: rgba(80,60,30,.55); box-shadow: inset 0 0 0 1px rgba(214,174,96,.25); }
+.perfil-nome { font: 17px var(--serif); color: #f1e3c2; letter-spacing: .5px; overflow-wrap: anywhere; }
+.perfil-codigo { font: 12px ui-monospace, monospace; color: var(--gold); letter-spacing: 1px; white-space: nowrap; }
+.perfil-cartao small { font-size: 12px; color: var(--text-dim); }
+#login .perfil-apagar { flex: none; margin: 0; padding: 0 9px; font-size: 12px; letter-spacing: 0; color: var(--text-dim); background: none; border: 1px solid #3a3226; }
+#login .perfil-apagar:hover:not(:disabled) { color: #e08a72; border-color: #8a4a3a; background: none; }
+#perfis-criar, #perfis-tentar { margin: 0; padding: 8px; font-size: 14px; letter-spacing: 1px; }
+#perfis-criar { width: 100%; }
+#perfis-erro { display: flex; flex-direction: column; gap: 8px; align-items: center; color: #d0705a; font-size: 14px; text-align: center; }
+#perfis-erro.hidden { display: none; }
+.perfil-confirma { display: flex; flex-direction: column; gap: 7px; padding: 9px 10px; border: 1px solid #8a4a3a; background: rgba(40,14,10,.5); }
+.perfil-confirma p { margin: 0; font-size: 13px; line-height: 1.35; color: #e6c9bb; }
+.perfil-confirma input, #perfil-nome { box-sizing: border-box; width: 100%; background: rgba(0,0,0,.6); border: 1px solid var(--gold-dim); color: #e9dcc0; padding: 8px 10px; font: 16px Georgia, serif; outline: none; }
+.perfil-confirma input:focus, #perfil-nome:focus { border-color: var(--gold); }
+.perfil-confirma .conta-botoes button { margin: 0; padding: 7px 10px; font-size: 13px; }
+.perfil-confirma .conta-botoes button:disabled { opacity: .45; cursor: default; }
+.perfil-aviso { color: #d0705a; font-size: 13px; min-height: 1.2em; }
+.perfil-aviso.ok { color: #9fd07a; }
+/* criar: a caixinha do nome à esquerda; o painel de Aparência fica à direita, sem o "Pronto" */
+#perfil-novo { position: fixed; left: calc(6 * var(--vw, 1vw)); top: 50%; transform: translateY(-50%); width: min(300px, calc(44 * var(--vw, 1vw)));
+  box-sizing: border-box; padding: 16px 18px; background: var(--panel); border: 1px solid var(--gold-dim); z-index: 40; text-align: left; }
+#perfil-form { display: flex; flex-direction: column; gap: 6px; }
+.perfil-novo-titulo { font-family: var(--serif); color: var(--gold); font-size: 20px; letter-spacing: .06em; text-align: center; margin-bottom: 4px; }
+#perfil-form label { font-size: 13px; color: var(--text-dim); letter-spacing: 1px; }
+.perfil-novo-dica { font-size: 12px; color: var(--text-dim); }
+#perfil-form .conta-botoes { margin-top: 6px; }
+#perfil-form .conta-botoes button { flex: 1; margin: 0; padding: 8px 6px; }
+#perfil-confirmar:disabled { opacity: .5; cursor: default; }
+#aparencia.criacao #aparencia-pronto { display: none; }
+body.toque #perfil-novo { left: 8px; padding: 10px 12px; }
+body.toque .perfil-novo-titulo { font-size: 16px; margin-bottom: 0; }
+
 /* a Jornada, só com ?jornada */
 #modo-offline { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #2e2820; text-align: center; }
 .modo-dica { color: var(--text-dim); font-size: 13px; margin: 0; }

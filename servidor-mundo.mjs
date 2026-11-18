@@ -23,6 +23,7 @@
 //   evento   → do simulador: todos (ou `carga.para`); dos outros: só `proj`
 //   acao     → só o simulador (abrir porta, acordar chefe…)
 //   voz      → só `carga.para` (a sinalização do chat de voz; o som vai direto entre os dois, WebRTC)
+//   chat     → todos, com o nome e o código carimbados AQUI (quem manda não escolhe o próprio nome)
 //
 // E `POST /__mundo/ice` entrega as credenciais do retransmissor (TURN) da voz —
 // a quem tem bilhete ou conta (ver `turnDaVoz`).
@@ -37,6 +38,13 @@
 // diz, nunca o que o cliente diz. `MUNDO_AUTH=teste` aceita `teste:<Nome>` no
 // lugar do token, para duas janelas na mesma máquina sem conta (NUNCA ligado
 // por padrão: com ele qualquer um entra com o nome que quiser).
+//
+// **Personagens (18/11/2026)**: quem está no mundo é o PERSONAGEM escolhido, não a conta.
+// O id que viaja entre os jogadores é o do personagem (a conta nunca sai daqui: só a
+// moderação liga um ao outro), e o servidor confere que ele é da conta do token antes de
+// dar o bilhete. Continua valendo uma sessão por conta. Com contas de verdade, a lista de
+// personagens mora no Supabase e o jogo fala direto com ele (migration 0006); no modo de
+// teste não há Supabase, e `POST /__mundo/perfis` faz o papel dele, com as mesmas regras.
 //
 // **Sem disco (`MUNDO_SAVES=nuvem`)**: as plataformas grátis que rodam o Node
 // por nós (o Render) APAGAM o disco a cada reinício. Nesse modo o servidor não
@@ -53,7 +61,7 @@ import crypto from 'node:crypto';
 
 const QUEM = 'masmorra-do-carrasco';
 /** Sobe quando o protocolo muda de um jeito que cliente e servidor antigos não se entendem. */
-export const VERSAO_MUNDO = 1;
+export const VERSAO_MUNDO = 2;
 
 const MAX_JOGADORES = Number(process.env.MUNDO_MAX) || 16;
 const MAX_RECADO = 96 * 1024;
@@ -70,6 +78,14 @@ const GRAVAR_ESTADO_MS = 2000;
 
 const ID = /^[\w-]{1,64}$/;
 const BILHETE = /^[0-9a-f]{48}$/;
+/** O id de um personagem: ele vira nome de arquivo, então só passa na forma exata (minúsculas). */
+const ID_PERSONAGEM = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** Quantos personagens cada conta pode ter (no Supabase, o gatilho da migration 0006). */
+const MAX_PERSONAGENS = 4;
+const ALFABETO_CODIGO = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const MAX_CHAT = 500;
+/** Entre uma mensagem de chat e a próxima do mesmo jogador. */
+const CHAT_MS = 400;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -86,15 +102,20 @@ export function criarMundo(raiz) {
   const pasta = process.env.MUNDO_DIR ? path.resolve(process.env.MUNDO_DIR) : path.join(raiz, 'mundo');
   const pastaPersonagens = path.join(pasta, 'personagens');
   const arqEstado = path.join(pasta, 'estado.json');
+  const arqPerfis = path.join(pasta, 'perfis-teste.json');
   const modoAuth = process.env.MUNDO_AUTH === 'teste' ? 'teste' : 'supabase';
   /** 'disco' = personagens e estado em arquivo, aqui; 'nuvem' = nada em disco (ver o cabeçalho). */
   const saves = process.env.MUNDO_SAVES === 'nuvem' ? 'nuvem' : 'disco';
   const supabase = lerSupabase(raiz);
   const mapa = lerNomeDoMapa(raiz);
 
-  /** id → jogador: `{id, nome, bilhete, res, entrou, visivel, conectado, caiuEm, lentoAte, ultimoMundo, ritmo}` */
+  /** id do personagem → jogador: `{id, conta, nome, codigo, bilhete, res, entrou, visivel, conectado, caiuEm, lentoAte, ultimoMundo, ritmo, chatEm}` */
   const jogadores = new Map();
   const porBilhete = new Map();
+  /** conta → jogador: uma sessão por conta, seja qual for o personagem */
+  const porConta = new Map();
+  /** Só no modo de teste: conta → `[{id, nome, codigo, aparencia, criado_em}]` (ver `perfis`). */
+  const perfisTeste = new Map(saves === 'disco' && modoAuth === 'teste' ? Object.entries(lerJson(arqPerfis) ?? {}) : []);
   let simulador = null;        // id de quem simula os inimigos, ou null (mundo vazio)
   let ultimoMundo = null;      // o último `mundo` do simulador, para quem chega e para quem assume
   let estado = saves === 'disco' ? lerJson(arqEstado) ?? null : null;
@@ -128,7 +149,7 @@ export function criarMundo(raiz) {
   const para = (id, de, evento, carga) => escrever(jogadores.get(id), de, evento, carga);
   const paraOutros = (de, evento, carga) => { for (const j of jogadores.values()) if (j.id !== de) escrever(j, de, evento, carga); };
   const paraTodos = (evento, carga) => { for (const j of jogadores.values()) escrever(j, 'servidor', evento, carga); };
-  const lista = () => [...jogadores.values()].filter((j) => j.conectado).map((j) => ({ id: j.id, nome: j.nome }));
+  const lista = () => [...jogadores.values()].filter((j) => j.conectado).map((j) => ({ id: j.id, nome: j.nome, codigo: j.codigo }));
 
   // ------------------------------------------------------------ o simulador
 
@@ -159,6 +180,7 @@ export function criarMundo(raiz) {
     if (jogadores.get(j.id) !== j) return;
     jogadores.delete(j.id);
     porBilhete.delete(j.bilhete);
+    if (porConta.get(j.conta) === j) porConta.delete(j.conta);
     try { j.res?.end(); } catch { }
     paraTodos('saiu', { id: j.id, nome: j.nome, motivo });
     console.log(`[mundo] ${j.nome} saiu (${motivo}) — ${lista().length} online`);
@@ -209,6 +231,14 @@ export function criarMundo(raiz) {
       case 'voz':
         if (typeof c.para === 'string' && c.para !== j.id && jogadores.has(c.para)) para(c.para, j.id, evento, carga);
         return;
+      case 'chat': {
+        const texto = typeof c.texto === 'string' ? c.texto.trim().slice(0, MAX_CHAT) : '';
+        const agora = Date.now();
+        if (!texto || agora - j.chatEm < CHAT_MS) return;
+        j.chatEm = agora;
+        for (const outro of jogadores.values()) escrever(outro, j.id, 'chat', { nome: j.nome, codigo: j.codigo, texto });
+        return;
+      }
       case 'visivel':
         j.visivel = !!c.v;
         if (j.visivel) j.lentoAte = 0;
@@ -233,27 +263,107 @@ export function criarMundo(raiz) {
     if (mapa && corpo.mapa !== mapa) return erro(res, 409, `o servidor está no mapa "${mapa}", e este jogo em outro`);
     const quem = await conferirToken(corpo.token, { modoAuth, supabase });
     if (quem.erro) return erro(res, quem.status ?? 401, quem.erro);
-    const antigo = jogadores.get(quem.id);
+    if (typeof corpo.personagem !== 'string' || !ID_PERSONAGEM.test(corpo.personagem)) return erro(res, 400, 'personagem inválido');
+    const p = quem.teste
+      ? conferirPerfilDeTeste(quem.id, corpo.personagem)
+      : await conferirPersonagem(corpo.token, corpo.personagem, supabase);
+    if (p.erro) return erro(res, p.status, p.erro);
+    // Falhar em LER o save não pode virar "personagem novo": o primeiro save gravaria por cima do de verdade
+    let salvo = null;
+    if (saves === 'disco') {
+      const lido = lerSave(arquivoDoPersonagem(p.id));
+      if (lido.erro) return erro(res, 500, 'não consegui ler este personagem — tente de novo');
+      salvo = lido.dados;
+    }
+    // a mesma conta entrou de novo (outra aba, outro computador, outro personagem): a sessão velha cai
+    const antigo = porConta.get(quem.id);
     if (!antigo && jogadores.size >= MAX_JOGADORES) return erro(res, 503, 'o mundo está cheio');
+    const mesmo = antigo?.id === p.id;
     if (antigo) {
-      // a mesma conta entrou de novo (outra aba, outro computador): a sessão velha cai
       escrever(antigo, 'servidor', 'expulso', { motivo: 'esta conta entrou no mundo em outro lugar' });
-      porBilhete.delete(antigo.bilhete);
-      try { antigo.res?.end(); } catch { }
+      if (mesmo) {
+        porBilhete.delete(antigo.bilhete);
+        try { antigo.res?.end(); } catch { }
+      } else tirar(antigo, 'trocou de personagem');
     }
     const j = {
-      id: quem.id, nome: quem.nome, bilhete: crypto.randomBytes(24).toString('hex'), res: null,
+      id: p.id, conta: quem.id, nome: p.nome, codigo: p.codigo, bilhete: crypto.randomBytes(24).toString('hex'), res: null,
       // quem já estava mantém o lugar na fila do simulador
-      entrou: antigo?.entrou ?? Date.now(), visivel: true, conectado: false, caiuEm: Date.now(),
-      lentoAte: 0, ultimoMundo: Date.now(), ritmo: { t: 0, n: 0 },
+      entrou: mesmo ? antigo.entrou : Date.now(), visivel: true, conectado: false, caiuEm: Date.now(),
+      lentoAte: 0, ultimoMundo: Date.now(), ritmo: { t: 0, n: 0 }, chatEm: 0,
     };
     jogadores.set(j.id, j);
     porBilhete.set(j.bilhete, j);
+    porConta.set(j.conta, j);
     json(res, 200, {
-      ok: true, v: VERSAO_MUNDO, bilhete: j.bilhete, id: j.id, nome: j.nome, agora: Date.now(),
+      ok: true, v: VERSAO_MUNDO, bilhete: j.bilhete, id: j.id, nome: j.nome, codigo: j.codigo, agora: Date.now(),
       // `saves: 'nuvem'`: o personagem não está aqui — o jogo o busca no Supabase
-      saves, personagem: saves === 'disco' ? lerJson(arquivoDoPersonagem(j.id)) : null, estado,
+      saves, personagem: salvo, estado,
     });
+  }
+
+  // ------------------------------------------------------------ os perfis do modo de teste
+
+  const gravarPerfisTeste = () => { if (saves === 'disco') gravarJson(arqPerfis, Object.fromEntries(perfisTeste)); };
+
+  /** Este personagem é desta conta de teste? */
+  function conferirPerfilDeTeste(conta, id) {
+    const p = (perfisTeste.get(conta) ?? []).find((x) => x.id === id);
+    return p ?? { erro: 'este personagem não é da sua conta', status: 403 };
+  }
+
+  function novoCodigoDeTeste() {
+    const usados = new Set([...perfisTeste.values()].flat().map((p) => p.codigo));
+    for (;;) {
+      const c = Array.from(crypto.randomBytes(6), (b) => ALFABETO_CODIGO[b & 31]).join('');
+      if (!usados.has(c)) return c;
+    }
+  }
+
+  const nomeEmUso = (nome) => {
+    const chave = chaveDoNome(nome);
+    return [...perfisTeste.values()].flat().some((p) => chaveDoNome(p.nome) === chave);
+  };
+
+  /**
+   * `POST /__mundo/perfis` — SÓ no modo de teste, onde não há Supabase para guardar a
+   * lista. Faz o que os RPCs da migration 0006 fazem, com os mesmos nomes de erro. Com
+   * conta de verdade esta rota não existe: o jogo fala com o Supabase (e por isso o
+   * GitHub Pages não depende dela).
+   */
+  async function perfis(req, res) {
+    const corpo = await lerCorpo(req, 8 * 1024);
+    if (!corpo || typeof corpo.token !== 'string') return erro(res, 400, 'pedido inválido');
+    const quem = await conferirToken(corpo.token, { modoAuth, supabase });
+    if (quem.erro) return erro(res, quem.status ?? 401, quem.erro);
+    if (!quem.teste) return erro(res, 404, 'rota desconhecida');
+    const meus = perfisTeste.get(quem.id) ?? [];
+    if (corpo.acao === 'listar') return json(res, 200, { ok: true, perfis: meus });
+    if (corpo.acao === 'nome') {
+      const nome = typeof corpo.nome === 'string' ? corpo.nome.trim().normalize('NFC') : '';
+      return json(res, 200, { ok: true, livre: nomeValido(nome) && !nomeEmUso(nome) });
+    }
+    if (corpo.acao === 'criar') {
+      const nome = typeof corpo.nome === 'string' ? corpo.nome.trim().normalize('NFC') : '';
+      if (!nomeValido(nome)) return erro(res, 400, 'nome_invalido');
+      if (corpo.aparencia != null && !(typeof corpo.aparencia === 'string' && /^[0-9][0-9a-f~.]{4,63}$/.test(corpo.aparencia))) return erro(res, 400, 'aparencia_invalida');
+      if (meus.length >= MAX_PERSONAGENS) return erro(res, 409, 'limite_de_personagens');
+      if (nomeEmUso(nome)) return erro(res, 409, 'nome_em_uso');
+      const p = { id: crypto.randomUUID(), nome, codigo: novoCodigoDeTeste(), aparencia: corpo.aparencia ?? null, criado_em: new Date().toISOString() };
+      perfisTeste.set(quem.id, [...meus, p]);
+      gravarPerfisTeste();
+      return json(res, 200, { ok: true, perfil: p });
+    }
+    if (corpo.acao === 'apagar') {
+      const p = typeof corpo.id === 'string' && ID_PERSONAGEM.test(corpo.id) ? meus.find((x) => x.id === corpo.id) : null;
+      if (!p) return erro(res, 404, 'personagem_nao_encontrado');
+      if (typeof corpo.nome !== 'string' || chaveDoNome(corpo.nome.trim()) !== chaveDoNome(p.nome)) return erro(res, 400, 'confirmacao_errada');
+      perfisTeste.set(quem.id, meus.filter((x) => x !== p));
+      gravarPerfisTeste();
+      if (saves === 'disco') fs.rm(arquivoDoPersonagem(p.id), { force: true }, () => {});
+      return json(res, 200, { ok: true });
+    }
+    return erro(res, 400, 'pedido inválido');
   }
 
   function ouvir(req, res, j) {
@@ -268,7 +378,7 @@ export function criarMundo(raiz) {
     res.write(': ok\n\n');
     escrever(j, 'servidor', 'ola', { eu: j.id, jogadores: lista(), simulador, mundo: ultimoMundo, estado, agora: Date.now() });
     if (!voltou) {
-      paraOutros(j.id, 'entrou', { id: j.id, nome: j.nome });
+      paraOutros(j.id, 'entrou', { id: j.id, nome: j.nome, codigo: j.codigo });
       console.log(`[mundo] ${j.nome} entrou — ${lista().length} online`);
     }
     eleger();
@@ -294,7 +404,10 @@ export function criarMundo(raiz) {
     // sem disco, um save gravado aqui sumiria no próximo reinício — e sumir calado é o pior jeito
     if (saves !== 'disco') return erro(res, 409, 'neste servidor o personagem fica na conta (Supabase), não aqui');
     const arq = arquivoDoPersonagem(j.id);
-    if (req.method === 'GET') return json(res, 200, { ok: true, personagem: lerJson(arq) });
+    if (req.method === 'GET') {
+      const lido = lerSave(arq);
+      return lido.erro ? erro(res, 500, 'não consegui ler este personagem') : json(res, 200, { ok: true, personagem: lido.dados });
+    }
     const d = await lerCorpo(req, MAX_SAVE);
     const motivo = d ? saveTorto(d) : 'save inválido ou grande demais';
     if (motivo) return erro(res, 400, motivo);
@@ -302,7 +415,8 @@ export function criarMundo(raiz) {
     gravarJson(arq, d, (e) => (e ? erro(res, 500, 'não consegui gravar') : json(res, 200, { ok: true, salvoEm: d.salvoEm })));
   }
 
-  const arquivoDoPersonagem = (id) => path.join(pastaPersonagens, `${id.toLowerCase()}.json`);
+  /** `id` já passou por `ID_PERSONAGEM`: só hexadecimal e hífens chegam ao caminho. */
+  const arquivoDoPersonagem = (id) => path.join(pastaPersonagens, `${id}.json`);
 
   /**
    * As rotas de rede do chat de voz (`iceServers`, ver `turnDaVoz`) — só para quem
@@ -333,6 +447,7 @@ export function criarMundo(raiz) {
       return true;
     }
     if (rota === 'entrar' && req.method === 'POST') { entrar(req, res).catch((e) => { console.warn('[mundo] entrar:', e); erro(res, 500, 'falha no servidor'); }); return true; }
+    if (rota === 'perfis' && req.method === 'POST' && modoAuth === 'teste') { perfis(req, res).catch((e) => { console.warn('[mundo] perfis:', e); erro(res, 500, 'falha no servidor'); }); return true; }
     if (rota === 'ice' && req.method === 'POST') { ice(req, res).catch((e) => { console.warn('[mundo] ice:', e); erro(res, 500, 'falha no servidor'); }); return true; }
 
     // daqui para baixo, só com bilhete
@@ -363,14 +478,14 @@ export function criarMundo(raiz) {
 
 /**
  * De quem é este token? `{id, nome}` ou `{erro, status}`.
- * No modo de teste, `teste:<Nome>` vira o jogador `teste-<nome>`.
+ * No modo de teste, `teste:<Nome>` vira a conta `teste-<nome>` (`teste: true`).
  */
 async function conferirToken(token, { modoAuth, supabase }) {
   if (token.startsWith('teste:')) {
     if (modoAuth !== 'teste') return { erro: 'este servidor não aceita contas de teste', status: 401 };
     const nome = token.slice(6).trim();
     if (!/^[\p{L}\p{N} _-]{3,24}$/u.test(nome)) return { erro: 'nome de teste inválido (3 a 24 letras)', status: 400 };
-    return { id: `teste-${nome.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x'}`, nome };
+    return { id: `teste-${nome.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x'}`, nome, teste: true };
   }
   if (!supabase) return { erro: 'o servidor não achou os dados do Supabase (js/rede/supabase.js)', status: 500 };
   if (token.length > 4096) return { erro: 'sessão inválida', status: 401 };
@@ -392,6 +507,42 @@ async function conferirToken(token, { modoAuth, supabase }) {
   } catch {
     return { erro: 'o servidor não conseguiu falar com o Supabase para conferir a conta', status: 502 };
   }
+}
+
+/**
+ * Este personagem é da conta do token? Quem responde é a RLS do Supabase: com o token do
+ * jogador, a linha de outra conta simplesmente não vem. `{id, nome, codigo}` ou `{erro, status}`.
+ * Sem resposta do Supabase NÃO entra: quem não foi conferido não recebe bilhete.
+ */
+async function conferirPersonagem(token, id, supabase) {
+  if (!supabase) return { erro: 'o servidor não achou os dados do Supabase (js/rede/supabase.js)', status: 500 };
+  try {
+    const r = await fetch(`${supabase.url}/rest/v1/personagens?select=id,nome,codigo&id=eq.${id}`, {
+      headers: { apikey: supabase.chave, authorization: `Bearer ${token}`, 'accept-profile': 'masmorra' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return { erro: 'o servidor não conseguiu conferir o seu personagem — tente de novo', status: 502 };
+    const p = (await r.json())?.[0];
+    if (p?.id !== id || typeof p.nome !== 'string' || typeof p.codigo !== 'string') return { erro: 'este personagem não é da sua conta', status: 403 };
+    return { id: p.id, nome: p.nome, codigo: p.codigo };
+  } catch {
+    return { erro: 'o servidor não conseguiu falar com o Supabase para conferir o seu personagem', status: 502 };
+  }
+}
+
+// ------------------------------------------------------------ o nome do personagem
+
+/**
+ * A forma do nome que decide se dois nomes são o mesmo: "João" e "joao" dão "joao".
+ * A MESMA conta de `masmorra.chave_do_nome()` (migration 0006) e de `js/rede/perfis.js`.
+ */
+export const chaveDoNome = (nome) => nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/** De 3 a 16 letras e números, sem espaços (`masmorra.nome_valido()`). */
+export function nomeValido(nome) {
+  if (typeof nome !== 'string' || nome !== nome.normalize('NFC')) return false;
+  const n = [...nome].length;
+  return n >= 3 && n <= 16 && !/[\u0300-\u036f]/.test(nome) && /^[a-z0-9]{3,16}$/.test(chaveDoNome(nome));
 }
 
 // ------------------------------------------------------------ o retransmissor da voz
@@ -522,6 +673,16 @@ export function saveTorto(d) {
 
 function lerJson(arq) {
   try { return JSON.parse(fs.readFileSync(arq, 'utf8')); } catch { return null; }
+}
+
+/**
+ * Lê o save de um personagem separando "ainda não tem" (`{dados: null}`) de "não consegui
+ * ler" (`{erro: true}`): só o primeiro pode começar um personagem do zero.
+ */
+function lerSave(arq) {
+  let txt;
+  try { txt = fs.readFileSync(arq, 'utf8'); } catch (e) { return e.code === 'ENOENT' ? { dados: null } : { erro: true }; }
+  try { return { dados: JSON.parse(txt) }; } catch { return { erro: true }; }
 }
 
 /** Grava num temporário e renomeia: um desligamento no meio não corrompe o arquivo. */
