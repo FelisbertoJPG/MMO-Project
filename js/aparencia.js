@@ -270,13 +270,15 @@ export const nomeDaRaca = (codigo) => { const n = lerAparencia(aparenciaValida(c
  * `DIST_MAX` — o corpo inteiro).
  */
 const DIST_MIN = 0.42, DIST_PADRAO = 1.25, DIST_MAX = 3.2;
+const DIST_CRIACAO = 2.6;   // (a criação de personagem abre com o corpo inteiro na janela)
 const _alvo = new THREE.Vector3(), _cam = new THREE.Vector3();
 export class EditorDeAparencia {
   constructor(game) {
     this.game = game;
     this.el = document.getElementById('aparencia');
     this.lista = document.getElementById('aparencia-lista');
-    document.getElementById('aparencia-pronto').addEventListener('click', () => game.closeMenu());
+    // (na criação de personagem, "Pronto" só volta à ficha: js/perfis.js)
+    document.getElementById('aparencia-pronto').addEventListener('click', () => { if (this.criando) this.aoPronto?.(); else game.closeMenu(); });
     document.getElementById('aparencia-sorte').addEventListener('click', () => {
       const r = (n) => Math.floor(Math.random() * n);
       // (a raça não entra no sorteio: é escolha)
@@ -290,8 +292,10 @@ export class EditorDeAparencia {
     // os dedos (ou o mouse) apertados FORA do painel: um gira, dois fazem a pinça
     this.dedos = new Map();
     const pinca = () => { const [a, b] = [...this.dedos.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    // (na criação de personagem a tela é toda de painéis: gira só quem arrasta na janela do personagem)
+    const giraDaqui = (alvo) => (this.criando ? !!alvo.closest?.('#perfil-palco') : !alvo.closest?.('#aparencia'));
     // (os pontos no sistema da página girada pelo CSS no iPhone: tela.js)
-    addEventListener('pointerdown', (e) => { if (this.aberto && !e.target.closest?.('#aparencia')) this.dedos.set(e.pointerId, pontoNaTela(e.clientX, e.clientY)); });
+    addEventListener('pointerdown', (e) => { if (this.aberto && giraDaqui(e.target)) this.dedos.set(e.pointerId, pontoNaTela(e.clientX, e.clientY)); });
     addEventListener('pointermove', (e) => {
       const d = this.dedos.get(e.pointerId);
       if (!d || !this.aberto) return;
@@ -303,7 +307,7 @@ export class EditorDeAparencia {
     });
     for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, (e) => this.dedos.delete(e.pointerId));
     addEventListener('wheel', (e) => {
-      if (!this.aberto || e.target.closest?.('#aparencia')) return;
+      if (!this.aberto || !giraDaqui(e.target)) return;
       this.aproximar(Math.exp(e.deltaY * (e.deltaMode === 1 ? 33 : 1) * 0.0012));
     }, { passive: true });
   }
@@ -313,7 +317,7 @@ export class EditorDeAparencia {
   /** a distância da câmera vezes `k` (< 1 aproxima) */
   aproximar(k) { this.dist = THREE.MathUtils.clamp(this.dist * k, DIST_MIN, DIST_MAX); }
 
-  /** `criando`: o painel está na criação de personagem (js/perfis.js), sem o botão "Pronto". */
+  /** `criando`: o painel está na criação de personagem (js/perfis.js): a raça e o sexo ficam na ficha. */
   abrir({ criando = false } = {}) {
     this.criando = criando;
     this.el.classList.toggle('criacao', criando);
@@ -321,7 +325,7 @@ export class EditorDeAparencia {
     this.rodaAberta = null;
     this.game.player.esconderCorpo?.(false);   // (a primeira pessoa esconde o corpo da câmera)
     this.giro = 0;
-    this.dist = DIST_PADRAO;
+    this.dist = criando ? DIST_CRIACAO : DIST_PADRAO;
     this.el.querySelector('.aparencia-dica').textContent = document.body.classList.contains('toque')
       ? 'Arraste fora do painel para girar · pinça para aproximar'
       : 'Arraste fora do painel para girar · roda do mouse para aproximar';
@@ -349,12 +353,22 @@ export class EditorDeAparencia {
     p.aparencia = codigoDaAparencia(a);
     p.refreshEquipment();
     this.desenhar();
+    this.aoMudar?.();
+  }
+
+  /** A raça ou o sexo (`k`) na ficha da criação de personagem: o nome de agora, quantas opções há e como andar. */
+  opcaoDaFicha(k) {
+    const a = lerAparencia(this.game.player.aparencia);
+    const lista = k === 'raca' ? racasDoPainel().map((r) => [r.n, r.nome]) : sexosDoPainel(a.raca);
+    const i = Math.max(0, lista.findIndex((x) => x[0] === a[k]));
+    return { nome: lista[i]?.[1] ?? '—', total: lista.length, passar: (d) => this.mudar({ [k]: lista[(i + d + lista.length) % lista.length][0] }) };
   }
 
   desenhar() {
     const a = lerAparencia(this.game.player.aparencia), raca = racaDe(a.raca, a.sexo), racas = racasDoPainel();
     this.lista.innerHTML = '';
     for (const [k, rotulo, opcoes, some] of LINHAS) {
+      if (this.criando && (k === 'raca' || k === 'sexo')) continue;   // (na criação, essas duas ficam na ficha)
       if (some?.(raca, a)) continue;
       // (a raça ESCULPIDA — um corpo feito de fotos, esculpido.js — já vem pintada e vestida:
       // só a linha da raça; o resto do código fica guardado para quando voltar ao humano)
@@ -460,12 +474,13 @@ export class EditorDeAparencia {
     if (cam.userData.fovNormal != null && cam.fov !== cam.userData.fovNormal) { cam.fov = cam.userData.fovNormal; cam.updateProjectionMatrix(); }
     const p = this.game.player, w = this.game.world, f = p.facing + this.giro, atras = (1 - Math.cos(this.giro)) / 2, a = lerAparencia(p.aparencia);
     // (a altura do corpo vestido — a do esculpido é a dele; sem corpo, a da raça)
-    const alto = p.model.guerreiro?.altura ?? proporcoesDe(racaDe(a.raca, a.sexo)).altura, corpo = THREE.MathUtils.clamp((this.dist - DIST_PADRAO) / (DIST_MAX - DIST_PADRAO), 0, 1);
+    const alto = p.model.guerreiro?.altura ?? proporcoesDe(racaDe(a.raca, a.sexo)).altura, corpo = THREE.MathUtils.clamp((this.dist - DIST_PADRAO) / ((this.criando ? DIST_CRIACAO : DIST_MAX) - DIST_PADRAO), 0, 1);
     const y = p.pos.y + 1.55 * alto - 0.2 * atras;
     _alvo.set(p.pos.x, y - 0.05 - 0.6 * alto * corpo, p.pos.z);
     let d = this.dist * (1 + 0.56 * atras);
     _cam.set(_alvo.x + Math.sin(f) * d, 0, _alvo.z + Math.cos(f) * d);
-    d *= Math.max(DIST_MIN * 0.8 / d, w.rayFraction(_alvo, _cam, 0.15) - 0.03);
+    // (na criação de personagem a cela não é desenhada: a parede não encurta a vista — palco-criacao.js)
+    if (!this.criando) d *= Math.max(DIST_MIN * 0.8 / d, w.rayFraction(_alvo, _cam, 0.15) - 0.03);
     _cam.set(_alvo.x + Math.sin(f) * d, _alvo.y + 0.13 + 0.25 * corpo, _alvo.z + Math.cos(f) * d);
     _cam.y = Math.max(_cam.y, w.alturaChao(_cam) + 0.3);
     cam.position.copy(_cam);
@@ -475,7 +490,14 @@ export class EditorDeAparencia {
     // por dentro dele: o personagem sumia em alguns ângulos
     p.model.scene.visible = true;
     if (p.model.guerreiro) p.model.guerreiro.cena.visible = true;
-    const W = tela.w, H = tela.h, r = retanguloNaTela(this.el.getBoundingClientRect());
+    const W = tela.w, H = tela.h;
+    // (na criação de personagem, o corpo fica no meio da janela dele)
+    if (this.criando) {
+      const q = retanguloNaTela(document.getElementById('perfil-palco').getBoundingClientRect());
+      cam.setViewOffset(W, H, W / 2 - (q.left + q.right) / 2, H / 2 - (q.top + q.bottom) / 2, W, H);
+      return;
+    }
+    const r = retanguloNaTela(this.el.getBoundingClientRect());
     const meio = r.left > W - r.right ? r.left / 2 : (r.right + W) / 2;
     cam.setViewOffset(W, H, W / 2 - meio, 0, W, H);
   }

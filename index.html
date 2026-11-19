@@ -214,16 +214,63 @@
     </div>
   </div>
 
-  <!-- CRIAR PERSONAGEM (js/perfis.js): o nome, ao lado do painel de Aparência -->
+  <!-- CRIAR PERSONAGEM (js/perfis.js): a ficha à esquerda; à direita, a janela do personagem (js/palco-criacao.js) -->
   <div id="perfil-novo" class="hidden">
-    <form id="perfil-form" autocomplete="off" novalidate>
-      <div class="perfil-novo-titulo">Novo personagem</div>
-      <label for="perfil-nome">Nome</label>
-      <input id="perfil-nome" maxlength="16" autocomplete="off" spellcheck="false" autocapitalize="words">
-      <div id="perfil-nome-aviso" class="perfil-aviso"></div>
-      <div class="perfil-novo-dica">De 3 a 16 letras e números, sem espaços.</div>
-      <div class="conta-botoes"><button type="button" id="perfil-voltar">Voltar</button><button type="submit" id="perfil-confirmar">Criar</button></div>
-    </form>
+    <header class="cp-topo">
+      <div class="cp-selo" aria-hidden="true"></div>
+      <div>
+        <h2 class="cp-titulo">Criar personagem</h2>
+        <p class="cp-sub">Dê um nome e escolha a sua raça</p>
+      </div>
+    </header>
+    <div class="cp-corpo">
+      <div class="cp-coluna">
+        <form id="perfil-form" class="cp-painel cp-identidade" autocomplete="off" novalidate>
+          <div class="cp-campo cp-campo-nome">
+            <label class="cp-rotulo" for="perfil-nome">Nome</label>
+            <div class="cp-entrada">
+              <input id="perfil-nome" maxlength="16" autocomplete="off" spellcheck="false" autocapitalize="words" placeholder="Nome do personagem">
+              <div id="perfil-nome-aviso" class="perfil-aviso"></div>
+            </div>
+          </div>
+          <div class="cp-campo" data-campo="raca">
+            <span class="cp-rotulo">Raça</span>
+            <button type="button" class="cp-seta" data-d="-1" aria-label="Raça anterior">◀</button>
+            <span class="cp-valor"></span>
+            <button type="button" class="cp-seta" data-d="1" aria-label="Próxima raça">▶</button>
+          </div>
+          <div class="cp-campo" data-campo="sexo">
+            <span class="cp-rotulo">Sexo</span>
+            <button type="button" class="cp-seta" data-d="-1" aria-label="Sexo anterior">◀</button>
+            <span class="cp-valor"></span>
+            <button type="button" class="cp-seta" data-d="1" aria-label="Próximo sexo">▶</button>
+          </div>
+          <div class="cp-campo cp-fechado">
+            <span class="cp-rotulo">Classe</span>
+            <span class="cp-valor">Em breve</span>
+          </div>
+          <div class="cp-acoes">
+            <button type="button" id="perfil-voltar">Voltar</button>
+            <button type="button" id="perfil-personalizar">Personalizar</button>
+            <button type="submit" id="perfil-confirmar">Confirmar</button>
+          </div>
+        </form>
+        <div id="perfil-fichas" class="cp-fichas">
+          <section class="cp-painel">
+            <h3 class="cp-painel-titulo">Atributos <small>exemplo</small></h3>
+            <dl id="perfil-atributos" class="cp-lista"></dl>
+          </section>
+          <section class="cp-painel">
+            <h3 class="cp-painel-titulo">Status <small>exemplo</small></h3>
+            <dl id="perfil-status" class="cp-lista"></dl>
+          </section>
+        </div>
+        <!-- o painel de Aparência (#aparencia) entra aqui enquanto se cria -->
+        <div id="perfil-custom" class="hidden"></div>
+      </div>
+      <div id="perfil-palco" aria-hidden="true"></div>
+    </div>
+    <footer class="cp-rodape">Arraste o personagem para girar · Roda do mouse ou pinça para aproximar · Esc para voltar</footer>
   </div>
   <!-- O EDITOR DE PERSONAGEM (js/aparencia.js): pele, cabelo, barba, olhos; a câmera vai ao rosto -->
   <div id="aparencia" class="hidden">

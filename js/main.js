@@ -1498,7 +1498,11 @@ class Game {
       this.world.update(dt, this.camera);
       this.effects.update(dt);
       this.toque?.update();
+      // (criando um personagem: só o corpo aceso, no escuro — js/palco-criacao.js)
+      const palco = this.criandoPerfil ? this.telaPerfis.palco : null;
+      palco?.antes();
       this.renderer.render(this.scene, this.camera);
+      palco?.depois();
       this.graficos.apresentar();   // (o FXAA, se ligado: js/fxaa.js)
       this.input.endFrame();
       return;

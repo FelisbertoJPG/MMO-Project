@@ -284,19 +284,79 @@ body.sem-chat #chat:not(.escrevendo) { display: none; }
 .perfil-confirma .conta-botoes button:disabled { opacity: .45; cursor: default; }
 .perfil-aviso { color: #d0705a; font-size: 13px; min-height: 1.2em; }
 .perfil-aviso.ok { color: #9fd07a; }
-/* criar: a caixinha do nome à esquerda; o painel de Aparência fica à direita, sem o "Pronto" */
-#perfil-novo { position: fixed; left: calc(6 * var(--vw, 1vw)); top: 50%; transform: translateY(-50%); width: min(300px, calc(44 * var(--vw, 1vw)));
-  box-sizing: border-box; padding: 16px 18px; background: var(--panel); border: 1px solid var(--gold-dim); z-index: 40; text-align: left; }
-#perfil-form { display: flex; flex-direction: column; gap: 6px; }
-.perfil-novo-titulo { font-family: var(--serif); color: var(--gold); font-size: 20px; letter-spacing: .06em; text-align: center; margin-bottom: 4px; }
-#perfil-form label { font-size: 13px; color: var(--text-dim); letter-spacing: 1px; }
-.perfil-novo-dica { font-size: 12px; color: var(--text-dim); }
-#perfil-form .conta-botoes { margin-top: 6px; }
-#perfil-form .conta-botoes button { flex: 1; margin: 0; padding: 8px 6px; }
+/* CRIAR PERSONAGEM (js/perfis.js): a ficha à esquerda e, à direita, a janela sem fundo por onde
+   se vê o personagem iluminado (js/palco-criacao.js) */
+body.criando-perfil #game canvas { filter: saturate(.94) contrast(1.06); }
+#perfil-novo { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; gap: 12px; padding: clamp(14px, 3vh, 34px) clamp(16px, calc(3 * var(--vw, 1vw)), 52px);
+  text-align: left; pointer-events: auto; }
+#perfil-novo::after { content: ''; position: absolute; inset: 9px; border: 1px solid rgba(125,106,69,.32); pointer-events: none; }
+.cp-topo { display: flex; align-items: center; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid rgba(125,106,69,.4); }
+.cp-selo { flex: none; width: 34px; height: 34px; margin: 6px; transform: rotate(45deg); border: 1px solid var(--gold); background: radial-gradient(circle, rgba(200,168,106,.5), rgba(40,28,14,.9) 70%); box-shadow: 0 0 0 4px #0b0908, 0 0 0 5px var(--gold-dim); }
+.cp-titulo { margin: 0; font: 400 clamp(22px, 3.6vh, 34px) var(--serif); letter-spacing: .05em; color: #eadcc0; }
+.cp-sub { margin: 1px 0 0; font-size: clamp(14px, 2.1vh, 18px); color: var(--text-dim); }
+.cp-corpo { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: clamp(12px, calc(1.6 * var(--vw, 1vw)), 26px); }
+.cp-coluna { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+/* a moldura: linha dupla de bronze com os cantos marcados */
+.cp-painel { position: relative; padding: 14px 20px; border: 1px solid #5a4930; background: linear-gradient(170deg, rgba(24,19,14,.96), rgba(9,8,7,.98));
+  box-shadow: inset 0 0 0 3px #0a0807, inset 0 0 0 4px rgba(125,106,69,.34), 0 6px 22px rgba(0,0,0,.55); }
+.cp-painel::before, #perfil-palco::before { content: ''; position: absolute; inset: 6px; pointer-events: none; --c: var(--gold);
+  background: linear-gradient(var(--c), var(--c)) 0 0 / 20px 1px, linear-gradient(var(--c), var(--c)) 0 0 / 1px 20px, linear-gradient(var(--c), var(--c)) 100% 0 / 20px 1px, linear-gradient(var(--c), var(--c)) 100% 0 / 1px 20px,
+    linear-gradient(var(--c), var(--c)) 0 100% / 20px 1px, linear-gradient(var(--c), var(--c)) 0 100% / 1px 20px, linear-gradient(var(--c), var(--c)) 100% 100% / 20px 1px, linear-gradient(var(--c), var(--c)) 100% 100% / 1px 20px;
+  background-repeat: no-repeat; }
+.cp-identidade { flex: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 26px; border-color: #8a6c3e; background: linear-gradient(170deg, rgba(44,31,18,.97), rgba(14,10,8,.98)); }
+.cp-campo { position: relative; z-index: 1; min-width: 0; display: grid; grid-template-columns: 62px 30px minmax(0, 1fr) 30px; align-items: center; gap: 6px; min-height: 36px; border-bottom: 1px solid rgba(125,106,69,.3); }
+.cp-campo-nome { grid-column: 1 / -1; grid-template-columns: 62px minmax(0, 1fr); align-items: start; border-bottom: 0; }
+.cp-rotulo { font: 16px var(--body); color: #cdbf9f; }
+.cp-campo-nome .cp-rotulo { line-height: 40px; }
+.cp-valor { text-align: center; color: #f1e3c2; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-fechado { grid-template-columns: 62px minmax(0, 1fr); }
+.cp-fechado .cp-valor { color: var(--text-dim); font-style: italic; }
+.cp-seta { padding: 3px 0; font-size: 11px; letter-spacing: 0; background: rgba(0,0,0,.35); border-color: rgba(125,106,69,.5); }
+#perfil-nome { height: 40px; background: rgba(70,30,12,.5); border-color: #7a5230; font-size: 18px; }
+#perfil-nome::placeholder { color: #8d7a60; }
+#perfil-nome-aviso:empty::before { content: 'De 3 a 16 letras e números, sem espaços.'; color: var(--text-dim); }
+#perfil-nome-aviso { margin-top: 3px; }
+.cp-acoes { position: relative; z-index: 1; grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: 10px; margin-top: 4px; }
+.cp-acoes button { min-width: 0; padding: 8px 6px; font-size: 14px; letter-spacing: 1px; }
+#perfil-personalizar.ativo { border-color: var(--gold); color: #fff3d6; background: rgba(80,60,30,.6); }
+#perfil-confirmar { border-color: var(--gold); color: #fff3d6; background: linear-gradient(rgba(122,84,36,.9), rgba(70,46,18,.9)); }
 #perfil-confirmar:disabled { opacity: .5; cursor: default; }
-#aparencia.criacao #aparencia-pronto { display: none; }
-body.toque #perfil-novo { left: 8px; padding: 10px 12px; }
-body.toque .perfil-novo-titulo { font-size: 16px; margin-bottom: 0; }
+.cp-fichas { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cp-painel-titulo { position: relative; z-index: 1; margin: 0 0 6px; font: 400 16px var(--serif); letter-spacing: .08em; color: var(--gold); }
+.cp-painel-titulo small { margin-left: 6px; font: italic 13px var(--body); letter-spacing: 0; color: var(--text-dim); }
+.cp-fichas .cp-painel { display: flex; flex-direction: column; min-height: 0; }
+.cp-lista { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; margin: 0; }
+.cp-lista > div { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: clamp(2px, .55vh, 7px) 0; border-bottom: 1px solid rgba(125,106,69,.18); }
+.cp-lista > div:last-child { border-bottom: 0; }
+.cp-lista dt { display: flex; align-items: center; gap: 9px; color: #cdbf9f; font-size: 16px; }
+.cp-lista dt::before { content: ''; flex: none; width: 7px; height: 7px; transform: rotate(45deg); background: var(--gold-dim); }
+.cp-lista dd { margin: 0; color: #f1e3c2; font-size: 17px; font-variant-numeric: tabular-nums; }
+#perfil-custom { flex: 1; min-height: 0; overflow-y: auto; }
+#perfil-novo #aparencia { position: relative; top: auto; right: auto; transform: none; width: auto; max-height: none; overflow: visible; z-index: auto; padding: 14px 20px; box-sizing: border-box; border-color: #5a4930; background: linear-gradient(170deg, rgba(24,19,14,.96), rgba(9,8,7,.98)); }
+#perfil-novo #aparencia .aparencia-dica { display: none; }
+#perfil-palco { position: relative; min-width: 0; min-height: 0; cursor: grab; touch-action: none; border: 1px solid rgba(125,106,69,.42); box-shadow: inset 0 0 70px rgba(0,0,0,.6); }
+#perfil-palco:active { cursor: grabbing; }
+.cp-rodape { color: var(--text-dim); font-size: 14px; }
+/* tela baixa (o celular deitado): sem o título e o rodapé, tudo mais justo */
+body.toque #perfil-novo { gap: 6px; padding: 6px 8px; }
+body.toque #perfil-novo::after, body.toque .cp-topo, body.toque .cp-rodape { display: none; }
+@media (max-height: 620px) {
+  #perfil-novo { gap: 6px; padding: 8px 12px; }
+  #perfil-novo::after, .cp-topo, .cp-rodape { display: none; }
+  .cp-coluna { gap: 6px; }
+  .cp-painel { padding: 8px 12px; }
+  .cp-identidade { gap: 2px 14px; }
+  .cp-campo { min-height: 28px; grid-template-columns: 46px 24px minmax(0, 1fr) 24px; gap: 3px; }
+  .cp-campo-nome, .cp-fechado { grid-template-columns: 46px minmax(0, 1fr); }
+  .cp-rotulo, .cp-valor, .cp-lista dt, .cp-lista dd { font-size: 13px; }
+  #perfil-nome { height: 30px; font-size: 16px; padding: 3px 8px; }
+  .cp-campo-nome .cp-rotulo { line-height: 30px; }
+  .perfil-aviso { font-size: 11px; }
+  .cp-acoes { gap: 6px; margin-top: 2px; }
+  .cp-acoes button { padding: 5px 2px; font-size: 12px; letter-spacing: 0; }
+  .cp-painel-titulo { margin-bottom: 2px; font-size: 13px; }
+  .cp-lista > div { padding: 0; }
+}
 
 /* a Jornada, só com ?jornada */
 #modo-offline { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #2e2820; text-align: center; }
