@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-18.3",
-  "nota": "Perfis de personagem: cada conta pode criar ate 4 personagens, com nome unico. Os personagens recomecam."
+  "versao": "2026-11-19.1",
+  "nota": "Nova tela de criacao de personagem: o personagem iluminado, a ficha com nome, raca e sexo, e o painel de Aparencia no botao Personalizar."
 }
