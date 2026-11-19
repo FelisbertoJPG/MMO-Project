@@ -695,3 +695,61 @@ body.toque #aparencia .aparencia-botoes { margin-top: 8px; }
 #monitor .mon-botoes button { font: 11px ui-monospace, Consolas, monospace; padding: 3px 6px; letter-spacing: 0; }
 #monitor .mon-dica { margin-top: 4px; font-size: 10px; color: var(--text-dim); }
 #monitor-texto { position: fixed; inset: 10% 10%; z-index: 1001; font: 12px ui-monospace, monospace; background: #111; color: #ddd; }
+
+/* ---------- A árvore de habilidades (js/arvore.js; tecla K) ---------- */
+.arv-panel { display: flex; gap: 22px; width: min(1240px, calc(96 * var(--vw, 1vw))); height: min(780px, calc(88 * var(--vh, 1vh))); padding: 16px 20px; }
+.arv-mapa { flex: 1; position: relative; min-width: 0; }
+.arv-mapa svg { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; user-select: none;
+  background: radial-gradient(circle at center, rgba(70, 50, 25, .28), rgba(0, 0, 0, 0) 62%); }
+.arv-mapa svg:active { cursor: grabbing; }
+.arv-zoom { position: absolute; left: 6px; bottom: 6px; display: flex; gap: 6px; }
+.arv-zoom button { padding: 4px 10px; font-size: 14px; }
+.arv-lado { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.arv-lado h2 { margin-bottom: 4px; }
+.arv-pontos { font-family: var(--serif); color: var(--text); }
+.arv-pontos b { color: var(--gold); font-size: 20px; }
+.arv-pend { color: #e8c27a; font-size: 14px; }
+.arv-acoes { display: flex; gap: 8px; }
+.arv-acoes button { flex: 1; padding: 6px 8px; }
+.arv-detalhe { border-top: 1px solid var(--gold-dim); padding-top: 10px; font-size: 15px; line-height: 1.35; }
+.arv-detalhe h3 { font-family: var(--serif); font-weight: 400; letter-spacing: 1px; margin: 0 0 2px; color: #e9dcc0; }
+.arv-detalhe p { margin: 8px 0; }
+.arv-sub { color: var(--text-dim); font-size: 13px; }
+.arv-nivel { margin-top: 8px; }
+.arv-nivel b { color: var(--gold); }
+.arv-ranks { margin: 6px 0; padding-left: 22px; color: var(--text-dim); font-size: 14px; }
+.arv-ranks li.tem { color: #f0d9a8; }
+.arv-lista { margin: 6px 0; padding-left: 18px; font-size: 14px; color: var(--text-dim); }
+.arv-lista li { margin-bottom: 6px; }
+.arv-lista b { color: var(--text); }
+.arv-motivo { color: #c88a6a; font-size: 14px; }
+.arv-breve { color: var(--text-dim); font-style: italic; font-size: 14px; }
+.arv-aprender { width: 100%; padding: 8px 10px; margin-top: 4px; }
+
+.arv-anel { fill: none; stroke: var(--gold-dim); stroke-opacity: .35; stroke-width: 2; }
+.arv-corda { stroke-width: 3; opacity: .16; }
+.arv-corda.formando { opacity: .45; }
+.arv-corda.aberta { opacity: .95; stroke-width: 6; }
+.arv-galho { fill: none; stroke: var(--c); stroke-width: 4; stroke-linecap: round; opacity: .22; }
+.arv-galho.tem { opacity: .95; stroke-width: 6; }
+.arv-no { cursor: pointer; }
+.arv-no circle { fill: #141110; stroke: var(--c); stroke-width: 2.5; stroke-opacity: .35; }
+.arv-no.pode circle { stroke-opacity: 1; }
+.arv-no.tem circle { fill: var(--c); fill-opacity: .88; stroke-opacity: 1; }
+.arv-no.novo circle { stroke: #fff3d6; stroke-dasharray: 5 3; }
+.arv-no.breve { opacity: .5; }
+.arv-no.sel circle { stroke: #fff; stroke-width: 4; stroke-opacity: 1; }
+.arv-no:hover circle { stroke-width: 4; }
+.arv-no .arv-aro { fill: none; stroke-dasharray: 3 4; }
+.arv-reacao circle { stroke: #000; stroke-opacity: .6; }
+.arv-reacao.trancada { opacity: .35; }
+.arv-reacao.formando { opacity: .7; }
+.arv-rank { font: 600 11px var(--serif); fill: var(--text); text-anchor: middle; pointer-events: none; }
+.arv-no.tem .arv-rank { fill: #140e0a; }
+.maestria .arv-rank { font-size: 14px; }
+.arv-mapa .rotulo { font: 14px var(--body); fill: var(--text); text-anchor: middle; paint-order: stroke; stroke: #000; stroke-width: 3px; visibility: hidden; pointer-events: none; }
+.arv-mapa svg.perto .rotulo { visibility: visible; }
+.arv-elem { font: 600 30px var(--serif); fill: var(--c); text-anchor: middle; dominant-baseline: middle; letter-spacing: 3px; cursor: pointer; paint-order: stroke; stroke: #000; stroke-width: 4px; }
+.arv-elem.breve { opacity: .55; }
+body.toque .arv-panel { width: calc(96 * var(--vw, 1vw)); height: calc(92 * var(--vh, 1vh)); gap: 12px; padding: 10px 12px; }
+body.toque .arv-lado { width: 240px; }

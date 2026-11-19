@@ -51,6 +51,7 @@ const BOTOES = [
   // barra de cima
   { id: 'menu', rotulo: '☰', titulo: 'Menu', lugar: 'topo', acao: (g) => g.openMenu('pause') },
   { id: 'inventario', rotulo: 'Itens', tecla: 'KeyI', lugar: 'topo' },
+  { id: 'habilidades', rotulo: 'Habilidades', tecla: 'KeyK', lugar: 'topo' },
   { id: 'sala', rotulo: 'Grupo', tecla: 'KeyO', lugar: 'topo' },
   { id: 'chat', rotulo: 'Chat', lugar: 'topo', acao: (g) => g.online.chat?.abrirEscrita() ?? g.ui.toast('Entre com uma conta para usar o chat.') },
   { id: 'mensagem', rotulo: 'Escrever', lugar: 'topo', acao: (g) => (g.online.mensagens ? g.openMenu('escrever') : g.ui.toast('Entre com uma conta para deixar mensagens.')) },

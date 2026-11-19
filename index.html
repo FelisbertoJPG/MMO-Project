@@ -190,6 +190,23 @@
     <div class="hint">[I / Tab / Esc] Fechar</div>
   </div>
 
+  <!-- Árvore de habilidades (js/arvore.js; tecla K) -->
+  <div id="arvore" class="overlay hidden">
+    <div class="panel arv-panel">
+      <div class="arv-mapa">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="-650 -650 1300 1300" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="arv-zoom"><button class="arv-mais" title="Aproximar">+</button><button class="arv-menos" title="Afastar">−</button><button class="arv-tudo">Ver tudo</button></div>
+      </div>
+      <div class="arv-lado">
+        <h2>Habilidades</h2>
+        <div class="arv-pontos"></div>
+        <div class="arv-acoes"><button class="arv-confirmar">Confirmar</button><button class="arv-desfazer">Desfazer</button></div>
+        <div class="arv-detalhe"></div>
+      </div>
+    </div>
+    <div class="hint">[K / Esc] Fechar · roda do mouse: aproximar · arrastar: mover</div>
+  </div>
+
   <!-- Menu da fogueira -->
   <div id="bonfire-menu" class="overlay hidden">
     <div class="panel bonfire-panel">
@@ -350,6 +367,7 @@
           <div><b>Q</b> travar mira</div><div><b>E</b> interagir</div>
           <div><b>R</b> usar item</div><div><b>C</b> trocar item</div>
           <div><b>T</b> tocha</div><div><b>I</b> inventário</div>
+          <div><b>K</b> habilidades</div><div></div>
           <div><b>M</b> mensagem no chão</div><div><b>O</b> multijogador</div>
           <div><b>Enter</b> chat</div><div><b class="voz-tecla-nome">V</b> falar (voz)</div>
           <div><b>Esc</b> menu</div><div><b>F3</b> desempenho</div>

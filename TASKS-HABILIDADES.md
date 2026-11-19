@@ -83,8 +83,10 @@ conta real. A trava de raça continua desligada.
 
 ## Etapa 4 — Tela da árvore (`/agent_interface`)
 
-- [ ] **Tela de habilidades** com abas Raça, Elementos e Reações. A árvore de cada reação
-  aparece trancada até ter Maestria 5 nos dois elementos.
+- [~] **Tela de habilidades** (tecla K, `js/arvore.js`, 19/11/2026): em vez de abas, uma árvore só, com os
+  7 elementos num anel e as reações como galhos entre eles ("Conhecimento do …", trancado até a
+  Maestria 5 nos dois). Só o Fogo aceita pontos (confirmados, vão para o save); o resto é para ver.
+  Falta a árvore da Raça.
 - [ ] **Montar a barra:** arrastar habilidades para os espaços, só fora de combate.
 - [ ] **Funcionar no celular**, com pré-visualização do que cada ponto rende.
 - [ ] **Refazer a árvore** (D9).

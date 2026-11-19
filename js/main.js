@@ -22,6 +22,7 @@ import { lerProgresso, salvarProgresso, aplicarProgresso, apagarProgresso, ficha
 import { Online } from './rede/online.js';
 import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
+import { ArvoreUI } from './arvore.js';
 import { Voz } from './rede/voz.js';
 import { VozUI } from './vozui.js';
 import { ControlesToque, ehToque } from './toque.js';
@@ -158,6 +159,7 @@ class Game {
     this.perfil = null;                  // o personagem escolhido na tela de entrada (js/perfis.js); sem conta, null
     this.telaPerfis = new TelaPerfis(this);
     this.salaUI = new SalaUI(this);
+    this.arvore = new ArvoreUI(this);   // a árvore de habilidades (tecla K)
     // o chat de voz com quem está junto (rede/voz.js; as opções ficam no menu de pausa)
     this.voz = new Voz(this);
     this.vozUI = new VozUI(this);
@@ -1116,6 +1118,7 @@ class Game {
     if (kind === 'bonfire') this.ui.openBonfire();
     if (kind === 'pause') { this.mostrarCoordenadas(); this.marcarGraficos(); this.telaDaPausa('menu'); document.getElementById('pause').classList.remove('hidden'); }
     if (kind === 'sala') this.salaUI.abrir();
+    if (kind === 'habilidades') this.arvore.abrir();
     if (kind === 'aparencia') this.editorAparencia.abrir();
     if (kind === 'escrever') {
       document.getElementById('msg-writer').classList.remove('hidden');
@@ -1136,6 +1139,7 @@ class Game {
     if (this.menu === 'pause') document.getElementById('pause').classList.add('hidden');
     if (this.menu === 'escrever') document.getElementById('msg-writer').classList.add('hidden');
     if (this.menu === 'sala') this.salaUI.fechar();
+    if (this.menu === 'habilidades') this.arvore.fechar();
     if (this.menu === 'aparencia') { this.editorAparencia.fechar(); this.salvar({ nuvem: true }); }
     this.menu = null;
     document.activeElement?.blur();
@@ -1459,6 +1463,7 @@ class Game {
       this.ui.toast('Entre com uma conta (tela inicial) para deixar mensagens.');
     }
     if ((inp.pressed('KeyI') || inp.pressed('Tab')) && !p.dead) { this.openMenu('inventory'); return; }
+    if (inp.pressed('KeyK') && !p.dead) { this.openMenu('habilidades'); return; }
     if (inp.pressed('KeyC') || inp.pressed('ArrowDown') || inp.wheel > 0) this.inventory.cycleQuick(1);
     if (inp.pressed('ArrowUp') || inp.wheel < 0) this.inventory.cycleQuick(-1);
     const it = p.state === 'free' ? this.nearestInteractable() : null;
@@ -1478,6 +1483,7 @@ class Game {
     else if (this.menu === 'pause' && this.pausaTela && this.pausaTela !== 'menu' && inp.pressed('Escape')) this.telaDaPausa(this.pausaTela === 'voz' ? 'interface' : this.pausaTela === 'sombras' ? 'avancado' : 'menu');
     else if ((this.menu === 'bonfire' || this.menu === 'pause' || this.menu === 'escrever' || this.menu === 'sala' || this.menu === 'aparencia') && inp.pressed('Escape')) this.closeMenu();
     else if (this.menu === 'sala' && inp.pressed('KeyO')) this.closeMenu();
+    else if (this.menu === 'habilidades' && (inp.pressed('KeyK') || inp.pressed('Escape'))) this.closeMenu();
   }
 
   loop() {

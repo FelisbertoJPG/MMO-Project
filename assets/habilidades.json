@@ -1,0 +1,2174 @@
+{
+ "_leiame": "GERADO por ferramentas/habilidades/gerar-catalogo.mjs a partir de planejamento/arvore-de-habilidades.json: não edite aqui. Os números são provisórios.",
+ "regras": {
+  "maestria": 5,
+  "pontos_por_linha": 3,
+  "reacao_abre_com_maestria": 5
+ },
+ "elementos": [
+  {
+   "id": "fogo",
+   "nome": "Fogo",
+   "cor": "#ff6a30",
+   "identidade": "Dano contínuo e explosões",
+   "funcional": true,
+   "arvore": {
+    "modelo": "linhas",
+    "maestria": {
+     "id": "fogo.maestria",
+     "nome": "Maestria do Fogo",
+     "tipo": "maestria",
+     "coluna": "base",
+     "ranks": 5,
+     "custo": 1,
+     "requer": [],
+     "por_ponto": [
+      "+2% de dano e +3% de resistência ao fogo",
+      "+4% de dano e +6% de resistência ao fogo",
+      "+6% de dano e +9% de resistência ao fogo",
+      "+8% de dano e +12% de resistência ao fogo",
+      "+10% de dano e +15% de resistência ao fogo"
+     ],
+     "desc": "Treinar o fogo aumenta o dano e a resistência às chamas. Com 5 pontos, abre Manipular, Defesa e Imbuir."
+    },
+    "linhas": [
+     {
+      "linha": 1,
+      "escolhas": [
+       {
+        "id": "fogo.bola",
+        "nome": "Bola de Fogo",
+        "tipo": "ativa",
+        "coluna": "magia",
+        "ranks": 3,
+        "custo": 1,
+        "requer": [],
+        "por_ponto": [
+         "35 de dano",
+         "42 de dano",
+         "50 de dano"
+        ],
+        "desc": "Projétil que acende o alvo."
+       },
+       {
+        "id": "fogo.pele",
+        "nome": "Pele de Brasa",
+        "tipo": "passiva",
+        "coluna": "defesa",
+        "ranks": 3,
+        "custo": 1,
+        "requer": [],
+        "por_ponto": [
+         "Queima por 1 s",
+         "Queima por 2 s",
+         "Queima por 3 s"
+        ],
+        "desc": "Quem acerta você corpo a corpo começa a queimar."
+       },
+       {
+        "id": "fogo.imbuir",
+        "nome": "Imbuir Chamas",
+        "tipo": "ativa",
+        "coluna": "arma",
+        "ranks": 3,
+        "custo": 1,
+        "requer": [],
+        "por_ponto": [
+         "Dura 20 s",
+         "Dura 25 s",
+         "Dura 30 s"
+        ],
+        "desc": "A arma causa dano de fogo e 15% a mais."
+       }
+      ]
+     },
+     {
+      "linha": 2,
+      "escolhas": [
+       {
+        "id": "fogo.rajada",
+        "nome": "Rajada de Fogo",
+        "tipo": "ativa",
+        "coluna": "magia",
+        "ranks": 3,
+        "custo": 1,
+        "requer": [
+         "fogo.bola"
+        ],
+        "por_ponto": [
+         "3 bolas em leque",
+         "4 bolas em leque",
+         "5 bolas em leque"
+        ],
+        "desc": "Dispara uma rajada de bolas menores, com 18 de dano cada. Nasce da Bola de Fogo e fica disponível junto com ela."
+       },
+       {
+        "id": "fogo.cinzas",
+        "nome": "Cinzas Protetoras",
+        "tipo": "passiva",
+        "coluna": "defesa",
+        "ranks": 3,
+        "custo": 1,
+        "requer": [
+         "fogo.pele"
+        ],
+        "por_ponto": [
+         "-4% de dano recebido",
+         "-8% de dano recebido",
+         "-12% de dano recebido"
+        ],
+        "desc": "Vale enquanto houver um inimigo queimando perto de você."
+       },
+       {
+        "id": "fogo.golpe",
+        "nome": "Golpe Flamejante",
+        "tipo": "passiva",
+        "coluna": "arma",
+        "ranks": 3,
+        "custo": 1,
+        "requer": [
+         "fogo.imbuir"
+        ],
+        "por_ponto": [
+         "Onda de 20 de dano",
+         "Onda de 30 de dano",
+         "Onda de 40 de dano"
+        ],
+        "desc": "Com a arma imbuída, o golpe pesado solta uma onda de fogo."
+       }
+      ]
+     },
+     {
+      "linha": 3,
+      "escolhas": [
+       {
+        "id": "fogo.sol",
+        "nome": "Sol Caído",
+        "tipo": "suprema",
+        "coluna": "magia",
+        "ranks": 1,
+        "custo": 3,
+        "requer": [
+         "fogo.rajada"
+        ],
+        "por_ponto": [
+         "160 de dano em área"
+        ],
+        "desc": "Uma esfera de fogo cai do céu."
+       },
+       {
+        "id": "fogo.avatar",
+        "nome": "Avatar de Brasa",
+        "tipo": "suprema",
+        "coluna": "defesa",
+        "ranks": 1,
+        "custo": 3,
+        "requer": [
+         "fogo.cinzas"
+        ],
+        "por_ponto": [
+         "-30% de dano por 15 s"
+        ],
+        "desc": "Vira chamas vivas e queima quem estiver perto."
+       },
+       {
+        "id": "fogo.danca",
+        "nome": "Dança das Chamas",
+        "tipo": "suprema",
+        "coluna": "arma",
+        "ranks": 1,
+        "custo": 3,
+        "requer": [
+         "fogo.golpe"
+        ],
+        "por_ponto": [
+         "6 golpes de 30 de dano"
+        ],
+        "desc": "Sequência rápida de cortes em chamas."
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "agua",
+   "nome": "Água",
+   "cor": "#3f9bff",
+   "identidade": "Sustento, empurrão e controle de espaço",
+   "funcional": false,
+   "arvore": {
+    "modelo": "tiers",
+    "maestria": {
+     "id": "agua.maestria",
+     "nome": "Maestria da Água",
+     "tipo": "maestria",
+     "coluna": "base",
+     "ranks": 5,
+     "custo": 1,
+     "requer": [],
+     "por_ponto": [
+      "+2% de dano e +3% de resistência",
+      "+4% de dano e +6% de resistência",
+      "+6% de dano e +9% de resistência",
+      "+8% de dano e +12% de resistência",
+      "+10% de dano e +15% de resistência"
+     ],
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+    },
+    "nos": [
+     {
+      "id": "agua.imbuir",
+      "nome": "Lâmina da Maré",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "A arma causa dano de água e cura um pouco a cada golpe."
+     },
+     {
+      "id": "agua.pele",
+      "nome": "Pele de Orvalho",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "+5% de resistência a água por rank."
+     },
+     {
+      "id": "agua.jato",
+      "nome": "Jato d'Água",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "agua.imbuir"
+      ],
+      "tier": 2,
+      "desc": "Jato que empurra o alvo."
+     },
+     {
+      "id": "agua.correnteza",
+      "nome": "Correnteza",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "requer": [
+       "agua.jato"
+      ],
+      "tier": 3,
+      "desc": "As marcas duram 1 s a mais por rank."
+     },
+     {
+      "id": "agua.onda",
+      "nome": "Onda",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "agua.jato"
+      ],
+      "tier": 4,
+      "desc": "Empurra todos em volta."
+     },
+     {
+      "id": "agua.fonte",
+      "nome": "Fonte Interior",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "agua.correnteza"
+      ],
+      "tier": 4,
+      "desc": "Cura 10% do dano de água causado."
+     },
+     {
+      "id": "agua.diluvio",
+      "nome": "Dilúvio",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "requer": [
+       "agua.onda"
+      ],
+      "tier": 5,
+      "desc": "Chuva que fere os inimigos e cura os aliados."
+     }
+    ]
+   }
+  },
+  {
+   "id": "terra",
+   "nome": "Terra",
+   "cor": "#a9793f",
+   "identidade": "Quebra de postura e defesa",
+   "funcional": false,
+   "arvore": {
+    "modelo": "tiers",
+    "maestria": {
+     "id": "terra.maestria",
+     "nome": "Maestria da Terra",
+     "tipo": "maestria",
+     "coluna": "base",
+     "ranks": 5,
+     "custo": 1,
+     "requer": [],
+     "por_ponto": [
+      "+2% de dano e +3% de resistência",
+      "+4% de dano e +6% de resistência",
+      "+6% de dano e +9% de resistência",
+      "+8% de dano e +12% de resistência",
+      "+10% de dano e +15% de resistência"
+     ],
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+    },
+    "nos": [
+     {
+      "id": "terra.imbuir",
+      "nome": "Lâmina de Pedra",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "A arma causa dano de terra e 30% a mais de postura."
+     },
+     {
+      "id": "terra.pele",
+      "nome": "Pele de Granito",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "+5% de resistência a terra por rank."
+     },
+     {
+      "id": "terra.estilhaco",
+      "nome": "Estilhaço",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "terra.imbuir"
+      ],
+      "tier": 2,
+      "desc": "Pedra arremessada que explode ao cair."
+     },
+     {
+      "id": "terra.massa",
+      "nome": "Massa",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "requer": [
+       "terra.estilhaco"
+      ],
+      "tier": 3,
+      "desc": "+3 de equilíbrio por rank."
+     },
+     {
+      "id": "terra.abalo",
+      "nome": "Abalo",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "terra.estilhaco"
+      ],
+      "tier": 4,
+      "desc": "Tremor que desequilibra quem está perto."
+     },
+     {
+      "id": "terra.firme",
+      "nome": "Postura Firme",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "terra.massa"
+      ],
+      "tier": 4,
+      "desc": "Bloquear gasta 20% menos vigor."
+     },
+     {
+      "id": "terra.coluna",
+      "nome": "Coluna do Mundo",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "requer": [
+       "terra.abalo"
+      ],
+      "tier": 5,
+      "desc": "Um pilar de rocha rompe o chão sob o alvo."
+     }
+    ]
+   }
+  },
+  {
+   "id": "vento",
+   "nome": "Vento",
+   "cor": "#9fe8c8",
+   "identidade": "Mobilidade, alcance e velocidade",
+   "funcional": false,
+   "arvore": {
+    "modelo": "tiers",
+    "maestria": {
+     "id": "vento.maestria",
+     "nome": "Maestria do Vento",
+     "tipo": "maestria",
+     "coluna": "base",
+     "ranks": 5,
+     "custo": 1,
+     "requer": [],
+     "por_ponto": [
+      "+2% de dano e +3% de resistência",
+      "+4% de dano e +6% de resistência",
+      "+6% de dano e +9% de resistência",
+      "+8% de dano e +12% de resistência",
+      "+10% de dano e +15% de resistência"
+     ],
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+    },
+    "nos": [
+     {
+      "id": "vento.imbuir",
+      "nome": "Lâmina de Vento",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "A arma causa dano de vento e alcança 0,4 m a mais."
+     },
+     {
+      "id": "vento.pele",
+      "nome": "Pele de Brisa",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "+5% de resistência a vento por rank."
+     },
+     {
+      "id": "vento.corte",
+      "nome": "Corte de Ar",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "vento.imbuir"
+      ],
+      "tier": 2,
+      "desc": "Corte rápido e de longo alcance."
+     },
+     {
+      "id": "vento.passos",
+      "nome": "Passos do Vento",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "requer": [
+       "vento.corte"
+      ],
+      "tier": 3,
+      "desc": "A rolagem gasta 5% menos vigor por rank."
+     },
+     {
+      "id": "vento.rajada",
+      "nome": "Rajada",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "vento.corte"
+      ],
+      "tier": 4,
+      "desc": "Lança os inimigos para longe."
+     },
+     {
+      "id": "vento.olho",
+      "nome": "Olho da Tormenta",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "vento.passos"
+      ],
+      "tier": 4,
+      "desc": "+20% no golpe seguinte depois de rolar."
+     },
+     {
+      "id": "vento.ciclone",
+      "nome": "Ciclone",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "requer": [
+       "vento.rajada"
+      ],
+      "tier": 5,
+      "desc": "Um ciclone puxa e fere os inimigos."
+     }
+    ]
+   }
+  },
+  {
+   "id": "luz",
+   "nome": "Luz",
+   "cor": "#ffe9a8",
+   "identidade": "Cura, proteção e dano contra mortos-vivos",
+   "funcional": false,
+   "arvore": {
+    "modelo": "tiers",
+    "maestria": {
+     "id": "luz.maestria",
+     "nome": "Maestria da Luz",
+     "tipo": "maestria",
+     "coluna": "base",
+     "ranks": 5,
+     "custo": 1,
+     "requer": [],
+     "por_ponto": [
+      "+2% de dano e +3% de resistência",
+      "+4% de dano e +6% de resistência",
+      "+6% de dano e +9% de resistência",
+      "+8% de dano e +12% de resistência",
+      "+10% de dano e +15% de resistência"
+     ],
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+    },
+    "nos": [
+     {
+      "id": "luz.imbuir",
+      "nome": "Lâmina Radiante",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "A arma causa dano de luz, 25% maior contra mortos-vivos."
+     },
+     {
+      "id": "luz.pele",
+      "nome": "Pele de Aurora",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "+5% de resistência a luz por rank."
+     },
+     {
+      "id": "luz.seta",
+      "nome": "Seta de Luz",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "luz.imbuir"
+      ],
+      "tier": 2,
+      "desc": "Projétil de luz de longo alcance."
+     },
+     {
+      "id": "luz.graca",
+      "nome": "Graça",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "requer": [
+       "luz.seta"
+      ],
+      "tier": 3,
+      "desc": "+5% de cura recebida por rank."
+     },
+     {
+      "id": "luz.nova",
+      "nome": "Nova Sagrada",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "luz.seta"
+      ],
+      "tier": 4,
+      "desc": "Onda de luz que fere os inimigos e cura os aliados."
+     },
+     {
+      "id": "luz.protecao",
+      "nome": "Última Proteção",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "luz.graca"
+      ],
+      "tier": 4,
+      "desc": "Abaixo de 30% da vida, o próximo golpe recebido perde 50% do dano (uma vez por minuto)."
+     },
+     {
+      "id": "luz.santuario",
+      "nome": "Santuário",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "requer": [
+       "luz.nova"
+      ],
+      "tier": 5,
+      "desc": "Área sagrada que fere os inimigos e cura os aliados."
+     }
+    ]
+   }
+  },
+  {
+   "id": "trevas",
+   "nome": "Trevas",
+   "cor": "#7a4fc0",
+   "identidade": "Roubo de vida, maldições e risco por recompensa",
+   "funcional": false,
+   "arvore": {
+    "modelo": "tiers",
+    "maestria": {
+     "id": "trevas.maestria",
+     "nome": "Maestria das Trevas",
+     "tipo": "maestria",
+     "coluna": "base",
+     "ranks": 5,
+     "custo": 1,
+     "requer": [],
+     "por_ponto": [
+      "+2% de dano e +3% de resistência",
+      "+4% de dano e +6% de resistência",
+      "+6% de dano e +9% de resistência",
+      "+8% de dano e +12% de resistência",
+      "+10% de dano e +15% de resistência"
+     ],
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+    },
+    "nos": [
+     {
+      "id": "trevas.imbuir",
+      "nome": "Lâmina Sombria",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "A arma causa dano de trevas e rouba 5% do dano como vida."
+     },
+     {
+      "id": "trevas.pele",
+      "nome": "Pele de Sombra",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "+5% de resistência a trevas por rank."
+     },
+     {
+      "id": "trevas.dardo",
+      "nome": "Dardo Sombrio",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "trevas.imbuir"
+      ],
+      "tier": 2,
+      "desc": "Projétil sombrio que persegue o alvo."
+     },
+     {
+      "id": "trevas.pacto",
+      "nome": "Pacto de Sangue",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "requer": [
+       "trevas.dardo"
+      ],
+      "tier": 3,
+      "desc": "+5% de dano de trevas e -2% de vida por rank."
+     },
+     {
+      "id": "trevas.ceifa",
+      "nome": "Ceifa",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "trevas.dardo"
+      ],
+      "tier": 4,
+      "desc": "Corte em volta do jogador que rouba 20% do dano como vida."
+     },
+     {
+      "id": "trevas.fome",
+      "nome": "Fome",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "trevas.pacto"
+      ],
+      "tier": 4,
+      "desc": "Abater um inimigo devolve 8 de Éter."
+     },
+     {
+      "id": "trevas.abismo",
+      "nome": "Abismo",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "requer": [
+       "trevas.ceifa"
+      ],
+      "tier": 5,
+      "desc": "Um poço de sombras puxa e consome os inimigos."
+     }
+    ]
+   }
+  },
+  {
+   "id": "eletrico",
+   "nome": "Elétrico",
+   "cor": "#d9f25c",
+   "identidade": "Velocidade, atordoamento e saltos entre alvos",
+   "funcional": false,
+   "arvore": {
+    "modelo": "tiers",
+    "maestria": {
+     "id": "eletrico.maestria",
+     "nome": "Maestria da Eletricidade",
+     "tipo": "maestria",
+     "coluna": "base",
+     "ranks": 5,
+     "custo": 1,
+     "requer": [],
+     "por_ponto": [
+      "+2% de dano e +3% de resistência",
+      "+4% de dano e +6% de resistência",
+      "+6% de dano e +9% de resistência",
+      "+8% de dano e +12% de resistência",
+      "+10% de dano e +15% de resistência"
+     ],
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+    },
+    "nos": [
+     {
+      "id": "eletrico.imbuir",
+      "nome": "Lâmina Elétrica",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "A arma causa dano elétrico e golpeia 10% mais rápido."
+     },
+     {
+      "id": "eletrico.pele",
+      "nome": "Pele Isolante",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "requer": [],
+      "tier": 1,
+      "desc": "+5% de resistência a eletricidade por rank."
+     },
+     {
+      "id": "eletrico.faisca",
+      "nome": "Faísca",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "eletrico.imbuir"
+      ],
+      "tier": 2,
+      "desc": "Descarga que salta para até 2 inimigos próximos."
+     },
+     {
+      "id": "eletrico.estatica",
+      "nome": "Estática",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "requer": [
+       "eletrico.faisca"
+      ],
+      "tier": 3,
+      "desc": "A barra de Éter enche 5% mais rápido por rank."
+     },
+     {
+      "id": "eletrico.descarga",
+      "nome": "Descarga",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "eletrico.faisca"
+      ],
+      "tier": 4,
+      "desc": "Pulso que atordoa quem está perto por 0,6 s."
+     },
+     {
+      "id": "eletrico.reflexo",
+      "nome": "Reflexo Rápido",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "requer": [
+       "eletrico.estatica"
+      ],
+      "tier": 4,
+      "desc": "Depois de rolar, golpeia 15% mais rápido por 3 s."
+     },
+     {
+      "id": "eletrico.trovoes",
+      "nome": "Mil Trovões",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "requer": [
+       "eletrico.descarga"
+      ],
+      "tier": 5,
+      "desc": "Um raio salta entre até 6 inimigos."
+     }
+    ]
+   }
+  }
+ ],
+ "reacoes": [
+  {
+   "id": "vaporizacao",
+   "nome": "Vaporização",
+   "elementos": [
+    "fogo",
+    "agua"
+   ],
+   "desc": "O golpe que dispara a reação causa 50% a mais.",
+   "conhecimento": "Conhecimento do Vapor",
+   "arvore": "Vapor",
+   "nos": [
+    {
+     "id": "vaporizacao.dominio",
+     "nome": "Vaporização Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "+15% no multiplicador por rank."
+    },
+    {
+     "id": "vaporizacao.passiva",
+     "nome": "Névoa Escaldante",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "vaporizacao.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "A Vaporização deixa uma névoa que queima por 3 s."
+    },
+    {
+     "id": "vaporizacao.habilidade",
+     "nome": "Vórtice de Vapor",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "vaporizacao.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Coluna giratória de água fervente que puxa todos para o centro."
+    },
+    {
+     "id": "vaporizacao.maestria",
+     "nome": "Olho do Vórtice",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "vaporizacao.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O Vórtice dura 2 s a mais."
+    }
+   ]
+  },
+  {
+   "id": "fundicao",
+   "nome": "Fundição",
+   "elementos": [
+    "fogo",
+    "terra"
+   ],
+   "desc": "O alvo recebe 20% a mais de dano por 6 s e perde postura.",
+   "conhecimento": "Conhecimento do Magma",
+   "arvore": "Magma",
+   "nos": [
+    {
+     "id": "fundicao.dominio",
+     "nome": "Fundição Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "O alvo recebe 5% a mais por rank."
+    },
+    {
+     "id": "fundicao.passiva",
+     "nome": "Rio de Magma",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "fundicao.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "A Fundição deixa uma poça de lava por 4 s."
+    },
+    {
+     "id": "fundicao.habilidade",
+     "nome": "Coração Vulcânico",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "fundicao.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "O chão explode em volta do jogador."
+    },
+    {
+     "id": "fundicao.maestria",
+     "nome": "Núcleo Exposto",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "fundicao.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A explosão alcança 2 m a mais."
+    }
+   ]
+  },
+  {
+   "id": "labareda",
+   "nome": "Labareda",
+   "elementos": [
+    "fogo",
+    "vento"
+   ],
+   "desc": "A queimadura salta para os inimigos em volta.",
+   "conhecimento": "Conhecimento do Incêndio",
+   "arvore": "Incêndio",
+   "nos": [
+    {
+     "id": "labareda.dominio",
+     "nome": "Labareda Dirigida",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "A Labareda alcança 1 m a mais por rank."
+    },
+    {
+     "id": "labareda.passiva",
+     "nome": "Vento nas Brasas",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "labareda.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "A queimadura espalhada dura 2 s a mais."
+    },
+    {
+     "id": "labareda.habilidade",
+     "nome": "Tornado de Fogo",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "labareda.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Um tornado em chamas puxa e queima os inimigos."
+    },
+    {
+     "id": "labareda.maestria",
+     "nome": "Fogo que Anda",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "labareda.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O Tornado dura 2 s a mais."
+    }
+   ]
+  },
+  {
+   "id": "atoleiro",
+   "nome": "Atoleiro",
+   "elementos": [
+    "agua",
+    "terra"
+   ],
+   "desc": "O chão vira lama e deixa os inimigos 40% mais lentos.",
+   "conhecimento": "Conhecimento do Pântano",
+   "arvore": "Pântano",
+   "nos": [
+    {
+     "id": "atoleiro.dominio",
+     "nome": "Atoleiro Profundo",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Os inimigos ficam 7,5% mais lentos por rank."
+    },
+    {
+     "id": "atoleiro.passiva",
+     "nome": "Mãos do Lodo",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "atoleiro.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Quem fica 3 s no Atoleiro é preso por 1,5 s."
+    },
+    {
+     "id": "atoleiro.habilidade",
+     "nome": "Pântano Vivo",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "atoleiro.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Um pântano prende os inimigos e cura os aliados."
+    },
+    {
+     "id": "atoleiro.maestria",
+     "nome": "Terra Fértil",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "atoleiro.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O Pântano cura 4 de vida a mais por segundo."
+    }
+   ]
+  },
+  {
+   "id": "geada",
+   "nome": "Geada",
+   "elementos": [
+    "agua",
+    "vento"
+   ],
+   "desc": "Congela o alvo por 1,5 s. Em chefe, tira postura.",
+   "conhecimento": "Conhecimento do Gelo",
+   "arvore": "Gelo",
+   "nos": [
+    {
+     "id": "geada.dominio",
+     "nome": "Geada Cortante",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Congela por 0,25 s a mais por rank."
+    },
+    {
+     "id": "geada.passiva",
+     "nome": "Estilhaçar",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "geada.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Golpe pesado em alvo congelado causa 40% a mais."
+    },
+    {
+     "id": "geada.habilidade",
+     "nome": "Inverno Eterno",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "geada.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Nevasca que congela quem continuar dentro por 3 s."
+    },
+    {
+     "id": "geada.maestria",
+     "nome": "Frio Absoluto",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "geada.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A nevasca congela 1 s mais cedo."
+    }
+   ]
+  },
+  {
+   "id": "cegueira",
+   "nome": "Cegueira",
+   "elementos": [
+    "terra",
+    "vento"
+   ],
+   "desc": "A areia nos olhos deixa o alvo 50% mais lento para atacar.",
+   "conhecimento": "Conhecimento da Areia",
+   "arvore": "Areia",
+   "nos": [
+    {
+     "id": "cegueira.dominio",
+     "nome": "Areia nos Olhos",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "A Cegueira dura 1 s a mais por rank."
+    },
+    {
+     "id": "cegueira.passiva",
+     "nome": "Lâminas de Areia",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "cegueira.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Alvos cegos recebem 15% a mais de dano."
+    },
+    {
+     "id": "cegueira.habilidade",
+     "nome": "Deserto Errante",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "cegueira.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Tempestade de areia que anda devagar até o alvo."
+    },
+    {
+     "id": "cegueira.maestria",
+     "nome": "Duna Viva",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "cegueira.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A tempestade alcança 2 m a mais."
+    }
+   ]
+  },
+  {
+   "id": "purgacao",
+   "nome": "Purgação",
+   "elementos": [
+    "fogo",
+    "luz"
+   ],
+   "desc": "A queimadura causa o dobro de dano por 4 s.",
+   "conhecimento": "Conhecimento da Chama Sagrada",
+   "arvore": "Chama Sagrada",
+   "nos": [
+    {
+     "id": "purgacao.dominio",
+     "nome": "Purgação Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "A Purgação dura 1 s a mais por rank."
+    },
+    {
+     "id": "purgacao.passiva",
+     "nome": "Cinzas Puras",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "purgacao.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Alvo que morre queimando cura 15 de vida."
+    },
+    {
+     "id": "purgacao.habilidade",
+     "nome": "Coluna Solar",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "purgacao.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Uma coluna de fogo sagrado desce sobre o alvo."
+    },
+    {
+     "id": "purgacao.maestria",
+     "nome": "Meio-Dia",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "purgacao.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A coluna alcança 2 m a mais."
+    }
+   ]
+  },
+  {
+   "id": "consagracao",
+   "nome": "Consagração",
+   "elementos": [
+    "agua",
+    "luz"
+   ],
+   "desc": "Cura 30 de vida dos aliados em volta.",
+   "conhecimento": "Conhecimento da Água Benta",
+   "arvore": "Água Benta",
+   "nos": [
+    {
+     "id": "consagracao.dominio",
+     "nome": "Consagração Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Cura 10 de vida a mais por rank."
+    },
+    {
+     "id": "consagracao.passiva",
+     "nome": "Fonte Clara",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "consagracao.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Aliados curados recebem 15% menos dano por 4 s."
+    },
+    {
+     "id": "consagracao.habilidade",
+     "nome": "Chuva de Graça",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "consagracao.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Chuva sagrada que fere os inimigos e cura os aliados."
+    },
+    {
+     "id": "consagracao.maestria",
+     "nome": "Maré Sagrada",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "consagracao.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A chuva cura 4 de vida a mais por segundo."
+    }
+   ]
+  },
+  {
+   "id": "egide",
+   "nome": "Égide",
+   "elementos": [
+    "terra",
+    "luz"
+   ],
+   "desc": "Um escudo de cristal absorve 40 de dano por 8 s.",
+   "conhecimento": "Conhecimento do Cristal",
+   "arvore": "Cristal",
+   "nos": [
+    {
+     "id": "egide.dominio",
+     "nome": "Égide Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "O escudo absorve 15 a mais por rank."
+    },
+    {
+     "id": "egide.passiva",
+     "nome": "Espinhos de Cristal",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "egide.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Quando o escudo quebra, causa 30 de dano em volta."
+    },
+    {
+     "id": "egide.habilidade",
+     "nome": "Prisão de Cristal",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "egide.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Cristais prendem os inimigos por 3 s."
+    },
+    {
+     "id": "egide.maestria",
+     "nome": "Cristal Perfeito",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "egide.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A prisão dura 1 s a mais."
+    }
+   ]
+  },
+  {
+   "id": "refracao",
+   "nome": "Refração",
+   "elementos": [
+    "vento",
+    "luz"
+   ],
+   "desc": "Os inimigos em volta perdem o alvo por 2 s.",
+   "conhecimento": "Conhecimento da Miragem",
+   "arvore": "Miragem",
+   "nos": [
+    {
+     "id": "refracao.dominio",
+     "nome": "Refração Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Dura 0,5 s a mais por rank."
+    },
+    {
+     "id": "refracao.passiva",
+     "nome": "Passo Refletido",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "refracao.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Depois da Refração, anda 20% mais rápido por 3 s."
+    },
+    {
+     "id": "refracao.habilidade",
+     "nome": "Mil Reflexos",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "refracao.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Cópias de luz confundem e cortam os inimigos."
+    },
+    {
+     "id": "refracao.maestria",
+     "nome": "Reflexo Final",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "refracao.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "Os reflexos duram 2 s a mais."
+    }
+   ]
+  },
+  {
+   "id": "fulgor",
+   "nome": "Fulgor",
+   "elementos": [
+    "eletrico",
+    "luz"
+   ],
+   "desc": "Um clarão atordoa os inimigos em volta por 1 s.",
+   "conhecimento": "Conhecimento do Fulgor",
+   "arvore": "Fulgor",
+   "nos": [
+    {
+     "id": "fulgor.dominio",
+     "nome": "Fulgor Dominado",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "O clarão alcança 1 m a mais por rank."
+    },
+    {
+     "id": "fulgor.passiva",
+     "nome": "Olhos Ofuscados",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "fulgor.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Alvos atordoados recebem 15% a mais de dano."
+    },
+    {
+     "id": "fulgor.habilidade",
+     "nome": "Lança Celeste",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "fulgor.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Um feixe de luz elétrica atravessa todos à frente."
+    },
+    {
+     "id": "fulgor.maestria",
+     "nome": "Luz Veloz",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "fulgor.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A lança sai 0,5 s mais rápido."
+    }
+   ]
+  },
+  {
+   "id": "caos",
+   "nome": "Caos",
+   "elementos": [
+    "luz",
+    "trevas"
+   ],
+   "desc": "PROVISÓRIO: o golpe causa 80% a mais e ignora as resistências do alvo. O dono vai trazer a ideia desta reação.",
+   "conhecimento": "Conhecimento do Caos",
+   "arvore": "Caos",
+   "nos": [
+    {
+     "id": "caos.dominio",
+     "nome": "Caos Dominado",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "+10% no multiplicador por rank."
+    },
+    {
+     "id": "caos.passiva",
+     "nome": "Equilíbrio",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "caos.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Cada reação do Caos cura 5% da vida."
+    },
+    {
+     "id": "caos.habilidade",
+     "nome": "Eclipse",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "caos.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "O céu escurece e a área inteira é consumida."
+    },
+    {
+     "id": "caos.maestria",
+     "nome": "Totalidade",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "caos.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O Eclipse alcança 2 m a mais."
+    }
+   ]
+  },
+  {
+   "id": "chama_negra",
+   "nome": "Chama Negra",
+   "elementos": [
+    "fogo",
+    "trevas"
+   ],
+   "desc": "Chamas negras causam 15 de dano por segundo durante 5 s.",
+   "conhecimento": "Conhecimento do Inferno",
+   "arvore": "Inferno",
+   "nos": [
+    {
+     "id": "chama_negra.dominio",
+     "nome": "Chama Negra Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Causa 4 de dano a mais por segundo por rank."
+    },
+    {
+     "id": "chama_negra.passiva",
+     "nome": "Fome das Chamas",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "chama_negra.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Cura 30% do dano da Chama Negra."
+    },
+    {
+     "id": "chama_negra.habilidade",
+     "nome": "Portão do Inferno",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "chama_negra.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Um portão de fogo negro se abre sob os inimigos."
+    },
+    {
+     "id": "chama_negra.maestria",
+     "nome": "Porta Escancarada",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "chama_negra.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O portão fica aberto 2 s a mais."
+    }
+   ]
+  },
+  {
+   "id": "corrupcao",
+   "nome": "Corrupção",
+   "elementos": [
+    "agua",
+    "trevas"
+   ],
+   "desc": "O veneno causa 10 de dano por segundo durante 8 s.",
+   "conhecimento": "Conhecimento da Peste",
+   "arvore": "Peste",
+   "nos": [
+    {
+     "id": "corrupcao.dominio",
+     "nome": "Corrupção Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "O veneno dura 2 s a mais por rank."
+    },
+    {
+     "id": "corrupcao.passiva",
+     "nome": "Contágio",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "corrupcao.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Alvo envenenado que morre passa o veneno a quem está a 4 m."
+    },
+    {
+     "id": "corrupcao.habilidade",
+     "nome": "Maré Negra",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "corrupcao.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Uma onda negra envenena tudo em volta."
+    },
+    {
+     "id": "corrupcao.maestria",
+     "nome": "Praga",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "corrupcao.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A onda alcança 2 m a mais."
+    }
+   ]
+  },
+  {
+   "id": "sepultamento",
+   "nome": "Sepultamento",
+   "elementos": [
+    "terra",
+    "trevas"
+   ],
+   "desc": "Mãos de pedra prendem o alvo por 1,5 s. Em chefe, tiram postura.",
+   "conhecimento": "Conhecimento da Cripta",
+   "arvore": "Cripta",
+   "nos": [
+    {
+     "id": "sepultamento.dominio",
+     "nome": "Sepultamento Dominado",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Prende por 0,25 s a mais por rank."
+    },
+    {
+     "id": "sepultamento.passiva",
+     "nome": "Terra de Cemitério",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "sepultamento.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Abater um alvo preso devolve 15 de Éter."
+    },
+    {
+     "id": "sepultamento.habilidade",
+     "nome": "Mãos da Cova",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "sepultamento.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Mãos saem do chão e seguram os inimigos."
+    },
+    {
+     "id": "sepultamento.maestria",
+     "nome": "Cova Funda",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "sepultamento.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "As mãos prendem por 1 s a mais."
+    }
+   ]
+  },
+  {
+   "id": "pavor",
+   "nome": "Pavor",
+   "elementos": [
+    "vento",
+    "trevas"
+   ],
+   "desc": "O alvo foge apavorado por 2 s. Em chefe, perde postura.",
+   "conhecimento": "Conhecimento da Assombração",
+   "arvore": "Assombração",
+   "nos": [
+    {
+     "id": "pavor.dominio",
+     "nome": "Pavor Dominado",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "O medo dura 0,5 s a mais por rank."
+    },
+    {
+     "id": "pavor.passiva",
+     "nome": "Caçador",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "pavor.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Causa 20% a mais em alvos fugindo."
+    },
+    {
+     "id": "pavor.habilidade",
+     "nome": "Noite Uivante",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "pavor.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Um uivo sombrio fere e apavora todos em volta."
+    },
+    {
+     "id": "pavor.maestria",
+     "nome": "Eco da Noite",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "pavor.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O uivo alcança 2 m a mais."
+    }
+   ]
+  },
+  {
+   "id": "drenagem",
+   "nome": "Drenagem",
+   "elementos": [
+    "eletrico",
+    "trevas"
+   ],
+   "desc": "Rouba a energia do alvo: devolve 15 de Éter.",
+   "conhecimento": "Conhecimento do Vazio",
+   "arvore": "Vazio",
+   "nos": [
+    {
+     "id": "drenagem.dominio",
+     "nome": "Drenagem Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Devolve 5 de Éter a mais por rank."
+    },
+    {
+     "id": "drenagem.passiva",
+     "nome": "Circuito Faminto",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "drenagem.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Cada Drenagem tira 2 s da recarga das outras habilidades."
+    },
+    {
+     "id": "drenagem.habilidade",
+     "nome": "Colapso",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "drenagem.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Um ponto de vazio puxa tudo para dentro."
+    },
+    {
+     "id": "drenagem.maestria",
+     "nome": "Buraco Negro",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "drenagem.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O Colapso alcança 2 m a mais."
+    }
+   ]
+  },
+  {
+   "id": "detonacao",
+   "nome": "Detonação",
+   "elementos": [
+    "fogo",
+    "eletrico"
+   ],
+   "desc": "A marca explode e causa 40 de dano em volta do alvo.",
+   "conhecimento": "Conhecimento do Plasma",
+   "arvore": "Plasma",
+   "nos": [
+    {
+     "id": "detonacao.dominio",
+     "nome": "Detonação Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "A explosão causa 12 a mais por rank."
+    },
+    {
+     "id": "detonacao.passiva",
+     "nome": "Reação em Cadeia",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "detonacao.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "A explosão deixa marca de fogo em quem atingir."
+    },
+    {
+     "id": "detonacao.habilidade",
+     "nome": "Estrela de Plasma",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "detonacao.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Uma esfera de plasma cai e explode."
+    },
+    {
+     "id": "detonacao.maestria",
+     "nome": "Massa Crítica",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "detonacao.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A explosão alcança 2 m a mais."
+    }
+   ]
+  },
+  {
+   "id": "conducao",
+   "nome": "Condução",
+   "elementos": [
+    "agua",
+    "eletrico"
+   ],
+   "desc": "A descarga salta para até 3 inimigos próximos.",
+   "conhecimento": "Conhecimento da Tempestade",
+   "arvore": "Tempestade",
+   "nos": [
+    {
+     "id": "conducao.dominio",
+     "nome": "Condução Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Salta para 1 inimigo a mais por rank."
+    },
+    {
+     "id": "conducao.passiva",
+     "nome": "Chão Molhado",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "conducao.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Alvos com marca de água recebem o dobro do salto."
+    },
+    {
+     "id": "conducao.habilidade",
+     "nome": "Julgamento do Céu",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "conducao.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Raios caem sem parar sobre a área."
+    },
+    {
+     "id": "conducao.maestria",
+     "nome": "Olho da Tempestade",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "conducao.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "A tempestade dura 2 s a mais."
+    }
+   ]
+  },
+  {
+   "id": "magnetismo",
+   "nome": "Magnetismo",
+   "elementos": [
+    "terra",
+    "eletrico"
+   ],
+   "desc": "Os inimigos em volta são puxados para o alvo.",
+   "conhecimento": "Conhecimento da Magnetita",
+   "arvore": "Magnetita",
+   "nos": [
+    {
+     "id": "magnetismo.dominio",
+     "nome": "Magnetismo Dominado",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Puxa de 1 m mais longe por rank."
+    },
+    {
+     "id": "magnetismo.passiva",
+     "nome": "Polos Opostos",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "magnetismo.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "Inimigos puxados que se chocam perdem 30 de postura."
+    },
+    {
+     "id": "magnetismo.habilidade",
+     "nome": "Campo de Ferro",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "magnetismo.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Um campo magnético arrasta e esmaga os inimigos."
+    },
+    {
+     "id": "magnetismo.maestria",
+     "nome": "Polo Absoluto",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "magnetismo.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O campo dura 2 s a mais."
+    }
+   ]
+  },
+  {
+   "id": "trovoada",
+   "nome": "Trovoada",
+   "elementos": [
+    "vento",
+    "eletrico"
+   ],
+   "desc": "O trovão atordoa o alvo por 0,8 s e o empurra.",
+   "conhecimento": "Conhecimento do Trovão",
+   "arvore": "Trovão",
+   "nos": [
+    {
+     "id": "trovoada.dominio",
+     "nome": "Trovoada Dominada",
+     "tipo": "passiva",
+     "ranks": 2,
+     "custo": 1,
+     "requer": [],
+     "tier": 1,
+     "requer_em_cada": 5,
+     "desc": "Atordoa por 0,2 s a mais por rank."
+    },
+    {
+     "id": "trovoada.passiva",
+     "nome": "Eco do Trovão",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 2,
+     "requer": [
+      "trovoada.dominio"
+     ],
+     "tier": 2,
+     "requer_em_cada": 8,
+     "desc": "A Trovoada repete 50% do dano em volta do alvo."
+    },
+    {
+     "id": "trovoada.habilidade",
+     "nome": "Furacão Elétrico",
+     "tipo": "ativa",
+     "ranks": 1,
+     "custo": 3,
+     "requer": [
+      "trovoada.passiva"
+     ],
+     "tier": 3,
+     "requer_em_cada": 11,
+     "desc": "Um furacão carregado puxa e eletrocuta os inimigos."
+    },
+    {
+     "id": "trovoada.maestria",
+     "nome": "Olho do Furacão",
+     "tipo": "passiva",
+     "ranks": 1,
+     "custo": 1,
+     "requer": [
+      "trovoada.habilidade"
+     ],
+     "tier": 4,
+     "requer_em_cada": 14,
+     "desc": "O furacão dura 2 s a mais."
+    }
+   ]
+  }
+ ]
+}
