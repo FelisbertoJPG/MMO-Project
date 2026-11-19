@@ -8,6 +8,8 @@
  * no formato antigo (nós por `tier`) e entram só PARA VER: `funcional: false` = a tela mostra,
  * mas não deixa gastar ponto. Elemento que passar a funcionar entra em FUNCIONAIS.
  * As reações viram os GALHOS DE REAÇÃO, cada um com a sua maestria: o "Conhecimento do …".
+ * INICIAIS = a Maestria que o personagem já conhece ao nascer (D20); as outras virão das
+ * missões. A tela esconde o elemento que o personagem não conhece.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +18,8 @@ const raiz = fileURLToPath(new URL('../../', import.meta.url));
 const plano = JSON.parse(readFileSync(raiz + 'planejamento/arvore-de-habilidades.json', 'utf8'));
 
 const FUNCIONAIS = new Set(['fogo']);
+const INICIAIS = new Set(['fogo']);
+const PONTOS_DA_MAESTRIA = plano.modelo_de_arvore.regras.maestria.pontos;   // 3 (D19)
 // os nomes das Maestrias são os da migration 0005
 const MAESTRIA = {
   fogo: 'Maestria do Fogo', agua: 'Maestria da Água', terra: 'Maestria da Terra', vento: 'Maestria do Vento',
@@ -32,9 +36,9 @@ const no = (n) => ({
 });
 
 const maestriaPadrao = (e) => ({
-  id: `${e.id}.maestria`, nome: MAESTRIA[e.id], tipo: 'maestria', coluna: 'base', ranks: 5, custo: 1, requer: [],
-  por_ponto: [1, 2, 3, 4, 5].map((k) => `+${2 * k}% de dano e +${3 * k}% de resistência`),
-  desc: `Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho.`,
+  id: `${e.id}.maestria`, nome: MAESTRIA[e.id], tipo: 'maestria', coluna: 'base', ranks: PONTOS_DA_MAESTRIA, custo: 1, requer: [],
+  por_ponto: Array.from({ length: PONTOS_DA_MAESTRIA }, (_, i) => `+${2 * (i + 1)}% de dano e +${3 * (i + 1)}% de resistência`),
+  desc: `Treinar o elemento aumenta o dano e a resistência a ele. Com ${PONTOS_DA_MAESTRIA} pontos, abre o resto do galho.`,
 });
 
 const elementos = plano.elementos.map((e) => {
@@ -42,7 +46,7 @@ const elementos = plano.elementos.map((e) => {
   const arvore = modelo
     ? { modelo: 'linhas', maestria: no(modelo.base[0]), linhas: modelo.linhas.map((l) => ({ linha: l.linha, escolhas: l.escolhas.map(no) })) }
     : { modelo: 'tiers', maestria: maestriaPadrao(e), nos: plano.arvores_elementais[e.id].map(no) };
-  return { id: e.id, nome: e.nome, cor: e.cor, identidade: e.identidade, funcional: FUNCIONAIS.has(e.id), arvore };
+  return { id: e.id, nome: e.nome, cor: e.cor, identidade: e.identidade, funcional: FUNCIONAIS.has(e.id), inicial: INICIAIS.has(e.id), arvore };
 });
 
 const reacoes = plano.reacoes.map((r) => ({
@@ -53,7 +57,11 @@ const reacoes = plano.reacoes.map((r) => ({
 
 const saida = {
   _leiame: 'GERADO por ferramentas/habilidades/gerar-catalogo.mjs a partir de planejamento/arvore-de-habilidades.json: não edite aqui. Os números são provisórios.',
-  regras: { maestria: 5, pontos_por_linha: 3, reacao_abre_com_maestria: 5 },
+  regras: {
+    maestria: PONTOS_DA_MAESTRIA,
+    pontos_por_linha: plano.modelo_de_arvore.regras.limite_de_pontos_por_linha,
+    reacao_abre_com_maestria: plano.regras.arvore_de_reacao.abre_com_maestria_em_cada_elemento,
+  },
   elementos, reacoes,
 };
 writeFileSync(raiz + 'assets/habilidades.json', JSON.stringify(saida, null, 1) + '\n');

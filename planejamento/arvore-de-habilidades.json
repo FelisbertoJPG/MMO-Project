@@ -1,7 +1,7 @@
 {
   "_sobre": "RASCUNHO PARA DEBATE da árvore de habilidades. O jogo ainda não lê este arquivo. Todos os números são provisórios. Quando as decisões fecharem, os dados vão para assets/habilidades.json. O plano está em TASKS-HABILIDADES.md.",
-  "revisao_do_rascunho": 8,
-  "atualizado_em": "2026-11-18",
+  "revisao_do_rascunho": 9,
+  "atualizado_em": "2026-11-19",
   "ordem_de_trabalho": {
     "regra": "Uma habilidade de cada vez: desenhar, fazer, testar no jogo e só então passar para a próxima.",
     "antes_de_comecar": "montar o diagrama de como a árvore de habilidades vai ser"
@@ -11,11 +11,11 @@
       "formula": "nivel - 1 + bonus_da_raca",
       "por_que": "Subir de nível libera 1 ponto de habilidade. O que pesa de verdade nos atributos são as habilidades, e o nível só dá um aumento pequeno.",
       "orcamento_de_referencia": {
-        "uma_arvore_elemental": 14,
+        "uma_arvore_elemental": 12,
         "arvore_da_raca": 10,
         "arvore_de_reacao": 8,
-        "minimo_para_a_habilidade_de_uma_reacao": 29,
-        "dois_elementos_completos_com_reacao_e_raca": 46
+        "minimo_para_a_habilidade_de_uma_reacao": 25,
+        "dois_elementos_completos_com_reacao_e_raca": 42
       },
       "refazer": { "onde": "fogueira", "custo_em_almas_por_ponto_gasto": 200 },
       "status": "decidido (D1)",
@@ -75,10 +75,10 @@
       "trocar_reinicia_a_recarga": true
     },
     "arvore_de_reacao": {
-      "_nota": "A reação em si é de todos. Maestria 5 nos dois elementos abre uma TERCEIRA árvore, própria daquele par, com passivas e uma habilidade.",
-      "abre_com_maestria_em_cada_elemento": 5,
+      "_nota": "A reação em si é de todos. Maestria 3 nos dois elementos abre uma TERCEIRA árvore, própria daquele par, com passivas e uma habilidade.",
+      "abre_com_maestria_em_cada_elemento": 3,
       "modelo": "domínio (2 pontos) → passiva própria (2) → habilidade suprema (3) → maestria da reação (1)",
-      "pontos_em_cada_elemento_por_tier": { "1": 5, "2": 8, "3": 11, "4": 14 },
+      "pontos_em_cada_elemento_por_tier": { "1": 3, "2": 6, "3": 9, "4": 12 },
       "o_que_conta": "Maestria e linhas do elemento."
     },
     "dano_de_reacao": "A habilidade de uma reação conta como os dois elementos: o multiplicador do alvo é a média dos dois."
@@ -263,10 +263,10 @@
       "arvore": {
         "nome": "Vapor",
         "nos": [
-          { "id": "vaporizacao.dominio", "nome": "Vaporização Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.vaporizacao.mult", "op": "soma", "valor": 0.15 }], "desc": "+15% no multiplicador por rank." },
-          { "id": "vaporizacao.passiva", "nome": "Névoa Escaldante", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["vaporizacao.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.vaporizacao.nevoa_seg", "op": "soma", "valor": 3 }], "desc": "A Vaporização deixa uma névoa que queima por 3 s." },
-          { "id": "vaporizacao.habilidade", "nome": "Vórtice de Vapor", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["vaporizacao.passiva"], "requer_em_cada": 11, "ativa": { "forma": "vortice", "dano": 260, "raio": 7, "alcance": 12, "duracao": 6, "conjuracao": 1.4, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Coluna giratória de água fervente que puxa todos para o centro." },
-          { "id": "vaporizacao.maestria", "nome": "Olho do Vórtice", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["vaporizacao.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.vaporizacao.duracao", "op": "soma", "valor": 2 }], "desc": "O Vórtice dura 2 s a mais." }
+          { "id": "vaporizacao.dominio", "nome": "Vaporização Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.vaporizacao.mult", "op": "soma", "valor": 0.15 }], "desc": "+15% no multiplicador por rank." },
+          { "id": "vaporizacao.passiva", "nome": "Névoa Escaldante", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["vaporizacao.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.vaporizacao.nevoa_seg", "op": "soma", "valor": 3 }], "desc": "A Vaporização deixa uma névoa que queima por 3 s." },
+          { "id": "vaporizacao.habilidade", "nome": "Vórtice de Vapor", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["vaporizacao.passiva"], "requer_em_cada": 9, "ativa": { "forma": "vortice", "dano": 260, "raio": 7, "alcance": 12, "duracao": 6, "conjuracao": 1.4, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Coluna giratória de água fervente que puxa todos para o centro." },
+          { "id": "vaporizacao.maestria", "nome": "Olho do Vórtice", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["vaporizacao.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.vaporizacao.duracao", "op": "soma", "valor": 2 }], "desc": "O Vórtice dura 2 s a mais." }
         ]
       }
     },
@@ -279,10 +279,10 @@
       "arvore": {
         "nome": "Magma",
         "nos": [
-          { "id": "fundicao.dominio", "nome": "Fundição Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.fundicao.dano_recebido", "op": "soma", "valor": 0.05 }], "desc": "O alvo recebe 5% a mais por rank." },
-          { "id": "fundicao.passiva", "nome": "Rio de Magma", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["fundicao.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.fundicao.poca_seg", "op": "soma", "valor": 4 }], "desc": "A Fundição deixa uma poça de lava por 4 s." },
-          { "id": "fundicao.habilidade", "nome": "Coração Vulcânico", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["fundicao.passiva"], "requer_em_cada": 11, "ativa": { "forma": "shock", "dano": 250, "poise": 180, "raio": 8, "conjuracao": 1.5, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "O chão explode em volta do jogador." },
-          { "id": "fundicao.maestria", "nome": "Núcleo Exposto", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["fundicao.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.fundicao.raio", "op": "soma", "valor": 2 }], "desc": "A explosão alcança 2 m a mais." }
+          { "id": "fundicao.dominio", "nome": "Fundição Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.fundicao.dano_recebido", "op": "soma", "valor": 0.05 }], "desc": "O alvo recebe 5% a mais por rank." },
+          { "id": "fundicao.passiva", "nome": "Rio de Magma", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["fundicao.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.fundicao.poca_seg", "op": "soma", "valor": 4 }], "desc": "A Fundição deixa uma poça de lava por 4 s." },
+          { "id": "fundicao.habilidade", "nome": "Coração Vulcânico", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["fundicao.passiva"], "requer_em_cada": 9, "ativa": { "forma": "shock", "dano": 250, "poise": 180, "raio": 8, "conjuracao": 1.5, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "O chão explode em volta do jogador." },
+          { "id": "fundicao.maestria", "nome": "Núcleo Exposto", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["fundicao.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.fundicao.raio", "op": "soma", "valor": 2 }], "desc": "A explosão alcança 2 m a mais." }
         ]
       }
     },
@@ -295,10 +295,10 @@
       "arvore": {
         "nome": "Incêndio",
         "nos": [
-          { "id": "labareda.dominio", "nome": "Labareda Dirigida", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.labareda.raio", "op": "soma", "valor": 1 }], "desc": "A Labareda alcança 1 m a mais por rank." },
-          { "id": "labareda.passiva", "nome": "Vento nas Brasas", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["labareda.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.labareda.duracao", "op": "soma", "valor": 2 }], "desc": "A queimadura espalhada dura 2 s a mais." },
-          { "id": "labareda.habilidade", "nome": "Tornado de Fogo", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["labareda.passiva"], "requer_em_cada": 11, "ativa": { "forma": "vortice", "dano": 240, "poise": 80, "raio": 7, "alcance": 13, "duracao": 5, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um tornado em chamas puxa e queima os inimigos." },
-          { "id": "labareda.maestria", "nome": "Fogo que Anda", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["labareda.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.labareda.duracao", "op": "soma", "valor": 2 }], "desc": "O Tornado dura 2 s a mais." }
+          { "id": "labareda.dominio", "nome": "Labareda Dirigida", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.labareda.raio", "op": "soma", "valor": 1 }], "desc": "A Labareda alcança 1 m a mais por rank." },
+          { "id": "labareda.passiva", "nome": "Vento nas Brasas", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["labareda.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.labareda.duracao", "op": "soma", "valor": 2 }], "desc": "A queimadura espalhada dura 2 s a mais." },
+          { "id": "labareda.habilidade", "nome": "Tornado de Fogo", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["labareda.passiva"], "requer_em_cada": 9, "ativa": { "forma": "vortice", "dano": 240, "poise": 80, "raio": 7, "alcance": 13, "duracao": 5, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um tornado em chamas puxa e queima os inimigos." },
+          { "id": "labareda.maestria", "nome": "Fogo que Anda", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["labareda.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.labareda.duracao", "op": "soma", "valor": 2 }], "desc": "O Tornado dura 2 s a mais." }
         ]
       }
     },
@@ -311,10 +311,10 @@
       "arvore": {
         "nome": "Pântano",
         "nos": [
-          { "id": "atoleiro.dominio", "nome": "Atoleiro Profundo", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.atoleiro.velocidade", "op": "soma", "valor": -0.075 }], "desc": "Os inimigos ficam 7,5% mais lentos por rank." },
-          { "id": "atoleiro.passiva", "nome": "Mãos do Lodo", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["atoleiro.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.atoleiro.imobiliza", "op": "soma", "valor": 1.5 }], "desc": "Quem fica 3 s no Atoleiro é preso por 1,5 s." },
-          { "id": "atoleiro.habilidade", "nome": "Pântano Vivo", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["atoleiro.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 200, "raio": 9, "duracao": 10, "cura_aliados_por_seg": 8, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um pântano prende os inimigos e cura os aliados." },
-          { "id": "atoleiro.maestria", "nome": "Terra Fértil", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["atoleiro.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.atoleiro.cura_aliados_por_seg", "op": "soma", "valor": 4 }], "desc": "O Pântano cura 4 de vida a mais por segundo." }
+          { "id": "atoleiro.dominio", "nome": "Atoleiro Profundo", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.atoleiro.velocidade", "op": "soma", "valor": -0.075 }], "desc": "Os inimigos ficam 7,5% mais lentos por rank." },
+          { "id": "atoleiro.passiva", "nome": "Mãos do Lodo", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["atoleiro.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.atoleiro.imobiliza", "op": "soma", "valor": 1.5 }], "desc": "Quem fica 3 s no Atoleiro é preso por 1,5 s." },
+          { "id": "atoleiro.habilidade", "nome": "Pântano Vivo", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["atoleiro.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 200, "raio": 9, "duracao": 10, "cura_aliados_por_seg": 8, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um pântano prende os inimigos e cura os aliados." },
+          { "id": "atoleiro.maestria", "nome": "Terra Fértil", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["atoleiro.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.atoleiro.cura_aliados_por_seg", "op": "soma", "valor": 4 }], "desc": "O Pântano cura 4 de vida a mais por segundo." }
         ]
       }
     },
@@ -327,10 +327,10 @@
       "arvore": {
         "nome": "Gelo",
         "nos": [
-          { "id": "geada.dominio", "nome": "Geada Cortante", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.geada.duracao", "op": "soma", "valor": 0.25 }], "desc": "Congela por 0,25 s a mais por rank." },
-          { "id": "geada.passiva", "nome": "Estilhaçar", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["geada.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.geada.bonus_pesado", "op": "soma", "valor": 0.4 }], "desc": "Golpe pesado em alvo congelado causa 40% a mais." },
-          { "id": "geada.habilidade", "nome": "Inverno Eterno", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["geada.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 230, "poise": 100, "raio": 9, "duracao": 6, "congela_apos": 3, "vira_postura": 120, "conjuracao": 1.4, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Nevasca que congela quem continuar dentro por 3 s." },
-          { "id": "geada.maestria", "nome": "Frio Absoluto", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["geada.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.geada.congela_apos", "op": "soma", "valor": -1 }], "desc": "A nevasca congela 1 s mais cedo." }
+          { "id": "geada.dominio", "nome": "Geada Cortante", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.geada.duracao", "op": "soma", "valor": 0.25 }], "desc": "Congela por 0,25 s a mais por rank." },
+          { "id": "geada.passiva", "nome": "Estilhaçar", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["geada.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.geada.bonus_pesado", "op": "soma", "valor": 0.4 }], "desc": "Golpe pesado em alvo congelado causa 40% a mais." },
+          { "id": "geada.habilidade", "nome": "Inverno Eterno", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["geada.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 230, "poise": 100, "raio": 9, "duracao": 6, "congela_apos": 3, "vira_postura": 120, "conjuracao": 1.4, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Nevasca que congela quem continuar dentro por 3 s." },
+          { "id": "geada.maestria", "nome": "Frio Absoluto", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["geada.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.geada.congela_apos", "op": "soma", "valor": -1 }], "desc": "A nevasca congela 1 s mais cedo." }
         ]
       }
     },
@@ -343,10 +343,10 @@
       "arvore": {
         "nome": "Areia",
         "nos": [
-          { "id": "cegueira.dominio", "nome": "Areia nos Olhos", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.cegueira.duracao", "op": "soma", "valor": 1 }], "desc": "A Cegueira dura 1 s a mais por rank." },
-          { "id": "cegueira.passiva", "nome": "Lâminas de Areia", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["cegueira.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.cegueira.dano_recebido", "op": "soma", "valor": 0.15 }], "desc": "Alvos cegos recebem 15% a mais de dano." },
-          { "id": "cegueira.habilidade", "nome": "Deserto Errante", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["cegueira.passiva"], "requer_em_cada": 11, "ativa": { "forma": "vortice", "dano": 220, "poise": 90, "raio": 8, "duracao": 7, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Tempestade de areia que anda devagar até o alvo." },
-          { "id": "cegueira.maestria", "nome": "Duna Viva", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["cegueira.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.cegueira.raio", "op": "soma", "valor": 2 }], "desc": "A tempestade alcança 2 m a mais." }
+          { "id": "cegueira.dominio", "nome": "Areia nos Olhos", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.cegueira.duracao", "op": "soma", "valor": 1 }], "desc": "A Cegueira dura 1 s a mais por rank." },
+          { "id": "cegueira.passiva", "nome": "Lâminas de Areia", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["cegueira.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.cegueira.dano_recebido", "op": "soma", "valor": 0.15 }], "desc": "Alvos cegos recebem 15% a mais de dano." },
+          { "id": "cegueira.habilidade", "nome": "Deserto Errante", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["cegueira.passiva"], "requer_em_cada": 9, "ativa": { "forma": "vortice", "dano": 220, "poise": 90, "raio": 8, "duracao": 7, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Tempestade de areia que anda devagar até o alvo." },
+          { "id": "cegueira.maestria", "nome": "Duna Viva", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["cegueira.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.cegueira.raio", "op": "soma", "valor": 2 }], "desc": "A tempestade alcança 2 m a mais." }
         ]
       }
     },
@@ -359,10 +359,10 @@
       "arvore": {
         "nome": "Chama Sagrada",
         "nos": [
-          { "id": "purgacao.dominio", "nome": "Purgação Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.purgacao.duracao", "op": "soma", "valor": 1 }], "desc": "A Purgação dura 1 s a mais por rank." },
-          { "id": "purgacao.passiva", "nome": "Cinzas Puras", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["purgacao.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.purgacao.cura_ao_abater", "op": "soma", "valor": 15 }], "desc": "Alvo que morre queimando cura 15 de vida." },
-          { "id": "purgacao.habilidade", "nome": "Coluna Solar", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["purgacao.passiva"], "requer_em_cada": 11, "ativa": { "forma": "bomb", "dano": 240, "poise": 110, "raio": 6, "alcance": 14, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Uma coluna de fogo sagrado desce sobre o alvo." },
-          { "id": "purgacao.maestria", "nome": "Meio-Dia", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["purgacao.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.purgacao.raio", "op": "soma", "valor": 2 }], "desc": "A coluna alcança 2 m a mais." }
+          { "id": "purgacao.dominio", "nome": "Purgação Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.purgacao.duracao", "op": "soma", "valor": 1 }], "desc": "A Purgação dura 1 s a mais por rank." },
+          { "id": "purgacao.passiva", "nome": "Cinzas Puras", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["purgacao.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.purgacao.cura_ao_abater", "op": "soma", "valor": 15 }], "desc": "Alvo que morre queimando cura 15 de vida." },
+          { "id": "purgacao.habilidade", "nome": "Coluna Solar", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["purgacao.passiva"], "requer_em_cada": 9, "ativa": { "forma": "bomb", "dano": 240, "poise": 110, "raio": 6, "alcance": 14, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Uma coluna de fogo sagrado desce sobre o alvo." },
+          { "id": "purgacao.maestria", "nome": "Meio-Dia", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["purgacao.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.purgacao.raio", "op": "soma", "valor": 2 }], "desc": "A coluna alcança 2 m a mais." }
         ]
       }
     },
@@ -375,10 +375,10 @@
       "arvore": {
         "nome": "Água Benta",
         "nos": [
-          { "id": "consagracao.dominio", "nome": "Consagração Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.consagracao.cura", "op": "soma", "valor": 10 }], "desc": "Cura 10 de vida a mais por rank." },
-          { "id": "consagracao.passiva", "nome": "Fonte Clara", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["consagracao.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.consagracao.defesa", "op": "soma", "valor": 0.15 }], "desc": "Aliados curados recebem 15% menos dano por 4 s." },
-          { "id": "consagracao.habilidade", "nome": "Chuva de Graça", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["consagracao.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 150, "raio": 9, "duracao": 8, "cura_aliados_por_seg": 12, "conjuracao": 1.2, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Chuva sagrada que fere os inimigos e cura os aliados." },
-          { "id": "consagracao.maestria", "nome": "Maré Sagrada", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["consagracao.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.consagracao.cura_aliados_por_seg", "op": "soma", "valor": 4 }], "desc": "A chuva cura 4 de vida a mais por segundo." }
+          { "id": "consagracao.dominio", "nome": "Consagração Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.consagracao.cura", "op": "soma", "valor": 10 }], "desc": "Cura 10 de vida a mais por rank." },
+          { "id": "consagracao.passiva", "nome": "Fonte Clara", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["consagracao.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.consagracao.defesa", "op": "soma", "valor": 0.15 }], "desc": "Aliados curados recebem 15% menos dano por 4 s." },
+          { "id": "consagracao.habilidade", "nome": "Chuva de Graça", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["consagracao.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 150, "raio": 9, "duracao": 8, "cura_aliados_por_seg": 12, "conjuracao": 1.2, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Chuva sagrada que fere os inimigos e cura os aliados." },
+          { "id": "consagracao.maestria", "nome": "Maré Sagrada", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["consagracao.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.consagracao.cura_aliados_por_seg", "op": "soma", "valor": 4 }], "desc": "A chuva cura 4 de vida a mais por segundo." }
         ]
       }
     },
@@ -391,10 +391,10 @@
       "arvore": {
         "nome": "Cristal",
         "nos": [
-          { "id": "egide.dominio", "nome": "Égide Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.egide.absorve", "op": "soma", "valor": 15 }], "desc": "O escudo absorve 15 a mais por rank." },
-          { "id": "egide.passiva", "nome": "Espinhos de Cristal", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["egide.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.egide.dano_ao_quebrar", "op": "soma", "valor": 30 }], "desc": "Quando o escudo quebra, causa 30 de dano em volta." },
-          { "id": "egide.habilidade", "nome": "Prisão de Cristal", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["egide.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 180, "poise": 150, "raio": 6, "alcance": 12, "duracao": 3, "imobiliza": 3, "vira_postura": 130, "conjuracao": 1.2, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Cristais prendem os inimigos por 3 s." },
-          { "id": "egide.maestria", "nome": "Cristal Perfeito", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["egide.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.egide.imobiliza", "op": "soma", "valor": 1 }], "desc": "A prisão dura 1 s a mais." }
+          { "id": "egide.dominio", "nome": "Égide Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.egide.absorve", "op": "soma", "valor": 15 }], "desc": "O escudo absorve 15 a mais por rank." },
+          { "id": "egide.passiva", "nome": "Espinhos de Cristal", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["egide.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.egide.dano_ao_quebrar", "op": "soma", "valor": 30 }], "desc": "Quando o escudo quebra, causa 30 de dano em volta." },
+          { "id": "egide.habilidade", "nome": "Prisão de Cristal", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["egide.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 180, "poise": 150, "raio": 6, "alcance": 12, "duracao": 3, "imobiliza": 3, "vira_postura": 130, "conjuracao": 1.2, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Cristais prendem os inimigos por 3 s." },
+          { "id": "egide.maestria", "nome": "Cristal Perfeito", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["egide.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.egide.imobiliza", "op": "soma", "valor": 1 }], "desc": "A prisão dura 1 s a mais." }
         ]
       }
     },
@@ -407,10 +407,10 @@
       "arvore": {
         "nome": "Miragem",
         "nos": [
-          { "id": "refracao.dominio", "nome": "Refração Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.refracao.duracao", "op": "soma", "valor": 0.5 }], "desc": "Dura 0,5 s a mais por rank." },
-          { "id": "refracao.passiva", "nome": "Passo Refletido", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["refracao.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.refracao.velocidade_do_jogador", "op": "soma", "valor": 0.2 }], "desc": "Depois da Refração, anda 20% mais rápido por 3 s." },
-          { "id": "refracao.habilidade", "nome": "Mil Reflexos", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["refracao.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 210, "raio": 7, "duracao": 5, "conjuracao": 1.1, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Cópias de luz confundem e cortam os inimigos." },
-          { "id": "refracao.maestria", "nome": "Reflexo Final", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["refracao.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.refracao.duracao", "op": "soma", "valor": 2 }], "desc": "Os reflexos duram 2 s a mais." }
+          { "id": "refracao.dominio", "nome": "Refração Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.refracao.duracao", "op": "soma", "valor": 0.5 }], "desc": "Dura 0,5 s a mais por rank." },
+          { "id": "refracao.passiva", "nome": "Passo Refletido", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["refracao.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.refracao.velocidade_do_jogador", "op": "soma", "valor": 0.2 }], "desc": "Depois da Refração, anda 20% mais rápido por 3 s." },
+          { "id": "refracao.habilidade", "nome": "Mil Reflexos", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["refracao.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 210, "raio": 7, "duracao": 5, "conjuracao": 1.1, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Cópias de luz confundem e cortam os inimigos." },
+          { "id": "refracao.maestria", "nome": "Reflexo Final", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["refracao.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.refracao.duracao", "op": "soma", "valor": 2 }], "desc": "Os reflexos duram 2 s a mais." }
         ]
       }
     },
@@ -423,10 +423,10 @@
       "arvore": {
         "nome": "Fulgor",
         "nos": [
-          { "id": "fulgor.dominio", "nome": "Fulgor Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.fulgor.raio", "op": "soma", "valor": 1 }], "desc": "O clarão alcança 1 m a mais por rank." },
-          { "id": "fulgor.passiva", "nome": "Olhos Ofuscados", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["fulgor.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.fulgor.dano_recebido", "op": "soma", "valor": 0.15 }], "desc": "Alvos atordoados recebem 15% a mais de dano." },
-          { "id": "fulgor.habilidade", "nome": "Lança Celeste", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["fulgor.passiva"], "requer_em_cada": 11, "ativa": { "forma": "linha", "dano": 250, "poise": 120, "alcance": 16, "conjuracao": 1.2, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um feixe de luz elétrica atravessa todos à frente." },
-          { "id": "fulgor.maestria", "nome": "Luz Veloz", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["fulgor.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.fulgor.conjuracao", "op": "soma", "valor": -0.5 }], "desc": "A lança sai 0,5 s mais rápido." }
+          { "id": "fulgor.dominio", "nome": "Fulgor Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.fulgor.raio", "op": "soma", "valor": 1 }], "desc": "O clarão alcança 1 m a mais por rank." },
+          { "id": "fulgor.passiva", "nome": "Olhos Ofuscados", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["fulgor.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.fulgor.dano_recebido", "op": "soma", "valor": 0.15 }], "desc": "Alvos atordoados recebem 15% a mais de dano." },
+          { "id": "fulgor.habilidade", "nome": "Lança Celeste", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["fulgor.passiva"], "requer_em_cada": 9, "ativa": { "forma": "linha", "dano": 250, "poise": 120, "alcance": 16, "conjuracao": 1.2, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um feixe de luz elétrica atravessa todos à frente." },
+          { "id": "fulgor.maestria", "nome": "Luz Veloz", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["fulgor.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.fulgor.conjuracao", "op": "soma", "valor": -0.5 }], "desc": "A lança sai 0,5 s mais rápido." }
         ]
       }
     },
@@ -440,10 +440,10 @@
       "arvore": {
         "nome": "Caos",
         "nos": [
-          { "id": "caos.dominio", "nome": "Caos Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.caos.mult", "op": "soma", "valor": 0.1 }], "desc": "+10% no multiplicador por rank." },
-          { "id": "caos.passiva", "nome": "Equilíbrio", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["caos.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.caos.cura", "op": "soma", "valor": 0.05 }], "desc": "Cada reação do Caos cura 5% da vida." },
-          { "id": "caos.habilidade", "nome": "Eclipse", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["caos.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 270, "raio": 8, "alcance": 14, "duracao": 4, "conjuracao": 1.6, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "O céu escurece e a área inteira é consumida." },
-          { "id": "caos.maestria", "nome": "Totalidade", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["caos.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.caos.raio", "op": "soma", "valor": 2 }], "desc": "O Eclipse alcança 2 m a mais." }
+          { "id": "caos.dominio", "nome": "Caos Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.caos.mult", "op": "soma", "valor": 0.1 }], "desc": "+10% no multiplicador por rank." },
+          { "id": "caos.passiva", "nome": "Equilíbrio", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["caos.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.caos.cura", "op": "soma", "valor": 0.05 }], "desc": "Cada reação do Caos cura 5% da vida." },
+          { "id": "caos.habilidade", "nome": "Eclipse", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["caos.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 270, "raio": 8, "alcance": 14, "duracao": 4, "conjuracao": 1.6, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "O céu escurece e a área inteira é consumida." },
+          { "id": "caos.maestria", "nome": "Totalidade", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["caos.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.caos.raio", "op": "soma", "valor": 2 }], "desc": "O Eclipse alcança 2 m a mais." }
         ]
       }
     },
@@ -456,10 +456,10 @@
       "arvore": {
         "nome": "Inferno",
         "nos": [
-          { "id": "chama_negra.dominio", "nome": "Chama Negra Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.chama_negra.dps", "op": "soma", "valor": 4 }], "desc": "Causa 4 de dano a mais por segundo por rank." },
-          { "id": "chama_negra.passiva", "nome": "Fome das Chamas", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["chama_negra.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.chama_negra.roubo_de_vida", "op": "soma", "valor": 0.3 }], "desc": "Cura 30% do dano da Chama Negra." },
-          { "id": "chama_negra.habilidade", "nome": "Portão do Inferno", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["chama_negra.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 250, "poise": 90, "raio": 7, "alcance": 12, "duracao": 6, "conjuracao": 1.4, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um portão de fogo negro se abre sob os inimigos." },
-          { "id": "chama_negra.maestria", "nome": "Porta Escancarada", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["chama_negra.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.chama_negra.duracao", "op": "soma", "valor": 2 }], "desc": "O portão fica aberto 2 s a mais." }
+          { "id": "chama_negra.dominio", "nome": "Chama Negra Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.chama_negra.dps", "op": "soma", "valor": 4 }], "desc": "Causa 4 de dano a mais por segundo por rank." },
+          { "id": "chama_negra.passiva", "nome": "Fome das Chamas", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["chama_negra.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.chama_negra.roubo_de_vida", "op": "soma", "valor": 0.3 }], "desc": "Cura 30% do dano da Chama Negra." },
+          { "id": "chama_negra.habilidade", "nome": "Portão do Inferno", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["chama_negra.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 250, "poise": 90, "raio": 7, "alcance": 12, "duracao": 6, "conjuracao": 1.4, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um portão de fogo negro se abre sob os inimigos." },
+          { "id": "chama_negra.maestria", "nome": "Porta Escancarada", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["chama_negra.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.chama_negra.duracao", "op": "soma", "valor": 2 }], "desc": "O portão fica aberto 2 s a mais." }
         ]
       }
     },
@@ -472,10 +472,10 @@
       "arvore": {
         "nome": "Peste",
         "nos": [
-          { "id": "corrupcao.dominio", "nome": "Corrupção Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.corrupcao.duracao", "op": "soma", "valor": 2 }], "desc": "O veneno dura 2 s a mais por rank." },
-          { "id": "corrupcao.passiva", "nome": "Contágio", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["corrupcao.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.corrupcao.contagio_raio", "op": "soma", "valor": 4 }], "desc": "Alvo envenenado que morre passa o veneno a quem está a 4 m." },
-          { "id": "corrupcao.habilidade", "nome": "Maré Negra", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["corrupcao.passiva"], "requer_em_cada": 11, "ativa": { "forma": "shock", "dano": 220, "poise": 90, "raio": 9, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Uma onda negra envenena tudo em volta." },
-          { "id": "corrupcao.maestria", "nome": "Praga", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["corrupcao.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.corrupcao.raio", "op": "soma", "valor": 2 }], "desc": "A onda alcança 2 m a mais." }
+          { "id": "corrupcao.dominio", "nome": "Corrupção Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.corrupcao.duracao", "op": "soma", "valor": 2 }], "desc": "O veneno dura 2 s a mais por rank." },
+          { "id": "corrupcao.passiva", "nome": "Contágio", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["corrupcao.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.corrupcao.contagio_raio", "op": "soma", "valor": 4 }], "desc": "Alvo envenenado que morre passa o veneno a quem está a 4 m." },
+          { "id": "corrupcao.habilidade", "nome": "Maré Negra", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["corrupcao.passiva"], "requer_em_cada": 9, "ativa": { "forma": "shock", "dano": 220, "poise": 90, "raio": 9, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Uma onda negra envenena tudo em volta." },
+          { "id": "corrupcao.maestria", "nome": "Praga", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["corrupcao.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.corrupcao.raio", "op": "soma", "valor": 2 }], "desc": "A onda alcança 2 m a mais." }
         ]
       }
     },
@@ -488,10 +488,10 @@
       "arvore": {
         "nome": "Cripta",
         "nos": [
-          { "id": "sepultamento.dominio", "nome": "Sepultamento Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.sepultamento.duracao", "op": "soma", "valor": 0.25 }], "desc": "Prende por 0,25 s a mais por rank." },
-          { "id": "sepultamento.passiva", "nome": "Terra de Cemitério", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["sepultamento.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.sepultamento.eter_ao_abater", "op": "soma", "valor": 15 }], "desc": "Abater um alvo preso devolve 15 de Éter." },
-          { "id": "sepultamento.habilidade", "nome": "Mãos da Cova", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["sepultamento.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 230, "poise": 140, "raio": 7, "alcance": 12, "duracao": 5, "imobiliza": 2.5, "vira_postura": 120, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Mãos saem do chão e seguram os inimigos." },
-          { "id": "sepultamento.maestria", "nome": "Cova Funda", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["sepultamento.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.sepultamento.imobiliza", "op": "soma", "valor": 1 }], "desc": "As mãos prendem por 1 s a mais." }
+          { "id": "sepultamento.dominio", "nome": "Sepultamento Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.sepultamento.duracao", "op": "soma", "valor": 0.25 }], "desc": "Prende por 0,25 s a mais por rank." },
+          { "id": "sepultamento.passiva", "nome": "Terra de Cemitério", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["sepultamento.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.sepultamento.eter_ao_abater", "op": "soma", "valor": 15 }], "desc": "Abater um alvo preso devolve 15 de Éter." },
+          { "id": "sepultamento.habilidade", "nome": "Mãos da Cova", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["sepultamento.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 230, "poise": 140, "raio": 7, "alcance": 12, "duracao": 5, "imobiliza": 2.5, "vira_postura": 120, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Mãos saem do chão e seguram os inimigos." },
+          { "id": "sepultamento.maestria", "nome": "Cova Funda", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["sepultamento.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.sepultamento.imobiliza", "op": "soma", "valor": 1 }], "desc": "As mãos prendem por 1 s a mais." }
         ]
       }
     },
@@ -504,10 +504,10 @@
       "arvore": {
         "nome": "Assombração",
         "nos": [
-          { "id": "pavor.dominio", "nome": "Pavor Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.pavor.duracao", "op": "soma", "valor": 0.5 }], "desc": "O medo dura 0,5 s a mais por rank." },
-          { "id": "pavor.passiva", "nome": "Caçador", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["pavor.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.pavor.dano_em_fuga", "op": "soma", "valor": 0.2 }], "desc": "Causa 20% a mais em alvos fugindo." },
-          { "id": "pavor.habilidade", "nome": "Noite Uivante", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["pavor.passiva"], "requer_em_cada": 11, "ativa": { "forma": "shock", "dano": 210, "poise": 100, "raio": 9, "conjuracao": 1.2, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um uivo sombrio fere e apavora todos em volta." },
-          { "id": "pavor.maestria", "nome": "Eco da Noite", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["pavor.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.pavor.raio", "op": "soma", "valor": 2 }], "desc": "O uivo alcança 2 m a mais." }
+          { "id": "pavor.dominio", "nome": "Pavor Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.pavor.duracao", "op": "soma", "valor": 0.5 }], "desc": "O medo dura 0,5 s a mais por rank." },
+          { "id": "pavor.passiva", "nome": "Caçador", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["pavor.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.pavor.dano_em_fuga", "op": "soma", "valor": 0.2 }], "desc": "Causa 20% a mais em alvos fugindo." },
+          { "id": "pavor.habilidade", "nome": "Noite Uivante", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["pavor.passiva"], "requer_em_cada": 9, "ativa": { "forma": "shock", "dano": 210, "poise": 100, "raio": 9, "conjuracao": 1.2, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um uivo sombrio fere e apavora todos em volta." },
+          { "id": "pavor.maestria", "nome": "Eco da Noite", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["pavor.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.pavor.raio", "op": "soma", "valor": 2 }], "desc": "O uivo alcança 2 m a mais." }
         ]
       }
     },
@@ -520,10 +520,10 @@
       "arvore": {
         "nome": "Vazio",
         "nos": [
-          { "id": "drenagem.dominio", "nome": "Drenagem Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.drenagem.eter", "op": "soma", "valor": 5 }], "desc": "Devolve 5 de Éter a mais por rank." },
-          { "id": "drenagem.passiva", "nome": "Circuito Faminto", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["drenagem.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.drenagem.reduz_recarga", "op": "soma", "valor": 2 }], "desc": "Cada Drenagem tira 2 s da recarga das outras habilidades." },
-          { "id": "drenagem.habilidade", "nome": "Colapso", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["drenagem.passiva"], "requer_em_cada": 11, "ativa": { "forma": "vortice", "dano": 240, "raio": 7, "alcance": 12, "duracao": 4, "conjuracao": 1.4, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um ponto de vazio puxa tudo para dentro." },
-          { "id": "drenagem.maestria", "nome": "Buraco Negro", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["drenagem.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.drenagem.raio", "op": "soma", "valor": 2 }], "desc": "O Colapso alcança 2 m a mais." }
+          { "id": "drenagem.dominio", "nome": "Drenagem Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.drenagem.eter", "op": "soma", "valor": 5 }], "desc": "Devolve 5 de Éter a mais por rank." },
+          { "id": "drenagem.passiva", "nome": "Circuito Faminto", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["drenagem.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.drenagem.reduz_recarga", "op": "soma", "valor": 2 }], "desc": "Cada Drenagem tira 2 s da recarga das outras habilidades." },
+          { "id": "drenagem.habilidade", "nome": "Colapso", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["drenagem.passiva"], "requer_em_cada": 9, "ativa": { "forma": "vortice", "dano": 240, "raio": 7, "alcance": 12, "duracao": 4, "conjuracao": 1.4, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um ponto de vazio puxa tudo para dentro." },
+          { "id": "drenagem.maestria", "nome": "Buraco Negro", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["drenagem.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.drenagem.raio", "op": "soma", "valor": 2 }], "desc": "O Colapso alcança 2 m a mais." }
         ]
       }
     },
@@ -536,10 +536,10 @@
       "arvore": {
         "nome": "Plasma",
         "nos": [
-          { "id": "detonacao.dominio", "nome": "Detonação Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.detonacao.dano", "op": "soma", "valor": 12 }], "desc": "A explosão causa 12 a mais por rank." },
-          { "id": "detonacao.passiva", "nome": "Reação em Cadeia", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["detonacao.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.detonacao.marca_em_area", "op": "soma", "valor": 1 }], "desc": "A explosão deixa marca de fogo em quem atingir." },
-          { "id": "detonacao.habilidade", "nome": "Estrela de Plasma", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["detonacao.passiva"], "requer_em_cada": 11, "ativa": { "forma": "bomb", "dano": 265, "poise": 130, "raio": 7, "alcance": 14, "conjuracao": 1.5, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Uma esfera de plasma cai e explode." },
-          { "id": "detonacao.maestria", "nome": "Massa Crítica", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["detonacao.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.detonacao.raio", "op": "soma", "valor": 2 }], "desc": "A explosão alcança 2 m a mais." }
+          { "id": "detonacao.dominio", "nome": "Detonação Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.detonacao.dano", "op": "soma", "valor": 12 }], "desc": "A explosão causa 12 a mais por rank." },
+          { "id": "detonacao.passiva", "nome": "Reação em Cadeia", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["detonacao.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.detonacao.marca_em_area", "op": "soma", "valor": 1 }], "desc": "A explosão deixa marca de fogo em quem atingir." },
+          { "id": "detonacao.habilidade", "nome": "Estrela de Plasma", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["detonacao.passiva"], "requer_em_cada": 9, "ativa": { "forma": "bomb", "dano": 265, "poise": 130, "raio": 7, "alcance": 14, "conjuracao": 1.5, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Uma esfera de plasma cai e explode." },
+          { "id": "detonacao.maestria", "nome": "Massa Crítica", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["detonacao.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.detonacao.raio", "op": "soma", "valor": 2 }], "desc": "A explosão alcança 2 m a mais." }
         ]
       }
     },
@@ -552,10 +552,10 @@
       "arvore": {
         "nome": "Tempestade",
         "nos": [
-          { "id": "conducao.dominio", "nome": "Condução Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.conducao.saltos", "op": "soma", "valor": 1 }], "desc": "Salta para 1 inimigo a mais por rank." },
-          { "id": "conducao.passiva", "nome": "Chão Molhado", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["conducao.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.conducao.mult_em_molhados", "op": "soma", "valor": 1 }], "desc": "Alvos com marca de água recebem o dobro do salto." },
-          { "id": "conducao.habilidade", "nome": "Julgamento do Céu", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["conducao.passiva"], "requer_em_cada": 11, "ativa": { "forma": "zona", "dano": 240, "poise": 120, "raio": 8, "alcance": 14, "duracao": 4, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Raios caem sem parar sobre a área." },
-          { "id": "conducao.maestria", "nome": "Olho da Tempestade", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["conducao.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.conducao.duracao", "op": "soma", "valor": 2 }], "desc": "A tempestade dura 2 s a mais." }
+          { "id": "conducao.dominio", "nome": "Condução Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.conducao.saltos", "op": "soma", "valor": 1 }], "desc": "Salta para 1 inimigo a mais por rank." },
+          { "id": "conducao.passiva", "nome": "Chão Molhado", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["conducao.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.conducao.mult_em_molhados", "op": "soma", "valor": 1 }], "desc": "Alvos com marca de água recebem o dobro do salto." },
+          { "id": "conducao.habilidade", "nome": "Julgamento do Céu", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["conducao.passiva"], "requer_em_cada": 9, "ativa": { "forma": "zona", "dano": 240, "poise": 120, "raio": 8, "alcance": 14, "duracao": 4, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Raios caem sem parar sobre a área." },
+          { "id": "conducao.maestria", "nome": "Olho da Tempestade", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["conducao.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.conducao.duracao", "op": "soma", "valor": 2 }], "desc": "A tempestade dura 2 s a mais." }
         ]
       }
     },
@@ -568,10 +568,10 @@
       "arvore": {
         "nome": "Magnetita",
         "nos": [
-          { "id": "magnetismo.dominio", "nome": "Magnetismo Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.magnetismo.raio", "op": "soma", "valor": 1 }], "desc": "Puxa de 1 m mais longe por rank." },
-          { "id": "magnetismo.passiva", "nome": "Polos Opostos", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["magnetismo.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.magnetismo.postura_ao_colidir", "op": "soma", "valor": 30 }], "desc": "Inimigos puxados que se chocam perdem 30 de postura." },
-          { "id": "magnetismo.habilidade", "nome": "Campo de Ferro", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["magnetismo.passiva"], "requer_em_cada": 11, "ativa": { "forma": "vortice", "dano": 225, "poise": 150, "raio": 8, "duracao": 6, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um campo magnético arrasta e esmaga os inimigos." },
-          { "id": "magnetismo.maestria", "nome": "Polo Absoluto", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["magnetismo.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.magnetismo.duracao", "op": "soma", "valor": 2 }], "desc": "O campo dura 2 s a mais." }
+          { "id": "magnetismo.dominio", "nome": "Magnetismo Dominado", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.magnetismo.raio", "op": "soma", "valor": 1 }], "desc": "Puxa de 1 m mais longe por rank." },
+          { "id": "magnetismo.passiva", "nome": "Polos Opostos", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["magnetismo.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.magnetismo.postura_ao_colidir", "op": "soma", "valor": 30 }], "desc": "Inimigos puxados que se chocam perdem 30 de postura." },
+          { "id": "magnetismo.habilidade", "nome": "Campo de Ferro", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["magnetismo.passiva"], "requer_em_cada": 9, "ativa": { "forma": "vortice", "dano": 225, "poise": 150, "raio": 8, "duracao": 6, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um campo magnético arrasta e esmaga os inimigos." },
+          { "id": "magnetismo.maestria", "nome": "Polo Absoluto", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["magnetismo.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.magnetismo.duracao", "op": "soma", "valor": 2 }], "desc": "O campo dura 2 s a mais." }
         ]
       }
     },
@@ -584,10 +584,10 @@
       "arvore": {
         "nome": "Trovão",
         "nos": [
-          { "id": "trovoada.dominio", "nome": "Trovoada Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 5, "efeitos": [{ "stat": "reacao.trovoada.duracao", "op": "soma", "valor": 0.2 }], "desc": "Atordoa por 0,2 s a mais por rank." },
-          { "id": "trovoada.passiva", "nome": "Eco do Trovão", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["trovoada.dominio"], "requer_em_cada": 8, "efeitos": [{ "stat": "reacao.trovoada.eco", "op": "soma", "valor": 0.5 }], "desc": "A Trovoada repete 50% do dano em volta do alvo." },
-          { "id": "trovoada.habilidade", "nome": "Furacão Elétrico", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["trovoada.passiva"], "requer_em_cada": 11, "ativa": { "forma": "vortice", "dano": 245, "poise": 90, "raio": 8, "alcance": 13, "duracao": 5, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um furacão carregado puxa e eletrocuta os inimigos." },
-          { "id": "trovoada.maestria", "nome": "Olho do Furacão", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["trovoada.habilidade"], "requer_em_cada": 14, "efeitos": [{ "stat": "habilidade.trovoada.duracao", "op": "soma", "valor": 2 }], "desc": "O furacão dura 2 s a mais." }
+          { "id": "trovoada.dominio", "nome": "Trovoada Dominada", "tier": 1, "tipo": "passiva", "custo": 1, "ranks": 2, "requer": [], "requer_em_cada": 3, "efeitos": [{ "stat": "reacao.trovoada.duracao", "op": "soma", "valor": 0.2 }], "desc": "Atordoa por 0,2 s a mais por rank." },
+          { "id": "trovoada.passiva", "nome": "Eco do Trovão", "tier": 2, "tipo": "passiva", "custo": 2, "ranks": 1, "requer": ["trovoada.dominio"], "requer_em_cada": 6, "efeitos": [{ "stat": "reacao.trovoada.eco", "op": "soma", "valor": 0.5 }], "desc": "A Trovoada repete 50% do dano em volta do alvo." },
+          { "id": "trovoada.habilidade", "nome": "Furacão Elétrico", "tier": 3, "tipo": "ativa", "custo": 3, "ranks": 1, "requer": ["trovoada.passiva"], "requer_em_cada": 9, "ativa": { "forma": "vortice", "dano": 245, "poise": 90, "raio": 8, "alcance": 13, "duracao": 5, "conjuracao": 1.3, "eter": 80, "recarga": 90, "clip": "summon", "suprema": true }, "desc": "Um furacão carregado puxa e eletrocuta os inimigos." },
+          { "id": "trovoada.maestria", "nome": "Olho do Furacão", "tier": 4, "tipo": "passiva", "custo": 1, "ranks": 1, "requer": ["trovoada.habilidade"], "requer_em_cada": 12, "efeitos": [{ "stat": "habilidade.trovoada.duracao", "op": "soma", "valor": 2 }], "desc": "O furacão dura 2 s a mais." }
         ]
       }
     }
@@ -610,34 +610,34 @@
     "_nota": "MODELO APROVADO pelo dono em 18/11/2026. O Fogo já está neste formato. Os outros 6 elementos continuam em arvores_elementais e serão convertidos um de cada vez.",
     "regras": {
       "maestria": {
-        "pontos": 5,
+        "pontos": 3,
         "rende_por_ponto": ["+2% de dano do elemento", "+3% de resistência ao elemento"],
-        "abre_com_5_pontos": ["Manipular", "Defesa", "Imbuir"]
+        "abre_com_3_pontos": ["Manipular", "Defesa", "Imbuir"]
       },
-      "manipular_e_imbuir": "Não são compras: com Maestria 5 os três caminhos abrem juntos, e a primeira compra de cada um é a primeira escolha da linha 1.",
+      "manipular_e_imbuir": "Não são compras: com Maestria 3 os três caminhos abrem juntos, e a primeira compra de cada um é a primeira escolha da linha 1.",
       "linhas": 3,
       "limite_de_pontos_por_linha": 3,
       "abrir_linha": "A linha seguinte abre quando a anterior está cheia (3 pontos).",
       "abrir_no": "Cada escolha nasce de outra: precisa de pelo menos 1 ponto em uma das escolhas listadas em requer.",
       "ranks": "O primeiro ponto libera a escolha e os outros a fortalecem.",
       "ultima_linha": "Cada suprema custa os 3 pontos da linha, então o jogador fica com uma só por elemento.",
-      "pontos_na_arvore": 14,
-      "maximo_por_elemento": 14,
+      "pontos_na_arvore": 12,
+      "maximo_por_elemento": 12,
       "elementos_ainda_no_formato_antigo": ["agua", "terra", "vento", "luz", "trevas", "eletrico"],
       "ao_converter_os_outros_elementos": "A passiva de resistência de cada elemento sai da árvore, porque a resistência vem da Maestria.",
       "habilidades_derivadas": "A habilidade que nasce de outra não substitui a original: as duas ficam disponíveis. Combinações de build poderão modificar a habilidade depois."
     },
     "fogo": {
       "base": [
-        { "id": "fogo.maestria", "nome": "Maestria do Fogo", "coluna": "base", "tipo": "maestria", "ranks": 5, "custo": 1, "requer": [], "efeitos": [{ "stat": "dano.fogo", "op": "mul", "valor": 0.02 }, { "stat": "resist.fogo", "op": "soma", "valor": 0.03 }], "por_ponto": ["+2% de dano e +3% de resistência ao fogo", "+4% de dano e +6% de resistência ao fogo", "+6% de dano e +9% de resistência ao fogo", "+8% de dano e +12% de resistência ao fogo", "+10% de dano e +15% de resistência ao fogo"], "desc": "Treinar o fogo aumenta o dano e a resistência às chamas. Com 5 pontos, abre Manipular, Defesa e Imbuir." }
+        { "id": "fogo.maestria", "nome": "Maestria do Fogo", "coluna": "base", "tipo": "maestria", "ranks": 3, "custo": 1, "requer": [], "efeitos": [{ "stat": "dano.fogo", "op": "mul", "valor": 0.02 }, { "stat": "resist.fogo", "op": "soma", "valor": 0.03 }], "por_ponto": ["+2% de dano e +3% de resistência ao fogo", "+4% de dano e +6% de resistência ao fogo", "+6% de dano e +9% de resistência ao fogo"], "desc": "Treinar o fogo aumenta o dano e a resistência às chamas. Com 3 pontos, abre Manipular, Defesa e Imbuir." }
       ],
       "linhas": [
         {
           "linha": 1,
           "escolhas": [
-            { "id": "fogo.bola", "nome": "Bola de Fogo", "coluna": "magia", "tipo": "ativa", "ranks": 3, "custo": 1, "requer": [], "por_ponto": ["35 de dano", "42 de dano", "50 de dano"], "desc": "Projétil que acende o alvo.", "ativa": { "forma": "orb", "marca": "fogo", "alcance": 15, "eter": 20, "recarga": 3, "clip": "cast" }, "requer_minimo": { "fogo.maestria": 5 } },
-            { "id": "fogo.pele", "nome": "Pele de Brasa", "coluna": "defesa", "tipo": "passiva", "ranks": 3, "custo": 1, "requer": [], "por_ponto": ["Queima por 1 s", "Queima por 2 s", "Queima por 3 s"], "desc": "Quem acerta você corpo a corpo começa a queimar.", "requer_minimo": { "fogo.maestria": 5 } },
-            { "id": "fogo.imbuir", "nome": "Imbuir Chamas", "coluna": "arma", "tipo": "ativa", "ranks": 3, "custo": 1, "requer": [], "por_ponto": ["Dura 20 s", "Dura 25 s", "Dura 30 s"], "desc": "A arma causa dano de fogo e 15% a mais.", "ativa": { "forma": "imbuir", "marca": "fogo", "eter": 25, "recarga": 30, "clip": "cast" }, "requer_minimo": { "fogo.maestria": 5 } }
+            { "id": "fogo.bola", "nome": "Bola de Fogo", "coluna": "magia", "tipo": "ativa", "ranks": 3, "custo": 1, "requer": [], "por_ponto": ["35 de dano", "42 de dano", "50 de dano"], "desc": "Projétil que acende o alvo.", "ativa": { "forma": "orb", "marca": "fogo", "alcance": 15, "eter": 20, "recarga": 3, "clip": "cast" }, "requer_minimo": { "fogo.maestria": 3 } },
+            { "id": "fogo.pele", "nome": "Pele de Brasa", "coluna": "defesa", "tipo": "passiva", "ranks": 3, "custo": 1, "requer": [], "por_ponto": ["Queima por 1 s", "Queima por 2 s", "Queima por 3 s"], "desc": "Quem acerta você corpo a corpo começa a queimar.", "requer_minimo": { "fogo.maestria": 3 } },
+            { "id": "fogo.imbuir", "nome": "Imbuir Chamas", "coluna": "arma", "tipo": "ativa", "ranks": 3, "custo": 1, "requer": [], "por_ponto": ["Dura 20 s", "Dura 25 s", "Dura 30 s"], "desc": "A arma causa dano de fogo e 15% a mais.", "ativa": { "forma": "imbuir", "marca": "fogo", "eter": 25, "recarga": 30, "clip": "cast" }, "requer_minimo": { "fogo.maestria": 3 } }
           ]
         },
         {
@@ -666,10 +666,10 @@
       { "id": "fogo.corte", "nome": "Corte Incandescente", "coluna": "arma", "tipo": "ativa", "ranks": 3, "custo": 1, "requer": ["fogo.lamina"], "por_ponto": ["60 de dano", "75 de dano", "90 de dano"], "desc": "Investida que atravessa os inimigos à frente.", "ativa": { "forma": "linha", "marca": "fogo", "alcance": 7, "eter": 35, "recarga": 12, "clip": "cast" } }
     ],
     "exemplos_de_build": {
-      "mago": ["maestria:5", "bola:3", "rajada:3", "sol:1"],
-      "guardiao": ["maestria:5", "pele:3", "cinzas:3", "avatar:1"],
-      "espadachim": ["maestria:5", "imbuir:3", "golpe:3", "danca:1"],
-      "hibrido": ["maestria:5", "bola:2", "pele:1", "rajada:2", "cinzas:1"]
+      "mago": ["maestria:3", "bola:3", "rajada:3", "sol:1"],
+      "guardiao": ["maestria:3", "pele:3", "cinzas:3", "avatar:1"],
+      "espadachim": ["maestria:3", "imbuir:3", "golpe:3", "danca:1"],
+      "hibrido": ["maestria:3", "bola:2", "pele:1", "rajada:2", "cinzas:1"]
     }
   },
   "decisoes_em_aberto": [
@@ -751,7 +751,7 @@
       "id": "D15",
       "tema": "Formato da árvore",
       "status": "decidido",
-      "decisao": "Maestria de 5 pontos, 2 linhas comuns de 3 pontos e 1 linha de suprema, com 3 escolhas por linha."
+      "decisao": "Maestria de 3 pontos (era 5: D19), 2 linhas comuns de 3 pontos e 1 linha de suprema, com 3 escolhas por linha."
     },
     {
       "id": "D16",
@@ -763,13 +763,25 @@
       "id": "D17",
       "tema": "Maestria e resistência",
       "status": "decidido",
-      "decisao": "A resistência é intrínseca à Maestria: cada ponto dá +2% de dano e +3% de resistência ao elemento. Com 5 pontos, abrem Manipular, Defesa e Imbuir."
+      "decisao": "A resistência é intrínseca à Maestria: cada ponto dá +2% de dano e +3% de resistência ao elemento. Com 3 pontos (D19), abrem Manipular, Defesa e Imbuir."
     },
     {
       "id": "D18",
       "tema": "Elementos no banco",
       "status": "decidido",
       "decisao": "A migration cria os 7 elementos com a Maestria e as 21 reações como registro. Só o Fogo recebe todas as habilidades e é trabalhado agora."
+    },
+    {
+      "id": "D19",
+      "tema": "Maestria de 3 pontos",
+      "status": "decidido",
+      "decisao": "A Maestria passa de 5 para 3 pontos (19/11/2026), com o mesmo ganho por ponto (+2% de dano e +3% de resistência). A árvore de um elemento fica com 12 pontos, e os requisitos das árvores de reação caem 2 em cada tier (3, 6, 9 e 12)."
+    },
+    {
+      "id": "D20",
+      "tema": "O que fica escondido",
+      "status": "decidido",
+      "decisao": "O personagem começa conhecendo uma só Maestria, a do Fogo; as outras serão desbloqueadas no jogo, por missões. Na tela da árvore só aparece o que está liberado: até a Maestria do Fogo chegar a 3, o resto do galho fica escondido, e o mesmo vale para cada linha e para as árvores de reação."
     }
   ],
   "ideias_para_depois": [

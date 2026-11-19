@@ -726,7 +726,7 @@ body.toque #aparencia .aparencia-botoes { margin-top: 8px; }
 .arv-breve { color: var(--text-dim); font-style: italic; font-size: 14px; }
 .arv-aprender { width: 100%; padding: 8px 10px; margin-top: 4px; }
 
-.arv-anel { fill: none; stroke: var(--gold-dim); stroke-opacity: .35; stroke-width: 2; }
+.arv-anel { fill: none; stroke: var(--gold-dim); stroke-opacity: .6; stroke-width: 3; stroke-linecap: round; }
 .arv-corda { stroke-width: 3; opacity: .16; }
 .arv-corda.formando { opacity: .45; }
 .arv-corda.aberta { opacity: .95; stroke-width: 6; }
@@ -753,3 +753,11 @@ body.toque #aparencia .aparencia-botoes { margin-top: 8px; }
 .arv-elem.breve { opacity: .55; }
 body.toque .arv-panel { width: calc(96 * var(--vw, 1vw)); height: calc(92 * var(--vh, 1vh)); gap: 12px; padding: 10px 12px; }
 body.toque .arv-lado { width: 240px; }
+/* o que NASCE na árvore (js/arvore.js `render`): o traço se desenha, o nó surge */
+.arv-mapa .nasce-traco { stroke-dasharray: 1 1; stroke-dashoffset: 1; animation: arv-traco var(--dur, .6s) var(--easing, ease-in-out) var(--atraso, 0s) forwards; }
+@keyframes arv-traco { to { stroke-dashoffset: 0; } }
+.arv-mapa .nasce-no { animation: arv-surge .45s ease-out var(--atraso, 0s) both; }
+.arv-mapa .nasce-no > circle { transform-box: fill-box; transform-origin: center; animation: arv-pop .5s cubic-bezier(.3, 1.6, .5, 1) var(--atraso, 0s) both; }
+@keyframes arv-surge { from { opacity: 0; } }
+@keyframes arv-pop { from { transform: scale(.2); } }
+.arv-circulo { stroke-opacity: .85; stroke-width: 3.5; }

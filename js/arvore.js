@@ -14,9 +14,21 @@
  * `player.habilidades.nos` (id → PONTOS gastos, como o save e o `saveTorto()` esperam) — fechar
  * sem confirmar devolve, porque ainda não há como refazer a árvore (D9).
  *
- * Regras do modelo aprovado (Fogo): Maestria até 5; com 5, abre a linha 1; cada linha aceita
- * 3 pontos, e a seguinte abre quando a anterior está cheia; cada escolha precisa de 1 ponto em
- * uma das que ela `requer`; a suprema custa os 3 pontos da linha.
+ * Regras do modelo aprovado (Fogo): a Maestria tem `regras.maestria` pontos (3, D19) e, cheia,
+ * abre a linha 1; cada linha aceita 3 pontos, e a seguinte abre quando a anterior está cheia;
+ * cada escolha precisa de 1 ponto em uma das que ela `requer`; a suprema custa os 3 da linha.
+ *
+ * O QUE NÃO ESTÁ LIBERADO NÃO APARECE (D20): o personagem começa conhecendo só o elemento
+ * `inicial` (o Fogo; os outros virão das missões — por enquanto, conhecer = ser inicial ou ter
+ * ponto na Maestria). Do elemento conhecido aparece a Maestria e só os nós cujos requisitos
+ * já foram cumpridos (ou que já têm ponto); a reação aparece quando abre. `mostrarTudo` (a
+ * vitrine, ferramentas/habilidades/vitrine.mjs) mostra o que estaria escondido.
+ *
+ * Não há círculo fixo: os elementos CONHECIDOS se ligam por RETAS na ordem de uma estrela de
+ * 7 pontas (`estrela`; com um só, nada; com os 7, a estrela fecha e o círculo de fora se desenha
+ * por cima — o círculo alquímico). O que passa a aparecer entre um desenho e o seguinte NASCE
+ * animado (`antes` = o que já estava na tela): a reta se desenha da Maestria conhecida até a
+ * nova, o galho cresce até a habilidade liberada, e só então o nó surge. Abrir a tela não anima.
  */
 import { pontosGastos } from './ficha.js';
 
@@ -45,6 +57,9 @@ export class ArvoreUI {
     this.pend = {};
     this.sel = null;
     this.vista = { ...TUDO };
+    this.mostrarTudo = false;
+    this.descobertos = new Set();   // elementos descobertos além do inicial (um dia: as missões)
+    this.antes = null;              // as chaves do que estava no último desenho (null = não animar)
     this.btConfirmar.addEventListener('click', () => this.confirmar());
     this.btDesfazer.addEventListener('click', () => { this.pend = {}; this.render(); });
     this.el.querySelector('.arv-tudo').addEventListener('click', () => this.irPara(TUDO));
@@ -62,11 +77,12 @@ export class ArvoreUI {
     this.pend = {};
     this.el.classList.remove('hidden');
     this.aplicarVista();
-    if (this.cat) { this.render(); return; }
+    const pronta = () => { this.antes = null; this.normalizar(); this.vistaInicial(); this.render(); };
+    if (this.cat) { pronta(); return; }
     this.detalhe.textContent = 'Carregando…';
     fetch('assets/habilidades.json', { cache: 'no-store' })
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((cat) => { this.montar(cat); if (this.aberta) this.render(); })
+      .then((cat) => { this.montar(cat); if (this.aberta) pronta(); })
       .catch((e) => { this.detalhe.textContent = 'Não foi possível carregar as habilidades.'; console.warn('[arvore]', e); });
   }
 
@@ -86,11 +102,12 @@ export class ArvoreUI {
     lista.forEach((e, i) => {
       const ang = -Math.PI / 2 + (i * 2 * Math.PI) / lista.length;
       const [x, y] = polar(R, ang);
-      this.elems.set(e.id, { e, ang, x, y });
+      this.elems.set(e.id, { e, i, ang, x, y });
       const m = e.arvore.maestria;
       this.nos.set(m.id, { no: m, elem: e, x, y, pais: [], linha: 0 });
       const por = (grupos, raio) => grupos.forEach((g, gi) => g.forEach((no, j) => {
-        const [nx, ny] = polar(raio(gi), ang + (j - (g.length - 1) / 2) * 0.17);
+        // os nós de uma linha ficam a ~95 unidades um do outro (perto do anel, o ângulo abre mais)
+        const [nx, ny] = polar(raio(gi), ang + ((j - (g.length - 1) / 2) * 95) / raio(gi));
         const pais = (no.requer ?? []).length ? no.requer : [m.id];
         this.nos.set(no.id, { no, elem: e, x: nx, y: ny, pais, linha: e.arvore.modelo === 'linhas' ? gi + 1 : null });
       }));
@@ -107,6 +124,66 @@ export class ArvoreUI {
     }
   }
 
+  /**
+   * Ponto gasto acima do máximo de um nó (a Maestria era de 5 e passou a 3: D19) volta a ser
+   * disponível — os disponíveis saem do nível, então basta cortar o excesso e gravar.
+   */
+  normalizar() {
+    let mudou = false;
+    for (const [id, n] of Object.entries(this.hab.nos)) {
+      const info = this.nos.get(id);
+      const max = info ? info.no.ranks * (info.no.custo || 1) : n;
+      if (n > max) { this.hab.nos[id] = max; mudou = true; }
+    }
+    if (mudou) { this.game.salvar({ nuvem: true }); this.game.ui.toast('Os pontos acima do novo máximo da Maestria voltaram.'); }
+  }
+
+  /** A vista abre enquadrando os galhos dos elementos conhecidos (com o espaço para crescerem). */
+  vistaInicial() {
+    this.vista = this.prender(this.mostrarTudo ? TUDO : this.enquadrar());
+    this.aplicarVista();
+  }
+
+  /** O quadro que cabe os galhos INTEIROS (até o escondido) e os nomes dos elementos conhecidos. */
+  enquadrar() {
+    const pts = [];
+    for (const info of this.nos.values()) if (this.mostrarTudo || this.conhecido(info.elem)) pts.push([info.x, info.y]);
+    for (const x of this.elems.values()) if (this.mostrarTudo || this.conhecido(x.e)) pts.push(polar(LIMITE - 40, x.ang));
+    if (!pts.length) return { ...TUDO };
+    const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const w = Math.max(680, Math.max(x1 - x0, y1 - y0) + 120);
+    return { x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - w / 2, w };
+  }
+
+  /** Um elemento novo entra no aro (a vitrine; um dia, a missão que o ensina). */
+  descobrir(id) {
+    if (!this.elems.has(id)) return;
+    this.descobertos.add(id);
+    this.render();
+    this.irPara(this.enquadrar());
+  }
+
+  /**
+   * As RETAS da estrela: os conhecidos na ordem da estrela de 7 pontas (cada ponta liga a que
+   * fica 3 casas adiante no anel: 0, 3, 6, 2, 5, 1, 4), cada um ligado ao próximo conhecido,
+   * menos o maior vão. Com os 7, a estrela fecha (e o círculo de fora vem por cima).
+   */
+  estrela() {
+    const n = this.elems.size, salto = Math.floor(n / 2) || 1;
+    const lugar = (i) => { for (let s = 0; s < n; s++) if ((s * salto) % n === i) return s; return i; };
+    const conh = [...this.elems.values()].filter((x) => this.mostrarTudo || this.conhecido(x.e))
+      .map((x) => ({ ...x, s: lugar(x.i) })).sort((a, b) => a.s - b.s);
+    if (conh.length < 2) return [];
+    const pares = conh.map((p, k) => { const q = conh[(k + 1) % conh.length]; return { p, q, vao: (q.s - p.s + n) % n || n }; });
+    if (conh.length < n) {
+      let maior = 0;
+      pares.forEach((x, k) => { if (x.vao > pares[maior].vao) maior = k; });
+      pares.splice(maior, 1);
+    }
+    return pares;
+  }
+
   // ---------- As contas ----------
   get hab() { return this.game.player.habilidades; }
   pts(id) { return (this.hab.nos[id] ?? 0) + (this.pend[id] ?? 0); }
@@ -120,23 +197,36 @@ export class ArvoreUI {
     return s;
   }
 
+  /** O personagem conhece este elemento? (por enquanto: o inicial, ou com ponto na Maestria) */
+  conhecido(elem) { return !!elem.inicial || this.descobertos.has(elem.id) || this.pts(`${elem.id}.maestria`) > 0; }
+
+  /** O requisito que falta para este nó ser LIBERADO (null = liberado). Não conta pontos. */
+  requisito(info) {
+    const { no, elem } = info;
+    if (no.tipo === 'maestria') return this.conhecido(elem) ? null : 'Elemento ainda não descoberto.';
+    const max = this.cat.regras.maestria, linhaMax = this.cat.regras.pontos_por_linha;
+    const k = this.maestria(elem.id);
+    if (k < max) return `Precisa de ${elem.arvore.maestria.nome} ${max} (tem ${k}).`;
+    if (info.linha > 1 && this.pontosNaLinha(elem, info.linha - 1) < linhaMax) return `Abre quando a linha ${info.linha - 1} estiver cheia (${linhaMax} pontos).`;
+    if (no.requer?.length && !no.requer.some((id) => this.pts(id) > 0)) {
+      return `Precisa de 1 ponto em ${no.requer.map((id) => this.nos.get(id)?.no.nome ?? id).join(' ou ')}.`;
+    }
+    return null;
+  }
+
+  /** Aparece na tela? O que não está liberado fica escondido (D20). */
+  visivel(info) { return this.mostrarTudo || this.pts(info.no.id) > 0 || !this.requisito(info); }
+  reacaoVisivel(x) { return this.mostrarTudo || this.estadoReacao(x) === 'aberta'; }
+
   /** Por que este nó NÃO pode receber mais um ponto agora (null = pode). */
   motivo(info) {
     const { no, elem } = info;
-    const max = this.cat.regras.maestria, linhaMax = this.cat.regras.pontos_por_linha;
+    const linhaMax = this.cat.regras.pontos_por_linha;
     if (this.rank(info) >= no.ranks) return 'Já está no máximo.';
     if (!elem.funcional) return 'Em breve: este elemento ainda não funciona no jogo.';
-    if (no.tipo !== 'maestria') {
-      const k = this.maestria(elem.id);
-      if (k < max) return `Precisa de ${elem.arvore.maestria.nome} ${max} (tem ${k}).`;
-      if (info.linha) {
-        if (info.linha > 1 && this.pontosNaLinha(elem, info.linha - 1) < linhaMax) return `Abre quando a linha ${info.linha - 1} estiver cheia (${linhaMax} pontos).`;
-        if (this.pontosNaLinha(elem, info.linha) + no.custo > linhaMax) return `A linha ${info.linha} já está cheia (${linhaMax} pontos).`;
-      }
-      if (no.requer?.length && !no.requer.some((id) => this.pts(id) > 0)) {
-        return `Precisa de 1 ponto em ${no.requer.map((id) => this.nos.get(id)?.no.nome ?? id).join(' ou ')}.`;
-      }
-    }
+    const req = this.requisito(info);
+    if (req) return req;
+    if (info.linha && this.pontosNaLinha(elem, info.linha) + no.custo > linhaMax) return `A linha ${info.linha} já está cheia (${linhaMax} pontos).`;
     if (this.disponiveis() < no.custo) return no.custo > 1 ? `Precisa de ${no.custo} pontos disponíveis.` : 'Sem pontos disponíveis: suba de nível.';
     return null;
   }
@@ -167,43 +257,74 @@ export class ArvoreUI {
   // ---------- O desenho ----------
   render() {
     if (!this.cat) return;
-    const partes = [], defs = [];
-    partes.push(`<circle class="arv-anel" r="${R}"/>`);
-    // os galhos das reações (por dentro do anel)
-    for (const x of this.reacoes) {
+    // o selecionado sumiu (Desfazer, Zerar)? solta a seleção
+    if (this.sel?.startsWith('r:') ? !this.reacoes.some((x) => `r:${x.r.id}` === this.sel && this.reacaoVisivel(x))
+      : this.sel && !(this.nos.get(this.sel) && this.visivel(this.nos.get(this.sel)))) this.sel = null;
+    const partes = [], defs = [], agora = new Set(), antes = this.antes;
+    // o que NASCE neste desenho ganha a animação (`atraso` e `dur` em segundos)
+    const nasce = (chave) => { agora.add(chave); return !!antes && !antes.has(chave); };
+    const traco = (chave, atraso, dur) => (nasce(chave)
+      ? { cl: ' nasce-traco', at: ' pathLength="1"', st: `--atraso:${atraso}s;--dur:${dur}s;` } : { cl: '', at: '', st: '' });
+    const surge = (chave, atraso) => (nasce(chave) ? { cl: ' nasce-no', st: `--atraso:${atraso}s;` } : { cl: '', st: '' });
+
+    const reacoes = this.reacoes.filter((x) => this.reacaoVisivel(x));
+    const nos = [...this.nos.values()].filter((info) => this.visivel(info));
+    const vistos = new Set(nos.map((info) => info.no.id));
+    // a estrela: cada reta nova sai da Maestria que já estava e vai até a que chegou
+    const DUR_RETA = 0.9, pares = this.estrela();
+    let fimDoAro = 0;
+    for (const { p, q } of pares) {
+      const novaP = !!antes && !antes.has(p.e.arvore.maestria.id), novaQ = !!antes && !antes.has(q.e.arvore.maestria.id);
+      const [de, para] = novaP && !novaQ ? [q, p] : [p, q];
+      const t = traco(`reta:${[p.e.id, q.e.id].sort().join('|')}`, 0.35, DUR_RETA);
+      if (t.cl) fimDoAro = Math.max(fimDoAro, 0.35 + DUR_RETA);
+      partes.push(`<path class="arv-anel${t.cl}"${t.at} style="${t.st}" d="M${n1(de.x)} ${n1(de.y)} L${n1(para.x)} ${n1(para.y)}"/>`);
+    }
+    // a estrela fechada (os 7): o círculo de fora se desenha por cima, a partir do topo
+    // (a Maestria nova surge quando a reta chega; o círculo vem depois dela)
+    if (pares.length === this.elems.size) {
+      const t = traco('circulo', Math.max(0.35, fimDoAro) + 0.4, 1.6);
+      partes.push(`<path class="arv-anel arv-circulo${t.cl}"${t.at} style="${t.st}" d="M0 ${-R} A${R} ${R} 0 1 1 0 ${R} A${R} ${R} 0 1 1 0 ${-R}"/>`);
+    }
+    // os galhos das reações (por dentro do aro)
+    for (const x of reacoes) {
       const id = x.r.id, ca = x.a.e.cor, cb = x.b.e.cor;
       const g = `x1="${n1(x.a.x)}" y1="${n1(x.a.y)}" x2="${n1(x.b.x)}" y2="${n1(x.b.y)}" gradientUnits="userSpaceOnUse"`;
       defs.push(`<linearGradient id="arv-c-${id}" ${g}><stop offset="0" stop-color="${ca}"/><stop offset="1" stop-color="${cb}"/></linearGradient>`,
         `<linearGradient id="arv-n-${id}" ${g}><stop offset=".5" stop-color="${ca}"/><stop offset=".5" stop-color="${cb}"/></linearGradient>`);
-      partes.push(`<line class="arv-corda ${this.estadoReacao(x)}" x1="${n1(x.a.x)}" y1="${n1(x.a.y)}" x2="${n1(x.b.x)}" y2="${n1(x.b.y)}" stroke="url(#arv-c-${id})"/>`);
+      const t = traco(`corda:${id}`, 0, 1);
+      partes.push(`<line class="arv-corda ${this.estadoReacao(x)}${t.cl}"${t.at} style="${t.st}" x1="${n1(x.a.x)}" y1="${n1(x.a.y)}" x2="${n1(x.b.x)}" y2="${n1(x.b.y)}" stroke="url(#arv-c-${id})"/>`);
     }
     // os galhos dos elementos (para fora)
-    for (const info of this.nos.values()) {
+    for (const info of nos) {
       for (const pai of info.pais) {
         const p = this.nos.get(pai);
-        if (!p) continue;
+        if (!p || !vistos.has(pai)) continue;
         const ap = Math.atan2(p.y, p.x), rm = (Math.hypot(p.x, p.y) + Math.hypot(info.x, info.y)) / 2;
         const [cx, cy] = polar(rm, ap);
         const tem = this.pts(info.no.id) > 0 ? ' tem' : '';
-        partes.push(`<path class="arv-galho${tem}" style="--c:${info.elem.cor}" d="M${n1(p.x)} ${n1(p.y)} Q${n1(cx)} ${n1(cy)} ${n1(info.x)} ${n1(info.y)}"/>`);
+        const t = traco(`galho:${pai}>${info.no.id}`, 0, 0.6);
+        partes.push(`<path class="arv-galho${tem}${t.cl}"${t.at} style="--c:${info.elem.cor};${t.st}" d="M${n1(p.x)} ${n1(p.y)} Q${n1(cx)} ${n1(cy)} ${n1(info.x)} ${n1(info.y)}"/>`);
       }
     }
     // os nós das reações
-    for (const x of this.reacoes) {
+    for (const x of reacoes) {
       const est = this.estadoReacao(x), sel = this.sel === `r:${x.r.id}` ? ' sel' : '';
-      partes.push(`<g class="arv-no arv-reacao ${est}${sel}" data-id="r:${x.r.id}" transform="translate(${n1(x.x)} ${n1(x.y)})">` +
+      const s = surge(`r:${x.r.id}`, 0.8);
+      partes.push(`<g class="arv-no arv-reacao ${est}${sel}${s.cl}" style="${s.st}" data-id="r:${x.r.id}" transform="translate(${n1(x.x)} ${n1(x.y)})">` +
         `<title>${esc(x.r.conhecimento)} (${esc(x.a.e.nome)} + ${esc(x.b.e.nome)})</title>` +
         `<circle r="13" style="fill:url(#arv-n-${x.r.id})"/><text class="rotulo" y="27">${esc(x.r.nome)}</text></g>`);
     }
     // os nós dos elementos
-    for (const info of this.nos.values()) {
+    for (const info of nos) {
       const { no, elem } = info, k = this.rank(info);
       const est = [k > 0 ? 'tem' : this.motivo(info) ? 'trancado' : 'pode'];
       if (!elem.funcional) est.push('breve');
       if (this.pend[no.id]) est.push('novo');
       if (this.sel === no.id) est.push('sel');
       const raio = no.tipo === 'maestria' ? 25 : no.tipo === 'suprema' ? 17 : 14;
-      partes.push(`<g class="arv-no ${no.tipo} ${est.join(' ')}" data-id="${no.id}" style="--c:${elem.cor}" transform="translate(${n1(info.x)} ${n1(info.y)})">` +
+      const s = surge(no.id, no.tipo === 'maestria' ? Math.max(0.35, fimDoAro) : 0.45);   // a Maestria nova espera o aro chegar
+      partes.push(`<g class="arv-no ${no.tipo} ${est.join(' ')}${s.cl}" data-id="${no.id}" style="--c:${elem.cor};${s.st}" transform="translate(${n1(info.x)} ${n1(info.y)})">` +
         `<title>${esc(no.nome)}</title>` +
         (no.tipo === 'suprema' ? `<circle class="arv-aro" r="${raio + 5}"/>` : '') +
         `<circle r="${raio}"/><text class="arv-rank" dy="4">${k}/${no.ranks}</text>` +
@@ -211,10 +332,13 @@ export class ArvoreUI {
     }
     // os nomes dos elementos, por fora
     for (const { e, ang } of this.elems.values()) {
+      if (!this.mostrarTudo && !this.conhecido(e)) continue;
       const [x, y] = polar(LIMITE - 40, ang);
-      partes.push(`<text class="arv-elem${e.funcional ? '' : ' breve'}" data-elem="${e.id}" style="--c:${e.cor}" x="${n1(x)}" y="${n1(y)}">${esc(e.nome.toUpperCase())}</text>`);
+      const s = surge(`nome:${e.id}`, Math.max(0.35, fimDoAro));
+      partes.push(`<text class="arv-elem${e.funcional ? '' : ' breve'}${s.cl}" data-elem="${e.id}" style="--c:${e.cor};${s.st}" x="${n1(x)}" y="${n1(y)}">${esc(e.nome.toUpperCase())}</text>`);
     }
     this.svg.innerHTML = `<defs>${defs.join('')}</defs>${partes.join('')}`;
+    this.antes = agora;
     this.renderLado();
   }
 
@@ -225,9 +349,9 @@ export class ArvoreUI {
 
     const sel = this.sel;
     if (!sel) {
-      this.detalhe.innerHTML = `<p>Cada <b>elemento</b> é um galho: a Maestria fica no anel e, com ${this.cat.regras.maestria} pontos, o galho se abre em Magia, Defesa e Arma.</p>` +
-        `<p>Por dentro do anel, cada par de elementos forma um <b>galho de reação</b>: Maestria ${this.cat.regras.reacao_abre_com_maestria} nos dois abre o Conhecimento dela (Luz + Trevas = Conhecimento do Caos).</p>` +
-        `<p class="arv-breve">Por enquanto só o Fogo funciona. Os outros elementos e as reações estão aqui para ver.</p>`;
+      this.detalhe.innerHTML = `<p>Cada <b>elemento</b> é um galho: a Maestria é a raiz e, com ${this.cat.regras.maestria} pontos, o galho se abre em Magia, Defesa e Arma.</p>` +
+        `<p>Os outros elementos se descobrem pelo caminho, e cada um entra no aro. Quando dois deles se encontram com Maestria ${this.cat.regras.reacao_abre_com_maestria}, nasce entre eles um <b>galho de reação</b>, com um Conhecimento próprio.</p>` +
+        (this.mostrarTudo ? `<p class="arv-breve">Mostrando tudo, até o que no jogo fica escondido. Só o Fogo aceita pontos.</p>` : '');
       return;
     }
     if (sel.startsWith('r:')) {

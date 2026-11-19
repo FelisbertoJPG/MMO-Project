@@ -1,9 +1,9 @@
 {
  "_leiame": "GERADO por ferramentas/habilidades/gerar-catalogo.mjs a partir de planejamento/arvore-de-habilidades.json: não edite aqui. Os números são provisórios.",
  "regras": {
-  "maestria": 5,
+  "maestria": 3,
   "pontos_por_linha": 3,
-  "reacao_abre_com_maestria": 5
+  "reacao_abre_com_maestria": 3
  },
  "elementos": [
   {
@@ -12,6 +12,7 @@
    "cor": "#ff6a30",
    "identidade": "Dano contínuo e explosões",
    "funcional": true,
+   "inicial": true,
    "arvore": {
     "modelo": "linhas",
     "maestria": {
@@ -19,17 +20,15 @@
      "nome": "Maestria do Fogo",
      "tipo": "maestria",
      "coluna": "base",
-     "ranks": 5,
+     "ranks": 3,
      "custo": 1,
      "requer": [],
      "por_ponto": [
       "+2% de dano e +3% de resistência ao fogo",
       "+4% de dano e +6% de resistência ao fogo",
-      "+6% de dano e +9% de resistência ao fogo",
-      "+8% de dano e +12% de resistência ao fogo",
-      "+10% de dano e +15% de resistência ao fogo"
+      "+6% de dano e +9% de resistência ao fogo"
      ],
-     "desc": "Treinar o fogo aumenta o dano e a resistência às chamas. Com 5 pontos, abre Manipular, Defesa e Imbuir."
+     "desc": "Treinar o fogo aumenta o dano e a resistência às chamas. Com 3 pontos, abre Manipular, Defesa e Imbuir."
     },
     "linhas": [
      {
@@ -197,6 +196,7 @@
    "cor": "#3f9bff",
    "identidade": "Sustento, empurrão e controle de espaço",
    "funcional": false,
+   "inicial": false,
    "arvore": {
     "modelo": "tiers",
     "maestria": {
@@ -204,17 +204,15 @@
      "nome": "Maestria da Água",
      "tipo": "maestria",
      "coluna": "base",
-     "ranks": 5,
+     "ranks": 3,
      "custo": 1,
      "requer": [],
      "por_ponto": [
       "+2% de dano e +3% de resistência",
       "+4% de dano e +6% de resistência",
-      "+6% de dano e +9% de resistência",
-      "+8% de dano e +12% de resistência",
-      "+10% de dano e +15% de resistência"
+      "+6% de dano e +9% de resistência"
      ],
-     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 3 pontos, abre o resto do galho."
     },
     "nos": [
      {
@@ -306,6 +304,7 @@
    "cor": "#a9793f",
    "identidade": "Quebra de postura e defesa",
    "funcional": false,
+   "inicial": false,
    "arvore": {
     "modelo": "tiers",
     "maestria": {
@@ -313,17 +312,15 @@
      "nome": "Maestria da Terra",
      "tipo": "maestria",
      "coluna": "base",
-     "ranks": 5,
+     "ranks": 3,
      "custo": 1,
      "requer": [],
      "por_ponto": [
       "+2% de dano e +3% de resistência",
       "+4% de dano e +6% de resistência",
-      "+6% de dano e +9% de resistência",
-      "+8% de dano e +12% de resistência",
-      "+10% de dano e +15% de resistência"
+      "+6% de dano e +9% de resistência"
      ],
-     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 3 pontos, abre o resto do galho."
     },
     "nos": [
      {
@@ -415,6 +412,7 @@
    "cor": "#9fe8c8",
    "identidade": "Mobilidade, alcance e velocidade",
    "funcional": false,
+   "inicial": false,
    "arvore": {
     "modelo": "tiers",
     "maestria": {
@@ -422,17 +420,15 @@
      "nome": "Maestria do Vento",
      "tipo": "maestria",
      "coluna": "base",
-     "ranks": 5,
+     "ranks": 3,
      "custo": 1,
      "requer": [],
      "por_ponto": [
       "+2% de dano e +3% de resistência",
       "+4% de dano e +6% de resistência",
-      "+6% de dano e +9% de resistência",
-      "+8% de dano e +12% de resistência",
-      "+10% de dano e +15% de resistência"
+      "+6% de dano e +9% de resistência"
      ],
-     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 3 pontos, abre o resto do galho."
     },
     "nos": [
      {
@@ -524,6 +520,7 @@
    "cor": "#ffe9a8",
    "identidade": "Cura, proteção e dano contra mortos-vivos",
    "funcional": false,
+   "inicial": false,
    "arvore": {
     "modelo": "tiers",
     "maestria": {
@@ -531,17 +528,15 @@
      "nome": "Maestria da Luz",
      "tipo": "maestria",
      "coluna": "base",
-     "ranks": 5,
+     "ranks": 3,
      "custo": 1,
      "requer": [],
      "por_ponto": [
       "+2% de dano e +3% de resistência",
       "+4% de dano e +6% de resistência",
-      "+6% de dano e +9% de resistência",
-      "+8% de dano e +12% de resistência",
-      "+10% de dano e +15% de resistência"
+      "+6% de dano e +9% de resistência"
      ],
-     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 3 pontos, abre o resto do galho."
     },
     "nos": [
      {
@@ -633,6 +628,7 @@
    "cor": "#7a4fc0",
    "identidade": "Roubo de vida, maldições e risco por recompensa",
    "funcional": false,
+   "inicial": false,
    "arvore": {
     "modelo": "tiers",
     "maestria": {
@@ -640,17 +636,15 @@
      "nome": "Maestria das Trevas",
      "tipo": "maestria",
      "coluna": "base",
-     "ranks": 5,
+     "ranks": 3,
      "custo": 1,
      "requer": [],
      "por_ponto": [
       "+2% de dano e +3% de resistência",
       "+4% de dano e +6% de resistência",
-      "+6% de dano e +9% de resistência",
-      "+8% de dano e +12% de resistência",
-      "+10% de dano e +15% de resistência"
+      "+6% de dano e +9% de resistência"
      ],
-     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 3 pontos, abre o resto do galho."
     },
     "nos": [
      {
@@ -742,6 +736,7 @@
    "cor": "#d9f25c",
    "identidade": "Velocidade, atordoamento e saltos entre alvos",
    "funcional": false,
+   "inicial": false,
    "arvore": {
     "modelo": "tiers",
     "maestria": {
@@ -749,17 +744,15 @@
      "nome": "Maestria da Eletricidade",
      "tipo": "maestria",
      "coluna": "base",
-     "ranks": 5,
+     "ranks": 3,
      "custo": 1,
      "requer": [],
      "por_ponto": [
       "+2% de dano e +3% de resistência",
       "+4% de dano e +6% de resistência",
-      "+6% de dano e +9% de resistência",
-      "+8% de dano e +12% de resistência",
-      "+10% de dano e +15% de resistência"
+      "+6% de dano e +9% de resistência"
      ],
-     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 5 pontos, abre o resto do galho."
+     "desc": "Treinar o elemento aumenta o dano e a resistência a ele. Com 3 pontos, abre o resto do galho."
     },
     "nos": [
      {
@@ -866,7 +859,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "+15% no multiplicador por rank."
     },
     {
@@ -879,7 +872,7 @@
       "vaporizacao.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "A Vaporização deixa uma névoa que queima por 3 s."
     },
     {
@@ -892,7 +885,7 @@
       "vaporizacao.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Coluna giratória de água fervente que puxa todos para o centro."
     },
     {
@@ -905,7 +898,7 @@
       "vaporizacao.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O Vórtice dura 2 s a mais."
     }
    ]
@@ -929,7 +922,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "O alvo recebe 5% a mais por rank."
     },
     {
@@ -942,7 +935,7 @@
       "fundicao.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "A Fundição deixa uma poça de lava por 4 s."
     },
     {
@@ -955,7 +948,7 @@
       "fundicao.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "O chão explode em volta do jogador."
     },
     {
@@ -968,7 +961,7 @@
       "fundicao.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A explosão alcança 2 m a mais."
     }
    ]
@@ -992,7 +985,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "A Labareda alcança 1 m a mais por rank."
     },
     {
@@ -1005,7 +998,7 @@
       "labareda.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "A queimadura espalhada dura 2 s a mais."
     },
     {
@@ -1018,7 +1011,7 @@
       "labareda.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Um tornado em chamas puxa e queima os inimigos."
     },
     {
@@ -1031,7 +1024,7 @@
       "labareda.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O Tornado dura 2 s a mais."
     }
    ]
@@ -1055,7 +1048,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Os inimigos ficam 7,5% mais lentos por rank."
     },
     {
@@ -1068,7 +1061,7 @@
       "atoleiro.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Quem fica 3 s no Atoleiro é preso por 1,5 s."
     },
     {
@@ -1081,7 +1074,7 @@
       "atoleiro.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Um pântano prende os inimigos e cura os aliados."
     },
     {
@@ -1094,7 +1087,7 @@
       "atoleiro.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O Pântano cura 4 de vida a mais por segundo."
     }
    ]
@@ -1118,7 +1111,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Congela por 0,25 s a mais por rank."
     },
     {
@@ -1131,7 +1124,7 @@
       "geada.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Golpe pesado em alvo congelado causa 40% a mais."
     },
     {
@@ -1144,7 +1137,7 @@
       "geada.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Nevasca que congela quem continuar dentro por 3 s."
     },
     {
@@ -1157,7 +1150,7 @@
       "geada.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A nevasca congela 1 s mais cedo."
     }
    ]
@@ -1181,7 +1174,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "A Cegueira dura 1 s a mais por rank."
     },
     {
@@ -1194,7 +1187,7 @@
       "cegueira.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Alvos cegos recebem 15% a mais de dano."
     },
     {
@@ -1207,7 +1200,7 @@
       "cegueira.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Tempestade de areia que anda devagar até o alvo."
     },
     {
@@ -1220,7 +1213,7 @@
       "cegueira.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A tempestade alcança 2 m a mais."
     }
    ]
@@ -1244,7 +1237,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "A Purgação dura 1 s a mais por rank."
     },
     {
@@ -1257,7 +1250,7 @@
       "purgacao.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Alvo que morre queimando cura 15 de vida."
     },
     {
@@ -1270,7 +1263,7 @@
       "purgacao.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Uma coluna de fogo sagrado desce sobre o alvo."
     },
     {
@@ -1283,7 +1276,7 @@
       "purgacao.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A coluna alcança 2 m a mais."
     }
    ]
@@ -1307,7 +1300,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Cura 10 de vida a mais por rank."
     },
     {
@@ -1320,7 +1313,7 @@
       "consagracao.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Aliados curados recebem 15% menos dano por 4 s."
     },
     {
@@ -1333,7 +1326,7 @@
       "consagracao.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Chuva sagrada que fere os inimigos e cura os aliados."
     },
     {
@@ -1346,7 +1339,7 @@
       "consagracao.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A chuva cura 4 de vida a mais por segundo."
     }
    ]
@@ -1370,7 +1363,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "O escudo absorve 15 a mais por rank."
     },
     {
@@ -1383,7 +1376,7 @@
       "egide.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Quando o escudo quebra, causa 30 de dano em volta."
     },
     {
@@ -1396,7 +1389,7 @@
       "egide.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Cristais prendem os inimigos por 3 s."
     },
     {
@@ -1409,7 +1402,7 @@
       "egide.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A prisão dura 1 s a mais."
     }
    ]
@@ -1433,7 +1426,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Dura 0,5 s a mais por rank."
     },
     {
@@ -1446,7 +1439,7 @@
       "refracao.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Depois da Refração, anda 20% mais rápido por 3 s."
     },
     {
@@ -1459,7 +1452,7 @@
       "refracao.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Cópias de luz confundem e cortam os inimigos."
     },
     {
@@ -1472,7 +1465,7 @@
       "refracao.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "Os reflexos duram 2 s a mais."
     }
    ]
@@ -1496,7 +1489,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "O clarão alcança 1 m a mais por rank."
     },
     {
@@ -1509,7 +1502,7 @@
       "fulgor.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Alvos atordoados recebem 15% a mais de dano."
     },
     {
@@ -1522,7 +1515,7 @@
       "fulgor.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Um feixe de luz elétrica atravessa todos à frente."
     },
     {
@@ -1535,7 +1528,7 @@
       "fulgor.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A lança sai 0,5 s mais rápido."
     }
    ]
@@ -1559,7 +1552,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "+10% no multiplicador por rank."
     },
     {
@@ -1572,7 +1565,7 @@
       "caos.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Cada reação do Caos cura 5% da vida."
     },
     {
@@ -1585,7 +1578,7 @@
       "caos.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "O céu escurece e a área inteira é consumida."
     },
     {
@@ -1598,7 +1591,7 @@
       "caos.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O Eclipse alcança 2 m a mais."
     }
    ]
@@ -1622,7 +1615,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Causa 4 de dano a mais por segundo por rank."
     },
     {
@@ -1635,7 +1628,7 @@
       "chama_negra.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Cura 30% do dano da Chama Negra."
     },
     {
@@ -1648,7 +1641,7 @@
       "chama_negra.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Um portão de fogo negro se abre sob os inimigos."
     },
     {
@@ -1661,7 +1654,7 @@
       "chama_negra.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O portão fica aberto 2 s a mais."
     }
    ]
@@ -1685,7 +1678,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "O veneno dura 2 s a mais por rank."
     },
     {
@@ -1698,7 +1691,7 @@
       "corrupcao.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Alvo envenenado que morre passa o veneno a quem está a 4 m."
     },
     {
@@ -1711,7 +1704,7 @@
       "corrupcao.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Uma onda negra envenena tudo em volta."
     },
     {
@@ -1724,7 +1717,7 @@
       "corrupcao.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A onda alcança 2 m a mais."
     }
    ]
@@ -1748,7 +1741,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Prende por 0,25 s a mais por rank."
     },
     {
@@ -1761,7 +1754,7 @@
       "sepultamento.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Abater um alvo preso devolve 15 de Éter."
     },
     {
@@ -1774,7 +1767,7 @@
       "sepultamento.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Mãos saem do chão e seguram os inimigos."
     },
     {
@@ -1787,7 +1780,7 @@
       "sepultamento.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "As mãos prendem por 1 s a mais."
     }
    ]
@@ -1811,7 +1804,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "O medo dura 0,5 s a mais por rank."
     },
     {
@@ -1824,7 +1817,7 @@
       "pavor.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Causa 20% a mais em alvos fugindo."
     },
     {
@@ -1837,7 +1830,7 @@
       "pavor.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Um uivo sombrio fere e apavora todos em volta."
     },
     {
@@ -1850,7 +1843,7 @@
       "pavor.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O uivo alcança 2 m a mais."
     }
    ]
@@ -1874,7 +1867,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Devolve 5 de Éter a mais por rank."
     },
     {
@@ -1887,7 +1880,7 @@
       "drenagem.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Cada Drenagem tira 2 s da recarga das outras habilidades."
     },
     {
@@ -1900,7 +1893,7 @@
       "drenagem.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Um ponto de vazio puxa tudo para dentro."
     },
     {
@@ -1913,7 +1906,7 @@
       "drenagem.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O Colapso alcança 2 m a mais."
     }
    ]
@@ -1937,7 +1930,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "A explosão causa 12 a mais por rank."
     },
     {
@@ -1950,7 +1943,7 @@
       "detonacao.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "A explosão deixa marca de fogo em quem atingir."
     },
     {
@@ -1963,7 +1956,7 @@
       "detonacao.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Uma esfera de plasma cai e explode."
     },
     {
@@ -1976,7 +1969,7 @@
       "detonacao.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A explosão alcança 2 m a mais."
     }
    ]
@@ -2000,7 +1993,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Salta para 1 inimigo a mais por rank."
     },
     {
@@ -2013,7 +2006,7 @@
       "conducao.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Alvos com marca de água recebem o dobro do salto."
     },
     {
@@ -2026,7 +2019,7 @@
       "conducao.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Raios caem sem parar sobre a área."
     },
     {
@@ -2039,7 +2032,7 @@
       "conducao.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "A tempestade dura 2 s a mais."
     }
    ]
@@ -2063,7 +2056,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Puxa de 1 m mais longe por rank."
     },
     {
@@ -2076,7 +2069,7 @@
       "magnetismo.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "Inimigos puxados que se chocam perdem 30 de postura."
     },
     {
@@ -2089,7 +2082,7 @@
       "magnetismo.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Um campo magnético arrasta e esmaga os inimigos."
     },
     {
@@ -2102,7 +2095,7 @@
       "magnetismo.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O campo dura 2 s a mais."
     }
    ]
@@ -2126,7 +2119,7 @@
      "custo": 1,
      "requer": [],
      "tier": 1,
-     "requer_em_cada": 5,
+     "requer_em_cada": 3,
      "desc": "Atordoa por 0,2 s a mais por rank."
     },
     {
@@ -2139,7 +2132,7 @@
       "trovoada.dominio"
      ],
      "tier": 2,
-     "requer_em_cada": 8,
+     "requer_em_cada": 6,
      "desc": "A Trovoada repete 50% do dano em volta do alvo."
     },
     {
@@ -2152,7 +2145,7 @@
       "trovoada.passiva"
      ],
      "tier": 3,
-     "requer_em_cada": 11,
+     "requer_em_cada": 9,
      "desc": "Um furacão carregado puxa e eletrocuta os inimigos."
     },
     {
@@ -2165,7 +2158,7 @@
       "trovoada.habilidade"
      ],
      "tier": 4,
-     "requer_em_cada": 14,
+     "requer_em_cada": 12,
      "desc": "O furacão dura 2 s a mais."
     }
    ]

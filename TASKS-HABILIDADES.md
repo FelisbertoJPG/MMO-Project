@@ -24,13 +24,21 @@ elementos e as outras 20 reações vêm depois, seguindo a mesma regra.
 - [x] **Dennis removido do jogo (D8).** O Goblin passou a ser o dígito 3 das raças.
 - [x] **Sistema de níveis no jogo (D1):** cada nível libera 1 ponto de habilidade e dá +2 de vida,
   +1 de vigor, +0,2 de carga e +0,5% de força. Publicado na versão 2026-11-18.2.
-- [x] **Modelo da árvore aprovado (D14, D15, D17):** Maestria de 5 pontos (dá dano e resistência ao elemento),
+- [x] **Modelo da árvore aprovado (D14, D15, D17):** Maestria de 3 pontos (era 5, D19; dá dano e resistência ao elemento),
   2 linhas comuns de 3 pontos e 1 linha de suprema. O Fogo já está em `modelo_de_arvore`.
 - [x] **Migration dos elementos (D18):** `supabase/migrations/0005_habilidades.sql`, já rodada pelo
   dono. Cria os 7 elementos com a Maestria, as 21 reações como registro e todas as habilidades
   do Fogo.
 - [x] **A habilidade nova não substitui a original (D16):** a Rajada e a Bola de Fogo ficam
   disponíveis juntas.
+- [x] **Maestria de 3 pontos (D19):** o mesmo ganho por ponto; a árvore de um elemento fica com
+  12 pontos e os requisitos das árvores de reação caem para 3, 6, 9 e 12. Migration
+  `supabase/migrations/0007_maestria_de_3.sql` (só o catálogo; **falta o dono rodar**).
+- [x] **Escondido até liberar (D20):** o personagem começa conhecendo só a Maestria do Fogo; as
+  outras virão das missões. A tela da árvore só mostra o que já está liberado.
+- [ ] **Elementos descobertos no save:** hoje "conhecer" um elemento é ser o inicial ou ter ponto
+  na Maestria. Quando houver missões, gravar os descobertos em `jogador.habilidades` (mexe no
+  `saveTorto()` e no `personagem_valido()` juntos).
 - [x] **Reação do Caos (D13):** por enquanto existe só como registro na tabela.
 - [x] **PvP (D6) e refazer a árvore (D9):** adiados, junto com o editor do dono.
 
@@ -85,7 +93,7 @@ conta real. A trava de raça continua desligada.
 
 - [~] **Tela de habilidades** (tecla K, `js/arvore.js`, 19/11/2026): em vez de abas, uma árvore só, com os
   7 elementos num anel e as reações como galhos entre eles ("Conhecimento do …", trancado até a
-  Maestria 5 nos dois). Só o Fogo aceita pontos (confirmados, vão para o save); o resto é para ver.
+  Maestria 3 nos dois). O que não está liberado fica escondido (D20). Só o Fogo aceita pontos (confirmados, vão para o save); o resto é para ver.
   Falta a árvore da Raça.
 - [ ] **Montar a barra:** arrastar habilidades para os espaços, só fora de combate.
 - [ ] **Funcionar no celular**, com pré-visualização do que cada ponto rende.
