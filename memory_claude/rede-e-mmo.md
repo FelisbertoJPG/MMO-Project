@@ -2,6 +2,10 @@
 
 > A documentação da área (o online: Supabase, protocolo, fantasmas/mensagens/mortes, sala, duelo, co-op, o Mundo online (servidor-mundo.mjs, simulador, de todos × de cada um, game.sessao), o chat global e o chat de voz (WebRTC, TURN)). É a ÚNICA cópia: lição nova da área entra aqui, no tópico certo. Quem lê: o agente `rede-e-mmo` (leve: só os trechos do pedido), o `rede-e-mmo-forte` (inteira) e a sessão principal quando o dono escolhe "ler a base".
 
+## Sessão da conta
+
+`tokenValido` (`rede/supabase.js`) preserva a sessão e o refresh token quando a renovação falha por falta de rede, HTTP 429 ou HTTP 5xx. A próxima chamada pode renovar normalmente; recusas definitivas continuam apagando a sessão. `testes/sessao.test.mjs` confere isso com respostas controladas, junto dos testes HTTP do mundo em `npm test`.
+
 ## O online: nível 1, protocolo, sala, duelo e co-op
 
 **O ONLINE (`js/rede/`, 01/10/2026)** — login OPCIONAL. Sem conta, tudo é offline como antes. O Supabase é o MESMO projeto do Duel Academy (mesmas contas), mas tudo da Masmorra fica no schema `masmorra`, para dar para desligar só ela (ver `supabase/README.md`; migrations em `supabase/migrations/`, aplicadas à mão no SQL Editor). Sem dependências: `rede/supabase.js` (cliente REST, sempre com `Accept-/Content-Profile: masmorra`) e `rede/realtime.js` (cópia adaptada do Duel Academy, só a face de transmissão + canal privado).
