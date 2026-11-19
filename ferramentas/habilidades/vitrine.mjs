@@ -70,6 +70,7 @@ ${blocoDaArvore()}
   };
   const arvore = new Vitrine(game);
   window.arvore = arvore;
+  arvore.juramentosLiberados = true;   // na vitrine dá para jurar (no jogo, só com o refazer)
   arvore.fechar = () => {};          // aqui ela nunca fecha
   arvore.abrir();
   // descobre o próximo elemento (a ordem do catálogo), para ver o aro chegar até ele
@@ -82,7 +83,7 @@ ${blocoDaArvore()}
     game.player.habilidades = habilidadesVazias();
     arvore.pend = {};
     arvore.descobertos.clear();
-    arvore.antes = null;
+    arvore.antesFace = {};
     arvore.vistaInicial();
     arvore.render();
     marcar();

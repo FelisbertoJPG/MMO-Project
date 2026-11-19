@@ -26,6 +26,7 @@
       <div id="hud-info">
         <div id="hud-topo"><span id="hud-nivel">Nv 1</span><span id="hud-nome"></span></div>
         <div class="bar hp"><div class="trail"></div><div class="fill"></div><span class="num"></span></div>
+        <div class="bar eter"><div class="fill"></div><span class="num"></span></div>
         <div class="bar st"><div class="fill"></div><span class="num"></span></div>
       </div>
     </div>
@@ -45,9 +46,8 @@
     </div>
 
     <div id="souls"><span class="souls-icon"></span><span id="souls-value">0</span></div>
-    <!-- O Éter e a barra das habilidades (1 a 4), no canto de baixo à direita, sobre as almas — js/ui.js -->
+    <!-- A barra das habilidades (1 a 4), embaixo no meio; o Éter fica no quadro do jogador — js/ui.js -->
     <div id="hab-hud">
-      <div class="bar eter"><div class="fill"></div><span class="num"></span></div>
       <div class="hab-barra">
         <div class="hab-vaga"><span class="tecla">1</span><span class="hab-nome"></span></div>
         <div class="hab-vaga"><span class="tecla">2</span><span class="hab-nome"></span></div>
@@ -216,6 +216,8 @@
       </div>
       <div class="arv-lado">
         <h2>Habilidades</h2>
+        <!-- as duas faces da árvore: o círculo dos elementos e a árvore de combate -->
+        <div class="arv-faces"><button data-face="arcana" class="ativa">Arte Arcana</button><button data-face="marcial">Arte Marcial</button></div>
         <div class="arv-pontos"></div>
         <div class="arv-acoes"><button class="arv-confirmar">Confirmar</button><button class="arv-desfazer">Desfazer</button></div>
         <div class="arv-detalhe"></div>

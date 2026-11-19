@@ -1,6 +1,6 @@
 {
   "_sobre": "RASCUNHO PARA DEBATE da árvore de habilidades. O jogo ainda não lê este arquivo. Todos os números são provisórios. Quando as decisões fecharem, os dados vão para assets/habilidades.json. O plano está em TASKS-HABILIDADES.md.",
-  "revisao_do_rascunho": 9,
+  "revisao_do_rascunho": 10,
   "atualizado_em": "2026-11-19",
   "ordem_de_trabalho": {
     "regra": "Uma habilidade de cada vez: desenhar, fazer, testar no jogo e só então passar para a próxima.",
@@ -672,6 +672,48 @@
       "hibrido": ["maestria:3", "bola:2", "pele:1", "rajada:2", "cinzas:1"]
     }
   },
+  "arvore_de_combate": {
+    "_nota": "A ARTE MARCIAL (19/11/2026, D21 a D24): a segunda face da árvore. Fundamentos (3) abre os Estilos (só um) e as Armas (uma família por galho, livres). Com o estilo completo, o Juramento da Força Bruta troca os elementos por força: o Éter vira Fúria. O espelho é o Juramento da Canalização, no centro do círculo dos elementos: o Éter vira Mana. Os ids vão nos mesmos nos do save.",
+    "cores": { "fundamentos": "#b9c3cc", "arma": "#b9c3cc", "tecnica": "#dfe6ec", "estilo": "#c8a86a", "juramento": "#d0482a", "forca": "#d0482a" },
+    "orcamento_de_referencia": { "fundamentos_e_estilo": 6, "uma_arma_com_tecnica": 3, "juramento": 3, "arvore_da_forca_bruta": 8 },
+    "nos": [
+      { "id": "combate.fundamentos", "nome": "Fundamentos do Combate", "secao": "fundamentos", "tipo": "maestria", "ranks": 3, "custo": 1, "requer": [], "por_ponto": ["+3% de dano físico e +5 de vigor", "+6% de dano físico e +10 de vigor", "+9% de dano físico e +15 de vigor"], "desc": "O treino de todo lutador. Com 3 pontos, abre os Estilos e as Armas." },
+      { "id": "combate.laminas", "nome": "Lâminas Curtas", "secao": "arma", "familia": "lamina_curta", "armas": ["dagger"], "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["+5% de dano com adagas", "+10% de dano com adagas"], "desc": "Golpes curtos e rápidos." },
+      { "id": "combate.laminas.tecnica", "nome": "Estocada Rápida", "secao": "tecnica", "familia": "lamina_curta", "tipo": "ativa", "ranks": 1, "custo": 1, "requer": ["combate.laminas"], "por_ponto": ["3 estocadas seguidas de 18 de dano"], "desc": "Técnica da adaga.", "ativa": {"eter": 30, "recarga": 8} },
+      { "id": "combate.espadas", "nome": "Espadas", "secao": "arma", "familia": "espada", "armas": ["longsword"], "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["+5% de dano com espadas", "+10% de dano com espadas"], "desc": "O equilíbrio entre alcance e rapidez." },
+      { "id": "combate.espadas.tecnica", "nome": "Investida", "secao": "tecnica", "familia": "espada", "tipo": "ativa", "ranks": 1, "custo": 1, "requer": ["combate.espadas"], "por_ponto": ["Avança 5 m e golpeia: 40 de dano"], "desc": "Técnica da espada.", "ativa": {"eter": 35, "recarga": 10} },
+      { "id": "combate.machados", "nome": "Machados", "secao": "arma", "familia": "machado", "armas": ["axe"], "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["+5% de dano com machados", "+10% de dano com machados"], "desc": "Golpes pesados que quebram a guarda." },
+      { "id": "combate.machados.tecnica", "nome": "Giro", "secao": "tecnica", "familia": "machado", "tipo": "ativa", "ranks": 1, "custo": 1, "requer": ["combate.machados"], "por_ponto": ["Golpe em volta: 45 de dano em quem estiver perto"], "desc": "Técnica do machado.", "ativa": {"eter": 40, "recarga": 12} },
+      { "id": "combate.espadoes", "nome": "Espadões", "secao": "arma", "familia": "espadao", "armas": ["greatsword"], "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["+5% de dano com espadões", "+10% de dano com espadões"], "desc": "Armas de duas mãos, lentas e devastadoras." },
+      { "id": "combate.espadoes.tecnica", "nome": "Golpe Descendente", "secao": "tecnica", "familia": "espadao", "tipo": "ativa", "ranks": 1, "custo": 1, "requer": ["combate.espadoes"], "por_ponto": ["Salta e cai com o espadão: 70 de dano e quebra a postura"], "desc": "Técnica do espadão.", "ativa": {"eter": 50, "recarga": 14} },
+      { "id": "combate.punhos", "nome": "Punhos", "secao": "arma", "familia": "punhos", "armas": ["unarmed"], "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["+5% de dano com os punhos", "+10% de dano com os punhos"], "desc": "Sem arma, mas nunca desarmado." },
+      { "id": "combate.punhos.tecnica", "nome": "Rajada de Socos", "secao": "tecnica", "familia": "punhos", "tipo": "ativa", "ranks": 1, "custo": 1, "requer": ["combate.punhos"], "por_ponto": ["6 socos de 9 de dano"], "desc": "Técnica dos punhos.", "ativa": {"eter": 30, "recarga": 8} },
+      { "id": "combate.escudos", "nome": "Escudos", "secao": "arma", "familia": "escudo", "armas": [], "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["+10% de estabilidade do escudo", "+20% de estabilidade do escudo"], "desc": "A defesa que também empurra." },
+      { "id": "combate.escudos.tecnica", "nome": "Empurrão", "secao": "tecnica", "familia": "escudo", "tipo": "ativa", "ranks": 1, "custo": 1, "requer": ["combate.escudos"], "por_ponto": ["Empurra 3 m e desequilibra o alvo"], "desc": "Técnica do escudo.", "ativa": {"eter": 25, "recarga": 10} },
+      { "id": "combate.duelista", "nome": "Guarda do Duelista", "secao": "estilo", "estilo": "duelista", "grupo": "estilo", "equipamento": "uma mão + escudo", "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["Bloquear com escudo gasta 15% menos vigor", "Bloquear com escudo gasta 30% menos vigor"], "desc": "Estilo do Duelista: arma de uma mão e escudo. Escolher um estilo fecha os outros." },
+      { "id": "combate.contra", "nome": "Contra-ataque", "secao": "estilo", "estilo": "duelista", "tipo": "passiva", "ranks": 1, "custo": 1, "requer": ["combate.duelista"], "requer_minimo": {"combate.duelista": 2}, "por_ponto": ["O golpe logo depois de um bloqueio causa 40% a mais"], "desc": "Quem bloqueia bem responde forte." },
+      { "id": "combate.barbaro", "nome": "Peso do Golpe", "secao": "estilo", "estilo": "barbaro", "grupo": "estilo", "equipamento": "duas mãos", "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["+10% de dano de postura com arma de duas mãos", "+20% de dano de postura com arma de duas mãos"], "desc": "Estilo do Bárbaro: espadão ou machado nas duas mãos. Escolher um estilo fecha os outros." },
+      { "id": "combate.inabalavel", "nome": "Inabalável", "secao": "estilo", "estilo": "barbaro", "tipo": "passiva", "ranks": 1, "custo": 1, "requer": ["combate.barbaro"], "requer_minimo": {"combate.barbaro": 2}, "por_ponto": ["O ataque pesado não é interrompido por golpes"], "desc": "Nada para o golpe que já começou." },
+      { "id": "combate.agil", "nome": "Passo Leve", "secao": "estilo", "estilo": "agil", "grupo": "estilo", "equipamento": "adaga ou punhos", "tipo": "passiva", "ranks": 2, "custo": 1, "requer": [], "requer_minimo": {"combate.fundamentos": 3}, "por_ponto": ["O rolamento gasta 10% menos vigor", "O rolamento gasta 20% menos vigor"], "desc": "Estilo Ágil: adaga ou punhos, sem escudo. Escolher um estilo fecha os outros." },
+      { "id": "combate.costas", "nome": "Pelas Costas", "secao": "estilo", "estilo": "agil", "tipo": "passiva", "ranks": 1, "custo": 1, "requer": ["combate.agil"], "requer_minimo": {"combate.agil": 2}, "por_ponto": ["O golpe pelas costas causa 50% a mais"], "desc": "Quem não é visto acerta onde dói." },
+      { "id": "combate.juramento_forca", "nome": "Juramento da Força Bruta", "secao": "juramento", "juramento": "forca", "tipo": "suprema", "ranks": 1, "custo": 3, "requer": ["combate.contra", "combate.inabalavel", "combate.costas"], "por_ponto": ["O Éter vira Fúria, e os elementos se fecham"], "desc": "Abre mão dos elementos (refazer, só na fogueira). Exige o estilo completo e nenhum ponto nos elementos. Abre a árvore da Força Bruta." },
+      { "id": "forca.corpo", "nome": "Corpo Sem Afinidade", "secao": "forca", "tipo": "passiva", "ranks": 2, "custo": 1, "requer": ["combate.juramento_forca"], "por_ponto": ["+2% de dano físico por elemento sem ponto (+14% com os 7)", "+4% de dano físico por elemento sem ponto (+28% com os 7)"], "desc": "Cada elemento que você não domina vira força." },
+      { "id": "forca.pele", "nome": "Pele de Ferro", "secao": "forca", "tipo": "passiva", "ranks": 2, "custo": 1, "requer": ["combate.juramento_forca"], "por_ponto": ["+6% de resistência a todos os elementos", "+12% de resistência a todos os elementos"], "desc": "Sem afinidade com nenhum elemento, nenhum o domina." },
+      { "id": "forca.furia", "nome": "Fúria", "secao": "forca", "tipo": "passiva", "ranks": 1, "custo": 1, "requer": ["forca.corpo", "forca.pele"], "por_ponto": ["Apanhar enche 50% mais Fúria, e as técnicas causam 25% a mais"], "desc": "A dor vira combustível." },
+      { "id": "forca.imparavel", "nome": "Fúria Imparável", "secao": "forca", "tipo": "suprema", "ranks": 1, "custo": 3, "requer": ["forca.furia"], "por_ponto": ["Por 10 s, nada o interrompe e o dano sobe 30%"], "desc": "A suprema do Guerreiro.", "ativa": {"furia": 100, "recarga": 90, "suprema": true} }
+    ]
+  },
+  "canalizacao": {
+    "_nota": "O Juramento da Canalização (o Arcano) fica no centro do círculo dos elementos e abre a árvore da Canalização (8 pontos). Exclusivo com o da Força Bruta.",
+    "cor": "#9a7cff",
+    "nos": [
+      { "id": "arcano.juramento_canalizacao", "nome": "Juramento da Canalização", "secao": "juramento_arcano", "juramento": "canalizacao", "tipo": "suprema", "ranks": 1, "custo": 3, "requer": [], "por_ponto": ["O Éter vira Mana, e as técnicas de arma se fecham"], "desc": "Abre mão das técnicas de arma (refazer, só na fogueira). Exige uma Maestria completa e nenhum ponto em técnicas. Abre a árvore da Canalização." },
+      { "id": "canal.poco", "nome": "Poço de Mana", "secao": "canalizacao", "tipo": "passiva", "ranks": 2, "custo": 1, "requer": ["arcano.juramento_canalizacao"], "por_ponto": ["A Mana guarda até 125 e não esvazia fora de combate", "A Mana guarda até 150 e não esvazia fora de combate"], "desc": "O Éter da luta fica guardado para as magias." },
+      { "id": "canal.golpe", "nome": "Golpe Canalizado", "secao": "canalizacao", "tipo": "passiva", "ranks": 2, "custo": 1, "requer": ["arcano.juramento_canalizacao"], "por_ponto": ["+20% de Éter por golpe", "+40% de Éter por golpe"], "desc": "Cada golpe alimenta o poço." },
+      { "id": "canal.fluxo", "nome": "Fluxo", "secao": "canalizacao", "tipo": "passiva", "ranks": 1, "custo": 1, "requer": ["canal.poco", "canal.golpe"], "por_ponto": ["As magias custam 15% menos"], "desc": "A Mana corre sem perda." },
+      { "id": "canal.transbordar", "nome": "Transbordar", "secao": "canalizacao", "tipo": "suprema", "ranks": 1, "custo": 3, "requer": ["canal.fluxo"], "por_ponto": ["Por 10 s, as magias não custam Mana"], "desc": "A suprema do Arcano.", "ativa": {"mana": 100, "recarga": 90, "suprema": true} }
+    ]
+  },
   "decisoes_em_aberto": [
     {
       "id": "D1",
@@ -782,6 +824,30 @@
       "tema": "O que fica escondido",
       "status": "decidido",
       "decisao": "O personagem começa conhecendo uma só Maestria, a do Fogo; as outras serão desbloqueadas no jogo, por missões. Na tela da árvore só aparece o que está liberado: até a Maestria do Fogo chegar a 3, o resto do galho fica escondido, e o mesmo vale para cada linha e para as árvores de reação."
+    },
+    {
+      "id": "D21",
+      "tema": "A árvore de combate",
+      "status": "decidido",
+      "decisao": "A segunda face da árvore, a Arte Marcial: Fundamentos (3 pontos) abre os Estilos e as Armas. Cada arma tem um galho (proficiência + uma técnica que gasta Éter) e o bônus só vale com a arma da família na mão."
+    },
+    {
+      "id": "D22",
+      "tema": "Estilo único",
+      "status": "decidido",
+      "decisao": "Duelista (uma mão + escudo), Bárbaro (duas mãos) ou Ágil (adaga ou punhos): só um por personagem. O primeiro ponto num estilo fecha os outros."
+    },
+    {
+      "id": "D23",
+      "tema": "Os juramentos",
+      "status": "decidido",
+      "decisao": "Dois juramentos exclusivos, de 3 pontos, refeitos só na fogueira. O da Força Bruta (o Guerreiro) exige o estilo completo e nenhum ponto nos elementos: fecha o círculo inteiro (Maestrias e magias), o Éter vira Fúria e abre a árvore da Força Bruta, com a Pele de Ferro no lugar da resistência das Maestrias. O da Canalização (o Arcano), no centro do círculo, exige uma Maestria completa e nenhuma técnica de arma: fecha as técnicas e o Éter vira Mana."
+    },
+    {
+      "id": "D24",
+      "tema": "Orçamento do combate",
+      "status": "decidido",
+      "decisao": "Fundamentos e estilo: 6 pontos; cada arma com a técnica: 3; o juramento: 3; a árvore da Força Bruta ou da Canalização: 8."
     }
   ],
   "ideias_para_depois": [

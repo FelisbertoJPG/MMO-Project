@@ -55,6 +55,17 @@ const reacoes = plano.reacoes.map((r) => ({
   arvore: r.arvore.nome, nos: r.arvore.nos.map(no),
 }));
 
+// a ARTE MARCIAL (D21 a D24): a árvore de combate e, no centro do círculo, a Canalização
+const noCombate = (n) => ({
+  ...no(n), secao: n.secao,
+  ...(n.requer_minimo ? { requer_minimo: n.requer_minimo } : {}),
+  ...(n.grupo ? { grupo: n.grupo } : {}), ...(n.juramento ? { juramento: n.juramento } : {}),
+  ...(n.familia ? { familia: n.familia } : {}), ...(n.armas ? { armas: n.armas } : {}),
+  ...(n.estilo ? { estilo: n.estilo } : {}), ...(n.equipamento ? { equipamento: n.equipamento } : {}),
+});
+const combate = { cores: plano.arvore_de_combate.cores, nos: plano.arvore_de_combate.nos.map(noCombate) };
+const canalizacao = { cor: plano.canalizacao.cor, nos: plano.canalizacao.nos.map(noCombate) };
+
 const saida = {
   _leiame: 'GERADO por ferramentas/habilidades/gerar-catalogo.mjs a partir de planejamento/arvore-de-habilidades.json: não edite aqui. Os números são provisórios.',
   regras: {
@@ -62,7 +73,7 @@ const saida = {
     pontos_por_linha: plano.modelo_de_arvore.regras.limite_de_pontos_por_linha,
     reacao_abre_com_maestria: plano.regras.arvore_de_reacao.abre_com_maestria_em_cada_elemento,
   },
-  elementos, reacoes,
+  elementos, reacoes, combate, canalizacao,
 };
 writeFileSync(raiz + 'assets/habilidades.json', JSON.stringify(saida, null, 1) + '\n');
 console.log(`assets/habilidades.json: ${elementos.length} elementos (${[...FUNCIONAIS].join(', ')} funcional), ${reacoes.length} reações`);

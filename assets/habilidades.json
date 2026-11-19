@@ -2163,5 +2163,532 @@
     }
    ]
   }
- ]
+ ],
+ "combate": {
+  "cores": {
+   "fundamentos": "#b9c3cc",
+   "arma": "#b9c3cc",
+   "tecnica": "#dfe6ec",
+   "estilo": "#c8a86a",
+   "juramento": "#d0482a",
+   "forca": "#d0482a"
+  },
+  "nos": [
+   {
+    "id": "combate.fundamentos",
+    "nome": "Fundamentos do Combate",
+    "tipo": "maestria",
+    "ranks": 3,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "+3% de dano físico e +5 de vigor",
+     "+6% de dano físico e +10 de vigor",
+     "+9% de dano físico e +15 de vigor"
+    ],
+    "desc": "O treino de todo lutador. Com 3 pontos, abre os Estilos e as Armas.",
+    "secao": "fundamentos"
+   },
+   {
+    "id": "combate.laminas",
+    "nome": "Lâminas Curtas",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "+5% de dano com adagas",
+     "+10% de dano com adagas"
+    ],
+    "desc": "Golpes curtos e rápidos.",
+    "secao": "arma",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "familia": "lamina_curta",
+    "armas": [
+     "dagger"
+    ]
+   },
+   {
+    "id": "combate.laminas.tecnica",
+    "nome": "Estocada Rápida",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.laminas"
+    ],
+    "por_ponto": [
+     "3 estocadas seguidas de 18 de dano"
+    ],
+    "desc": "Técnica da adaga.",
+    "secao": "tecnica",
+    "familia": "lamina_curta"
+   },
+   {
+    "id": "combate.espadas",
+    "nome": "Espadas",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "+5% de dano com espadas",
+     "+10% de dano com espadas"
+    ],
+    "desc": "O equilíbrio entre alcance e rapidez.",
+    "secao": "arma",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "familia": "espada",
+    "armas": [
+     "longsword"
+    ]
+   },
+   {
+    "id": "combate.espadas.tecnica",
+    "nome": "Investida",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.espadas"
+    ],
+    "por_ponto": [
+     "Avança 5 m e golpeia: 40 de dano"
+    ],
+    "desc": "Técnica da espada.",
+    "secao": "tecnica",
+    "familia": "espada"
+   },
+   {
+    "id": "combate.machados",
+    "nome": "Machados",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "+5% de dano com machados",
+     "+10% de dano com machados"
+    ],
+    "desc": "Golpes pesados que quebram a guarda.",
+    "secao": "arma",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "familia": "machado",
+    "armas": [
+     "axe"
+    ]
+   },
+   {
+    "id": "combate.machados.tecnica",
+    "nome": "Giro",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.machados"
+    ],
+    "por_ponto": [
+     "Golpe em volta: 45 de dano em quem estiver perto"
+    ],
+    "desc": "Técnica do machado.",
+    "secao": "tecnica",
+    "familia": "machado"
+   },
+   {
+    "id": "combate.espadoes",
+    "nome": "Espadões",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "+5% de dano com espadões",
+     "+10% de dano com espadões"
+    ],
+    "desc": "Armas de duas mãos, lentas e devastadoras.",
+    "secao": "arma",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "familia": "espadao",
+    "armas": [
+     "greatsword"
+    ]
+   },
+   {
+    "id": "combate.espadoes.tecnica",
+    "nome": "Golpe Descendente",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.espadoes"
+    ],
+    "por_ponto": [
+     "Salta e cai com o espadão: 70 de dano e quebra a postura"
+    ],
+    "desc": "Técnica do espadão.",
+    "secao": "tecnica",
+    "familia": "espadao"
+   },
+   {
+    "id": "combate.punhos",
+    "nome": "Punhos",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "+5% de dano com os punhos",
+     "+10% de dano com os punhos"
+    ],
+    "desc": "Sem arma, mas nunca desarmado.",
+    "secao": "arma",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "familia": "punhos",
+    "armas": [
+     "unarmed"
+    ]
+   },
+   {
+    "id": "combate.punhos.tecnica",
+    "nome": "Rajada de Socos",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.punhos"
+    ],
+    "por_ponto": [
+     "6 socos de 9 de dano"
+    ],
+    "desc": "Técnica dos punhos.",
+    "secao": "tecnica",
+    "familia": "punhos"
+   },
+   {
+    "id": "combate.escudos",
+    "nome": "Escudos",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "+10% de estabilidade do escudo",
+     "+20% de estabilidade do escudo"
+    ],
+    "desc": "A defesa que também empurra.",
+    "secao": "arma",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "familia": "escudo",
+    "armas": []
+   },
+   {
+    "id": "combate.escudos.tecnica",
+    "nome": "Empurrão",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.escudos"
+    ],
+    "por_ponto": [
+     "Empurra 3 m e desequilibra o alvo"
+    ],
+    "desc": "Técnica do escudo.",
+    "secao": "tecnica",
+    "familia": "escudo"
+   },
+   {
+    "id": "combate.duelista",
+    "nome": "Guarda do Duelista",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "Bloquear com escudo gasta 15% menos vigor",
+     "Bloquear com escudo gasta 30% menos vigor"
+    ],
+    "desc": "Estilo do Duelista: arma de uma mão e escudo. Escolher um estilo fecha os outros.",
+    "secao": "estilo",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "grupo": "estilo",
+    "estilo": "duelista",
+    "equipamento": "uma mão + escudo"
+   },
+   {
+    "id": "combate.contra",
+    "nome": "Contra-ataque",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.duelista"
+    ],
+    "por_ponto": [
+     "O golpe logo depois de um bloqueio causa 40% a mais"
+    ],
+    "desc": "Quem bloqueia bem responde forte.",
+    "secao": "estilo",
+    "requer_minimo": {
+     "combate.duelista": 2
+    },
+    "estilo": "duelista"
+   },
+   {
+    "id": "combate.barbaro",
+    "nome": "Peso do Golpe",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "+10% de dano de postura com arma de duas mãos",
+     "+20% de dano de postura com arma de duas mãos"
+    ],
+    "desc": "Estilo do Bárbaro: espadão ou machado nas duas mãos. Escolher um estilo fecha os outros.",
+    "secao": "estilo",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "grupo": "estilo",
+    "estilo": "barbaro",
+    "equipamento": "duas mãos"
+   },
+   {
+    "id": "combate.inabalavel",
+    "nome": "Inabalável",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.barbaro"
+    ],
+    "por_ponto": [
+     "O ataque pesado não é interrompido por golpes"
+    ],
+    "desc": "Nada para o golpe que já começou.",
+    "secao": "estilo",
+    "requer_minimo": {
+     "combate.barbaro": 2
+    },
+    "estilo": "barbaro"
+   },
+   {
+    "id": "combate.agil",
+    "nome": "Passo Leve",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [],
+    "por_ponto": [
+     "O rolamento gasta 10% menos vigor",
+     "O rolamento gasta 20% menos vigor"
+    ],
+    "desc": "Estilo Ágil: adaga ou punhos, sem escudo. Escolher um estilo fecha os outros.",
+    "secao": "estilo",
+    "requer_minimo": {
+     "combate.fundamentos": 3
+    },
+    "grupo": "estilo",
+    "estilo": "agil",
+    "equipamento": "adaga ou punhos"
+   },
+   {
+    "id": "combate.costas",
+    "nome": "Pelas Costas",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "combate.agil"
+    ],
+    "por_ponto": [
+     "O golpe pelas costas causa 50% a mais"
+    ],
+    "desc": "Quem não é visto acerta onde dói.",
+    "secao": "estilo",
+    "requer_minimo": {
+     "combate.agil": 2
+    },
+    "estilo": "agil"
+   },
+   {
+    "id": "combate.juramento_forca",
+    "nome": "Juramento da Força Bruta",
+    "tipo": "suprema",
+    "ranks": 1,
+    "custo": 3,
+    "requer": [
+     "combate.contra",
+     "combate.inabalavel",
+     "combate.costas"
+    ],
+    "por_ponto": [
+     "O Éter vira Fúria, e os elementos se fecham"
+    ],
+    "desc": "Abre mão dos elementos (refazer, só na fogueira). Exige o estilo completo e nenhum ponto nos elementos. Abre a árvore da Força Bruta.",
+    "secao": "juramento",
+    "juramento": "forca"
+   },
+   {
+    "id": "forca.corpo",
+    "nome": "Corpo Sem Afinidade",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [
+     "combate.juramento_forca"
+    ],
+    "por_ponto": [
+     "+2% de dano físico por elemento sem ponto (+14% com os 7)",
+     "+4% de dano físico por elemento sem ponto (+28% com os 7)"
+    ],
+    "desc": "Cada elemento que você não domina vira força.",
+    "secao": "forca"
+   },
+   {
+    "id": "forca.pele",
+    "nome": "Pele de Ferro",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [
+     "combate.juramento_forca"
+    ],
+    "por_ponto": [
+     "+6% de resistência a todos os elementos",
+     "+12% de resistência a todos os elementos"
+    ],
+    "desc": "Sem afinidade com nenhum elemento, nenhum o domina.",
+    "secao": "forca"
+   },
+   {
+    "id": "forca.furia",
+    "nome": "Fúria",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "forca.corpo",
+     "forca.pele"
+    ],
+    "por_ponto": [
+     "Apanhar enche 50% mais Fúria, e as técnicas causam 25% a mais"
+    ],
+    "desc": "A dor vira combustível.",
+    "secao": "forca"
+   },
+   {
+    "id": "forca.imparavel",
+    "nome": "Fúria Imparável",
+    "tipo": "suprema",
+    "ranks": 1,
+    "custo": 3,
+    "requer": [
+     "forca.furia"
+    ],
+    "por_ponto": [
+     "Por 10 s, nada o interrompe e o dano sobe 30%"
+    ],
+    "desc": "A suprema do Guerreiro.",
+    "secao": "forca"
+   }
+  ]
+ },
+ "canalizacao": {
+  "cor": "#9a7cff",
+  "nos": [
+   {
+    "id": "arcano.juramento_canalizacao",
+    "nome": "Juramento da Canalização",
+    "tipo": "suprema",
+    "ranks": 1,
+    "custo": 3,
+    "requer": [],
+    "por_ponto": [
+     "O Éter vira Mana, e as técnicas de arma se fecham"
+    ],
+    "desc": "Abre mão das técnicas de arma (refazer, só na fogueira). Exige uma Maestria completa e nenhum ponto em técnicas. Abre a árvore da Canalização.",
+    "secao": "juramento_arcano",
+    "juramento": "canalizacao"
+   },
+   {
+    "id": "canal.poco",
+    "nome": "Poço de Mana",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [
+     "arcano.juramento_canalizacao"
+    ],
+    "por_ponto": [
+     "A Mana guarda até 125 e não esvazia fora de combate",
+     "A Mana guarda até 150 e não esvazia fora de combate"
+    ],
+    "desc": "O Éter da luta fica guardado para as magias.",
+    "secao": "canalizacao"
+   },
+   {
+    "id": "canal.golpe",
+    "nome": "Golpe Canalizado",
+    "tipo": "passiva",
+    "ranks": 2,
+    "custo": 1,
+    "requer": [
+     "arcano.juramento_canalizacao"
+    ],
+    "por_ponto": [
+     "+20% de Éter por golpe",
+     "+40% de Éter por golpe"
+    ],
+    "desc": "Cada golpe alimenta o poço.",
+    "secao": "canalizacao"
+   },
+   {
+    "id": "canal.fluxo",
+    "nome": "Fluxo",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [
+     "canal.poco",
+     "canal.golpe"
+    ],
+    "por_ponto": [
+     "As magias custam 15% menos"
+    ],
+    "desc": "A Mana corre sem perda.",
+    "secao": "canalizacao"
+   },
+   {
+    "id": "canal.transbordar",
+    "nome": "Transbordar",
+    "tipo": "suprema",
+    "ranks": 1,
+    "custo": 3,
+    "requer": [
+     "canal.fluxo"
+    ],
+    "por_ponto": [
+     "Por 10 s, as magias não custam Mana"
+    ],
+    "desc": "A suprema do Arcano.",
+    "secao": "canalizacao"
+   }
+  ]
+ }
 }

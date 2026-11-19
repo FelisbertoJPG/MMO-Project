@@ -138,6 +138,24 @@ conta real. A trava de raça continua desligada.
 - [ ] **Equilíbrio:** dano contra Carrasco e Wyrm, ganho e custo de Éter e os orçamentos de pontos.
 - [ ] **Documentação:** registrar o sistema na base de conhecimento da área.
 
+## A Arte Marcial: a árvore de combate (D21 a D24, 19/11/2026)
+
+O Éter é de todos; a build decide em que ele vira. **Arcano** (Juramento da Canalização, no
+centro do círculo): o Éter vira Mana e as técnicas de arma se fecham. **Guerreiro** (Juramento
+da Força Bruta, no topo da árvore de combate): o Éter vira Fúria e o círculo inteiro se fecha;
+cada elemento sem ponto vira força. **Híbrido**: sem juramento, sem os bônus extremos.
+
+- [x] **Desenho no rascunho** (`arvore_de_combate` e `canalizacao` no JSON): Fundamentos (3),
+  6 armas (proficiência + técnica), 3 estilos (só um), os 2 juramentos (3 cada) e as árvores da
+  Força Bruta e da Canalização (8 cada).
+- [x] **A face "Arte Marcial" na tela da árvore** (`js/arvore.js`, a vitrine): de baixo para cima,
+  só o liberado aparece; o estilo escolhido apaga os outros; jurar a Força Bruta apaga e racha o
+  círculo; a árvore da Canalização fica no painel do juramento.
+- [ ] **`familia` em cada arma** (`items.js`) e os bônus valendo só com a arma da família na mão.
+- [ ] **Os efeitos**: dano físico, vigor, postura, as técnicas (uma de cada vez), a Fúria e a Mana.
+- [ ] **Refazer na fogueira** desfaz o juramento (D9).
+- [ ] **O Livro de Habilidades** ainda não mostra a Arte Marcial (`gerar-livro.mjs`).
+
 ## Ideias para depois
 
 Fora da primeira versão. Os detalhes estão em `ideias_para_depois`, no JSON.

@@ -17,7 +17,7 @@ export class UI {
     this.hpNum = $('#bars .hp .num'); this.stNum = $('#bars .st .num');
     this.nomeEl = $('#hud-nome'); this.nivelEl = $('#hud-nivel');
     this.textos = {};   // (o último texto de cada número: só mexe no DOM quando muda)
-    this.eterFill = $('#hab-hud .eter .fill'); this.eterNum = $('#hab-hud .eter .num');
+    this.eterFill = $('#bars .eter .fill'); this.eterNum = $('#bars .eter .num');
     this.habVagas = [...document.querySelectorAll('#hab-hud .hab-vaga')];
     this.eterPct = -1; this.barraVista = null;
     this.buffs = $('#buffs');
@@ -236,7 +236,7 @@ export class UI {
   }
 
   /**
-   * O Éter e a barra das habilidades (o canto de baixo à direita). Só mexe no DOM quando muda:
+   * O Éter (no quadro do jogador, abaixo da vida) e a barra das habilidades (embaixo no meio). Só mexe no DOM quando muda:
    * a largura do Éter em passos de 0,5% e os nomes das vagas quando a barra muda.
    */
   atualizarHabilidades(p) {
