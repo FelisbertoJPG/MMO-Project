@@ -8,6 +8,7 @@ import { VEU } from './veu.js';
 import { DURACAO as DURACAO_REFEICAO, objetoDaRefeicao } from './refeicao.js';
 import {
   vidaDoNivel, vigorDoNivel, cargaDoNivel, bonusForcaDoNivel, forcaDoNivel, custoDoNivel, habilidadesVazias,
+  ETER_MAX, ETER_GOLPE_RECEBIDO, ETER_BLOQUEIO, ETER_EM_COMBATE, ETER_PERDE_POR_SEG, eterDoGolpe,
   ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES,
 } from './ficha.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
@@ -56,6 +57,8 @@ export class Player {
 
     this.level = 1;
     this.habilidades = habilidadesVazias();   // a árvore de habilidades (ficha.js); por enquanto só acumula pontos
+    this.eter = 0;                // a barra das habilidades (ficha.js, ÉTER): enche lutando
+    this.ultimoCombate = -1e9;    // game.time do último golpe dado ou recebido
     this.aparencia = APARENCIA_PADRAO;   // o rosto e o cabelo (aparencia.js); vai no save e no corpo que viaja
     this.souls = 0;
     this.receitas = new Set();    // receitas descobertas na panela (receitas.js), pelo id
@@ -152,6 +155,14 @@ export class Player {
     if (w.twoHanded && !this.torchLit) return { estabilidade: w.guarda ?? 0.4, pose: 'Sword_Block', loop: false, segura: 0.45, golpe: 'Sword_Block', mao: 'r' };
     return null;
   }
+  get eterMax() { return ETER_MAX; }
+
+  /** Ganha Éter (golpe dado, recebido, bloqueio) e marca o combate. */
+  ganharEter(n) {
+    this.eter = Math.min(this.eterMax, this.eter + n);
+    this.ultimoCombate = this.game.time;
+  }
+
   get blocking() {
     return this.state === 'free' && this.game.input.mouseDown[2] && this.stamina > 0 && !!this.guarda;
   }
@@ -270,6 +281,8 @@ export class Player {
     if (this.bufferT <= 0) this.buffer = null;
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
     this.blockHitT = Math.max(0, this.blockHitT - dt);
+    // fora de combate o Éter esvazia aos poucos (ficha.js)
+    if (this.eter > 0 && game.time - this.ultimoCombate > ETER_EM_COMBATE) this.eter = Math.max(0, this.eter - ETER_PERDE_POR_SEG * dt);
 
     if (game.modoCamera === 'isometrica') {
       // a ISOMÉTRICA não gira solta: arrastar de lado vira a vista de 90 em 90 graus (cameraIsometrica)
@@ -465,6 +478,7 @@ export class Player {
         a.hitSet.add(e);
         const res = this.game.golpear(e, a.damage, this.pos, a.poise, { fire: a.fire || this.buffs.resin > 0, quebra: a.quebra });
         if (res) {
+          this.ganharEter(eterDoGolpe(a.damage));
           game.hitstop = a.kind === 'heavy' ? 0.1 : 0.06;
           game.addShake(a.kind === 'heavy' ? 0.2 : 0.1);
           if (res === 'blocked') game.sfx.block(); else game.sfx.hit();
@@ -611,6 +625,7 @@ export class Player {
     if (this.dead || this.iframes) return 'iframe';
     if (this.blocking && !unblockable && angleToTarget(this.pos, this.facing, srcPos) < 1.25) {
       const guarda = this.guarda, stability = guarda.estabilidade;
+      this.ganharEter(ETER_BLOQUEIO);
       this.stamina -= amount * (1.5 - stability);
       this.staminaDelay = 0.8;
       const pushDir = new THREE.Vector3(this.pos.x - srcPos.x, 0, this.pos.z - srcPos.z).normalize();
@@ -635,6 +650,7 @@ export class Player {
     }
     // o golpe vale a tabela do inimigo × DANO_RECEBIDO, menos a defesa (ficha.js)
     this.hp -= amount * DANO_RECEBIDO * (1 - this.defense);
+    this.ganharEter(ETER_GOLPE_RECEBIDO);
     game.ui.hurtFlash();
     game.effects.blood(this.pos.clone().setY(this.pos.y + 1.4));
     game.sfx.playerHurt();

@@ -101,9 +101,11 @@ conta real. A trava de raça continua desligada.
 
 ## Etapa 5 — Éter, barra e conjuração (`/agent_nucleo`, `/agent_interface`)
 
-- [ ] **Barra de Éter no HUD:** começa vazia, enche lutando e esvazia fora de combate.
-- [ ] **Barra de habilidades:** 4 espaços (teclas 1 a 4), com no máximo 1 suprema entre eles
-  e botões de toque.
+- [x] **Barra de Éter no HUD** (19/11/2026): começa vazia, enche lutando (golpe dado: 12% do dano, de 3
+  a 10; golpe recebido: 5; bloqueio: 3) e, 8 s depois do último golpe, perde 5 por segundo; a fogueira
+  zera. Regras em `js/ficha.js` (ÉTER). Ainda falta o ganho da reação disparada (Etapa 6).
+- [~] **Barra de habilidades:** 4 espaços (teclas 1 a 4), com no máximo 1 suprema entre eles
+  e botões de toque. **Feito:** as 4 vagas no HUD, embaixo do Éter (só mostram; montar e conjurar, não).
 - [ ] **Tempo de recarga:** individual e global, mostrado em cada espaço. Trocar a habilidade
   reinicia a recarga dela.
 - [ ] **Estado de conjuração no `Player`** com os clipes `cast` e `summon`, comprometendo o

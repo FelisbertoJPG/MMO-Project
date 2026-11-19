@@ -21,6 +21,12 @@
  * os dois à vista de todos (o código de denúncia só a moderação liga à conta). As mensagens
  * do chat global continuam chegando na mesma caixa.
  *
+ * **A JANELA (19/11/2026, `JanelaDoChat`)**: pequena por padrão, com uma barra em cima que
+ * ARRASTA a caixa para onde se quiser e tem três botões — fixar (trava no lugar), expandir
+ * (maior, com rolagem) e minimizar (só a barra, contando as novas). O lugar e os botões ficam
+ * em `localStorage['masmorra:chat-janela']` (por aparelho). Escrever (Enter) SOLTA O MOUSE, para
+ * dar para arrastar, rolar e clicar; Enter manda e prende o mouse de novo.
+ *
  * A entrega tem dois caminhos, como no Duel Academy: o Realtime avisa em menos
  * de um segundo ("chegou algo, releia"), e uma releitura a cada `RESERVA_MS`
  * cobre o socket caído ou o token vencido.
@@ -28,12 +34,93 @@
 import { SUPABASE_URL, SUPABASE_KEY, tokenValido, req, contaId } from './supabase.js';
 import { ouvirMudancas } from './realtime.js';
 import { rotuloDoPerfil } from './perfis.js';
+import { tela, pontoNaTela } from '../tela.js';
 
 /** O teto do texto: o MESMO do banco — aqui só evita a viagem. */
 export const MAX_TEXTO = 500;
 const RESERVA_MS = 8000;
 /** Quantas mensagens ficam na caixa (as mais velhas saem por cima). */
 const NA_TELA = 60;
+
+const CHAVE_JANELA = 'masmorra:chat-janela';
+
+/**
+ * A janela do chat: arrastar pela barra de cima, fixar, expandir e minimizar. Não sabe nada
+ * de mensagens — o ChatGlobal só avisa quando chega uma (`chegou`).
+ */
+export class JanelaDoChat {
+  constructor(el) {
+    this.el = el;
+    this.topo = el.querySelector('#chat-topo');
+    this.novasEl = el.querySelector('.chat-novas');
+    this.novas = 0;
+    this.estado = { x: null, y: null, fixo: false, grande: false, min: false };
+    try { Object.assign(this.estado, JSON.parse(localStorage.getItem(CHAVE_JANELA) || '{}')); } catch { /* sem armazenamento: o padrão */ }
+    this.topo.addEventListener('click', (e) => {
+      const acao = e.target.closest('[data-chat]')?.dataset.chat;
+      if (!acao) return;
+      if (acao === 'fixar') this.estado.fixo = !this.estado.fixo;
+      if (acao === 'expandir') this.estado.grande = !this.estado.grande;
+      if (acao === 'minimizar') { this.estado.min = !this.estado.min; if (!this.estado.min) this.novas = 0; }
+      this.aplicar(); this.gravar();
+    });
+    // clicar na barra não tira o foco da linha de escrever nem seleciona texto
+    this.topo.addEventListener('mousedown', (e) => e.preventDefault());
+    // arrastar pela barra (os botões não arrastam; fixo não arrasta)
+    let arrasto = null;
+    this.topo.addEventListener('pointerdown', (e) => {
+      if (this.estado.fixo || e.target.closest('button')) return;
+      // (pontoNaTela: com a página girada pelo CSS, o dedo vem nas medidas da tela física)
+      const q = pontoNaTela(e.clientX, e.clientY);
+      arrasto = { dx: q.x - this.el.offsetLeft, dy: q.y - this.el.offsetTop };
+      this.topo.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    this.topo.addEventListener('pointermove', (e) => {
+      if (!arrasto) return;
+      const q = pontoNaTela(e.clientX, e.clientY);
+      this.estado.x = q.x - arrasto.dx; this.estado.y = q.y - arrasto.dy;
+      this.posicionar();
+    });
+    const soltar = () => { if (arrasto) { arrasto = null; this.gravar(); } };
+    this.topo.addEventListener('pointerup', soltar);
+    this.topo.addEventListener('pointercancel', soltar);
+    this.aoRedimensionar = () => this.posicionar();
+    addEventListener('resize', this.aoRedimensionar);
+    this.aplicar();
+  }
+
+  aplicar() {
+    const s = this.estado, el = this.el;
+    el.classList.toggle('fixo', s.fixo);
+    el.classList.toggle('grande', s.grande);
+    el.classList.toggle('minimizado', s.min);
+    this.topo.querySelector('[data-chat="fixar"]').title = s.fixo ? 'Soltar (voltar a arrastar)' : 'Fixar no lugar';
+    this.topo.querySelector('[data-chat="expandir"]').title = s.grande ? 'Diminuir' : 'Expandir';
+    const min = this.topo.querySelector('[data-chat="minimizar"]');
+    min.textContent = s.min ? '+' : '–';
+    min.title = s.min ? 'Abrir' : 'Minimizar';
+    this.novasEl.textContent = s.min && this.novas ? `(${this.novas} nova${this.novas > 1 ? 's' : ''})` : '';
+    this.posicionar();
+  }
+
+  /** Põe a janela onde o jogador a deixou, sem sair da tela (null = o lugar do CSS). */
+  posicionar() {
+    const s = this.estado, el = this.el;
+    if (s.x === null || s.y === null) { el.style.left = el.style.top = el.style.right = el.style.bottom = ''; return; }
+    s.x = Math.max(0, Math.min(tela.w - Math.min(el.offsetWidth, tela.w), s.x));
+    s.y = Math.max(0, Math.min(tela.h - this.topo.offsetHeight, s.y));
+    el.style.left = `${Math.round(s.x)}px`; el.style.top = `${Math.round(s.y)}px`;
+    el.style.right = 'auto'; el.style.bottom = 'auto';
+  }
+
+  gravar() { try { localStorage.setItem(CHAVE_JANELA, JSON.stringify(this.estado)); } catch { /* sem armazenamento */ } }
+
+  /** Chegou uma mensagem: minimizado, conta na barra. */
+  chegou() { if (this.estado.min) { this.novas++; this.aplicar(); } }
+
+  fechar() { removeEventListener('resize', this.aoRedimensionar); }
+}
 
 const rpcPublico = (nome, args) => req(`rpc/${nome}`, { method: 'POST', body: args, schema: 'public' });
 
@@ -48,6 +135,7 @@ export class ChatGlobal {
     this.escrevendo = false;
     this.lista.innerHTML = '';
     this.el.classList.remove('hidden');
+    this.janela = new JanelaDoChat(this.el);
 
     // O Input do jogo ignora o que se digita numa caixa de texto
     // (input.js), então Enter e Esc são tratados aqui mesmo.
@@ -118,6 +206,7 @@ export class ChatGlobal {
   }
 
   adicionar(linha) {
+    this.janela.chegou();
     this.lista.append(linha);
     while (this.lista.children.length > NA_TELA) this.lista.firstChild.remove();
     this.lista.scrollTop = this.lista.scrollHeight;
@@ -129,6 +218,10 @@ export class ChatGlobal {
     this.el.classList.add('escrevendo');
     this.entrada.value = '';
     this.entrada.focus();
+    this.lista.scrollTop = this.lista.scrollHeight;
+    // o mouse fica livre enquanto se escreve: arrastar a janela, rolar, clicar nos botões
+    // (o `pointerlockchange` do Game sabe que é o chat e não pausa)
+    this.game.input.exitLock();
   }
 
   fecharEscrita() {
@@ -142,15 +235,23 @@ export class ChatGlobal {
   async enviar() {
     const texto = this.entrada.value.trim();
     // Enter com a linha vazia só fecha (ninguém quer um erro vermelho por isso)
-    if (!texto) return this.fecharEscrita();
+    if (!texto) { this.fecharEscrita(); this.prenderMouse(); return; }
     this.fecharEscrita();
+    this.prenderMouse();
     if (this.game.sessao?.enviarChat?.(texto.slice(0, MAX_TEXTO))) return;   // no Mundo online (ver o cabeçalho)
     const r = await rpcPublico('enviar_mensagem', { p_para: null, p_texto: texto.slice(0, MAX_TEXTO) });
     if (!r.ok) { this.avisar(`(não foi: ${r.error})`); return; }
     this.ler();
   }
 
+  /** Depois de mandar (Enter é um gesto do jogador: o navegador deixa prender o mouse de novo). */
+  prenderMouse() {
+    const g = this.game;
+    if (g.state === 'playing' && !g.menu) g.input.requestLock();
+  }
+
   fechar() {
+    this.janela.fechar();
     clearInterval(this.timer);
     this.fecharRT?.();
     this.entrada.removeEventListener('keydown', this.aoTeclar);

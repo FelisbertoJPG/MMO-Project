@@ -17,6 +17,9 @@ export class UI {
     this.hpNum = $('#bars .hp .num'); this.stNum = $('#bars .st .num');
     this.nomeEl = $('#hud-nome'); this.nivelEl = $('#hud-nivel');
     this.textos = {};   // (o último texto de cada número: só mexe no DOM quando muda)
+    this.eterFill = $('#hab-hud .eter .fill'); this.eterNum = $('#hab-hud .eter .num');
+    this.habVagas = [...document.querySelectorAll('#hab-hud .hab-vaga')];
+    this.eterPct = -1; this.barraVista = null;
     this.buffs = $('#buffs');
     this.soulsEl = $('#souls'); this.soulsVal = $('#souls-value');
     this.prompt = $('#prompt');
@@ -232,6 +235,31 @@ export class UI {
     });
   }
 
+  /**
+   * O Éter e a barra das habilidades (o canto de baixo à direita). Só mexe no DOM quando muda:
+   * a largura do Éter em passos de 0,5% e os nomes das vagas quando a barra muda.
+   */
+  atualizarHabilidades(p) {
+    const pct = Math.round(Math.max(0, Math.min(1, p.eter / p.eterMax)) * 200) / 2;
+    if (pct !== this.eterPct) {
+      this.eterPct = pct;
+      this.eterFill.style.width = `${pct}%`;
+      this.eterFill.parentElement.classList.toggle('cheia', pct >= 100);
+    }
+    this.texto('eter', this.eterNum, `Éter ${Math.floor(p.eter)} / ${p.eterMax}`);
+    const barra = p.habilidades.barra, chave = barra.join('|');
+    if (chave === this.barraVista) return;
+    this.barraVista = chave;
+    barra.forEach((id, i) => {
+      const vaga = this.habVagas[i];
+      if (!vaga) return;
+      const nome = id ? (this.game.arvore?.nos?.get(id)?.no.nome ?? id) : '';
+      vaga.classList.toggle('vazia', !id);
+      vaga.querySelector('.hab-nome').textContent = nome;
+      vaga.title = id ? nome : 'Vaga de habilidade (monte na árvore: K)';
+    });
+  }
+
   /** Troca o texto de `el` só quando muda (`chave` guarda o último). */
   texto(chave, el, t) {
     if (this.textos[chave] !== t) { this.textos[chave] = t; el.textContent = t; }
@@ -250,6 +278,7 @@ export class UI {
     this.hpFill.style.width = `${hpPct}%`;
     this.hpTrail.style.width = `${hpPct}%`;
     this.stFill.style.width = `${Math.max(0, p.stamina / p.maxStamina) * 100}%`;
+    this.atualizarHabilidades(p);
 
     // Buffs
     const b = [];

@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-19.3",
-  "nota": "Arvore de habilidades: a Maestria agora tem 3 pontos e o que ainda nao foi liberado fica escondido. Quem tinha mais de 3 pontos na Maestria do Fogo recebe o excesso de volta."
+  "versao": "2026-11-19.4",
+  "nota": "Barra de Eter no HUD (enche lutando, esvazia fora de combate) e o chat virou uma janela: arraste pela barra de cima, fixe, expanda ou minimize."
 }

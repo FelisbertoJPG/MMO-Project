@@ -64,6 +64,20 @@ export function habilidadesDoSave(h, nivel) {
   return { v: h.v, nos: { ...h.nos }, barra: [...h.barra] };
 }
 
+/**
+ * O ÉTER (19/11/2026; o rascunho: `regras.eter` em planejamento/arvore-de-habilidades.json):
+ * a barra das HABILIDADES. Começa vazia e ENCHE LUTANDO — golpe dado (uma fração do dano),
+ * golpe recebido e bloqueio; magia não gera Éter. Passados `ETER_EM_COMBATE` s do último
+ * golpe, esvazia aos poucos; descansar na fogueira zera. Não vai no save.
+ */
+export const ETER_MAX = 100;
+export const ETER_DO_GOLPE = { fracao: 0.12, min: 3, max: 10 };   // golpe corpo a corpo que acerta
+export const ETER_GOLPE_RECEBIDO = 5;
+export const ETER_BLOQUEIO = 3;
+export const ETER_EM_COMBATE = 8;          // s depois do último golpe (dado ou recebido)
+export const ETER_PERDE_POR_SEG = 5;        // fora de combate
+export const eterDoGolpe = (dano) => Math.min(ETER_DO_GOLPE.max, Math.max(ETER_DO_GOLPE.min, dano * ETER_DO_GOLPE.fracao));
+
 export const ESCALA = { A: 1.2, B: 1.0, C: 0.75, D: 0.5, E: 0.25 };
 // abaixo do requisito de força da arma: golpes fracos
 export const SEM_REQUISITO = 0.6;

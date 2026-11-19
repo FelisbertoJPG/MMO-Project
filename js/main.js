@@ -289,9 +289,9 @@ class Game {
     document.addEventListener('pointerlockchange', () => {
       if (this.input.locked || this.state !== 'playing' || this.menu) return;
       if (this.provador.aberto) return;   // o provador soltou o mouse para os cliques
-      // Esc com o chat aberto: o navegador solta o mouse antes de a tecla chegar à
-      // caixa — é "desistir de escrever", não "pausar"
-      if (this.online.chat?.escrevendo) { this.online.chat.fecharEscrita(); return; }
+      // escrevendo no chat o mouse fica solto de propósito (rede/chat.js `abrirEscrita`):
+      // não é "pausar" — o Esc chega à caixa e desiste de escrever
+      if (this.online.chat?.escrevendo) return;
       this.openMenu('pause');
     });
   }
@@ -1295,6 +1295,7 @@ class Game {
     p.setState('rest');
     p.model.play('Crouch_Idle_Loop', { fade: 0.5 });
     p.hp = p.maxHp; p.stamina = p.maxStamina;
+    p.eter = 0;   // descansar esvazia o Éter (ficha.js)
     p.buffs.resin = 0;
     // no mundo de todos o descanso é só meu: os inimigos renascem por tempo (`Mundo.tique`)
     if (this.regras.mundoReinicia) this.resetWorld();
