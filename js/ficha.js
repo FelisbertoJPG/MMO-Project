@@ -95,6 +95,14 @@ export const BALANCO = {
   // a FURTIVIDADE (a ativa dos Passos Leves): o vigor por segundo e a área (m) em que o inimigo percebe
   furtividade_vigor: 8, furtividade_area: 4,
 };
+/**
+ * AS CONTAS DO GOLPE E DO ROLAMENTO que o jogo (player.js) e o SERVIDOR do Mundo online
+ * (regras-do-mundo.mjs: o teto do golpe e do passo) fazem iguais (24/11/2026) — mudou aqui, muda nos dois.
+ */
+export const GOLPE_FORTE = { dano: 1.55, poise: 1.8, quebra: 1.6 };   // o golpe pesado, × o leve
+export const BUFF_DANO = { resina: 1.35, furia: 1.2 };              // o dano com a resina e com a fúria
+export const FORCA_NA_BOMBA = 0.5;                                    // a bomba: × (1 + bônus de força × isto)
+export const ALCANCE_DO_ROLAMENTO = 4.47;   // m: dá os ~4,1 m de antes (com `rolamento_distancia` 1 e carga leve)
 /** Aplica o balanceamento: o arquivo inteiro (`campos.<k>.valor`) ou só os valores ({ k: v }). */
 export function aplicarBalanco(d) {
   for (const k of Object.keys(BALANCO)) {

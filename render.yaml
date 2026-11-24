@@ -28,6 +28,13 @@ services:
         - render.yaml
         - assets/mapa.json        # o servidor confere que todos estão no mesmo mapa
         - js/rede/supabase.js     # de onde ele lê a URL e a chave publicável do Supabase
+        # as REGRAS do mundo (regras-do-mundo.mjs: o teto do passo e do golpe) usam os números do
+        # JOGO: mudou o balanceamento, a ficha, as armas ou a árvore, o servidor tem de saber
+        - regras-do-mundo.mjs
+        - assets/balanco.json
+        - js/ficha.js
+        - js/items.js
+        - js/caminhos.js
     envVars:
       - key: HOSPEDAR             # sem o save local e as salas de rede local de quem hospeda
         value: "1"

@@ -11,6 +11,7 @@ import {
   vidaDoNivel, vigorDoNivel, cargaDoNivel, bonusForcaDoNivel, forcaDoNivel, custoDoNivel, habilidadesVazias,
   ETER_MAX, ETER_GOLPE_RECEBIDO, ETER_BLOQUEIO, ETER_EM_COMBATE, ETER_PERDE_POR_SEG, eterDoGolpe,
   ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES, BALANCO,
+  GOLPE_FORTE, BUFF_DANO, FORCA_NA_BOMBA, ALCANCE_DO_ROLAMENTO,
 } from './ficha.js';
 import * as Caminho from './caminhos.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
@@ -19,8 +20,8 @@ import { START_POS, NASCER } from './world.js';
 import { Assets } from './assets.js';
 
 const SPRINT_HOLD = 0.28;
-// o rolamento (o custo, a duração e a invulnerabilidade moram no balanceamento: ficha.js BALANCO)
-const ALCANCE_DO_ROLAMENTO = 4.47;   // dá os ~4,1 m de antes (com `rolamento_distancia` 1 e carga leve)
+// o rolamento: o custo, a duração e a invulnerabilidade moram no balanceamento (ficha.js BALANCO);
+// o alcance, no ALCANCE_DO_ROLAMENTO (ficha.js: o servidor do Mundo online faz a mesma conta)
 const _v = new THREE.Vector3();
 // A CÂMERA ISOMÉTRICA (cameraIsometrica): a inclinação da projeção isométrica de verdade
 // (arctan 1/√2 ≈ 35,264°), a lente estreita de longe (quase sem perspectiva) e a altura do corte
@@ -140,7 +141,7 @@ export class Player {
   /** Quanto a força multiplica o dano de uma ARMA: a escala dela, e o requisito. */
   forcaNaArma(w) { return (1 + this.bonusForca * ESCALA[w.escala ?? 'E']) * (this.forcaEfetiva < (w.requisito ?? 0) ? SEM_REQUISITO : 1); }
   get damageMul() {
-    return this.forcaNaArma(this.weapon) * (this.buffs.resin > 0 ? 1.35 : 1) * (this.buffs.furia > 0 ? 1.2 : 1);
+    return this.forcaNaArma(this.weapon) * (this.buffs.resin > 0 ? BUFF_DANO.resina : 1) * (this.buffs.furia > 0 ? BUFF_DANO.furia : 1);
   }
   /** O quanto o inimigo percebe o jogador (× a distância de sempre: `Enemy.updateAI` lê pelo alvo). */
   get furtividade() { return Caminho.furtividade(this.habilidades, this.agachado); }
@@ -571,10 +572,10 @@ export class Player {
       kind, combo, key, dur,
       hitStart: (spec.hit[0] - from) / seg, hitEnd: (spec.hit[1] - from) / seg, endAt: 1 + 0.14 / dur,
       arc: spec.arc, reach: w.reach + (heavy ? 0.2 : 0),
-      damage: w.damage * (heavy ? 1.55 : 1) * this.damageMul,
-      poise: (w.poise ?? 10) * (heavy ? 1.8 : 1),
+      damage: w.damage * (heavy ? GOLPE_FORTE.dano : 1) * this.damageMul,
+      poise: (w.poise ?? 10) * (heavy ? GOLPE_FORTE.poise : 1),
       // contra ESCUDO (escudo.js): o forte racha 1,6× mais; a tocha não racha
-      quebra: w.quebra && kind !== 'torch' ? { nivel: w.quebra.nivel, dano: w.quebra.dano * (heavy ? 1.6 : 1) } : null,
+      quebra: w.quebra && kind !== 'torch' ? { nivel: w.quebra.nivel, dano: w.quebra.dano * (heavy ? GOLPE_FORTE.quebra : 1) } : null,
       fire: kind === 'torch',
       emboscada: saiu ? Caminho.danoDaEmboscada(h) : 1,   // a Emboscada: + dano no golpe que sai da furtividade
       sangra: saiu && Caminho.sangraNaSaida(h),          // e, no nível 3, o alvo sangra
@@ -754,7 +755,7 @@ export class Player {
         } else {
           vel = new THREE.Vector3(Math.sin(this.facing) * 10, 4.5, Math.cos(this.facing) * 10);
         }
-        game.projectiles.bomb({ pos: from, vel, damage: def.damage * (1 + this.bonusForca * 0.5), radius: def.radius });
+        game.projectiles.bomb({ pos: from, vel, damage: def.damage * (1 + this.bonusForca * FORCA_NA_BOMBA), radius: def.radius });
         game.sfx.swing();
         break;
       }

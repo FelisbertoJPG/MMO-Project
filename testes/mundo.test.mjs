@@ -188,6 +188,33 @@ await teste('ROTEAMENTO: golpe só ao simulador, dano só ao alvo, mundo só DO 
   assert.equal(ana.de('mundo').length, 0, 'a simuladora recebeu o próprio mundo');
 });
 
+// a fogueira do acampamento (a tag do mapa, [linha, coluna]; CELL = 6 m, o world.js), onde se acorda
+const ACAMPAMENTO = (() => {
+  const [l, c] = JSON.parse(fs.readFileSync(path.join(RAIZ, 'assets', 'mapa.json'), 'utf8')).marcos?.[MAPA]?.acampamento ?? [16, 47.5];
+  return { x: c * 6 + 3.2, z: l * 6 };
+})();
+
+await teste('REGRAS: o passo rápido demais é CORTADO; acordar na fogueira vale de qualquer distância', async () => {
+  // o Beto estava em (1, 2) (o teste do pos): 500 m de uma vez não passam — anda só o que cabia
+  await beto.falar('pos', { x: 500, z: 2 });
+  assert.ok(await ana.chegou('pos', (r) => r.de === beto.id && r.carga.x !== 1), 'o pos cortado não chegou');
+  const x = ana.ultimo('pos').carga.x;
+  assert.ok(x > 1 && x < 100, `o salto passou inteiro: x = ${x}`);
+  // renascer junto à fogueira (do outro lado do mapa) passa como veio
+  await beto.falar('pos', { x: ACAMPAMENTO.x, z: ACAMPAMENTO.z });
+  assert.ok(await ana.chegou('pos', (r) => r.de === beto.id && r.carga.x === ACAMPAMENTO.x), 'acordar na fogueira foi cortado');
+});
+
+await teste('REGRAS: golpe acima do teto da arma que está na mão NÃO chega ao simulador', async () => {
+  await beto.falar('pos', { x: ACAMPAMENTO.x, z: ACAMPAMENTO.z, d: 'dagger', e: null });
+  await beto.falar('golpe', { id: 'e7', dano: 900, poise: 10 });   // absurdo
+  await beto.falar('golpe', { id: 'e8', dano: 150, poise: 10 });   // de espadão, com a adaga na mão (nível 1)
+  await beto.falar('golpe', { id: 'e6', dano: 40, poise: 200 });   // poise de quem não tem a arma
+  await beto.falar('golpe', { id: 'e9', dano: 40, poise: 10 });    // o de verdade
+  assert.ok(await ana.chegou('golpe', (r) => r.carga.id === 'e9'), 'o golpe honesto não chegou');
+  assert.equal(ana.de('golpe').filter((r) => ['e6', 'e7', 'e8'].includes(r.carga.id)).length, 0, 'golpe acima do teto chegou');
+});
+
 await teste('evento: do simulador vai a todos (ou ao `para`); dos outros, só o projétil', async () => {
   await ana.falar('evento', { tipo: 'almas', n: 50, para: beto.id });
   assert.ok(await beto.chegou('evento', (r) => r.carga.tipo === 'almas'));

@@ -55,9 +55,13 @@
 // **O que isto NÃO é**: à prova de trapaça. Quem simula é um cliente, e o save
 // é o que o cliente manda. O servidor confere FORMATO e LIMITES (um save de
 // nível 9999 ou um recado de 5 MB não passam), não a honestidade de ninguém.
+// Desde 24/11/2026 ele confere também as REGRAS do balanceamento que dá para conferir
+// sem rodar o combate (`regras-do-mundo.mjs`): ninguém anda mais rápido que o jogo
+// deixa (o `pos` é cortado) e golpe acima do teto da arma não chega ao simulador.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { criarRegras } from './regras-do-mundo.mjs';
 
 const QUEM = 'masmorra-do-carrasco';
 /** Sobe quando o protocolo muda de um jeito que cliente e servidor antigos não se entendem. */
@@ -108,6 +112,16 @@ export function criarMundo(raiz) {
   const saves = process.env.MUNDO_SAVES === 'nuvem' ? 'nuvem' : 'disco';
   const supabase = lerSupabase(raiz);
   const mapa = lerNomeDoMapa(raiz);
+  /** O que se confere no `pos` e no `golpe` (o balanceamento como REGRA: regras-do-mundo.mjs). */
+  const regras = criarRegras(raiz);
+  /** Anota (no log do servidor, no máximo uma linha a cada 10 s por jogador) quem passou de uma regra. */
+  function avisarRegra(j, motivo) {
+    const r = (j.regra ??= { n: 0, em: 0 }), agora = Date.now();
+    r.n++;
+    if (agora - r.em < 10000) return;
+    r.em = agora;
+    console.log(`[regra] ${j.nome} #${j.codigo}: ${motivo} (${r.n}ª vez nesta sessão)`);
+  }
 
   /** id do personagem → jogador: `{id, conta, nome, codigo, bilhete, res, entrou, visivel, conectado, caiuEm, lentoAte, ultimoMundo, ritmo, chatEm}` */
   const jogadores = new Map();
@@ -211,14 +225,24 @@ export function criarMundo(raiz) {
     const c = carga && typeof carga === 'object' ? carga : {};
     const souSim = j.id === simulador;
     switch (evento) {
-      case 'pos': return paraOutros(j.id, evento, carga);
+      case 'pos': {
+        const corte = regras.passo(j, carga);   // rápido demais: corta no lugar (`carga.x`/`z`)
+        if (corte) avisarRegra(j, corte);
+        return paraOutros(j.id, evento, carga);
+      }
       case 'mundo':
         if (!souSim) return;
         j.ultimoMundo = Date.now();
         ultimoMundo = carga;
         if (c.est && typeof c.est === 'object' && JSON.stringify(c.est).length < 16 * 1024) { estado = c.est; estadoSujo = true; }
         return paraOutros(j.id, evento, carga);
-      case 'golpe': case 'acao':
+      case 'golpe': {
+        if (souSim || !simulador) return;
+        const recusa = regras.golpe(j, c);   // acima do teto da arma: não chega
+        if (recusa) return avisarRegra(j, recusa);
+        return para(simulador, j.id, evento, carga);
+      }
+      case 'acao':
         if (!souSim && simulador) para(simulador, j.id, evento, carga);
         return;
       case 'dano':
@@ -291,7 +315,11 @@ export function criarMundo(raiz) {
       // quem já estava mantém o lugar na fila do simulador
       entrou: mesmo ? antigo.entrou : Date.now(), visivel: true, conectado: false, caiuEm: Date.now(),
       lentoAte: 0, ultimoMundo: Date.now(), ritmo: { t: 0, n: 0 }, chatEm: 0,
+      // o NÍVEL, para o teto do golpe (regras-do-mundo.mjs): o do save daqui; na nuvem, o Supabase
+      // diz logo depois (sem resposta, fica o teto do nível máximo); personagem sem save = nível 1
+      nivel: saves === 'disco' ? salvo?.jogador?.nivel ?? 1 : null,
     };
+    if (saves !== 'disco' && !quem.teste) lerNivel(corpo.token, j.id, supabase).then((n) => { if (n) j.nivel = n; });
     jogadores.set(j.id, j);
     porBilhete.set(j.bilhete, j);
     porConta.set(j.conta, j);
@@ -412,6 +440,7 @@ export function criarMundo(raiz) {
     const motivo = d ? saveTorto(d) : 'save inválido ou grande demais';
     if (motivo) return erro(res, 400, motivo);
     d.salvoEm = new Date().toISOString();   // o relógio que vale é o daqui
+    j.nivel = d.jogador.nivel;               // o teto do golpe acompanha (regras-do-mundo.mjs)
     gravarJson(arq, d, (e) => (e ? erro(res, 500, 'não consegui gravar') : json(res, 200, { ok: true, salvoEm: d.salvoEm })));
   }
 
@@ -527,6 +556,27 @@ async function conferirPersonagem(token, id, supabase) {
     return { id: p.id, nome: p.nome, codigo: p.codigo };
   } catch {
     return { erro: 'o servidor não conseguiu falar com o Supabase para conferir o seu personagem', status: 502 };
+  }
+}
+
+/**
+ * O NÍVEL do personagem na nuvem (`dados.jogador.nivel`, com o token de quem entra: a RLS só deixa
+ * ler o seu), para o teto do golpe. À parte do `conferirPersonagem` de propósito: falhar aqui nunca
+ * impede ninguém de entrar — devolve null e o teto fica o do nível máximo. Personagem sem save = 1.
+ */
+async function lerNivel(token, id, supabase) {
+  if (!supabase) return null;
+  try {
+    const r = await fetch(`${supabase.url}/rest/v1/personagens?select=nivel:dados->jogador->nivel&id=eq.${id}`, {
+      headers: { apikey: supabase.chave, authorization: `Bearer ${token}`, 'accept-profile': 'masmorra' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return null;
+    const p = (await r.json())?.[0];
+    if (!p) return null;
+    return Number.isInteger(p.nivel) && p.nivel >= 1 && p.nivel <= 999 ? p.nivel : p.nivel == null ? 1 : null;
+  } catch {
+    return null;
   }
 }
 
