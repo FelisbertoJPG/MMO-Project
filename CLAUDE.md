@@ -54,7 +54,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 
 **Rede, modos e save** (→ base `rede-e-mmo`, `nucleo-do-jogo`)
 - **A IA nunca lê `game.player`** (usa `alvo` / `game.alvoPara`); golpe do jogador passa SEMPRE por `game.golpear`.
-- **O servidor do Mundo online confere o passo e o golpe pelos números do JOGO** (`regras-do-mundo.mjs`): conta nova de dano, velocidade, VIGOR ou ritmo do golpe no `player.js` vai também para lá (os números divididos ficam na `ficha.js`: `GOLPE_FORTE`, `BUFF_DANO`, `FOLEGO_DA_COMIDA`…; a tabela dos golpes em `js/ataques.js`), senão o jogador honesto é cortado.
+- **O servidor do Mundo online confere o passo e o golpe pelos números do JOGO** (`regras-do-mundo.mjs`; a PAREDE no passo, pelo mapa lógico — `mapa-do-servidor.mjs`): conta nova de dano, velocidade, VIGOR ou ritmo do golpe no `player.js` vai também para lá (os números divididos ficam na `ficha.js`: `GOLPE_FORTE`, `BUFF_DANO`, `FOLEGO_DA_COMIDA`…; a tabela dos golpes em `js/ataques.js`), senão o jogador honesto é cortado.
 - Diferença entre Jornada e Mundo online é `game.regras.<nome>` (`js/modo.js`), não `if (game.modo === 'mmo')`.
 - Ganchos de `game.sessao` são chamados com `?.`: método novo num modo não pode quebrar o outro.
 - Inimigo novo com estado próprio precisa do seu `retomar` (troca de simulador).

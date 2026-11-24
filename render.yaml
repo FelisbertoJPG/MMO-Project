@@ -37,7 +37,8 @@ services:
         - js/items.js
         - js/caminhos.js
         - js/ataques.js
-        # o MAPA LÓGICO (as fogueiras das regras; na etapa 3, as colisões dos inimigos)
+        # o MAPA LÓGICO (a parede no passo e as fogueiras das regras; na etapa 3, as colisões dos inimigos)
+        - mapa-do-servidor.mjs
         - js/mapa-logico.js
         - js/categorias.js
     envVars:
