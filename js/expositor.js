@@ -10,35 +10,27 @@
  * fratura e volta inteira depois, vazia) e o que ainda estava nele CAI NO CHÃO como item caído,
  * para pegar. O que já saiu de cada um fica no save do personagem (`mundo.expositores`).
  *
- * O lugar de cada um é ACHADO perto da fogueira dele (`lugarLivre`: o primeiro ponto do anel,
- * a partir do rumo pedido, sem parede, água, colisão nem o terreiro da fogueira por perto) — mexer
- * na decoração não os enterra num barril. Expositor novo = uma linha em `EXPOSITORES`.
+ * O lugar de cada um é ACHADO perto da fogueira dele pelo MAPA LÓGICO (`lugarLivre` em
+ * mapa-logico.js: o primeiro ponto do anel, a partir do rumo pedido, sem parede, água, colisão,
+ * coisa de usar nem peça da decoração por perto) — mexer na decoração não os enterra num barril.
+ * Expositor novo = uma linha em `EXPOSITORES` (mapa-logico.js).
  */
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { Gear } from './gear.js';
 import { weaponMesh, shieldMesh } from './character.js';
 import { ITEMS, raridadeDe } from './items.js';
-
-export const EXPOSITORES = [
-  // o acampamento: a espada longa e o machado; o couro do Batedor
-  { tipo: 'armas', perto: 'acampamento', rumo: 0.6, itens: ['longsword', 'axe', 'shieldRound'] },
-  { tipo: 'armadura', perto: 'acampamento', rumo: -0.7, conjunto: 1, itens: ['arm1_peito', 'arm1_bracos', 'arm1_pernas'] },
-  // a masmorra: o espadão e o escudo de cavaleiro; a malha do Sentinela
-  { tipo: 'armas', perto: 'masmorra', rumo: 2.2, itens: ['greatsword', 'shieldKnight'] },
-  { tipo: 'armadura', perto: 'masmorra', rumo: -2.2, conjunto: 2, itens: ['arm2_cabeca', 'arm2_peito', 'arm2_bracos', 'arm2_pernas'] },
-];
+export { EXPOSITORES } from './mapa-logico.js';
 
 const MADEIRA = 0x5a3d26;
 
 /** Monta todos (no fim do World): devolve a lista, com os quebráveis e os interagíveis já no mundo. */
 export function montarExpositores(world) {
   const lista = [];
-  EXPOSITORES.forEach((def, n) => {
+  // o LUGAR e o círculo de colisão de cada um vêm do mapa lógico (`expositoresDoMapa`: o servidor também os tem)
+  for (const { n, def, x, z, circulo } of world.expositoresDoMapa) {
     const f = world.fogueira(def.perto);
-    if (!f || f.id !== def.perto) return;
-    const lugar = lugarLivre(world, f.pos, def.rumo);
-    if (!lugar) { console.warn(`[expositor] sem lugar livre perto da fogueira ${def.perto}`); return; }
+    const lugar = new THREE.Vector3(x, 0, z);
     const exp = { n, def, pos: lugar, itens: [] };
     // virado para a fogueira
     const giro = Math.atan2(f.pos.x - lugar.x, f.pos.z - lugar.z);
@@ -62,13 +54,11 @@ export function montarExpositores(world) {
       world.interactables.push(it);
     });
     // o quebrável (LOCAL: só quem quebrou vê, e volta inteiro depois — como o mato)
-    const circulo = { x: lugar.x, z: lugar.z, r: def.tipo === 'armas' ? 0.75 : 0.45 };
-    world.circles.push(circulo);
     const q = { i: -1 - n, prop: `expositor-${def.tipo}`, cfg: { local: true, pedacos: 9, cor: MADEIRA, expositor: exp }, raiz: armacao, pos: lugar.clone(), raio: circulo.r + 0.2, circulo, rCirculo: circulo.r, quebrado: false };
     world.quebraveis.push(q);
     exp.q = q;
     lista.push(exp);
-  });
+  }
   return lista;
 }
 
@@ -110,32 +100,6 @@ export function aplicarExpositores(world, salvo) {
 // ------------------------------------------------------------------ o lugar
 
 /** O primeiro ponto livre num anel em volta de `centro`, começando do `rumo` pedido. */
-function lugarLivre(world, centro, rumo) {
-  // as caixas das peças da decoração por perto (objetos, construções, pedras)
-  const caixas = [];
-  for (const cat of ['objeto', 'construcao', 'pedra']) {
-    for (const d of world.decorPorCategoria?.[cat] ?? []) {
-      if (Math.hypot(d.obj.position.x - centro.x, d.obj.position.z - centro.z) > 12) continue;
-      d.obj.updateMatrixWorld(true);
-      caixas.push(new THREE.Box3().setFromObject(d.obj));
-    }
-  }
-  for (const raio of [4.6, 5.4, 3.9, 6.2]) {
-    for (let k = 0; k < 24; k++) {
-      const a = rumo + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 12);
-      const p = new THREE.Vector3(centro.x + Math.sin(a) * raio, 0, centro.z + Math.cos(a) * raio);
-      if (world.solidAt(p.x, p.z, 1.1)) continue;
-      if (world.fundoDaAgua?.(p.x, p.z) > -0.5) continue;
-      if (world.circles.some((c) => c.r > 0 && Math.hypot(c.x - p.x, c.z - p.z) < c.r + 1.2)) continue;
-      if (world.interactables.some((i) => i.pos && Math.hypot(i.pos.x - p.x, i.pos.z - p.z) < 1.6)) continue;
-      // nem em cima de uma peça da decoração (um colchonete não tem colisão, mas está lá): pela CAIXA dela
-      if (caixas.some((c) => p.x > c.min.x - 0.7 && p.x < c.max.x + 0.7 && p.z > c.min.z - 0.7 && p.z < c.max.z + 0.7)) continue;
-      return p;
-    }
-  }
-  return null;
-}
-
 // ------------------------------------------------------------------ as armações (madeira)
 
 const caixa = (l, a, p, x, y, z, mat) => {

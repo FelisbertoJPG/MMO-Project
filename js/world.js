@@ -11,12 +11,15 @@ import { fragmentos } from './fratura.js';
 import { LONGE } from './graficos.js';
 import { vestirVeu } from './veu.js';
 import { montarExpositores } from './expositor.js';
+// O MAPA LÓGICO (a grade, o chão, as colisões, o caminho) mora em mapa-logico.js: o World é um
+// MapaLogico que também desenha. As medidas e as listas do mapa vêm de lá (o servidor as lê também).
+import {
+  MapaLogico, pecasDe, lugaresDasFogueiras, S, CELL, WALL_H, DIRS, YAW_INTO, TORCHES, TOCHAS_DE_ESTACA,
+  CHESTS, PICKUPS, MESSAGES, ARENA, FOGUEIRAS_DO_MAPA,
+} from './mapa-logico.js';
+export { S, CELL, WALL_H } from './mapa-logico.js';
 
 const flatDistXZ = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-export const S = 1.5; // escala da masmorra (salas e corredores 50% maiores)
-export const CELL = 4 * S;
-export const WALL_H = 4 * S;
-const WT = 0.5 * S; // meia espessura das paredes
 
 // Masmorra (cada caractere = 4x4 m). Norte = -Z. O jogador começa na cela de baixo e sobe.
 // '#' rocha, '.' piso de pedra, ',' terra, 'c' cela, 'X' arena do Carrasco,
@@ -58,41 +61,6 @@ const MAPA_DE_EMERGENCIA = [
   '#.............#', // 23 corredor das celas
   '#c#c#c#c#c#c###', // 24 celas
   '###############', // 25
-];
-
-const SPECIAL_EDGES = [
-  { a: [24, 5], b: [23, 5], type: 'celldoor' },
-  ...[1, 3, 7, 9, 11].map((c) => ({ a: [24, c], b: [23, c], type: 'bars' })),
-  { a: [18, 7], b: [17, 7], type: 'door' },
-  { a: [16, 11], b: [16, 12], type: 'door' },
-  { a: [7, 7], b: [6, 7], type: 'fog' },
-  // a saída para a FLORESTA: um vão aberto na parede de terra da alcova do
-  // tesouro. Só existe no mapa `floresta` (assets/mapa.json); no `original` a
-  // célula (16,14) é rocha e esta aresta nunca é visitada.
-  { a: [16, 13], b: [16, 14], type: 'arco' },
-];
-
-// Tochas de parede: [linha, coluna, lado da parede]
-const TORCHES = [
-  [23, 3, 'n'], [23, 9, 'n'], [23, 13, 'e'],
-  [19, 4, 'w'], [21, 10, 'e'],
-  [15, 3, 'n'], [17, 11, 's'], [15, 9, 'n'],
-  [9, 2, 'w'], [13, 12, 'e'], [9, 10, 'n'], [13, 4, 's'],
-  [8, 7, 'e'],
-];
-
-// Tochas de ESTACA (02/10/2026): fincadas no chão, para onde não há parede em
-// que pendurar — o acampamento e a entrada da masmorra. Quem nasce do lado de
-// fora (o mundo online) não passa pelo corredor das celas, que é onde estavam
-// as primeiras tochas. `off` em metros a partir do centro da célula.
-// Entram em `world.torches` DEPOIS das de parede: o save guarda as tochas pela
-// ordem, e uma no meio embaralharia os saves antigos.
-const TOCHAS_DE_ESTACA = [
-  { cell: [16, 14], off: [-1.3, -2.3] },   // a entrada da masmorra (o arco), uma de cada lado
-  { cell: [16, 14], off: [-1.3, 2.3] },
-  { cell: [15, 42], off: [1.2, 0.8] },     // o portão do acampamento, junto à cerca
-  { cell: [17, 42], off: [1.2, -0.8] },
-  { cell: [13, 48], off: [0.5, 2.2] },     // ao lado do cabide de armas
 ];
 
 /**
@@ -139,65 +107,16 @@ export const SAQUES = {
   saco:    [[null, 2], ['farinha', 3], ['erva', 1]],
 };
 
-// Baús: célula, parede de apoio e conteúdo
-const CHESTS = [
-  { cell: [19, 10], wall: 'n', items: [['paoDuro', 3], ['ensopado', 2]] },
-  // AS ARMADURAS (items.js, ficha.js): o couro no começo (acampamento e masmorra), o elmo
-  // da malha mais adiante; o resto da malha cai do Guerreiro Esqueleto, as placas dos chefes
-  { cell: [23, 1], wall: 'w', items: [['bone', 2], ['arm1_bracos', 1]] },
-  { cell: [15, 11], wall: 'n', items: [['shieldRound', 1]] },
-  { cell: [9, 12], wall: 'n', items: [['firebomb', 3], ['arm2_cabeca', 1]] },
-  { cell: [13, 2], wall: 's', items: [['ringLife', 1], ['lostSoul', 1]] },
-  // na parede SUL da alcova: a leste agora é a saída para a floresta (`arco`),
-  // e encostado nela o baú ficava no meio da passagem
-  { cell: [16, 13], wall: 's', items: [['greatsword', 1], ['ringWolf', 1]], gold: true },
-  // o do ACAMPAMENTO, atrás da barraca do norte. No FIM da lista: o save
-  // guarda os baús pela ordem, e um no meio embaralharia os saves antigos
-  // (`buildChests` pula o que cai na rocha: o mapa `original` não tem acampamento).
-  { cell: [12, 47], wall: 'n', items: [['firebomb', 2], ['lostSoul', 1], ['arm1_peito', 1], ['arm1_pernas', 1]] },
-];
-
-// Itens no chão (alguns junto a cadáveres)
-const PICKUPS = [
-  { cell: [23, 2], wall: 'n', item: 'dagger', corpse: true },
-  { cell: [17, 4], wall: 's', item: 'longsword', corpse: true },
-  { cell: [11, 2], wall: 'w', item: 'axe', corpse: true },
-  { cell: [9, 6], wall: 'n', item: 'shieldKnight', corpse: true },
-  { cell: [13, 8], wall: 's', item: 'resin', qty: 2 },
-  { cell: [15, 6], wall: 'n', item: 'blossom', qty: 2 },
-  { cell: [21, 4], wall: 's', item: 'lostSoul', qty: 1 },
-  { cell: [23, 11], wall: 'n', item: 'firebomb', qty: 2 },
-  { cell: [8, 7], wall: 'w', item: 'ringGreen', qty: 1 },
-];
-
-const MESSAGES = [
-  { cell: [23, 5], text: 'Tochas iluminam o caminho — pegue uma na parede (E)', off: [0, -0.8] },
-  { cell: [21, 7], text: 'Descanse. Mas os mortos se levantarão de novo.', off: [0, 1.2] },
-  { cell: [16, 7], text: 'Ossos dormem no chão... até você chegar perto', off: [0, 0] },
-  { cell: [13, 7], text: 'Fogo é a fraqueza dos ossos', off: [0, 1] },
-  { cell: [7, 7], text: 'O Carrasco aguarda. Role através do machado.', off: [0, 1] },
-  // o acampamento e a estrada (só existem no mapa `floresta` estendido — `buildMessages` pula as que caem na rocha)
-  { cell: [16, 52], text: 'A leste, depois das árvores, o vento sopra nas WindHills.', off: [-1.5, 1.4] },
-  { cell: [16, 43], text: 'A masmorra fica a oeste, depois da floresta. Não vá de mãos vazias.', off: [0, 1.6] },
-  { cell: [16, 41], text: 'Há ossos sob a relva. Pise leve.', off: [1.5, -1.2] },
-];
-
-const DIRS = { n: [-1, 0], s: [1, 0], w: [0, -1], e: [0, 1] };
-const YAW_INTO = { n: 0, s: Math.PI, w: Math.PI / 2, e: -Math.PI / 2 }; // rotação para +Z apontar para dentro da célula
-
-export const BONFIRE_POS = new THREE.Vector3(7 * CELL, 0, 20 * CELL);
-export const ARENA_CENTER = new THREE.Vector3(7 * CELL, 0, 3.5 * CELL);
+// Os LUGARES fixos (padrão; as tags do mapa vencem, `aplicarMarcos`). Os das fogueiras e o da arena
+// moram no mapa lógico (`FOGUEIRAS_DO_MAPA`, `ARENA`), que o servidor também lê.
+const lugarPadrao = (id) => { const f = FOGUEIRAS_DO_MAPA.find((x) => x.id === id); return new THREE.Vector3(f.x, 0, f.z); };
+export const BONFIRE_POS = lugarPadrao('masmorra');
+export const ARENA_CENTER = new THREE.Vector3(ARENA.x, 0, ARENA.z);
 export const FOG_POS = new THREE.Vector3(7 * CELL, 0, 6.5 * CELL);
 export const START_POS = new THREE.Vector3(5 * CELL, 0, 24 * CELL);
 // O ACAMPAMENTO (02/10/2026): a clareira a leste da floresta, com a segunda
 // fogueira. É onde nasce quem entra no MUNDO ONLINE (`Player.startOutside`).
-// O `decorar-acampamento.mjs` do editor de cenas LÊ esta linha para arrumar as
-// barracas em volta — mudou aqui, rode a ferramenta de novo.
-// 03/10/2026: a MATA abriu 14 colunas entre a floresta e o acampamento, que foi
-// de 26–39 para 40–53 (e a decoração dele andou junto no decor.json). A
-// ferramenta do editor ainda assume "da coluna 26 em diante": ajuste-a antes de
-// rodá-la de novo, ou ela redecora a mata como se fosse o acampamento.
-export const CAMP_POS = new THREE.Vector3(47.5 * CELL, 0, 16 * CELL);
+export const CAMP_POS = lugarPadrao('acampamento');
 
 /**
  * AS TAGS DE LUGAR (`marcos` no mapa.json, 04/10/2026). As posições acima são o
@@ -212,8 +131,8 @@ export function aplicarMarcos(m = {}) {
   const cel = (v) => (Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? v : null);
   const c0 = cel(m.inicio);
   if (c0) START_POS.set(c0[1] * CELL, 0, c0[0] * CELL);
-  // cada fogueira pela tag do mesmo nome (`masmorra`, `acampamento`, `colinas`…)
-  for (const f of FOGUEIRAS) { const c = cel(m[f.id]); if (c) f.pos.set(c[1] * CELL, 0, c[0] * CELL); }
+  // cada fogueira pela tag do mesmo nome (`masmorra`, `acampamento`, `colinas`…): a conta é a do mapa lógico
+  for (const l of lugaresDasFogueiras(m)) FOGUEIRAS.find((f) => f.id === l.id).pos.set(l.x, 0, l.z);
   NASCER.id = typeof m.nascer === 'string' && FOGUEIRAS.some((f) => f.id === m.nascer) ? m.nascer : 'acampamento';
 }
 /** A fogueira onde se nasce no Mundo online (a tag `nascer`) e a assinatura do lugar dela. */
@@ -222,18 +141,14 @@ export const NASCER = {
   get chave() { const f = FOGUEIRAS.find((x) => x.id === this.id); return `${this.id}@${f ? `${(f.pos.z / CELL).toFixed(2)},${(f.pos.x / CELL).toFixed(2)}` : '?'}`; },
 };
 /**
- * As FOGUEIRAS, no plural. `acordar` = onde se renasce, em metros a partir do
- * fogo, e `rumo` = para onde se acorda olhando. A da masmorra é a primeira: é
- * a de quem tem um save de antes de haver duas. Uma fogueira cuja célula é
- * rocha no mapa ativo (o `original` não tem acampamento) não é construída.
+ * As FOGUEIRAS, no plural (os dados: `FOGUEIRAS_DO_MAPA`, no mapa lógico), com o lugar num
+ * Vector3. Uma fogueira cuja célula é rocha no mapa ativo (o `original` não tem acampamento)
+ * não é construída.
  */
-export const FOGUEIRAS = [
-  { id: 'masmorra', nome: 'Sala da Fogueira', pos: BONFIRE_POS, acordar: [0, 2.6], rumo: Math.PI },
-  { id: 'acampamento', nome: 'Acampamento', pos: CAMP_POS, acordar: [3.2, 0], rumo: -Math.PI / 2 },
-  // a das COLINAS DO VENTO (a região de relevo a leste do acampamento): o lugar vem da
-  // tag `colinas` do mapa; sem ela (ou no mapa `original`) fica na rocha e não é construída
-  { id: 'colinas', nome: 'WindHills', pos: new THREE.Vector3(-99, 0, -99), acordar: [3.2, 0], rumo: Math.PI / 2 },
-];
+export const FOGUEIRAS = FOGUEIRAS_DO_MAPA.map((f) => ({
+  id: f.id, nome: f.nome, acordar: f.acordar, rumo: f.rumo,
+  pos: f.id === 'masmorra' ? BONFIRE_POS : f.id === 'acampamento' ? CAMP_POS : new THREE.Vector3(f.x, 0, f.z),
+}));
 export const GLOW = { tex: null };
 
 // ---------------------------------------------------------------- O CICLO DO DIA
@@ -275,7 +190,6 @@ export function cicloDoDia(h, alvo = null) {
 const _verdeCampos = new THREE.Color(0x3d5a2a);
 const _frente = new THREE.Vector3();   // (a caixa da sombra do sol adiantada: `updateAmbience`)
 // as peças que ganham colisão do próprio tamanho quando o decor.json não diz o raio
-const RAIO_AUTOMATICO = /(^|-)Rock_|^rubble_|^barrier_column/;
 
 const rand = (seed) => { let s = seed; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; };
 
@@ -362,13 +276,18 @@ function cascaDaGeometria(g) {
   return c;
 }
 
-export class World {
+export class World extends MapaLogico {
   constructor(game) {
     aplicarMarcos(Assets.marcos);   // as tags de lugar do mapa, antes de montar qualquer coisa
+    // O MAPA LÓGICO primeiro: a grade, o relevo, a água e TODAS as colisões (mapa-logico.js),
+    // dos mesmos arquivos que o servidor lê. O mapa vem de `assets/mapa.json` (o editor de
+    // cenas o grava); sem ele, a EMERGÊNCIA embutida acima — `Assets.load` já gritou o motivo.
+    super({
+      mapa: Assets.mapa ?? MAPA_DE_EMERGENCIA, relevo: Assets.relevo, agua: Assets.agua, decor: Assets.decor, marcos: Assets.marcos,
+      pecas: pecasDe(Object.keys(Assets.props), Assets.caixasDasPecas),
+    }, { vetor: (x, y, z) => new THREE.Vector3(x, y, z) });
     this.game = game;
     this.scene = game.scene;
-    this.boxes = [];
-    this.circles = [];
     // o chão SEM CAPIM: a planta (retângulo em x/z) de cada peça que não é natureza, por
     // célula (`marcarSemCapim`, `podeCapim`); e as peças do decor.json por categoria
     this.semCapim = new Map();
@@ -379,21 +298,11 @@ export class World {
     this.flames = [];
     this.braziers = [];
     this.doors = [];
-    this.gateOpen = false;
     this.bloodstain = null;
     this.time = 0;
-    // O mapa vem de `assets/mapa.json` (o editor de cenas o grava). Sem ele,
-    // a EMERGENCIA embutida acima — `Assets.load` ja gritou o motivo no console.
-    this.mapa = Assets.mapa ?? MAPA_DE_EMERGENCIA;
-    this.rows = this.mapa.length;
-    this.cols = this.mapa[0].length;
-    this.edgeMap = new Map();
     GLOW.tex = glowTexture();
 
     this.buildLighting();
-    this.montarRelevo(Assets.relevo);   // a altura do chão das colinas, antes do chão e da decoração
-    // os ESPELHOS D'ÁGUA (mapa.json → `agua`; quem os desenha é o js/agua.js): antes do chão, que pinta a areia
-    this.agua = (Assets.agua ?? []).filter((a) => Number.isFinite(a?.nivel) && Array.isArray(a.caixa) && a.caixa.length === 4 && a.caixa.every(Number.isFinite));
     // os CAMINHOS de terra (campo.js): a estrada, as trilhas e o terreiro das fogueiras —
     // antes do chão, que pinta a terra, e do capim, que não nasce nela
     montarCaminhos(this);
@@ -411,162 +320,6 @@ export class World {
     // o suporte de armas e o cavalete de armadura, com os itens de verdade (expositor.js)
     this.expositores = montarExpositores(this);
   }
-
-  // ---------- Grid ----------
-  ch(r, c) { return r < 0 || r >= this.rows || c < 0 || c >= this.cols ? '#' : this.mapa[r][c]; }
-  isFloor(r, c) { return this.ch(r, c) !== '#'; }
-  center(r, c) { return new THREE.Vector3(c * CELL, 0, r * CELL); }
-  cellOf(pos) { return [Math.round(pos.z / CELL), Math.round(pos.x / CELL)]; }
-  isArenaCell(r, c) { return this.ch(r, c) === 'X'; }
-  // ar livre: a floresta ('f'), o andar de cima ('a') e a escada ('e') que o liga
-  isOpenAir(r, c) { return 'fae'.includes(this.ch(r, c)); }
-  /**
-   * A célula é DE DENTRO da masmorra (para o LOD esconder o outro lado, lod.js)? O chão de
-   * lá, ou a rocha encostada nele (onde ficam as paredes) — e, nos dois casos, sem ar livre
-   * a até 2 células: a soleira e a borda continuam visíveis de fora. Rocha funda e a borda
-   * do mapa (árvores e pedras plantadas no `#` em volta dos campos) são de FORA.
-   */
-  ehDeDentro(r, c) {
-    const perto = (raio, teste) => { for (let i = -raio; i <= raio; i++) for (let j = -raio; j <= raio; j++) if (teste(r + i, c + j)) return true; return false; };
-    if (perto(2, (a, b) => this.isOpenAir(a, b))) return false;
-    const chao = (a, b) => this.ch(a, b) !== '#' && !this.isOpenAir(a, b);
-    return chao(r, c) || perto(1, chao);
-  }
-  edgeKey(a, b) { return a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]) ? `${a}|${b}` : `${b}|${a}`; }
-
-  // ---------- Altura: o ANDAR DE CIMA ----------
-  //
-  // A colisão do jogo é uma PLANTA (caixas e círculos em x,z) — por isso o andar
-  // de cima ('a') fica sobre ROCHA, nunca sobre um cômodo: duas salas na mesma
-  // planta, uma em cima da outra, teriam as paredes de uma barrando a outra. Ele
-  // é chão a `WALL_H`, e a ESCADA ('e') é uma rampa da borda baixa até a alta.
-  //
-  // Borda entre níveis diferentes BARRA (`conectaNivel`): sem isso, andar da
-  // floresta para uma célula do andar de cima seria "subir" 6 m num passo. A
-  // escada só liga pelas duas pontas — o lado dela que dá para o andar ('a') e
-  // o oposto, que dá para o chão.
-
-  /** 0 (chão), 1 (andar de cima) ou 'e' (escada). Rocha fica 0 — ninguém pisa. */
-  nivel(r, c) { const t = this.ch(r, c); return t === 'a' ? 1 : t === 'e' ? 'e' : 0; }
-
-  /** Para onde a escada SOBE: `[dl, dc]` do vizinho do andar de cima, ou `null`. */
-  subidaDaEscada(r, c) {
-    for (const d of Object.values(DIRS)) if (this.nivel(r + d[0], c + d[1]) === 1) return d;
-    return null;
-  }
-
-  /** Dá para passar de uma célula para a vizinha sem pular um andar? */
-  conectaNivel(a, b) {
-    const na = this.nivel(...a), nb = this.nivel(...b);
-    if (na !== 'e' && nb !== 'e') return na === nb;
-    if (na === 'e' && nb === 'e') return true;
-    const [esc, fora] = na === 'e' ? [a, b] : [b, a];
-    const d = this.subidaDaEscada(...esc);
-    if (!d) return this.nivel(...fora) === 0;
-    if (fora[0] === esc[0] + d[0] && fora[1] === esc[1] + d[1]) return this.nivel(...fora) === 1;
-    if (fora[0] === esc[0] - d[0] && fora[1] === esc[1] - d[1]) return this.nivel(...fora) === 0;
-    return false;                                           // o lado da escada é parede
-  }
-
-  /** A altura do CHÃO onde está `pos`: 0, `WALL_H` no andar de cima, rampa na escada. */
-  alturaChao(pos) {
-    const [r, c] = this.cellOf(pos);
-    const t = this.ch(r, c);
-    if (t === 'f') return this.relevoEm(pos.x, pos.z);
-    if (t === 'a') return WALL_H;
-    if (t !== 'e') return 0;
-    const d = this.subidaDaEscada(r, c);
-    if (!d) return 0;
-    // o quanto se avançou na direção da subida, de 0 (borda baixa) a 1 (alta)
-    const k = ((pos.x - c * CELL) * d[1] + (pos.z - r * CELL) * d[0]) / CELL + 0.5;
-    return WALL_H * Math.min(1, Math.max(0, k));
-  }
-
-  // ---------- O RELEVO: as COLINAS (04/10/2026) ----------
-  //
-  // A altura do chão de ar livre ('f') numa ÁREA do mapa vem de `relevo` no mapa.json
-  // (`Assets.relevo`): a soma de colinas suaves (cosseno; `plano` = topo chato), indo a
-  // zero perto da rocha e da borda da área (`borda`, em células) — então a colina nunca
-  // encosta num paredão nem num chão plano de fora com degrau. A altura é calculada UMA
-  // vez numa grade de CELL/4 (a mesma da grama: o chão que se vê é o chão que se pisa)
-  // e lida com interpolação bilinear. A colisão é uma planta (x, z): o relevo não barra,
-  // só ergue. Fora da área (e sem `relevo`), tudo plano como sempre.
-  montarRelevo(rel) {
-    this.relevo = null;
-    // OS PONTOS (o formato do editor de cenas: `passo` m e `pontos` {"i,k": altura}, em
-    // coordenadas do mundo; o que o decorador esculpe) vencem as colinas: valem no MAPA
-    // INTEIRO (em células `f`), sem rampa automática — o chão é o que foi esculpido.
-    const pontos = rel?.pontos && typeof rel.pontos === 'object' ? rel.pontos : null;
-    if (pontos) {
-      const pp = rel.passo > 0 ? rel.passo : 2, N = 4, passo = CELL / N;
-      const x0 = -CELL / 2, z0 = -CELL / 2, nx = this.cols * N + 1, nz = this.rows * N + 1, h = new Float32Array(nx * nz);
-      const no = (i, k) => { const v = pontos[`${i},${k}`]; return Number.isFinite(v) ? v : 0; };
-      for (let k = 0; k < nz; k++) for (let i = 0; i < nx; i++) {
-        const fx = (x0 + i * passo) / pp, fz = (z0 + k * passo) / pp, a = Math.floor(fx), b = Math.floor(fz), tx = fx - a, tz = fz - b;
-        h[k * nx + i] = no(a, b) * (1 - tx) * (1 - tz) + no(a + 1, b) * tx * (1 - tz) + no(a, b + 1) * (1 - tx) * tz + no(a + 1, b + 1) * tx * tz;
-      }
-      this.relevo = { x0, z0, nx, nz, passo, h };
-      this.areaRelevo = Array.isArray(rel.area) && rel.area.length === 2 ? rel.area : null;   // os campos (o clima)
-      return;
-    }
-    const area = rel?.area, colinas = Array.isArray(rel?.colinas) ? rel.colinas : [];
-    if (!Array.isArray(area) || area.length !== 2 || !colinas.length) return;
-    const [[r0, c0], [r1, c1]] = area, N = 4, passo = CELL / N, borda = (rel.borda ?? 2) * CELL;
-    const x0 = c0 * CELL - CELL / 2, z0 = r0 * CELL - CELL / 2;
-    const nx = (c1 - c0 + 1) * N + 1, nz = (r1 - r0 + 1) * N + 1;
-    const h = new Float32Array(nx * nz);
-    const dentro = (r, c) => r >= r0 && r <= r1 && c >= c0 && c <= c1 && this.ch(r, c) === 'f';
-    const viz = Math.ceil(rel.borda ?? 2) + 1;
-    for (let k = 0; k < nz; k++) {
-      for (let i = 0; i < nx; i++) {
-        const x = x0 + i * passo, z = z0 + k * passo;
-        // a distância (m) até a célula mais perto que NÃO é relevo (rocha, fora da área)
-        const cr = Math.round(z / CELL), cc = Math.round(x / CELL);
-        let dist = borda;
-        for (let dr = -viz; dr <= viz; dr++) for (let dc = -viz; dc <= viz; dc++) {
-          const rr = cr + dr, ccc = cc + dc;
-          if (dentro(rr, ccc)) continue;
-          const dx = Math.max(Math.abs(x - ccc * CELL) - CELL / 2, 0), dz = Math.max(Math.abs(z - rr * CELL) - CELL / 2, 0);
-          dist = Math.min(dist, Math.hypot(dx, dz));
-        }
-        if (dist <= 0) continue;
-        let alt = 0;
-        for (const col of colinas) {
-          const d = Math.hypot(z / CELL - col.centro[0], x / CELL - col.centro[1]) / col.raio;
-          if (d >= 1) continue;
-          const p = col.plano ?? 0, t = d <= p ? 0 : (d - p) / (1 - p);
-          alt += col.altura * 0.5 * (1 + Math.cos(Math.PI * t));
-        }
-        const s = Math.min(1, dist / borda);
-        h[k * nx + i] = alt * s * s * (3 - 2 * s);
-      }
-    }
-    this.relevo = { x0, z0, nx, nz, passo, h };
-    this.areaRelevo = area;
-  }
-
-  /**
-   * Quanta ÁGUA há sobre o chão em (x, z), em metros: positivo = dentro d'água (a profundidade),
-   * negativo = seco (quanto o chão está acima do nível). Fora de todo espelho d'água, -Infinity.
-   */
-  fundoDaAgua(x, z) {
-    for (const a of this.agua) if (x >= a.caixa[0] && x <= a.caixa[2] && z >= a.caixa[1] && z <= a.caixa[3]) return a.nivel - this.relevoEm(x, z);
-    return -Infinity;
-  }
-
-  /** A altura do RELEVO em (x, z): 0 fora da área das colinas. */
-  relevoEm(x, z) {
-    const R = this.relevo;
-    if (!R) return 0;
-    const fi = (x - R.x0) / R.passo, fk = (z - R.z0) / R.passo;
-    if (fi < 0 || fk < 0 || fi >= R.nx - 1 || fk >= R.nz - 1) return 0;
-    const i = Math.floor(fi), k = Math.floor(fk), u = fi - i, v = fk - k, n = R.nx, h = R.h;
-    const a = h[k * n + i], b = h[k * n + i + 1], c = h[(k + 1) * n + i], d = h[(k + 1) * n + i + 1];
-    return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
-  }
-
-  /** Quanto `pos` está ACIMA do chão dele (o que "no ar" quer dizer). */
-  acimaDoChao(pos) { return pos.y - this.alturaChao(pos); }
 
   // ---------- Iluminação: dentro, fora e O DIA ----------
   //
@@ -684,12 +437,10 @@ export class World {
   buildGeometry() {
     // A ESTRUTURA (piso, parede, teto) pode ter sido exportada para
     // assets/decor.json pelo editor de cenas — la ela e editavel peca a peca.
-    // Havendo, este metodo para de DESENHA-la e passa a cuidar so do que nao e
-    // visual: as caixas de colisao e as passagens especiais.
+    // Havendo, este metodo para de DESENHA-la e so desenha as passagens especiais.
     //
-    // A colisao continua vindo do MAP, sempre. Ela nao e decoracao: tirar uma
-    // parede desenhada nao pode abrir passagem sozinha, nem uma parede posta a
-    // mao pode barrar sem alguem dizer.
+    // A COLISAO nao e daqui: ela vem do MAP, sempre, no mapa logico (`montarColisoes`,
+    // mapa-logico.js). Tirar uma parede desenhada nao abre passagem.
     const daEstrutura = Assets.decor.some((d) => d.ger);
     const r = rand(42);
     const inst = {}; // nome -> lista de matrizes
@@ -701,34 +452,18 @@ export class World {
       m.setPosition(x, y, z);
       return m;
     };
-    for (const e of SPECIAL_EDGES) this.edgeMap.set(this.edgeKey(e.a, e.b), e);
-
     const livres = [];   // as células de ar livre, para o chão de grama
     for (let row = 0; row < this.rows; row++) {
       for (let col = 0; col < this.cols; col++) {
         const t = this.ch(row, col);
         if (t === '#') continue;
         const x = col * CELL, z = row * CELL;
-        // AR LIVRE: sem piso de pedra, sem teto, sem parede desenhada — mas a
-        // borda com a rocha BARRA igual (quem a mostra é a decoração: árvores e
-        // pedras). Tratado antes de qualquer `r()`: consumir o sorteio aqui
-        // mudaria piso e parede de todas as células seguintes no modo sem
-        // decoração.
+        // AR LIVRE: sem piso de pedra, sem teto, sem parede desenhada (a borda com a
+        // rocha barra igual: quem a mostra é a decoração, árvores e pedras). Tratado
+        // antes de qualquer `r()`: consumir o sorteio aqui mudaria piso e parede de
+        // todas as células seguintes no modo sem decoração.
         if (t === 'f' || t === 'a' || t === 'e') {
           if (t === 'f') livres.push([x, z]);      // grama só no chão da floresta
-          for (const [side, [dr, dc]] of Object.entries(DIRS)) {
-            const nr = row + dr, nc = col + dc;
-            const ex = x + dc * CELL / 2, ez = z + dr * CELL / 2;
-            if (!this.isFloor(nr, nc)) this.addEdgeBox(ex, ez, side, 'wall');
-            // DESNÍVEL barra (ver `conectaNivel`). Sem conferir a ordem das
-            // células: o vizinho de chão comum não sabe de andar nenhum e não
-            // poria a caixa, então quem a põe é sempre este lado.
-            else if (!this.conectaNivel([row, col], [nr, nc])) this.addEdgeBox(ex, ez, side, 'wall');
-            else if (nr > row || nc > col) {
-              const special = this.edgeMap.get(this.edgeKey([row, col], [nr, nc]));
-              if (special) this.buildSpecialEdge(special, ex, ez, side);
-            }
-          }
           continue;
         }
         const arena = t === 'X';
@@ -752,10 +487,7 @@ export class World {
               push(kind, mtx(ex, 0, ez, yaw));
               if (arena) push('wall', mtx(ex, WALL_H, ez, yaw));
             }
-            this.addEdgeBox(ex, ez, side, 'wall');   // colisao: SEMPRE, vem do MAP
           } else if (nr > row || nc > col) {
-            const special = this.edgeMap.get(this.edgeKey([row, col], [nr, nc]));
-            if (special) this.buildSpecialEdge(special, ex, ez, side);
             // Arena mais alta que o corredor: parede acima da passagem
             if (!daEstrutura && arena !== this.isArenaCell(nr, nc)) push('wall', mtx(ex, WALL_H, ez, yaw));
           }
@@ -771,6 +503,8 @@ export class World {
       this.scene.add(im);
     }
     if (livres.length) this.buildGrass(livres);
+    // as PASSAGENS especiais (grade, porta, arco, névoa), na ordem em que o mapa lógico as achou
+    for (const p of this.passagens) this.buildSpecialEdge(p);
   }
 
   /**
@@ -820,38 +554,17 @@ export class World {
     this.scene.add(chao);
   }
 
-  // Caixa de colisão de uma parede (1 m de espessura centrada na borda da célula)
-  addEdgeBox(ex, ez, side, kind, extra = {}) {
-    const alongX = side === 'n' || side === 's';
-    const b = alongX
-      ? { minX: ex - CELL / 2, maxX: ex + CELL / 2, minZ: ez - WT, maxZ: ez + WT }
-      : { minX: ex - WT, maxX: ex + WT, minZ: ez - CELL / 2, maxZ: ez + CELL / 2 };
-    Object.assign(b, { kind, ...extra });
-    this.boxes.push(b);
-    return b;
-  }
-
-  buildSpecialEdge(e, ex, ez, side) {
+  /** O DESENHO de uma passagem especial (a colisão dela já está no mapa lógico: `colisaoDaPassagem`). */
+  buildSpecialEdge({ e, ex, ez, side, porta }) {
     const yaw = YAW_INTO[side];
     if (e.type === 'bars') {
       const m = Assets.prop('wall_gated'); m.position.set(ex, 0, ez); m.rotation.y = yaw; m.scale.setScalar(S);
       this.scene.add(m);
-      this.addEdgeBox(ex, ez, side, 'bars');
     } else if (e.type === 'door' || e.type === 'celldoor' || e.type === 'arco') {
       const m = Assets.prop('wall_doorway'); m.position.set(ex, 0, ez); m.rotation.y = yaw; m.scale.setScalar(S);
       this.scene.add(m);
       let door = null;
       m.traverse((c) => { if (/door$/.test(c.name)) door = c; });
-      // Batentes laterais sempre bloqueiam; o vão central bloqueia enquanto fechada
-      const alongX = side === 'n' || side === 's';
-      const half = CELL / 2, gh = S; // vão da porta: 2 m no modelo original
-      const jamb = (sg) => {
-        const a = sg < 0 ? -half - 1 : gh, b = sg < 0 ? -gh : half + 1;
-        this.boxes.push(alongX
-          ? { minX: ex + a, maxX: ex + b, minZ: ez - WT, maxZ: ez + WT, kind: 'wall' }
-          : { minX: ex - WT, maxX: ex + WT, minZ: ez + a, maxZ: ez + b, kind: 'wall' });
-      };
-      jamb(-1); jamb(1);
       // ARCO: o mesmo vão, sempre aberto — a folha some e não há o que abrir.
       // O modelo é o da porta (o pacote não tem vão sem folha), por isso a
       // folha é ESCONDIDA e não retirada: o `Assets.prop` é um clone, e o
@@ -860,19 +573,13 @@ export class World {
         if (door) door.visible = false;
         return;
       }
-      const gap = alongX
-        ? { minX: ex - gh, maxX: ex + gh, minZ: ez - 0.35 * S, maxZ: ez + 0.35 * S, kind: 'door' }
-        : { minX: ex - 0.35 * S, maxX: ex + 0.35 * S, minZ: ez - gh, maxZ: ez + gh, kind: 'door' };
-      this.boxes.push(gap);
-      const d = { door, box: gap, open: false, t: 0, locked: e.type === 'celldoor' ? 'cellKey' : null, pos: new THREE.Vector3(ex, 0, ez) };
+      // `box` = a caixa do vão no mapa lógico: abrir a porta a desliga (`disabled`)
+      const d = { door, box: porta, open: false, t: 0, locked: e.type === 'celldoor' ? 'cellKey' : null, pos: new THREE.Vector3(ex, 0, ez) };
       this.doors.push(d);
       d.interact = { type: 'door', door: d, pos: d.pos, radius: 2.8, get label() { return d.locked ? 'Abrir porta (trancada)' : 'Abrir porta'; } };
       this.interactables.push(d.interact);
-    } else if (e.type === 'fog') {
-      this.fogEdge = { ex, ez, side };
-      this.fogBox = this.addEdgeBox(ex, ez, side, 'fog');
-      this.fogBox.minX = ex - CELL / 2; this.fogBox.maxX = ex + CELL / 2;
     }
+    // (a névoa: `fogEdge` e `fogBox` vêm do mapa lógico; quem a desenha é o buildFogGate)
   }
 
   openDoor(d) {
@@ -894,13 +601,6 @@ export class World {
   }
 
   // ---------- Tochas de parede ----------
-  wallAnchor(cell, side, inset) {
-    const [dr, dc] = DIRS[side];
-    const p = this.center(cell[0], cell[1]);
-    p.x += dc * (CELL / 2 - WT - inset); p.z += dr * (CELL / 2 - WT - inset);
-    return p;
-  }
-
   buildTorches() {
     for (const [row, col, side] of TORCHES) {
       const p = this.wallAnchor([row, col], side, 0);
@@ -961,8 +661,7 @@ export class World {
       const light = new THREE.PointLight(0xff8a3a, 26, 20, 1.5);
       light.position.y = ALTURA + 0.9;
       g.add(light);
-      this.scene.add(g);
-      this.circles.push({ x: p.x, z: p.z, r: 0.2 });
+      this.scene.add(g);   // (a colisão dela, 0,2 m, está no mapa lógico)
       // `bracket` é o que aparece no lugar da tocha levada: aqui o aro já está lá, não há o que trocar
       const t = { group: g, mount, bracket: new THREE.Object3D(), flame, light, lit: true, seed: Math.random() * 100, base: 26 };
       t.interact = { type: 'torch', torch: t, pos: new THREE.Vector3(p.x, g.position.y, p.z), radius: 2.0, label: 'Pegar tocha' };
@@ -1002,8 +701,7 @@ export class World {
       m.rotation.y = YAW_INTO[def.wall];
       let lid = null;
       m.traverse((c) => { if (/lid$/.test(c.name)) lid = c; });
-      this.scene.add(m);
-      this.circles.push({ x: p.x, z: p.z, r: 0.85 });
+      this.scene.add(m);   // (a colisão do baú está no mapa lógico)
       this.marcarSemCapim(p.x - 0.9, p.z - 0.9, p.x + 0.9, p.z + 0.9);
       const chest = { def, mesh: m, lid, open: false, t: 0, pos: p };
       chest.interact = { type: 'chest', chest, pos: p.clone(), radius: 2.0, label: 'Abrir baú' };
@@ -1137,15 +835,14 @@ export class World {
   // A regra de escala por NOME da peça continua aqui só por causa deles: a
   // arena tem pillar_decorated e banner_patternA_red, e tirá-la encolheria os
   // dois em silêncio. Decoração vinda de dado NÃO passa por aqui — ver
-  // `placeDecor`, que é explícito.
-  place(name, cell, off = [0, 0], yaw = 0, collide = 0, y = 0) {
+  // `placeDecor`, que é explícito. Só DESENHA: a colisão da arena está no mapa lógico.
+  place(name, cell, off = [0, 0], yaw = 0, y = 0) {
     const m = Assets.prop(name);
     const p = this.center(cell[0], cell[1]);
     m.position.set(p.x + off[0] * S, y * S, p.z + off[1] * S);
-    if (/pillar|column|banner/.test(name)) { m.scale.setScalar(S); collide *= S; }
+    if (/pillar|column|banner/.test(name)) m.scale.setScalar(S);
     m.rotation.y = yaw;
     this.scene.add(m);
-    if (collide) this.circles.push({ x: m.position.x, z: m.position.z, r: collide });
     return m;
   }
 
@@ -1161,7 +858,7 @@ export class World {
    * derrubar o mundo inteiro: `Assets.prop()` devolveria `undefined` e o
    * `.clone()` estouraria, levando junto toda a decoração seguinte.
    */
-  placeDecor(d) {
+  placeDecor(d, i) {
     if (!Assets.props[d.prop]) {
       console.warn(`[decor] "${d.prop}" não está em PROPS (js/assets.js) — pulando`);
       return null;
@@ -1199,25 +896,10 @@ export class World {
       const b = this.caixaDoProp(d.prop).clone().applyMatrix4(m.matrix);
       this.marcarSemCapim(b.min.x, b.min.z, b.max.x, b.max.z);
     }
-    // PEDRA e ENTULHO sem raio declarado ganham o raio do próprio tamanho (o desabamento
-    // tem de barrar) — menos os que estão em cima da borda com a rocha (a menos de 1,2 m de
-    // uma parede), que já barra, e onde um círculo só comeria o chão de passagem.
-    // `colisao: 0` = não barra.
-    let raio = d.colisao;
-    if (raio === undefined && RAIO_AUTOMATICO.test(d.prop) && !this.pertoDaRocha(px, pz, 1.2)) raio = this.raioDoProp(d.prop) * (d.escala ?? 1);
-    if (raio) { m.userData.circulo = { x: m.position.x, z: m.position.z, r: raio }; this.circles.push(m.userData.circulo); }
+    // a COLISÃO da peça (o raio do dado, ou o automático das pedras) é do mapa lógico
+    // (`montarColisoes`); aqui só o círculo dela, que o quebrável zera ao quebrar
+    if (this.circulosDoDecor[i]) m.userData.circulo = this.circulosDoDecor[i];
     return m;
-  }
-
-  /** `(x, z)` está a menos de `dist` m de uma célula de rocha (uma parede do mapa)? */
-  pertoDaRocha(x, z, dist) {
-    const r0 = Math.round(z / CELL), c0 = Math.round(x / CELL);
-    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-      if (this.isFloor(r0 + dr, c0 + dc)) continue;
-      const dx = Math.max(Math.abs(x - (c0 + dc) * CELL) - CELL / 2, 0), dz = Math.max(Math.abs(z - (r0 + dr) * CELL) - CELL / 2, 0);
-      if (Math.hypot(dx, dz) < dist) return true;
-    }
-    return false;
   }
 
   /** A caixa de um prop em escala 1, sem giro (guardada: é a mesma para todas as cópias). */
@@ -1225,16 +907,6 @@ export class World {
     this._caixas ??= new Map();
     if (!this._caixas.has(nome)) this._caixas.set(nome, new THREE.Box3().setFromObject(Assets.props[nome]));
     return this._caixas.get(nome);
-  }
-
-  /** Meia largura (m) da planta de um prop em escala 1 — 80% do maior lado (a pedra é redonda). */
-  raioDoProp(nome) {
-    this._raios ??= new Map();
-    if (!this._raios.has(nome)) {
-      const t = this.caixaDoProp(nome).getSize(new THREE.Vector3());
-      this._raios.set(nome, Math.max(t.x, t.z) * 0.4);
-    }
-    return this._raios.get(nome);
   }
 
   /** Nada de capim no retângulo (x0, z0)–(x1, z1): guardado em cada célula que ele toca. */
@@ -1265,7 +937,7 @@ export class World {
     const pecas = [];
     this.quebraveis = [];
     Assets.decor.forEach((d, i) => {
-      const m = this.placeDecor(d);
+      const m = this.placeDecor(d, i);
       if (!m) return;
       this.decorPorCategoria[m.userData.categoria].push({ i, prop: d.prop, obj: m });
       const cfg = cfgQuebravel(d.prop);
@@ -1576,8 +1248,7 @@ export class World {
     g.add(light);
     g.position.copy(def.pos);
     g.position.y = this.alturaChao(def.pos);   // (nas colinas, o chão tem altura)
-    this.scene.add(g);
-    this.circles.push({ x: def.pos.x, z: def.pos.z, r: 0.85 });
+    this.scene.add(g);   // (a colisão da fogueira está no mapa lógico)
     this.interactables.push({ type: 'bonfire', fogueira: def.id, pos: def.pos.clone(), radius: 2.8, label: 'Descansar na fogueira' });
     return { light, flame };
   }
@@ -1597,18 +1268,17 @@ export class World {
       g.add(light);
       g.traverse((c) => { if (c.isMesh) c.castShadow = true; });
       g.position.set(x, 0, z);
-      this.scene.add(g);
-      this.circles.push({ x, z, r: 0.75 });
+      this.scene.add(g);   // (a colisão dos braseiros, dos pilares e do cepo está no mapa lógico)
       this.braziers.push({ light, flame, lit: 0, target: 0, pos: new THREE.Vector3(x, 2, z) });
     };
     const c = ARENA_CENTER;
     addBrazier(c.x - 12 * S, c.z - 6 * S); addBrazier(c.x + 12 * S, c.z - 6 * S); addBrazier(c.x - 12 * S, c.z + 6 * S); addBrazier(c.x + 12 * S, c.z + 6 * S);
-    for (const [r, col] of [[2, 4], [2, 10], [5, 4], [5, 10]]) this.place('pillar_decorated', [r, col], [0, 0], 0, 0.85);
-    this.place('banner_patternA_red', [1, 6], [0, -1.55], 0, 0, 3);
-    this.place('banner_patternA_red', [1, 8], [0, -1.55], 0, 0, 3);
+    for (const [r, col] of [[2, 4], [2, 10], [5, 4], [5, 10]]) this.place('pillar_decorated', [r, col], [0, 0], 0);
+    this.place('banner_patternA_red', [1, 6], [0, -1.55], 0, 3);
+    this.place('banner_patternA_red', [1, 8], [0, -1.55], 0, 3);
     this.place('rubble_half', [5, 9], [1, 1], 2);
     // Bloco do carrasco e cabeças rolando...
-    this.place('table_medium_broken', [2, 7], [0, -0.8], 0, 1.1);
+    this.place('table_medium_broken', [2, 7], [0, -0.8], 0);
     for (let i = 0; i < 3; i++) this.addCorpse(this.center(2, 6 + i).add(new THREE.Vector3(Math.random() - 0.5, 0, 1.2)), Math.random() * 6, true);
   }
 
@@ -1887,11 +1557,6 @@ export class World {
     this.interactables = this.interactables.filter((x) => x !== it);
   }
 
-  /** O retângulo do mapa, em metros: fora dele não existe lugar (`protocolo.limparInstantaneo`). */
-  limites() {
-    return { minX: -CELL, maxX: this.cols * CELL, minZ: -CELL, maxZ: this.rows * CELL };
-  }
-
   buildDust() {
     const N = 400;
     const pos = new Float32Array(N * 3);
@@ -1919,149 +1584,6 @@ export class World {
     this.scene.remove(this.bloodstain.mesh);
     this.interactables = this.interactables.filter((x) => x !== this.bloodstain);
     this.bloodstain = null;
-  }
-
-  // ---------- Colisão ----------
-  /**
-   * As caixas e os círculos de colisão POR CÉLULA (11/10/2026): `resolve` percorria todas as
-   * paredes e todos os círculos do mapa, duas vezes, para CADA personagem, todo quadro (5% da CPU
-   * no perfil). A grade guarda, por célula, o que pode tocar quem está nela (com 3 m de folga);
-   * é refeita se alguém acrescentar caixa ou círculo. Os objetos são os MESMOS (porta que se
-   * abre — `disabled` —, quebrável que some — `r = 0` — continuam valendo), na mesma ordem.
-   */
-  colisoresPerto(pos) {
-    let G = this._gradeDeColisao;
-    if (!G || G.nb !== this.boxes.length || G.nc !== this.circles.length) {
-      G = this._gradeDeColisao = { nb: this.boxes.length, nc: this.circles.length, celulas: new Map(), vazio: { boxes: [], circles: [] } };
-      const F = 3, em = (x0, z0, x1, z1, lista, o) => {
-        for (let r = Math.round((z0 - F) / CELL); r <= Math.round((z1 + F) / CELL); r++) for (let c = Math.round((x0 - F) / CELL); c <= Math.round((x1 + F) / CELL); c++) {
-          const k = r * 4096 + c; let cel = G.celulas.get(k);
-          if (!cel) G.celulas.set(k, (cel = { boxes: [], circles: [] }));
-          cel[lista].push(o);
-        }
-      };
-      for (const b of this.boxes) em(b.minX, b.minZ, b.maxX, b.maxZ, 'boxes', b);
-      for (const c of this.circles) { const r = Math.max(c.r, 3); em(c.x - r, c.z - r, c.x + r, c.z + r, 'circles', c); }
-    }
-    return G.celulas.get(Math.round(pos.z / CELL) * 4096 + Math.round(pos.x / CELL)) ?? G.vazio;
-  }
-
-  resolve(pos, radius) {
-    // (quem é maior que a folga da grade — o dragão — olha o mapa inteiro, como antes)
-    const perto = radius <= 2.5 ? this.colisoresPerto(pos) : this;
-    for (let iter = 0; iter < 2; iter++) {
-      for (const b of perto.boxes) {
-        if (b.disabled) continue;
-        if (pos.x + radius < b.minX || pos.x - radius > b.maxX || pos.z + radius < b.minZ || pos.z - radius > b.maxZ) continue;
-        const cx = Math.max(b.minX, Math.min(pos.x, b.maxX));
-        const cz = Math.max(b.minZ, Math.min(pos.z, b.maxZ));
-        let dx = pos.x - cx, dz = pos.z - cz;
-        const d2 = dx * dx + dz * dz;
-        if (d2 > 1e-8) {
-          if (d2 >= radius * radius) continue;
-          const d = Math.sqrt(d2);
-          pos.x = cx + (dx / d) * radius; pos.z = cz + (dz / d) * radius;
-        } else {
-          // Centro dentro da caixa: sai pelo lado mais próximo
-          const pen = [[pos.x - b.minX, -1, 0], [b.maxX - pos.x, 1, 0], [pos.z - b.minZ, 0, -1], [b.maxZ - pos.z, 0, 1]].sort((a, c) => a[0] - c[0])[0];
-          if (pen[1]) pos.x = pen[1] < 0 ? b.minX - radius : b.maxX + radius;
-          else pos.z = pen[2] < 0 ? b.minZ - radius : b.maxZ + radius;
-        }
-      }
-      for (const c of perto.circles) {
-        if (!c.r) continue;   // (o quebrável quebrado fica com raio 0)
-        const dx = pos.x - c.x, dz = pos.z - c.z;
-        const min = c.r + radius, d2 = dx * dx + dz * dz;
-        if (d2 < min * min) { const d = Math.sqrt(d2) || 1e-4; pos.x = c.x + (dx / d) * min; pos.z = c.z + (dz / d) * min; }
-      }
-    }
-  }
-
-  // Desvia de pilares/barris no caminho (steering simples)
-  avoid(pos, dir, radius) {
-    for (const c of this.circles) {
-      const dx = c.x - pos.x, dz = c.z - pos.z;
-      const ahead = dx * dir.x + dz * dir.z;
-      if (ahead < 0 || ahead > 2.5) continue;
-      const side = dx * dir.z - dz * dir.x; // >0: obstáculo à esquerda
-      const clear = c.r + radius + 0.2;
-      if (Math.abs(side) > clear) continue;
-      const k = 1 - Math.abs(side) / clear;
-      // Obstáculo à esquerda → desvia para a direita (e vice-versa)
-      const s = side >= 0 ? 1 : -1;
-      const nx = dir.x - dir.z * s * k * 1.5, nz = dir.z + dir.x * s * k * 1.5;
-      dir.set(nx, 0, nz).normalize();
-    }
-    return dir;
-  }
-
-  solidAt(x, z, pad = 0) {
-    for (const b of this.boxes) {
-      if (b.disabled) continue;
-      if (x > b.minX - pad && x < b.maxX + pad && z > b.minZ - pad && z < b.maxZ + pad) return true;
-    }
-    return false;
-  }
-
-  // Fração [0..1] do segmento até bater numa parede
-  rayFraction(from, to, pad = 0.2) {
-    const d = from.distanceTo(to);
-    const steps = Math.max(2, Math.ceil(d / 0.15));
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      if (this.solidAt(from.x + (to.x - from.x) * t, from.z + (to.z - from.z) * t, pad)) return (i - 1) / steps;
-    }
-    return 1;
-  }
-
-  lineOfSight(a, b) { return this.rayFraction(a, b, 0) >= 1; }
-
-  pointInside(pos) {
-    const [r, c] = this.cellOf(pos);
-    if (!this.isFloor(r, c)) return false;
-    // no ar livre não há teto; dentro, o teto conta A PARTIR do chão dali
-    if (!this.isOpenAir(r, c) && this.acimaDoChao(pos) > (this.isArenaCell(r, c) ? WALL_H * 2 : WALL_H)) return false;
-    return !this.solidAt(pos.x, pos.z);
-  }
-
-  // ar livre não tem teto: a câmera sobe à vontade (o limite só existe para ela
-  // não atravessar a laje da masmorra)
-  ceilingAt(pos) {
-    const [r, c] = this.cellOf(pos);
-    return this.isOpenAir(r, c) ? 40 : this.isArenaCell(r, c) ? WALL_H * 2 - 0.4 : WALL_H - 0.3;
-  }
-
-  // Busca em largura no grid: próximo ponto rumo ao alvo
-  nextWaypoint(from, to) {
-    const start = this.cellOf(from), goal = this.cellOf(to);
-    if (start[0] === goal[0] && start[1] === goal[1]) return to;
-    const key = (r, c) => r * 100 + c;
-    const prev = new Map([[key(...start), null]]);
-    const queue = [start];
-    while (queue.length) {
-      const [r, c] = queue.shift();
-      if (r === goal[0] && c === goal[1]) break;
-      for (const [dr, dc] of Object.values(DIRS)) {
-        const nr = r + dr, nc = c + dc, k = key(nr, nc);
-        if (!this.isFloor(nr, nc) || prev.has(k) || this.edgeBlocked([r, c], [nr, nc])) continue;
-        if (!this.conectaNivel([r, c], [nr, nc])) continue;   // não "atravessa" o desnível
-        prev.set(k, [r, c]);
-        queue.push([nr, nc]);
-      }
-    }
-    if (!prev.has(key(...goal))) return null;
-    let cur = goal, step = goal;
-    while (cur && !(cur[0] === start[0] && cur[1] === start[1])) { step = cur; cur = prev.get(key(...cur)); }
-    return this.center(step[0], step[1]);
-  }
-
-  edgeBlocked(a, b) {
-    const e = this.edgeMap.get(this.edgeKey(a, b));
-    if (!e) return false;
-    if (e.type === 'bars') return true;
-    if (e.type === 'fog') return !this.gateOpen;
-    const d = this.doors.find((x) => x.pos.distanceTo(new THREE.Vector3((a[1] + b[1]) * CELL / 2, 0, (a[0] + b[0]) * CELL / 2)) < 0.5);
-    return d ? !d.open : false;
   }
 
   // ---------- Atualização ----------

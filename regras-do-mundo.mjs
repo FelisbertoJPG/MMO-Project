@@ -38,6 +38,7 @@ import {
 import { ITEMS, UNARMED, GOLPE_DA_TOCHA } from './js/items.js';
 import { ATTACKS } from './js/ataques.js';
 import * as Caminho from './js/caminhos.js';
+import { CELL, lerArquivoDoMapa, lugaresDasFogueiras } from './js/mapa-logico.js';
 
 const FOLGA = 1.25;            // a velocidade: 25% acima do máximo (o tranco do golpe recebido, o relógio da rede)
 const BALDE_S = 4;             // s de velocidade máxima guardados no balde
@@ -73,22 +74,13 @@ const paraGolpe = (w) => (w === ITEMS.torch ? TOCHA : w);
 
 /** As fogueiras do mapa ativo (as tags `[linha, coluna]` do `assets/mapa.json`, em metros, como o world.js). */
 function lerFogueiras(raiz) {
-  let S = 1.5, k = 4;   // world.js: `S` e `CELL = 4 * S`
-  try {
-    const w = fs.readFileSync(path.join(raiz, 'js', 'world.js'), 'utf8');
-    S = Number(w.match(/export const S = ([\d.]+)/)?.[1]) || S;
-    k = Number(w.match(/export const CELL = (\d+) \* S/)?.[1]) || k;
-  } catch { /* os padrões */ }
-  const CELL = k * S;
-  // os padrões do world.js (BONFIRE_POS, CAMP_POS), e as tags do mapa por cima
-  const marcos = { masmorra: [20, 7], acampamento: [16, 47.5] };
-  try {
-    const d = JSON.parse(fs.readFileSync(path.join(raiz, 'assets', 'mapa.json'), 'utf8'));
-    Object.assign(marcos, d.marcos?.[d.ativo] ?? {});
-  } catch { /* só os padrões */ }
-  return Object.values(marcos)
-    .filter((v) => Array.isArray(v) && v.length === 2 && v.every(Number.isFinite))
-    .map(([l, c]) => ({ x: c * CELL, z: l * CELL }));
+  // as fogueiras pela conta do MAPA LÓGICO (o padrão, e a tag do mapa por cima), e o `inicio`
+  let marcos = {};
+  try { marcos = lerArquivoDoMapa(JSON.parse(fs.readFileSync(path.join(raiz, 'assets', 'mapa.json'), 'utf8'))).marcos; } catch { /* só os padrões */ }
+  const lugares = lugaresDasFogueiras(marcos).map(({ x, z }) => ({ x, z }));
+  const i = marcos.inicio;
+  if (Array.isArray(i) && i.length === 2 && i.every(Number.isFinite)) lugares.push({ x: i[1] * CELL, z: i[0] * CELL });
+  return lugares;
 }
 
 /** O intervalo mais curto entre dois golpes da arma `w` (s): o golpe mais rápido, emendado o quanto antes (`solta`). */

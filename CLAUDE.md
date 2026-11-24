@@ -63,6 +63,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 
 **Mapa e decoração** (→ base `mapa-e-cenario`)
 - Decoração é DADO (`assets/decor.json`, gravado pelo editor de cenas). Ferramenta que escreva nele: nada de campo que o editor não conheça e nada de `y` para "pousar".
+- **Colisão é do MAPA LÓGICO** (`js/mapa-logico.js`: grade, chão, colisões, caminho; o `World` é um `MapaLogico` que desenha): colisão nova entra em `montarColisoes`, nunca no desenho — o servidor monta as mesmas. Peça nova no `PROPS` → `node ferramentas/mapa-logico/medir-pecas.mjs` (o `npm test` acusa).
 - Spawns de bichos ficam no FIM de `spawnEnemies` (não mexer nos `netId`).
 - Tag de lugar nova = entrada em `aplicarMarcos`.
 - Peça solta que tenha de aparecer de longe: raio > 20 m ou fora da lista do `LOD.soltas`.

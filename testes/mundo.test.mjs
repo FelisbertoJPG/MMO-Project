@@ -509,10 +509,14 @@ await teste('recado torto ou grande demais não derruba nada', async () => {
 });
 
 await teste('o ESTADO do mundo sobrevive ao servidor reiniciar; o retrato dos inimigos, não', async () => {
-  // quem simula agora manda o estado
-  const sim = [beto, caio].find((j) => j.id === caio.ultimo('sim')?.carga.id) ?? beto;
-  await sim.falar('mundo', { e: [['e0', 1, 0, 1, 0, null, 1, 5, 'idle', 5, 0, null]], est: { portas: [true], nevoa: true, chefes: { wyrm: 777 } } });
-  assert.ok(await esperar(() => fs.existsSync(path.join(PASTA, 'estado.json')) && JSON.parse(fs.readFileSync(path.join(PASTA, 'estado.json'), 'utf8')).nevoa === true, 4000), 'o estado não foi para o disco');
+  // quem simula agora manda o estado. Os DOIS mandam (o servidor ignora quem não simula): sem
+  // ninguém falar nos testes de antes, o simulador calado é trocado a cada 2,5 s, e escolher um
+  // só aqui às vezes pegava o que acabara de perder a vez (o teste falhava por tempo)
+  const recado = { e: [['e0', 1, 0, 1, 0, null, 1, 5, 'idle', 5, 0, null]], est: { portas: [true], nevoa: true, chefes: { wyrm: 777 } } };
+  const noDisco = () => fs.existsSync(path.join(PASTA, 'estado.json')) && JSON.parse(fs.readFileSync(path.join(PASTA, 'estado.json'), 'utf8')).nevoa === true;
+  let foi = false;
+  for (let k = 0; k < 4 && !foi; k++) { for (const j of [beto, caio]) await j.falar('mundo', recado); foi = await esperar(noDisco, 1500); }
+  assert.ok(foi, 'o estado não foi para o disco');
   beto.desligar(); caio.desligar();
   await descer();
   assert.ok(await subir(), 'o servidor não voltou');
@@ -628,6 +632,26 @@ await teste('/__mundo/ice: o TURN da voz só para quem joga, sem a porta 53, e a
   } finally {
     cf.close();
   }
+});
+
+await teste('o MAPA LÓGICO: toda peça do PROPS tem caixa medida, e as colisões montam dos arquivos do jogo', async () => {
+  const { lerProps } = await import('../ferramentas/mapa-logico/medir-pecas.mjs');
+  const { MapaLogico, lerArquivoDoMapa, pecasDe } = await import('../js/mapa-logico.js');
+  const ler = (f) => JSON.parse(fs.readFileSync(path.join(RAIZ, f), 'utf8'));
+  const caixas = ler('assets/caixas-das-pecas.json'), props = lerProps(RAIZ);
+  assert.deepEqual(props.filter((n) => !caixas.pecas[n]), [], 'peça sem medida: rode node ferramentas/mapa-logico/medir-pecas.mjs');
+  const m = lerArquivoDoMapa(ler('assets/mapa.json'));
+  const w = new MapaLogico({ mapa: m.linhas, relevo: m.relevo, agua: m.agua, decor: ler('assets/decor.json').itens, marcos: m.marcos, pecas: pecasDe(props, caixas) });
+  assert.ok(w.boxes.length > 100 && w.circles.length > 100, 'quase nenhuma colisão');
+  // a porta fechada barra o caminho; aberta, não (a caixa do vão é a mesma que o resolve usa)
+  const p = w.passagens.find((x) => x.porta);
+  assert.ok(p && w.edgeBlocked(p.e.a, p.e.b));
+  p.porta.disabled = true;
+  assert.equal(w.edgeBlocked(p.e.a, p.e.b), false);
+  // o resolve (a colisão dos inimigos) roda no mapa lógico sozinho, sem o three.js
+  const pos = { x: p.ex, y: 0, z: p.ez - 6 }, antes = { ...pos };
+  w.resolve(pos, 0.5);
+  assert.ok(Number.isFinite(pos.x) && Number.isFinite(pos.z) && Math.hypot(pos.x - antes.x, pos.z - antes.z) < 7);
 });
 
 await descer();

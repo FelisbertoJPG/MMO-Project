@@ -4,6 +4,7 @@ import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { categoriaDaPeca } from './categorias.js';
+import { lerArquivoDoMapa } from './mapa-logico.js';
 import { carregarPinturas } from './pintura.js';
 import { usarPenteados, MOLDES, MOLDES_LIDOS, PENTEADOS_DE_MOLDE } from './penteado.js';
 
@@ -385,37 +386,39 @@ async function carregarDecor() {
  * barulhento de propósito: abrir com um mapa DIFERENTE do que está no arquivo
  * é pior que não abrir, e é o tipo de coisa que se descobre meia hora depois.
  */
+/**
+ * O TAMANHO das peças (`assets/caixas-das-pecas.json`, medido nos .glb por
+ * ferramentas/mapa-logico/medir-pecas.mjs): o mapa lógico tira dele o raio das pedras.
+ * Sem ele, as pedras sem `colisao` no decor.json não barram (e o console grita).
+ */
+async function carregarCaixasDasPecas() {
+  try {
+    const r = await fetch('assets/caixas-das-pecas.json');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    console.error('[mapa] não consegui ler assets/caixas-das-pecas.json — as pedras ficam sem colisão:', e.message);
+    return null;
+  }
+}
+
 async function carregarMapa() {
   try {
     const r = await fetch('assets/mapa.json', { cache: 'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
-    const mapas = d?.mapas;
-    if (!mapas || typeof mapas !== 'object') throw new Error('sem o objeto `mapas`');
-    const nomes = Object.keys(mapas);
-    if (!nomes.length) throw new Error('nenhuma variante');
-    const ativo = typeof d.ativo === 'string' && mapas[d.ativo] ? d.ativo : nomes[0];
-    if (ativo !== d.ativo) {
-      console.warn(`[mapa] "${d.ativo}" não existe no arquivo — usando "${ativo}"`);
-    }
-    const linhas = mapas[ativo];
+    // a leitura (a variante ativa e o que é dela) é a do mapa lógico: o servidor lê igual
+    const m = lerArquivoDoMapa(d);
+    if (m.trocouAtivo) console.warn(`[mapa] "${d.ativo}" não existe no arquivo — usando "${m.nome}"`);
     // As mensagens e manchas online são gravadas com o nome do mapa: uma
     // mensagem deixada na `floresta` não pode aparecer dentro da rocha do `original`.
-    Assets.mapaNome = ativo;
-    // as TAGS de lugar desta variante (world.js, aplicarMarcos); faltando, valem as do código
-    // o RELEVO desta variante (world.js, montarRelevo): sem ele, tudo plano
-    Assets.relevo = d.relevo?.[ativo] ?? null;
-    Assets.agua = Array.isArray(d.agua?.[ativo]) ? d.agua[ativo] : [];   // os espelhos d'água (js/agua.js)
-    const m = d.marcos?.[ativo];
-    Assets.marcos = m && typeof m === 'object' && !Array.isArray(m) ? m : {};
-    if (!Array.isArray(linhas) || !linhas.length) throw new Error(`a variante "${ativo}" está vazia`);
-    // Linha de tamanho diferente é o erro mais fácil de cometer editando à mão,
-    // e o jogo o absorveria em silêncio (`ch()` devolve rocha fora da faixa):
-    // apareceria como uma parede que ninguém desenhou.
-    if (linhas.some((l) => typeof l !== 'string' || l.length !== linhas[0].length)) {
-      throw new Error(`a variante "${ativo}" tem linhas de tamanhos diferentes`);
-    }
-    return linhas;
+    Assets.mapaNome = m.nome;
+    // o RELEVO desta variante (montarRelevo: sem ele, tudo plano), os espelhos d'água (js/agua.js)
+    // e as TAGS de lugar (world.js, aplicarMarcos; faltando, valem as do código)
+    Assets.relevo = m.relevo;
+    Assets.agua = m.agua;
+    Assets.marcos = m.marcos;
+    return m.linhas;
   } catch (e) {
     console.error('[mapa] não consegui ler assets/mapa.json — usando o mapa de '
       + 'EMERGÊNCIA embutido no world.js, que pode estar desatualizado:', e.message);
@@ -510,6 +513,7 @@ export const Assets = {
   clips: {},
   baseScene: null,
   decor: [],
+  caixasDasPecas: null,   // o tamanho de cada peça (assets/caixas-das-pecas.json; mapa-logico.js)
   grama: null,   // a cor do chão do ar livre (decor.json), ou null = a de sempre
   mapa: null,
   mapaNome: 'emergencia',
@@ -572,7 +576,8 @@ export const Assets = {
     })).finally(() => clearInterval(relogio));
     // Depois dos glTF e antes de `new World(...)`, que é síncrono: assim o
     // mundo já encontra o mapa e a decoração prontos, e o boot não muda de forma.
-    const [mapa, decor] = await Promise.all([carregarMapa(), carregarDecor()]);
+    const [mapa, decor, caixas] = await Promise.all([carregarMapa(), carregarDecor(), carregarCaixasDasPecas()]);
+    this.caixasDasPecas = caixas;
     this.empunhadura = await carregarEmpunhadura();
     this.armaduras = await carregarArmaduras();
     ({ racas: this.racas, humano: this.humano } = await lerRacas());
