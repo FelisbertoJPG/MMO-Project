@@ -737,6 +737,43 @@ export class MapaLogico {
     return this.center(step[0], step[1]);
   }
 
+  /**
+   * Dá para ir ANDANDO da célula `a` à `b` em até `max` passos de célula, sem atravessar rocha,
+   * grade nem desnível? Porta e névoa contam como abertas (quem as abre e atravessa é o jogo).
+   * É o que o servidor confere no passo de cada jogador (regras-do-mundo.mjs): célula a célula, e
+   * não a linha reta — dois pontos honestos de cada lado de uma esquina dão uma reta que corta a quina.
+   */
+  alcancaEmPassos(a, b, max) {
+    if (a[0] === b[0] && a[1] === b[1]) return true;
+    if (!this.isFloor(b[0], b[1])) return false;
+    const vistos = new Set([a[0] * 4096 + a[1]]);
+    let borda = [a];
+    for (let n = 0; n < max && borda.length; n++) {
+      const prox = [];
+      for (const [r, c] of borda) {
+        for (const [dr, dc] of Object.values(DIRS)) {
+          const nr = r + dr, nc = c + dc, k = nr * 4096 + nc;
+          if (vistos.has(k) || !this.isFloor(nr, nc) || !this.conectaNivel([r, c], [nr, nc])) continue;
+          if (this.edgeMap.get(this.edgeKey([r, c], [nr, nc]))?.type === 'bars') continue;
+          if (nr === b[0] && nc === b[1]) return true;
+          vistos.add(k);
+          prox.push([nr, nc]);
+        }
+      }
+      borda = prox;
+    }
+    return false;
+  }
+
+  /** `(x, z)` está DENTRO de uma parede ou grade (a caixa encolhida `folga` m de cada lado)? Porta e névoa não contam. */
+  dentroDaParede(x, z, folga = 0) {
+    for (const b of this.colisoresPerto({ x, z }).boxes) {
+      if (b.kind !== 'wall' && b.kind !== 'bars') continue;
+      if (x > b.minX + folga && x < b.maxX - folga && z > b.minZ + folga && z < b.maxZ - folga) return true;
+    }
+    return false;
+  }
+
   /** A aresta entre as células `a` e `b` barra o caminho? (grade sempre; névoa e porta enquanto fechadas) */
   edgeBlocked(a, b) {
     const k = this.edgeKey(a, b), e = this.edgeMap.get(k);

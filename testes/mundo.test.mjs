@@ -195,14 +195,43 @@ const ACAMPAMENTO = (() => {
 })();
 
 await teste('REGRAS: o passo rápido demais é CORTADO; acordar na fogueira vale de qualquer distância', async () => {
-  // o Beto estava em (1, 2) (o teste do pos): 500 m de uma vez não passam — anda só o que cabia
-  await beto.falar('pos', { x: 500, z: 2 });
-  assert.ok(await ana.chegou('pos', (r) => r.de === beto.id && r.carga.x !== 1), 'o pos cortado não chegou');
-  const x = ana.ultimo('pos').carga.x;
-  assert.ok(x > 1 && x < 100, `o salto passou inteiro: x = ${x}`);
-  // renascer junto à fogueira (do outro lado do mapa) passa como veio
+  // acordar na fogueira (o Beto estava na rocha do teste do pos, do outro lado do mapa) passa como veio
   await beto.falar('pos', { x: ACAMPAMENTO.x, z: ACAMPAMENTO.z });
   assert.ok(await ana.chegou('pos', (r) => r.de === beto.id && r.carga.x === ACAMPAMENTO.x), 'acordar na fogueira foi cortado');
+  // 500 m de uma vez (pela estrada, para leste) não passam — anda só o que cabia
+  const doBeto = () => ana.de('pos').filter((q) => q.de === beto.id), n0 = doBeto().length;
+  await beto.falar('pos', { x: ACAMPAMENTO.x + 500, z: ACAMPAMENTO.z });
+  assert.ok(await esperar(() => doBeto().length > n0, 2000), 'o pos cortado não chegou');
+  const x = doBeto().at(-1).carga.x;
+  assert.ok(x > ACAMPAMENTO.x && x < ACAMPAMENTO.x + 100, `o salto passou inteiro: x = ${x}`);
+  // e de volta para casa (longe demais para o balde, mas é a fogueira)
+  await beto.falar('pos', { x: ACAMPAMENTO.x, z: ACAMPAMENTO.z });
+  assert.ok(await ana.chegou('pos', (r) => r.de === beto.id && r.carga.x === ACAMPAMENTO.x), 'voltar à fogueira foi cortado');
+});
+
+await teste('REGRAS: o passo que ATRAVESSA a parede não anda (o mapa lógico no servidor)', async () => {
+  // a Sala da Fogueira da masmorra: acordar no fogo, andar até a parede de cima (célula 19,4)
+  const [l, c] = JSON.parse(fs.readFileSync(path.join(RAIZ, 'assets', 'mapa.json'), 'utf8')).marcos?.[MAPA]?.masmorra ?? [20, 7];
+  await beto.falar('pos', { x: c * 6, z: l * 6 + 2.6 });
+  await beto.falar('pos', { x: 24.5, z: 114 });
+  assert.ok(await ana.chegou('pos', (r) => r.de === beto.id && r.carga.x === 24.5 && r.carga.z === 114), 'o passo honesto até a parede foi cortado');
+  const doBeto = () => ana.de('pos').filter((q) => q.de === beto.id);
+  const tentar = async (x, z) => {
+    const n0 = doBeto().length;
+    await beto.falar('pos', { x, z });
+    assert.ok(await esperar(() => doBeto().length > n0, 2000), 'o pos não chegou');
+    return doBeto().at(-1).carga;
+  };
+  // parar DENTRO da rocha (a célula 18,4) não anda
+  assert.equal((await tentar(24.5, 108)).z, 114, 'entrou na rocha');
+  // a Sala da Guarda fica do outro lado da rocha: 12 m em linha reta, mas 8 células (~47 m) andando
+  // pela porta — mais do que ele podia ter andado agora (o balde: ~25 m com o balanceamento de hoje)
+  assert.equal((await tentar(24.5, 102)).z, 114, 'atravessou a parede');
+  // e o caminho de verdade, pela PORTA (a célula 18,7; aberta ou fechada, conta como passagem), passa:
+  // 21 m até a Sala da Guarda, 5 células andando — cabe no balde e no caminho
+  await beto.falar('pos', { x: 42, z: 102 });
+  assert.ok(await ana.chegou('pos', (r) => r.de === beto.id && r.carga.x === 42 && r.carga.z === 102), 'o caminho pela porta foi cortado');
+  await ana.falar('mundo', { e: [] });   // (a simuladora segue falando)
 });
 
 await teste('REGRAS: golpe acima do teto da arma que está na mão NÃO chega ao simulador', async () => {
@@ -644,7 +673,7 @@ await teste('o THREE do servidor (npm) é o MESMO arquivo do vendor/ do jogo', a
 });
 
 await teste('o MAPA LÓGICO: toda peça do PROPS tem caixa medida, e as colisões montam dos arquivos do jogo', async () => {
-  const { lerProps } = await import('../ferramentas/mapa-logico/medir-pecas.mjs');
+  const { lerProps } = await import('../mapa-do-servidor.mjs');
   const { MapaLogico, lerArquivoDoMapa, pecasDe } = await import('../js/mapa-logico.js');
   const ler = (f) => JSON.parse(fs.readFileSync(path.join(RAIZ, f), 'utf8'));
   const caixas = ler('assets/caixas-das-pecas.json'), props = lerProps(RAIZ);

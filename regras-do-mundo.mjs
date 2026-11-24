@@ -10,6 +10,10 @@
 //     no balde é CORTADO no caminho: os outros (e o simulador, que confere o alcance do golpe pelo
 //     boneco que vê) veem o boneco só até onde dava. Cair perto de uma FOGUEIRA (renascer, voltar
 //     para casa) vale sempre.
+//   • A PAREDE (24/11/2026, pelo MAPA LÓGICO: mapa-do-servidor.mjs): o passo tem de existir no mapa —
+//     nada de parar dentro da rocha ou de uma parede, e a célula nova alcançável ANDANDO (contornando
+//     a rocha: `alcancaEmPassos`; portas e névoa contam como abertas) no que ele poderia ter andado
+//     desde o último passo que valeu. Quem atravessa fica onde estava, para os outros.
 //   • O TETO DO GOLPE (`golpe`, o que vai ao simulador): o dano, o poise e a força contra escudo
 //     não passam do máximo da arma que ele tem nas mãos (o `d`/`e` do último `pos`; antes do
 //     primeiro, a mais forte), no nível dele, com TODOS os bônus juntos.
@@ -54,6 +58,8 @@ const FICHAS_MAX = 4;          // golpes seguidos que o ritmo deixa passar de um
 const ATAQUES_EM_CURSO = 2;    // golpe de um ataque até 2 números atrás (o `pos` do ataque novo passa na frente)
 const ACERTOS_GUARDADOS = 64;
 const TETO_ANTIGO = { dano: 500, poise: 300, qn: 9, qd: 500 };   // o de antes (e o do simulador: rede/mundo.js)
+const DENTRO_DA_PAREDE = 0.2;  // m: a parede encolhida (o centro do jogador fica a um raio dela: nunca dentro)
+const PASSOS_A_MAIS = 2;       // células de folga no caminho andado (de centro a centro de célula, o caminho real é menor)
 
 // a árvore INTEIRA no máximo: os bônus mais altos (e os descontos maiores) que alguém pode ter
 const TUDO = { v: 1, nos: new Proxy({}, { get: (_, k) => (typeof k === 'string' ? 999 : undefined) }), barra: [] };
@@ -102,7 +108,7 @@ function menorIntervalo(w, b) {
  * As regras do mundo. `avisar(j, motivo)`: quem passou de uma regra que não tem resposta na hora
  * (o ataque que não valeu é descoberto no `pos`; os golpes dele são recusados depois).
  */
-export function criarRegras(raiz, { avisar = () => {} } = {}) {
+export function criarRegras(raiz, { mapa = null, avisar = () => {} } = {}) {
   const arqBalanco = path.join(raiz, 'assets', 'balanco.json');
   const fogueiras = lerFogueiras(raiz);
   let lidoEm = 0, versao = 0;
@@ -145,17 +151,43 @@ export function criarRegras(raiz, { avisar = () => {} } = {}) {
     if (!Number.isFinite(c.x) || !Number.isFinite(c.z)) return null;   // torto: o `limparInstantaneo` de quem recebe descarta
     const vmax = velocidadeMaxima(), cheio = vmax * BALDE_S;
     const m = j.passo;
-    if (!m) { j.passo = { x: c.x, z: c.z, t: agora, balde: cheio }; return null; }   // o primeiro: onde o save o pôs
+    if (!m) { j.passo = { x: c.x, z: c.z, t: agora, valido: agora, balde: cheio }; return null; }   // o primeiro: onde o save o pôs
     m.balde = Math.min(cheio, m.balde + vmax * Math.max(0, agora - m.t) / 1000);
     m.t = agora;
     const dx = c.x - m.x, dz = c.z - m.z, d = Math.hypot(dx, dz);
-    if (d <= m.balde) { m.balde -= d; m.x = c.x; m.z = c.z; return null; }
-    if (fogueiras.some((f) => Math.hypot(c.x - f.x, c.z - f.z) < PERTO_DA_FOGUEIRA)) { m.x = c.x; m.z = c.z; m.balde = cheio; return null; }
+    const ficar = () => { c.x = Math.round(m.x * 100) / 100; c.z = Math.round(m.z * 100) / 100; };
+    // quanto ele poderia ter ANDADO (contornando as paredes) desde o último passo que valeu: o balde
+    // de agora, ou o tempo desde lá na velocidade máxima (o atraso da rede nunca prende o honesto)
+    const andavel = Math.max(m.balde, vmax * Math.max(0, agora - m.valido) / 1000);
+    if (d <= m.balde) {
+      // o passo tem de EXISTIR no mapa: atravessou parede, fica onde estava (o balde não gasta)
+      const parede = foraDoMapa(m, c, andavel);
+      if (parede) { ficar(); return parede; }
+      m.balde -= d; m.x = c.x; m.z = c.z; m.valido = agora; return null;
+    }
+    if (fogueiras.some((f) => Math.hypot(c.x - f.x, c.z - f.z) < PERTO_DA_FOGUEIRA)) { m.x = c.x; m.z = c.z; m.balde = cheio; m.valido = agora; return null; }
     // rápido demais: anda só o que o balde deixa (os outros veem o boneco lá; o resto chega depois, no ritmo certo)
-    const f = m.balde / d;
-    m.x += dx * f; m.z += dz * f; m.balde = 0;
-    c.x = Math.round(m.x * 100) / 100; c.z = Math.round(m.z * 100) / 100;
-    return `andou ${d.toFixed(1)} m de uma vez (cabiam ${(d * f).toFixed(1)})`;
+    const f = m.balde / d, ate = { x: m.x + dx * f, z: m.z + dz * f };
+    const parede = foraDoMapa(m, ate, andavel);
+    if (!parede) { m.x = ate.x; m.z = ate.z; m.balde = 0; m.valido = agora; }
+    ficar();
+    return `andou ${d.toFixed(1)} m de uma vez (cabiam ${(d * f).toFixed(1)})${parede ? `, e ${parede}` : ''}`;
+  }
+
+  /**
+   * O passo de `de` até `para` existe no MAPA LÓGICO? Ninguém fica dentro da rocha nem do miolo de
+   * uma parede, e a célula nova tem de ser alcançável ANDANDO (célula a célula, contornando a rocha;
+   * portas e névoa contam como abertas) em até `andavel` metros. Quem atravessa uma parede fina só
+   * "chega" do outro lado quando daria para ter dado a volta — não ganha nada. Devolve o motivo, ou
+   * null. Sem o mapa, não confere.
+   */
+  function foraDoMapa(de, para, andavel) {
+    if (!mapa) return null;
+    const cel = mapa.cellOf(para);
+    if (!mapa.isFloor(cel[0], cel[1])) return 'entrou na rocha';
+    if (mapa.dentroDaParede(para.x, para.z, DENTRO_DA_PAREDE)) return 'entrou na parede';
+    if (!mapa.alcancaEmPassos(mapa.cellOf(de), cel, Math.ceil(andavel / CELL) + PASSOS_A_MAIS)) return 'atravessou a parede';
+    return null;
   }
 
   function anotarArmas(j, c, agora) {

@@ -10,7 +10,7 @@
  *
  * A conta é a do jogo: `new THREE.Box3().setFromObject(gltf.scene)`, com a caixa de cada malha
  * vinda do `min`/`max` do acessor POSITION (o mesmo que o GLTFLoader usa) e as transformações
- * dos nós montadas pelo three.js do `vendor/`.
+ * dos nós montadas pelo three.js (o do npm: o mesmo arquivo do `vendor/`; rode `npm install` antes).
  *
  *   node ferramentas/mapa-logico/medir-pecas.mjs
  *
@@ -20,19 +20,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import * as THREE from '../../vendor/three.module.js';
+import * as THREE from 'three';
+import { lerProps } from '../../mapa-do-servidor.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-
-/** O `PROPS` do js/assets.js, lido do texto (o assets.js importa o three e o GLTFLoader do navegador). */
-export function lerProps(raiz = RAIZ) {
-  const fonte = readFileSync(path.join(raiz, 'js', 'assets.js'), 'utf8');
-  const bloco = fonte.match(/export const PROPS = (\[[\s\S]*?\n\]);/);
-  if (!bloco) throw new Error('não achei `export const PROPS = [ … ];` no js/assets.js');
-  const lista = new Function(`return ${bloco[1]};`)();
-  if (!Array.isArray(lista) || !lista.every((n) => typeof n === 'string')) throw new Error('o PROPS não é uma lista de nomes');
-  return lista;
-}
 
 /** O JSON de dentro de um .glb. */
 function jsonDoGlb(buf) {
@@ -86,7 +77,7 @@ export function medirGlb(arquivo) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const pecas = {}, erros = [];
-  for (const nome of lerProps()) {
+  for (const nome of lerProps(RAIZ)) {
     try { pecas[nome] = medirGlb(path.join(RAIZ, 'assets', 'dungeon', `${nome}.glb`)); }
     catch (e) { erros.push(`${nome}: ${e.message}`); }
   }

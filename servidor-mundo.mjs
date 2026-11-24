@@ -62,6 +62,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { criarRegras } from './regras-do-mundo.mjs';
+import { lerMapaLogico } from './mapa-do-servidor.mjs';
 
 const QUEM = 'masmorra-do-carrasco';
 /** Sobe quando o protocolo muda de um jeito que cliente e servidor antigos não se entendem. */
@@ -112,8 +113,11 @@ export function criarMundo(raiz) {
   const saves = process.env.MUNDO_SAVES === 'nuvem' ? 'nuvem' : 'disco';
   const supabase = lerSupabase(raiz);
   const mapa = lerNomeDoMapa(raiz);
+  // o MAPA LÓGICO (as mesmas colisões do jogo: mapa-do-servidor.mjs). Sem ele, o passo não confere a parede
+  let mapaLogico = null;
+  try { mapaLogico = lerMapaLogico(raiz); } catch (e) { console.error('[mundo] sem o mapa lógico (o passo não confere a parede):', e.message); }
   /** O que se confere no `pos` e no `golpe` (o balanceamento como REGRA: regras-do-mundo.mjs). */
-  const regras = criarRegras(raiz, { avisar: (j, motivo) => avisarRegra(j, motivo) });
+  const regras = criarRegras(raiz, { mapa: mapaLogico, avisar: (j, motivo) => avisarRegra(j, motivo) });
   /** Anota (no log do servidor, no máximo uma linha a cada 10 s por jogador) quem passou de uma regra. */
   function avisarRegra(j, motivo) {
     const r = (j.regra ??= { n: 0, em: 0 }), agora = Date.now();
