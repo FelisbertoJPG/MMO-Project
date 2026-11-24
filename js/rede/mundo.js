@@ -704,7 +704,10 @@ export class Mundo {
       return res;
     }
     if (alvo.dead || !alvo.active || alvo.invulnerable) return null;
-    this.cano.enviar(TIPO.GOLPE, { id: alvo.netId, dano: Math.round(dano), poise: Math.round(poise ?? 20), fogo: !!opts.fire, qn: opts.quebra?.nivel ?? 0, qd: Math.round(opts.quebra?.dano ?? 0), o: vet(origem) });
+    // `n` = o número do ATAQUE deste golpe (os da bomba e da Seta vão marcados em `pj`): o servidor só deixa passar
+    // golpe de ataque que ele viu começar, com vigor e no ritmo da arma, e um por inimigo (regras-do-mundo.mjs)
+    this.cano.enviar(TIPO.GOLPE, { id: alvo.netId, dano: Math.round(dano), poise: Math.round(poise ?? 20), fogo: !!opts.fire, qn: opts.quebra?.nivel ?? 0, qd: Math.round(opts.quebra?.dano ?? 0), o: vet(origem),
+      n: this.game.player.golpesIniciados ?? 0, ...(opts.proj ? { pj: opts.proj } : {}) });
     alvo.flashT = 0.12;   // resposta imediata; a vida de verdade vem no próximo MUNDO
     return 'hit';
   }

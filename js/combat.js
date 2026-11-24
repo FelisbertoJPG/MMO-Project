@@ -228,7 +228,7 @@ export class Projectiles {
     for (const e of game.allEnemies()) {
       if (e.dead) continue;
       const d = flatDist(e.pos, p.pos);
-      if (d < p.radius + e.radius) game.golpear(e, p.damage * (1 - 0.4 * (d / (p.radius + e.radius))), p.pos, 60, { fire: true });
+      if (d < p.radius + e.radius) game.golpear(e, p.damage * (1 - 0.4 * (d / (p.radius + e.radius))), p.pos, 60, { fire: true, proj: 'bomba' });   // (`proj`: o servidor do Mundo online confere a bomba pelo teto dela)
     }
   }
 
@@ -292,7 +292,7 @@ export class Projectiles {
           if (remove || e.dead || !e.active) continue;
           if (flatDist(e.pos, p.pos) > e.radius + 0.3 || p.pos.y < e.pos.y - 0.2 || p.pos.y > e.pos.y + e.height + 0.2) continue;
           const dano = p.damage * ((e.cfg?.fireWeak ?? 1) > 1 ? p.mult : 1);
-          if (game.golpear(e, dano, p.pos, 20, { fire: true })) e.ignite?.(2);
+          if (game.golpear(e, dano, p.pos, 20, { fire: true, proj: 'seta' })) e.ignite?.(2);
           remove = true;
         }
         if (!remove && (game.world.acimaDoChao(p.pos) < 0.05 || !game.world.pointInside(p.pos))) remove = true;

@@ -35,6 +35,7 @@ services:
         - js/ficha.js
         - js/items.js
         - js/caminhos.js
+        - js/ataques.js
     envVars:
       - key: HOSPEDAR             # sem o save local e as salas de rede local de quem hospeda
         value: "1"

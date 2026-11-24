@@ -11,11 +11,11 @@ import {
   vidaDoNivel, vigorDoNivel, cargaDoNivel, bonusForcaDoNivel, forcaDoNivel, custoDoNivel, habilidadesVazias,
   ETER_MAX, ETER_GOLPE_RECEBIDO, ETER_BLOQUEIO, ETER_EM_COMBATE, ETER_PERDE_POR_SEG, eterDoGolpe,
   ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES, BALANCO,
-  GOLPE_FORTE, BUFF_DANO, FORCA_NA_BOMBA, ALCANCE_DO_ROLAMENTO,
+  GOLPE_FORTE, BUFF_DANO, FORCA_NA_BOMBA, ALCANCE_DO_ROLAMENTO, FOLEGO_DA_COMIDA,
 } from './ficha.js';
 import * as Caminho from './caminhos.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
-import { ITEMS, UNARMED, TORCH_LIFE } from './items.js';
+import { ITEMS, UNARMED, TORCH_LIFE, GOLPE_DA_TOCHA } from './items.js';
 import { START_POS, NASCER } from './world.js';
 import { Assets } from './assets.js';
 
@@ -68,6 +68,9 @@ export class Player {
     this.saidaFurtividade = -99;  // game.time em que saiu da furtividade (vale para o golpe seguinte)
     this.furtivo = false;         // a FURTIVIDADE ligada (a ativa dos Passos Leves): sombra, sem nome, sem som; gasta vigor
     this.fimDaEsquiva = -99;      // game.time em que a última esquiva acaba (o nível 3 do Mestre da Esquiva)
+    // quantos GOLPES e ROLAMENTOS este jogador já começou (só sobem): viajam no instantâneo, e cada golpe que vai
+    // ao simulador leva o número do seu ataque — o servidor do Mundo online confere o vigor e o ritmo por eles
+    this.golpesIniciados = 0; this.rolamentos = 0;
     this.ultimoCombate = -1e9;    // game.time do último golpe dado ou recebido
     this.aparencia = APARENCIA_PADRAO;   // o rosto e o cabelo (aparencia.js); vai no save e no corpo que viaja
     this.souls = 0;
@@ -489,7 +492,7 @@ export class Player {
     // Vigor
     if (this.staminaDelay > 0) this.staminaDelay -= dt;
     else if (!staminaUse && this.state !== 'attack' && this.state !== 'roll') {
-      let regen = BALANCO.vigor_recupera * Caminho.recuperaVigor(this.habilidades) * (1 + this.ringEffect('staminaRegen') + (this.buffs.blossom > 0 || this.buffs.folego > 0 ? 0.6 : 0)) * this.carga.regen;
+      let regen = BALANCO.vigor_recupera * Caminho.recuperaVigor(this.habilidades) * (1 + this.ringEffect('staminaRegen') + (this.buffs.blossom > 0 || this.buffs.folego > 0 ? FOLEGO_DA_COMIDA : 0)) * this.carga.regen;
       if (this.blocking) regen *= 0.35;
       this.stamina = Math.min(this.maxStamina, this.stamina + regen * dt);
     }
@@ -552,7 +555,7 @@ export class Player {
     let w = this.weapon;
     let key;
     if (kind === 'torch') {
-      w = { ...ITEMS.torch, speed: 1.1, stamina: 12, reach: 1.7, poise: 12 };
+      w = { ...ITEMS.torch, ...GOLPE_DA_TOCHA };
       key = 'jab';
     } else {
       key = kind === 'heavy' ? w.heavy : w.light[combo % w.light.length];
@@ -588,6 +591,7 @@ export class Player {
     this.staminaDelay = BALANCO.vigor_espera_golpe;
     if (this.lockTarget) this.facing = yawTo(this.pos, this.lockTarget.pos);
     else if (dir || this.primeiraPessoa) this.facing = this.rumo(dir);
+    this.golpesIniciados++;
     this.setState('attack', data);
     this.model.play(spec.clip, { loop: false, speed, from, restart: true, fade: 0.1 });
   }
@@ -668,6 +672,7 @@ export class Player {
     this.facing = Math.atan2(d.x, d.z);
     const dur = dash ? BALANCO.dash_duracao : BALANCO.rolamento_duracao;
     this.fimDaEsquiva = this.game.time + dur;
+    this.rolamentos++;
     this.setState('roll', { dir: d.clone(), dur, dash, dist: carga.rolagemDist * (dash ? BALANCO.dash_distancia : BALANCO.rolamento_distancia) });
     // o dash é uma ARRANCADA: uma passada inteira da corrida no tempo dele (o Sword_Dash tem golpe:
     // fica para o dash com dano, de outra árvore)

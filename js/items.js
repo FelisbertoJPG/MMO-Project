@@ -104,6 +104,9 @@ Object.assign(ICONS, {
 
 export const ICON_PANELA = ICONS.panela;
 
+/** O golpe com a TOCHA na mão (o jab dela): o player.js monta a arma com isto, e o servidor do Mundo online (regras-do-mundo.mjs) confere por isto. */
+export const GOLPE_DA_TOCHA = { speed: 1.1, stamina: 12, reach: 1.7, poise: 12 };
+
 export const UNARMED = {
   id: 'unarmed', name: 'Punhos', type: 'weapon', icon: ICONS.fist,
   damage: 9, speed: 1.0, stamina: 10, reach: 1.2, poise: 6, escala: 'E', peso: 0,

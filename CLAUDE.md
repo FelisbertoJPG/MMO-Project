@@ -43,7 +43,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 **Código do jogo** (→ base `nucleo-do-jogo`)
 - Atraso em jogo é `game.after(sec, fn)`, nunca `setTimeout`.
 - `.glb` novo só carrega se estiver em `PROPS` (`assets.js`); peça nova de pacote passa antes pelo `ferramentas/enxugar-glb.mjs`.
-- Retimou um golpe (`ATTACKS`)? Ajuste a janela `hit`.
+- Retimou um golpe (`ATTACKS`, em `js/ataques.js`)? Ajuste a janela `hit`.
 - **As armaduras vêm de ARQUIVO** (`assets/modelos/traje-*.json`): mudar o `gear.js` não muda nada; edite no Editor de modelo.
 - `js/blocos.js` é CÓPIA gerada do editor — não edite aqui.
 - Árvore de habilidades (tecla K): a página dos Caminhos é desenhada no Editor de Árvore (`planejamento/arvores/resumo-3-comecos.json`) e entra no jogo por `node ferramentas/habilidades/gerar-catalogo.mjs`; o que cada card FAZ mora em `js/caminhos.js`, pelo id `caminho.<nome sem acento>` (o id nasce do nome e fica: renomear o card não muda nada). Com o editor ligado, o jogo LOCAL muda ao vivo (`js/ao-vivo.js`). O golpe, o vigor, o rolamento (e o dash) e o movimento do jogador vêm de `assets/balanco.json` (o painel Balanceamento do editor), não de número no código (→ base `interface-e-celular`, `combate-e-itens`).
@@ -53,7 +53,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 
 **Rede, modos e save** (→ base `rede-e-mmo`, `nucleo-do-jogo`)
 - **A IA nunca lê `game.player`** (usa `alvo` / `game.alvoPara`); golpe do jogador passa SEMPRE por `game.golpear`.
-- **O servidor do Mundo online confere o passo e o golpe pelos números do JOGO** (`regras-do-mundo.mjs`): conta nova de dano ou de velocidade no `player.js` vai também para lá (os números divididos ficam na `ficha.js`: `GOLPE_FORTE`, `BUFF_DANO`…), senão o jogador honesto é cortado.
+- **O servidor do Mundo online confere o passo e o golpe pelos números do JOGO** (`regras-do-mundo.mjs`): conta nova de dano, velocidade, VIGOR ou ritmo do golpe no `player.js` vai também para lá (os números divididos ficam na `ficha.js`: `GOLPE_FORTE`, `BUFF_DANO`, `FOLEGO_DA_COMIDA`…; a tabela dos golpes em `js/ataques.js`), senão o jogador honesto é cortado.
 - Diferença entre Jornada e Mundo online é `game.regras.<nome>` (`js/modo.js`), não `if (game.modo === 'mmo')`.
 - Ganchos de `game.sessao` são chamados com `?.`: método novo num modo não pode quebrar o outro.
 - Inimigo novo com estado próprio precisa do seu `retomar` (troca de simulador).

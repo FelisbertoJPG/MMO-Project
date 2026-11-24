@@ -65,6 +65,9 @@ export function instantaneo(player, id) {
     h: r2(Math.max(0, player.hp / player.maxHp)),   // a barra do oponente no duelo
     c: corpoDe(m),   // o corpo (guerreiro.js): os outros desenham o mesmo
     f: player.furtivo ? 1 : 0,   // FURTIVO (a Furtividade): os outros o veem como sombra e sem o nome
+    // quantos golpes e rolamentos ele já começou: o servidor do Mundo online confere o vigor e o ritmo
+    // por eles (regras-do-mundo.mjs); os outros jogadores não usam
+    n: player.golpesIniciados ?? 0, r: player.rolamentos ?? 0,
   };
 }
 

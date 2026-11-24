@@ -166,7 +166,7 @@ await teste('pos vai para os OUTROS, com o remetente dito pelo servidor', async 
 await teste('ROTEAMENTO: golpe só ao simulador, dano só ao alvo, mundo só DO simulador', async () => {
   caio = await jogador('Caio');
   // golpe do Beto: chega só à Ana
-  await beto.falar('golpe', { id: 'e3', dano: 17 });
+  await beto.falar('golpe', { id: 'e3', dano: 17, n: 1 });   // (`n`: o número do ataque — regras-do-mundo.mjs)
   assert.ok(await ana.chegou('golpe', (r) => r.de === beto.id && r.carga.id === 'e3'));
   await dormir(80);
   assert.equal(caio.de('golpe').length, 0, 'o golpe vazou para o Caio');
@@ -207,12 +207,42 @@ await teste('REGRAS: o passo rápido demais é CORTADO; acordar na fogueira vale
 
 await teste('REGRAS: golpe acima do teto da arma que está na mão NÃO chega ao simulador', async () => {
   await beto.falar('pos', { x: ACAMPAMENTO.x, z: ACAMPAMENTO.z, d: 'dagger', e: null });
-  await beto.falar('golpe', { id: 'e7', dano: 900, poise: 10 });   // absurdo
-  await beto.falar('golpe', { id: 'e8', dano: 150, poise: 10 });   // de espadão, com a adaga na mão (nível 1)
-  await beto.falar('golpe', { id: 'e6', dano: 40, poise: 200 });   // poise de quem não tem a arma
-  await beto.falar('golpe', { id: 'e9', dano: 40, poise: 10 });    // o de verdade
+  await beto.falar('golpe', { id: 'e7', dano: 900, poise: 10, n: 1 });   // absurdo
+  await beto.falar('golpe', { id: 'e8', dano: 150, poise: 10, n: 1 });   // de espadão, com a adaga na mão (nível 1)
+  await beto.falar('golpe', { id: 'e6', dano: 40, poise: 200, n: 1 });   // poise de quem não tem a arma
+  await beto.falar('golpe', { id: 'e9', dano: 40, poise: 10, n: 1 });    // o de verdade
   assert.ok(await ana.chegou('golpe', (r) => r.carga.id === 'e9'), 'o golpe honesto não chegou');
   assert.equal(ana.de('golpe').filter((r) => ['e6', 'e7', 'e8'].includes(r.carga.id)).length, 0, 'golpe acima do teto chegou');
+});
+
+await teste('O VIGOR E O RITMO: golpe sem o número do ataque não passa, nem o mesmo ataque no mesmo inimigo duas vezes', async () => {
+  await beto.falar('golpe', { id: 'f1', dano: 20, poise: 8 });                    // sem `n`
+  await beto.falar('golpe', { id: 'f2', dano: 20, poise: 8, n: 1 });
+  await beto.falar('golpe', { id: 'f2', dano: 20, poise: 8, n: 1 });              // o mesmo ataque, de novo
+  await beto.falar('golpe', { id: 'f3', dano: 20, poise: 8, n: 1, pj: 'canhao' }); // projétil inventado
+  assert.ok(await ana.chegou('golpe', (r) => r.carga.id === 'f2'), 'o golpe honesto não chegou');
+  await dormir(80);
+  assert.equal(ana.de('golpe').filter((r) => r.carga.id === 'f2').length, 1, 'o mesmo ataque acertou o mesmo inimigo duas vezes');
+  assert.equal(ana.de('golpe').filter((r) => ['f1', 'f3'].includes(r.carga.id)).length, 0, 'passou golpe sem número (ou projétil inventado)');
+  await ana.falar('mundo', { e: [] });   // (a simuladora segue falando: calada 2,5 s, o servidor a troca)
+});
+
+await teste('O VIGOR E O RITMO: ataque sem vigor ou rápido demais NÃO vale; a Seta e a bomba têm teto e ritmo', async () => {
+  // 20 ataques de adaga de uma vez: nem pelo vigor mais generoso (120) dá — os últimos não valem
+  await beto.falar('pos', { x: ACAMPAMENTO.x, z: ACAMPAMENTO.z, d: 'dagger', e: null, n: 21, r: 0 });
+  await beto.falar('golpe', { id: 'g1', dano: 20, poise: 8, n: 21 });
+  // a Seta: duas seguidas passam, a terceira não; a bomba acima do teto, não
+  for (const id of ['s1', 's2', 's3']) await beto.falar('golpe', { id, dano: 40, poise: 20, fogo: true, pj: 'seta' });
+  await beto.falar('golpe', { id: 's4', dano: 300, poise: 60, fogo: true, pj: 'bomba' });
+  await beto.falar('golpe', { id: 's5', dano: 80, poise: 60, fogo: true, pj: 'bomba' });
+  assert.ok(await ana.chegou('golpe', (r) => r.carga.id === 's5'), 'a bomba honesta não chegou');
+  await dormir(80);
+  const ids = ana.de('golpe').map((r) => r.carga.id);
+  assert.ok(ids.includes('s1') && ids.includes('s2'), 'as duas primeiras Setas não chegaram');
+  assert.ok(!ids.includes('g1'), 'golpe de ataque sem vigor passou');
+  assert.ok(!ids.includes('s3'), 'a terceira Seta seguida passou');
+  assert.ok(!ids.includes('s4'), 'bomba acima do teto passou');
+  await ana.falar('mundo', { e: [] });
 });
 
 await teste('evento: do simulador vai a todos (ou ao `para`); dos outros, só o projétil', async () => {

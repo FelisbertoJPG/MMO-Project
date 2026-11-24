@@ -113,7 +113,7 @@ export function criarMundo(raiz) {
   const supabase = lerSupabase(raiz);
   const mapa = lerNomeDoMapa(raiz);
   /** O que se confere no `pos` e no `golpe` (o balanceamento como REGRA: regras-do-mundo.mjs). */
-  const regras = criarRegras(raiz);
+  const regras = criarRegras(raiz, { avisar: (j, motivo) => avisarRegra(j, motivo) });
   /** Anota (no log do servidor, no máximo uma linha a cada 10 s por jogador) quem passou de uma regra. */
   function avisarRegra(j, motivo) {
     const r = (j.regra ??= { n: 0, em: 0 }), agora = Date.now();
