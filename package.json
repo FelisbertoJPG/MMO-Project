@@ -10,5 +10,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "node testes/mundo.test.mjs"
+  },
+  "dependencies": {
+    "three": "0.170.0"
   }
 }

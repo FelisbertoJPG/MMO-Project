@@ -634,6 +634,15 @@ await teste('/__mundo/ice: o TURN da voz só para quem joga, sem a porta 53, e a
   }
 });
 
+await teste('o THREE do servidor (npm) é o MESMO arquivo do vendor/ do jogo', async () => {
+  // o jogo usa o vendor/ (import map); o servidor, o pacote do npm. Se as versões se separarem, a
+  // mesma conta dá outro número nos dois lados. Subiu o vendor? `npm install --save-exact three@<versão>`
+  const { createRequire } = await import('node:module');
+  const doNpm = createRequire(path.join(RAIZ, 'package.json')).resolve('three');   // (o build/three.cjs)
+  const um = fs.readFileSync(path.join(path.dirname(doNpm), 'three.module.js'));
+  assert.ok(um.equals(fs.readFileSync(path.join(RAIZ, 'vendor', 'three.module.js'))), 'o three do npm não é o do vendor/');
+});
+
 await teste('o MAPA LÓGICO: toda peça do PROPS tem caixa medida, e as colisões montam dos arquivos do jogo', async () => {
   const { lerProps } = await import('../ferramentas/mapa-logico/medir-pecas.mjs');
   const { MapaLogico, lerArquivoDoMapa, pecasDe } = await import('../js/mapa-logico.js');

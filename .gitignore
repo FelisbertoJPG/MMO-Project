@@ -28,3 +28,6 @@
 
 # a chave de LEITURA do relatório automático de desempenho (ferramentas/desempenho/ler.mjs)
 ferramentas/desempenho/chave.txt
+
+# as dependências do SERVIDOR (só o three, a mesma versão do vendor/): saem do `npm install`
+/node_modules/

@@ -19,9 +19,10 @@ Marque como recomendada a que cabe (dúvida ou ajuste pequeno → ler a base; ta
 
 ## Projeto
 
-"Lubelion Online - MMO Project" (antes "Masmorra do Carrasco"; o código, o servidor e o Supabase seguem com "masmorra" nos nomes — não renomear, é protocolo e banco) — um RPG de ação souls-like em Three.js puro (navegador, módulos ES). Sem build, sem dependências npm, sem linter; os únicos testes são os do servidor de mundo (`npm test`). Three.js e os addons estão em `vendor/` (import map no `index.html`). **Todo texto do jogo, da interface e dos comentários é em português do Brasil.**
+"Lubelion Online - MMO Project" (antes "Masmorra do Carrasco"; o código, o servidor e o Supabase seguem com "masmorra" nos nomes — não renomear, é protocolo e banco) — um RPG de ação souls-like em Three.js puro (navegador, módulos ES). Sem build, sem linter; os únicos testes são os do servidor de mundo (`npm test`). Three.js e os addons estão em `vendor/` (import map no `index.html`). O JOGO não tem dependência npm; o SERVIDOR tem uma, o `three` na MESMA versão do `vendor/` (roda a lógica dos inimigos; o `npm test` confere que é o mesmo arquivo — subiu o vendor, `npm install --save-exact three@<versão>`). **Todo texto do jogo, da interface e dos comentários é em português do Brasil.**
 
 ```bash
+npm install          # uma vez (e quando o package-lock mudar): o three do servidor
 npm start            # node server.js → http://localhost:5173 (PORT muda)
 npm test             # node testes/mundo.test.mjs — o servidor de mundo, por HTTP
 masmorra.exe         # sobe o servidor e abre o jogo em janela de app (launcher/)

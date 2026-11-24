@@ -13,7 +13,7 @@ services:
     runtime: node
     plan: free
     region: virginia              # a mais perto do Brasil no plano grátis
-    buildCommand: npm install     # não há dependências: é só o que o Render exige
+    buildCommand: npm ci          # a única dependência é o three (a MESMA versão do vendor/ do jogo): a lógica dos inimigos roda aqui também
     startCommand: node server.js
     healthCheckPath: /__saude
     autoDeployTrigger: commit
@@ -25,6 +25,7 @@ services:
         - servidor-mundo.mjs
         - rede-local.mjs
         - package.json
+        - package-lock.json
         - render.yaml
         - assets/mapa.json        # o servidor confere que todos estão no mesmo mapa
         - js/rede/supabase.js     # de onde ele lê a URL e a chave publicável do Supabase
