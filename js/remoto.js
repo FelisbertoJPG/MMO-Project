@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
 import { armaduraDe } from './guerreiro.js';
 import { MAO_OCUPADA } from './player.js';
+import { camuflar } from './camuflagem.js';
 import { ITEMS } from './items.js';
 
 /** Quanto atrás do "agora" o boneco é desenhado: é a folga para interpolar entre dois recados. */
@@ -140,6 +141,8 @@ export class JogadorRemoto {
     const meta = this.sumindo ? 0 : 1;
     this.opacidade += (meta - this.opacidade) * Math.min(1, dt * 4);
     this.aplicarOpacidade();
+    camuflar(this.model, !!this.furtivo);   // furtivo, uma sombra (camuflagem.js)
+    if (this.etiqueta) this.etiqueta.visible = !this.furtivo;   // e sem o nome
     this.model.update(dt);
   }
 
@@ -160,6 +163,7 @@ export class JogadorRemoto {
     this.model.duasMaos = !!ITEMS[this.maos.d]?.twoHanded && this.maos.e !== 'torch' && !MAO_OCUPADA.includes(this.state);
     if (atual.h != null) this.hpFrac = atual.h;
     if (atual.c && atual.c !== this.corpo) this.vestir(atual.c);
+    this.furtivo = atual.f === 1;   // a Furtividade do outro: sombra e sem o nome (update)
   }
 
   /** O corpo que o outro escolheu no provador (guerreiro.js); os materiais voltam a ser tingidos. */
@@ -206,6 +210,7 @@ export class JogadorRemoto {
       if (m.color) m.color.setHex(ap?.cor ?? ud.corOriginal ?? 0xffffff);
       if (m.emissive) m.emissive.setHex(ap ? ap.brilho : ud.brilhoOriginal ?? 0);
       ud.opacidadeBase = ap?.opacidade ?? 1;
+      ud.camuflado = false;   // a cor acabou de ser posta: a camuflagem escurece de novo (camuflagem.js)
       this.mats.push(m);
       }
     });

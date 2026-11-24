@@ -202,6 +202,21 @@ export class Projectiles {
     if (!visual) this.game.sessao?.aoProjetil?.('shock', { pos, maxR, speed });
   }
 
+  /**
+   * A SETA DE FOGO do jogador (caminhos.js, Maestria Elemental): voa reta, acerta o primeiro
+   * inimigo no caminho (pelo `game.golpear`, como todo golpe do jogador) e o incendeia. `mult`
+   * vale só em quem é fraco a fogo (o Conhecimento Elemental). Não viaja pela rede: no
+   * co-op e no Mundo, o outro jogador vê o golpe, não a seta (beta).
+   */
+  seta({ pos, dir, damage = 40, mult = 1, speed = 24, life = 1.6 }) {
+    const g = new THREE.Group();
+    g.add(this.makeGlow(0xff7a28, 0.75));
+    g.add(this.makeGlow(0xfff0c0, 0.25));
+    g.position.copy(pos);
+    this.game.scene.add(g);
+    this.list.push({ kind: 'seta', mesh: g, pos: g.position, vel: dir.clone().normalize().multiplyScalar(speed), damage, mult, life, delay: 0 });
+  }
+
   explodeBomb(p) {
     const game = this.game;
     game.effects.fire(p.pos, p.radius);
@@ -270,6 +285,18 @@ export class Projectiles {
           if (res !== 'iframe') p.hit.add(j);
         }
         if (p.r >= p.maxR) remove = true;
+      } else if (p.kind === 'seta') {
+        p.pos.addScaledVector(p.vel, dt);
+        if (Math.random() < 0.8) game.effects.spawn({ pos: p.pos.clone(), vel: new THREE.Vector3(), color: [1, 0.45, 0.1], size: 0.22, life: 0.3 });
+        for (const e of game.allEnemies()) {
+          if (remove || e.dead || !e.active) continue;
+          if (flatDist(e.pos, p.pos) > e.radius + 0.3 || p.pos.y < e.pos.y - 0.2 || p.pos.y > e.pos.y + e.height + 0.2) continue;
+          const dano = p.damage * ((e.cfg?.fireWeak ?? 1) > 1 ? p.mult : 1);
+          if (game.golpear(e, dano, p.pos, 20, { fire: true })) e.ignite?.(2);
+          remove = true;
+        }
+        if (!remove && (game.world.acimaDoChao(p.pos) < 0.05 || !game.world.pointInside(p.pos))) remove = true;
+        if (remove) game.effects.burst(p.pos, { count: 22, color: [1, 0.5, 0.12], speed: 4, size: 0.16, life: 0.45, gravity: -1 });
       } else if (p.kind === 'bomb') {
         p.vel.y -= 16 * dt;
         p.pos.addScaledVector(p.vel, dt);

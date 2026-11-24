@@ -1,0 +1,762 @@
+{
+  "_sobre": "Árvore desenhada no Editor de Árvore (node ferramentas/habilidades/editor-arvore.mjs). Rascunho: o jogo ainda não lê este arquivo.",
+  "arvore": "modelo-3-raizes",
+  "nome": "Modelo livre: 3 começos",
+  "pontos": 30,
+  "atualizado_em": "2026-11-24T18:12:29.194Z",
+  "nos": [
+    {
+      "id": "modelo-3-raizes.maestria_em_batalha",
+      "nome": "Maestria em Batalha",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o golpe pesado (F)"
+      ],
+      "desc": "COMEÇO da Batalha. Não pede nem usa o Éter.",
+      "requer_minimo": {},
+      "pos": [-260, 0]
+    },
+    {
+      "id": "modelo-3-raizes.bloqueio_firme",
+      "nome": "Bloqueio Firme",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "O bloqueio gasta 10% menos vigor",
+        "O bloqueio gasta 10% menos vigor"
+      ],
+      "desc": "Galho do escudo.",
+      "requer_minimo": {
+        "modelo-3-raizes.maestria_em_batalha": 1
+      },
+      "pos": [-480, -200]
+    },
+    {
+      "id": "modelo-3-raizes.muralha",
+      "nome": "Muralha",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Golpes pesados quebram a sua guarda 30% menos"
+      ],
+      "desc": "2º degrau: custa 2.",
+      "requer_minimo": {
+        "modelo-3-raizes.bloqueio_firme": 2
+      },
+      "pos": [-700, -200]
+    },
+    {
+      "id": "modelo-3-raizes.contra_ataque",
+      "nome": "Contra-Ataque",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "Logo depois de bloquear, um golpe que quebra a guarda (gasta vigor, não Éter)"
+      ],
+      "desc": "3º degrau: custa 3.",
+      "requer_minimo": {
+        "modelo-3-raizes.muralha": 1
+      },
+      "ativa": {
+        "eter": 0,
+        "recarga": 8
+      },
+      "pos": [-920, -200]
+    },
+    {
+      "id": "modelo-3-raizes.cavaleiro",
+      "nome": "Cavaleiro",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, SEM ÉTER: POSTURA. Enche bloqueando; cheia, o Contra-Ataque derruba"
+      ],
+      "desc": "IDENTIDADE pura da Batalha (escudo e armadura). Só uma identidade vale por vez; troca-se na fogueira.",
+      "requer_minimo": {
+        "modelo-3-raizes.contra_ataque": 1
+      },
+      "pos": [-1140, -200]
+    },
+    {
+      "id": "modelo-3-raizes.vigor",
+      "nome": "Vigor",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "por_ponto": [
+        "+5 de vigor",
+        "+5 de vigor",
+        "+5 de vigor"
+      ],
+      "desc": "O tronco da Batalha.",
+      "requer_minimo": {
+        "modelo-3-raizes.maestria_em_batalha": 1
+      },
+      "pos": [-480, 0]
+    },
+    {
+      "id": "modelo-3-raizes.resistencia",
+      "nome": "Resistência",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "+3 em todas as resistências"
+      ],
+      "desc": "2º degrau: custa 2.",
+      "requer_minimo": {
+        "modelo-3-raizes.vigor": 2
+      },
+      "pos": [-700, 0]
+    },
+    {
+      "id": "modelo-3-raizes.couraca",
+      "nome": "Couraça",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "Habilita a armadura pesada sem perder o rolamento"
+      ],
+      "desc": "3º degrau: custa 3. Equipamento.",
+      "requer_minimo": {
+        "modelo-3-raizes.resistencia": 1
+      },
+      "pos": [-920, 0]
+    },
+    {
+      "id": "modelo-3-raizes.maestria_com_armas",
+      "nome": "Maestria com Armas",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Habilita as armas de médio porte; +1 de dano físico"
+      ],
+      "desc": "A sua skill. Galho das armas.",
+      "requer_minimo": {
+        "modelo-3-raizes.maestria_em_batalha": 1
+      },
+      "pos": [-480, 200]
+    },
+    {
+      "id": "modelo-3-raizes.armas_pesadas",
+      "nome": "Armas Pesadas",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Habilita as armas grandes (espadão, machado e martelo de duas mãos)"
+      ],
+      "desc": "2º degrau: custa 2. Equipamento.",
+      "requer_minimo": {
+        "modelo-3-raizes.maestria_com_armas": 1
+      },
+      "pos": [-700, 200]
+    },
+    {
+      "id": "modelo-3-raizes.golpe_devastador",
+      "nome": "Golpe Devastador",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "Golpe pesado carregado que derruba quem acerta (gasta vigor, não Éter)"
+      ],
+      "desc": "3º degrau: custa 3.",
+      "requer_minimo": {
+        "modelo-3-raizes.armas_pesadas": 1
+      },
+      "ativa": {
+        "eter": 0,
+        "recarga": 15
+      },
+      "pos": [-920, 200]
+    },
+    {
+      "id": "modelo-3-raizes.barbaro",
+      "nome": "Bárbaro",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, SEM ÉTER: FÚRIA. Enche golpeando e apanhando, não esvazia enquanto você bate; cheia, +20% de dano"
+      ],
+      "desc": "IDENTIDADE pura da Batalha (armas grandes).",
+      "requer_minimo": {
+        "modelo-3-raizes.golpe_devastador": 1
+      },
+      "pos": [-1140, 200]
+    },
+    {
+      "id": "modelo-3-raizes.eter",
+      "nome": "Éter",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera a barra de Éter (100): enche batendo, apanhando e bloqueando"
+      ],
+      "desc": "COMEÇO do Éter. Toda identidade deste lado transforma a barra.",
+      "requer_minimo": {},
+      "pos": [0, -220]
+    },
+    {
+      "id": "modelo-3-raizes.milagres",
+      "nome": "Milagres",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera gastar Éter em milagres"
+      ],
+      "desc": "Galho da Fé.",
+      "requer_minimo": {
+        "modelo-3-raizes.eter": 1
+      },
+      "pos": [-260, -440]
+    },
+    {
+      "id": "modelo-3-raizes.prece",
+      "nome": "Prece",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Cura 40 de vida em você"
+      ],
+      "desc": "2º degrau: custa 2.",
+      "requer_minimo": {
+        "modelo-3-raizes.milagres": 1
+      },
+      "ativa": {
+        "eter": 30,
+        "recarga": 10
+      },
+      "pos": [-260, -660]
+    },
+    {
+      "id": "modelo-3-raizes.cura_em_area",
+      "nome": "Cura em Área",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "Cura 30 de vida em você e nos aliados perto"
+      ],
+      "desc": "3º degrau: custa 3.",
+      "requer_minimo": {
+        "modelo-3-raizes.prece": 1
+      },
+      "ativa": {
+        "eter": 50,
+        "recarga": 20
+      },
+      "pos": [-260, -880]
+    },
+    {
+      "id": "modelo-3-raizes.sacerdote",
+      "nome": "Sacerdote",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira FÉ: enche curando e abençoando aliados; milagres custam 25% menos"
+      ],
+      "desc": "IDENTIDADE pura da Fé.",
+      "requer_minimo": {
+        "modelo-3-raizes.cura_em_area": 1
+      },
+      "pos": [-260, -1100]
+    },
+    {
+      "id": "modelo-3-raizes.maestria_do_eter",
+      "nome": "Maestria do Éter",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "por_ponto": [
+        "+10 de Éter máximo",
+        "+10 de Éter máximo",
+        "+10 de Éter máximo"
+      ],
+      "desc": "O tronco do Éter.",
+      "requer_minimo": {
+        "modelo-3-raizes.eter": 1
+      },
+      "pos": [0, -440]
+    },
+    {
+      "id": "modelo-3-raizes.descarga_de_eter",
+      "nome": "Descarga de Éter",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Uma onda curta que empurra os inimigos colados em você"
+      ],
+      "desc": "2º degrau: custa 2.",
+      "requer_minimo": {
+        "modelo-3-raizes.maestria_do_eter": 1
+      },
+      "ativa": {
+        "eter": 50,
+        "recarga": 20
+      },
+      "pos": [0, -660]
+    },
+    {
+      "id": "modelo-3-raizes.fluxo_do_eter",
+      "nome": "Fluxo do Éter",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "+25% de Éter de cada golpe, golpe recebido e bloqueio"
+      ],
+      "desc": "3º degrau: custa 3.",
+      "requer_minimo": {
+        "modelo-3-raizes.descarga_de_eter": 1
+      },
+      "pos": [0, -880]
+    },
+    {
+      "id": "modelo-3-raizes.conhecimento_elemental",
+      "nome": "Conhecimento Elemental",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "+1 de proficiência elemental",
+        "+1 de proficiência elemental"
+      ],
+      "desc": "A sua skill: libera executar reações. Galho do Arcano.",
+      "requer_minimo": {
+        "modelo-3-raizes.eter": 1
+      },
+      "pos": [260, -440]
+    },
+    {
+      "id": "modelo-3-raizes.seta_elemental",
+      "nome": "Seta Elemental",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "A 1ª magia: uma seta do elemento que você conhece"
+      ],
+      "desc": "2º degrau: custa 2.",
+      "requer_minimo": {
+        "modelo-3-raizes.conhecimento_elemental": 1
+      },
+      "ativa": {
+        "eter": 25,
+        "recarga": 3
+      },
+      "pos": [260, -660]
+    },
+    {
+      "id": "modelo-3-raizes.explosao_elemental",
+      "nome": "Explosão Elemental",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "Uma bola do elemento que estoura em área"
+      ],
+      "desc": "3º degrau: custa 3.",
+      "requer_minimo": {
+        "modelo-3-raizes.seta_elemental": 1
+      },
+      "ativa": {
+        "eter": 60,
+        "recarga": 12
+      },
+      "pos": [260, -880]
+    },
+    {
+      "id": "modelo-3-raizes.elementalista",
+      "nome": "Elementalista",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira MANA: enche sozinha, devagar, e não com golpes; magias e reações mais fortes"
+      ],
+      "desc": "IDENTIDADE pura do Arcano.",
+      "requer_minimo": {
+        "modelo-3-raizes.explosao_elemental": 1,
+        "modelo-3-raizes.conhecimento_elemental": 2
+      },
+      "pos": [260, -1100]
+    },
+    {
+      "id": "modelo-3-raizes.sorcerer",
+      "nome": "Sorcerer",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira PACTO: a barra também enche com a sua vida; magias sombrias, mais fortes e mais caras"
+      ],
+      "desc": "IDENTIDADE dos dois galhos do Éter (Fé + Arcano), como as hexes do Dark Souls. Nome a decidir.",
+      "requer_minimo": {
+        "modelo-3-raizes.prece": 1,
+        "modelo-3-raizes.explosao_elemental": 1
+      },
+      "pos": [0, -1100]
+    },
+    {
+      "id": "modelo-3-raizes.furtividade_e_esquiva",
+      "nome": "Furtividade e Esquiva",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera agachar: agachado, anda devagar e os inimigos só te percebem de mais perto"
+      ],
+      "desc": "COMEÇO da Esquiva. Não pede nem usa o Éter.",
+      "requer_minimo": {},
+      "pos": [260, 0]
+    },
+    {
+      "id": "modelo-3-raizes.passos_leves",
+      "nome": "Passos Leves",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "Agachado, os inimigos te percebem 20% mais perto",
+        "Agachado, os inimigos te percebem 20% mais perto"
+      ],
+      "desc": "Galho da furtividade.",
+      "requer_minimo": {
+        "modelo-3-raizes.furtividade_e_esquiva": 1
+      },
+      "pos": [480, -200]
+    },
+    {
+      "id": "modelo-3-raizes.golpe_pelas_costas",
+      "nome": "Golpe pelas Costas",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "+50% de dano em quem não te viu"
+      ],
+      "desc": "2º degrau: custa 2.",
+      "requer_minimo": {
+        "modelo-3-raizes.passos_leves": 2
+      },
+      "pos": [700, -200]
+    },
+    {
+      "id": "modelo-3-raizes.emboscada",
+      "nome": "Emboscada",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "Sai da furtividade com um golpe que derruba (gasta vigor, não Éter)"
+      ],
+      "desc": "3º degrau: custa 3.",
+      "requer_minimo": {
+        "modelo-3-raizes.golpe_pelas_costas": 1
+      },
+      "ativa": {
+        "eter": 0,
+        "recarga": 20
+      },
+      "pos": [920, -200]
+    },
+    {
+      "id": "modelo-3-raizes.sombra",
+      "nome": "Sombra",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, SEM ÉTER: FOCO. Enche golpeando sem ser visto; esvazia quando te veem"
+      ],
+      "desc": "IDENTIDADE pura da Esquiva (furtividade).",
+      "requer_minimo": {
+        "modelo-3-raizes.emboscada": 1
+      },
+      "pos": [1140, -200]
+    },
+    {
+      "id": "modelo-3-raizes.passo_ligeiro",
+      "nome": "Passo Ligeiro",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "Anda e corre 5% mais rápido",
+        "Anda e corre 5% mais rápido"
+      ],
+      "desc": "O tronco da Esquiva.",
+      "requer_minimo": {
+        "modelo-3-raizes.furtividade_e_esquiva": 1
+      },
+      "pos": [480, 0]
+    },
+    {
+      "id": "modelo-3-raizes.folego_leve",
+      "nome": "Fôlego Leve",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Correr e golpear com arma leve gastam 15% menos vigor"
+      ],
+      "desc": "2º degrau: custa 2.",
+      "requer_minimo": {
+        "modelo-3-raizes.passo_ligeiro": 2
+      },
+      "pos": [700, 0]
+    },
+    {
+      "id": "modelo-3-raizes.armas_duplas",
+      "nome": "Armas Duplas",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "Habilita uma arma leve em cada mão"
+      ],
+      "desc": "3º degrau: custa 3. Equipamento.",
+      "requer_minimo": {
+        "modelo-3-raizes.folego_leve": 1
+      },
+      "pos": [920, 0]
+    },
+    {
+      "id": "modelo-3-raizes.duelista",
+      "nome": "Duelista",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, SEM ÉTER: RITMO. Enche no combo; cai ao apanhar; cheia, golpes mais rápidos"
+      ],
+      "desc": "IDENTIDADE pura da Esquiva (duas armas).",
+      "requer_minimo": {
+        "modelo-3-raizes.armas_duplas": 1
+      },
+      "pos": [1140, 0]
+    },
+    {
+      "id": "modelo-3-raizes.rolamento",
+      "nome": "Rolamento",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o rolamento (toque no Espaço)"
+      ],
+      "desc": "Galho da esquiva.",
+      "requer_minimo": {
+        "modelo-3-raizes.furtividade_e_esquiva": 1
+      },
+      "pos": [480, 200]
+    },
+    {
+      "id": "modelo-3-raizes.passo_de_esquiva",
+      "nome": "Passo de Esquiva",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Libera o dash: um passo curto e rápido (gasta vigor, não Éter)"
+      ],
+      "desc": "2º degrau: custa 2.",
+      "requer_minimo": {
+        "modelo-3-raizes.rolamento": 1
+      },
+      "ativa": {
+        "eter": 0,
+        "recarga": 0
+      },
+      "pos": [700, 200]
+    },
+    {
+      "id": "modelo-3-raizes.esquiva_perfeita",
+      "nome": "Esquiva Perfeita",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 3,
+      "por_ponto": [
+        "Rolar no último instante devolve o vigor gasto"
+      ],
+      "desc": "3º degrau: custa 3.",
+      "requer_minimo": {
+        "modelo-3-raizes.passo_de_esquiva": 1
+      },
+      "pos": [920, 200]
+    },
+    {
+      "id": "modelo-3-raizes.guardiao",
+      "nome": "Guardião",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter de hoje, mais forte: bloquear no tempo certo enche o dobro e devolve vigor"
+      ],
+      "desc": "IDENTIDADE híbrida: Batalha (escudo) + Éter.",
+      "requer_minimo": {
+        "modelo-3-raizes.muralha": 1,
+        "modelo-3-raizes.maestria_do_eter": 2
+      },
+      "pos": [-580, -460]
+    },
+    {
+      "id": "modelo-3-raizes.paladino",
+      "nome": "Paladino",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira GRAÇA: enche bloqueando e curando; milagres saem com o escudo erguido"
+      ],
+      "desc": "IDENTIDADE híbrida: Batalha (escudo) + Fé. Ninguém vira Paladino sem andar pelos dois lados.",
+      "requer_minimo": {
+        "modelo-3-raizes.muralha": 1,
+        "modelo-3-raizes.prece": 1
+      },
+      "pos": [-640, -760]
+    },
+    {
+      "id": "modelo-3-raizes.arcanista",
+      "nome": "Arcanista",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira CARGA ARCANA: golpes de arma leve enchem; a magia sai junto do golpe, e dá para conjurar correndo"
+      ],
+      "desc": "IDENTIDADE híbrida: Arcano + Esquiva.",
+      "requer_minimo": {
+        "modelo-3-raizes.seta_elemental": 1,
+        "modelo-3-raizes.passo_ligeiro": 2
+      },
+      "pos": [600, -560]
+    },
+    {
+      "id": "modelo-3-raizes.punhos",
+      "nome": "Punhos",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 2,
+      "por_ponto": [
+        "+15% de dano lutando sem arma",
+        "+15% de dano lutando sem arma"
+      ],
+      "desc": "Pede os DOIS começos, Batalha e Esquiva: é a ponte entre eles, sem Éter.",
+      "requer_minimo": {
+        "modelo-3-raizes.maestria_em_batalha": 1,
+        "modelo-3-raizes.furtividade_e_esquiva": 1
+      },
+      "pos": [0, 300]
+    },
+    {
+      "id": "modelo-3-raizes.lutador",
+      "nome": "Lutador",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, SEM ÉTER: ADRENALINA. Enche esquivando por um triz e com a vida baixa; cheia, golpes mais rápidos e o vigor não acaba"
+      ],
+      "desc": "IDENTIDADE híbrida: Batalha + Esquiva (punhos).",
+      "requer_minimo": {
+        "modelo-3-raizes.punhos": 1,
+        "modelo-3-raizes.esquiva_perfeita": 1
+      },
+      "pos": [0, 560]
+    },
+    {
+      "id": "modelo-3-raizes.cavaleiro_runico",
+      "nome": "Cavaleiro Rúnico",
+      "tipo": "identidade2",
+      "ranks": 1,
+      "custo": 8,
+      "por_ponto": [
+        "A arma grande carrega uma runa do seu elemento; a Fúria cheia solta a runa no golpe pesado"
+      ],
+      "desc": "IDENTIDADE 2º GRAU: evolui a identidade (fica no lugar dela) e pede a caminhada até o Arcano. Como o Rune Knight, a 3ª classe do Cavaleiro no Ragnarok.",
+      "requer_minimo": {
+        "modelo-3-raizes.barbaro": 1,
+        "modelo-3-raizes.seta_elemental": 1
+      },
+      "pos": [-1400, 200]
+    },
+    {
+      "id": "modelo-3-raizes.inquisidor",
+      "nome": "Inquisidor",
+      "tipo": "identidade2",
+      "ranks": 1,
+      "custo": 8,
+      "por_ponto": [
+        "Com a Fúria cheia, cada golpe cura você"
+      ],
+      "desc": "IDENTIDADE 2º GRAU: evolui a identidade (fica no lugar dela) e pede a caminhada até a Fé.",
+      "requer_minimo": {
+        "modelo-3-raizes.barbaro": 1,
+        "modelo-3-raizes.prece": 1
+      },
+      "pos": [-1400, -40]
+    },
+    {
+      "id": "modelo-3-raizes.berserker",
+      "nome": "Berserker",
+      "tipo": "identidade2",
+      "ranks": 1,
+      "custo": 8,
+      "por_ponto": [
+        "Rolar não derruba a Fúria, e com ela cheia a Esquiva Perfeita tem mais tempo"
+      ],
+      "desc": "IDENTIDADE 2º GRAU: evolui a identidade (fica no lugar dela) e pede a caminhada até a Esquiva. Não usa o Éter.",
+      "requer_minimo": {
+        "modelo-3-raizes.barbaro": 1,
+        "modelo-3-raizes.passo_de_esquiva": 1
+      },
+      "pos": [-1400, 440]
+    },
+    {
+      "id": "modelo-3-raizes.monge",
+      "nome": "Monge",
+      "tipo": "identidade2",
+      "ranks": 1,
+      "custo": 8,
+      "por_ponto": [
+        "A Fé enche nos combos de golpes e esquivas; milagres curtos saem no meio do combo"
+      ],
+      "desc": "IDENTIDADE 2º GRAU: evolui a identidade (fica no lugar dela) e pede a caminhada até a Esquiva. Como o Monge, que no Ragnarok sai do Noviço.",
+      "requer_minimo": {
+        "modelo-3-raizes.sacerdote": 1,
+        "modelo-3-raizes.passo_de_esquiva": 1
+      },
+      "pos": [-260, -1340]
+    },
+    {
+      "id": "modelo-3-raizes.nova_habilidade",
+      "nome": "Nova habilidade",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        ""
+      ],
+      "desc": "",
+      "requer_minimo": {},
+      "pos": [-1000, -1290]
+    }
+  ]
+}

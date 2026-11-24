@@ -1,0 +1,318 @@
+{
+  "_sobre": "REFERÊNCIA do Ragnarok Online (pré-renewal), para estudo de design: não é conteúdo do jogo. Números conferidos no ratemyserver.net em 20/11/2026; o que diz \"de memória\" não foi conferido.",
+  "arvore": "ref-ro-novico",
+  "nome": "Noviço (Acolyte) — referência do Ragnarok",
+  "pontos": 49,
+  "atualizado_em": "2026-11-20T17:09:18.617Z",
+  "nos": [
+    {
+      "id": "ref-ro-novico.divine_protection",
+      "nome": "Divine Protection",
+      "tipo": "passiva",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: −3 de dano recebido de mortos-vivos e demônios",
+        "Nv 2: −6 de dano recebido de mortos-vivos e demônios",
+        "Nv 3: −9 de dano recebido de mortos-vivos e demônios",
+        "Nv 4: −12 de dano recebido de mortos-vivos e demônios",
+        "Nv 5: −15 de dano recebido de mortos-vivos e demônios",
+        "Nv 6: −18 de dano recebido de mortos-vivos e demônios",
+        "Nv 7: −21 de dano recebido de mortos-vivos e demônios",
+        "Nv 8: −24 de dano recebido de mortos-vivos e demônios",
+        "Nv 9: −27 de dano recebido de mortos-vivos e demônios",
+        "Nv 10: −30 de dano recebido de mortos-vivos e demônios"
+      ],
+      "desc": "A base do lado sagrado. Abre Demon Bane e Angelus (Nv 3) e Blessing (Nv 5).",
+      "requer_minimo": {},
+      "pos": [190, 0]
+    },
+    {
+      "id": "ref-ro-novico.demon_bane",
+      "nome": "Demon Bane",
+      "tipo": "passiva",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: +3 de ATK contra mortos-vivos e demônios",
+        "Nv 2: +6 de ATK contra mortos-vivos e demônios",
+        "Nv 3: +9 de ATK contra mortos-vivos e demônios",
+        "Nv 4: +12 de ATK contra mortos-vivos e demônios",
+        "Nv 5: +15 de ATK contra mortos-vivos e demônios",
+        "Nv 6: +18 de ATK contra mortos-vivos e demônios",
+        "Nv 7: +21 de ATK contra mortos-vivos e demônios",
+        "Nv 8: +24 de ATK contra mortos-vivos e demônios",
+        "Nv 9: +27 de ATK contra mortos-vivos e demônios",
+        "Nv 10: +30 de ATK contra mortos-vivos e demônios"
+      ],
+      "desc": "Pede Divine Protection 3. No nível 3 abre o Signum Crucis.",
+      "requer_minimo": {
+        "ref-ro-novico.divine_protection": 3
+      },
+      "pos": [0, 150]
+    },
+    {
+      "id": "ref-ro-novico.signum_crucis",
+      "nome": "Signum Crucis",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: mortos-vivos e demônios na tela: −14% de DEF · 35 SP",
+        "Nv 2: mortos-vivos e demônios na tela: −18% de DEF · 35 SP",
+        "Nv 3: mortos-vivos e demônios na tela: −22% de DEF · 35 SP",
+        "Nv 4: mortos-vivos e demônios na tela: −26% de DEF · 35 SP",
+        "Nv 5: mortos-vivos e demônios na tela: −30% de DEF · 35 SP",
+        "Nv 6: mortos-vivos e demônios na tela: −34% de DEF · 35 SP",
+        "Nv 7: mortos-vivos e demônios na tela: −38% de DEF · 35 SP",
+        "Nv 8: mortos-vivos e demônios na tela: −42% de DEF · 35 SP",
+        "Nv 9: mortos-vivos e demônios na tela: −46% de DEF · 35 SP",
+        "Nv 10: mortos-vivos e demônios na tela: −50% de DEF · 35 SP"
+      ],
+      "desc": "Enfraquece os inimigos sagrados-opostos em volta. Pede Demon Bane 3.",
+      "requer_minimo": {
+        "ref-ro-novico.demon_bane": 3
+      },
+      "pos": [0, 300]
+    },
+    {
+      "id": "ref-ro-novico.angelus",
+      "nome": "Angelus",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: o grupo todo: defesa (VIT) 105% · 23 SP",
+        "Nv 2: o grupo todo: defesa (VIT) 110% · 26 SP",
+        "Nv 3: o grupo todo: defesa (VIT) 115% · 29 SP",
+        "Nv 4: o grupo todo: defesa (VIT) 120% · 32 SP",
+        "Nv 5: o grupo todo: defesa (VIT) 125% · 35 SP",
+        "Nv 6: o grupo todo: defesa (VIT) 130% · 38 SP",
+        "Nv 7: o grupo todo: defesa (VIT) 135% · 41 SP",
+        "Nv 8: o grupo todo: defesa (VIT) 140% · 44 SP",
+        "Nv 9: o grupo todo: defesa (VIT) 145% · 47 SP",
+        "Nv 10: o grupo todo: defesa (VIT) 150% · 50 SP"
+      ],
+      "desc": "Buff de defesa para o grupo. Pede Divine Protection 3.",
+      "requer_minimo": {
+        "ref-ro-novico.divine_protection": 3
+      },
+      "pos": [190, 150]
+    },
+    {
+      "id": "ref-ro-novico.blessing",
+      "nome": "Blessing",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: +1 de FOR, INT e DES · 28 SP",
+        "Nv 2: +2 de FOR, INT e DES · 32 SP",
+        "Nv 3: +3 de FOR, INT e DES · 36 SP",
+        "Nv 4: +4 de FOR, INT e DES · 40 SP",
+        "Nv 5: +5 de FOR, INT e DES · 44 SP",
+        "Nv 6: +6 de FOR, INT e DES · 48 SP",
+        "Nv 7: +7 de FOR, INT e DES · 52 SP",
+        "Nv 8: +8 de FOR, INT e DES · 56 SP",
+        "Nv 9: +9 de FOR, INT e DES · 60 SP",
+        "Nv 10: +10 de FOR, INT e DES · 64 SP"
+      ],
+      "desc": "O buff clássico de atributos. Em morto-vivo ou demônio, ao contrário, enfraquece. Pede Divine Protection 5.",
+      "requer_minimo": {
+        "ref-ro-novico.divine_protection": 5
+      },
+      "pos": [380, 150]
+    },
+    {
+      "id": "ref-ro-novico.heal",
+      "nome": "Heal",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: cura 1,5 × (nível base + INT) · 13 SP",
+        "Nv 2: cura 2,5 × (nível base + INT) · 16 SP",
+        "Nv 3: cura 3,5 × (nível base + INT) · 19 SP",
+        "Nv 4: cura 4,5 × (nível base + INT) · 22 SP",
+        "Nv 5: cura 5,5 × (nível base + INT) · 25 SP",
+        "Nv 6: cura 6,5 × (nível base + INT) · 28 SP",
+        "Nv 7: cura 7,5 × (nível base + INT) · 31 SP",
+        "Nv 8: cura 8,5 × (nível base + INT) · 34 SP",
+        "Nv 9: cura 9,5 × (nível base + INT) · 37 SP",
+        "Nv 10: cura 10,5 × (nível base + INT) · 40 SP"
+      ],
+      "desc": "Cura um aliado ou a si mesmo; em morto-vivo, causa dano. Abre o Cure (Nv 2) e o Increase AGI (Nv 3).",
+      "requer_minimo": {},
+      "pos": [760, 0]
+    },
+    {
+      "id": "ref-ro-novico.cure",
+      "nome": "Cure",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Tira cegueira, confusão e silêncio · 15 SP"
+      ],
+      "desc": "Pede Heal 2.",
+      "requer_minimo": {
+        "ref-ro-novico.heal": 2
+      },
+      "pos": [630, 150]
+    },
+    {
+      "id": "ref-ro-novico.increase_agi",
+      "nome": "Increase AGI",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: +3 de AGI (ataque e passo mais rápidos) · 18 SP",
+        "Nv 2: +4 de AGI (ataque e passo mais rápidos) · 21 SP",
+        "Nv 3: +5 de AGI (ataque e passo mais rápidos) · 24 SP",
+        "Nv 4: +6 de AGI (ataque e passo mais rápidos) · 27 SP",
+        "Nv 5: +7 de AGI (ataque e passo mais rápidos) · 30 SP",
+        "Nv 6: +8 de AGI (ataque e passo mais rápidos) · 33 SP",
+        "Nv 7: +9 de AGI (ataque e passo mais rápidos) · 36 SP",
+        "Nv 8: +10 de AGI (ataque e passo mais rápidos) · 39 SP",
+        "Nv 9: +11 de AGI (ataque e passo mais rápidos) · 42 SP",
+        "Nv 10: +12 de AGI (ataque e passo mais rápidos) · 45 SP"
+      ],
+      "desc": "Buff de velocidade. Pede Heal 3; abre o Decrease AGI.",
+      "requer_minimo": {
+        "ref-ro-novico.heal": 3
+      },
+      "pos": [870, 150]
+    },
+    {
+      "id": "ref-ro-novico.decrease_agi",
+      "nome": "Decrease AGI",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: alvo: −3 de AGI · 15 SP",
+        "Nv 2: alvo: −4 de AGI · 17 SP",
+        "Nv 3: alvo: −5 de AGI · 19 SP",
+        "Nv 4: alvo: −6 de AGI · 21 SP",
+        "Nv 5: alvo: −7 de AGI · 23 SP",
+        "Nv 6: alvo: −8 de AGI · 25 SP",
+        "Nv 7: alvo: −9 de AGI · 27 SP",
+        "Nv 8: alvo: −10 de AGI · 29 SP",
+        "Nv 9: alvo: −11 de AGI · 31 SP",
+        "Nv 10: alvo: −12 de AGI · 33 SP"
+      ],
+      "desc": "O contrário, num inimigo. Pede Increase AGI 1.",
+      "requer_minimo": {
+        "ref-ro-novico.increase_agi": 1
+      },
+      "pos": [870, 300]
+    },
+    {
+      "id": "ref-ro-novico.ruwach",
+      "nome": "Ruwach",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Revela escondidos em 5×5 e os acerta com 145% de MATK sagrado · 10 SP"
+      ],
+      "desc": "Abre o Teleport.",
+      "requer_minimo": {},
+      "pos": [1140, 0]
+    },
+    {
+      "id": "ref-ro-novico.teleport",
+      "nome": "Teleport",
+      "tipo": "ativa",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: vai para um ponto aleatório do mapa · 10 SP",
+        "Nv 2: escolhe entre o aleatório e o ponto de retorno · 9 SP"
+      ],
+      "desc": "Pede Ruwach 1; no nível 2 abre o Warp Portal.",
+      "requer_minimo": {
+        "ref-ro-novico.ruwach": 1
+      },
+      "pos": [1140, 150]
+    },
+    {
+      "id": "ref-ro-novico.warp_portal",
+      "nome": "Warp Portal",
+      "tipo": "ativa",
+      "ranks": 4,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: portal para o ponto de retorno · 35 SP",
+        "Nv 2: + 1 lugar memorizado · 32 SP",
+        "Nv 3: + 2 lugares memorizados · 29 SP",
+        "Nv 4: + 3 lugares memorizados · 26 SP"
+      ],
+      "desc": "Abre um portal que o grupo inteiro pode usar; gasta 1 gema azul. Pede Teleport 2; no nível 4 abre o Pneuma.",
+      "requer_minimo": {
+        "ref-ro-novico.teleport": 2
+      },
+      "pos": [1140, 300]
+    },
+    {
+      "id": "ref-ro-novico.pneuma",
+      "nome": "Pneuma",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Nuvem 3×3 que bloqueia ataques à distância por 10 s · 10 SP"
+      ],
+      "desc": "Pede Warp Portal 4.",
+      "requer_minimo": {
+        "ref-ro-novico.warp_portal": 4
+      },
+      "pos": [1140, 450]
+    },
+    {
+      "id": "ref-ro-novico.aqua_benedicta",
+      "nome": "Aqua Benedicta",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Parado na água: cria 1 Água Benta (deixa a arma sagrada) · 10 SP"
+      ],
+      "desc": "Utilidade.",
+      "requer_minimo": {},
+      "pos": [1330, 0]
+    },
+    {
+      "id": "ref-ro-novico.holy_light",
+      "nome": "Holy Light",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "125% de MATK sagrado num alvo · 15 SP"
+      ],
+      "desc": "Skill de missão: o único ataque mágico do Noviço.",
+      "requer_minimo": {},
+      "pos": [1330, 150]
+    },
+    {
+      "id": "ref-ro-novico.priest",
+      "nome": "Priest",
+      "tipo": "classe",
+      "desc": "2ª classe (no Brasil: Sacerdote). De memória: cura e proteção do grupo, ressuscitar e magias sagradas. De memória: troca a partir do nível de classe 40 (39 pontos gastos).",
+      "requer_minimo": {},
+      "requer_total": 39,
+      "pos": [380, 540]
+    },
+    {
+      "id": "ref-ro-novico.monk",
+      "nome": "Monk",
+      "tipo": "classe",
+      "desc": "2ª classe (no Brasil: Monge). De memória: luta de mãos nuas com esferas espirituais e combos. De memória: troca a partir do nível de classe 40 (39 pontos gastos).",
+      "requer_minimo": {},
+      "requer_total": 39,
+      "pos": [870, 540]
+    }
+  ]
+}

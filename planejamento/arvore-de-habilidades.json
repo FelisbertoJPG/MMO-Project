@@ -1,6 +1,6 @@
 {
   "_sobre": "RASCUNHO PARA DEBATE da árvore de habilidades. O jogo ainda não lê este arquivo. Todos os números são provisórios. Quando as decisões fecharem, os dados vão para assets/habilidades.json. O plano está em TASKS-HABILIDADES.md.",
-  "revisao_do_rascunho": 10,
+  "revisao_do_rascunho": 12,
   "atualizado_em": "2026-11-19",
   "ordem_de_trabalho": {
     "regra": "Uma habilidade de cada vez: desenhar, fazer, testar no jogo e só então passar para a próxima.",
@@ -719,7 +719,8 @@
       "id": "D1",
       "tema": "Sistema de nível e de pontos",
       "status": "decidido",
-      "decisao": "Cada nível libera 1 ponto de habilidade e dá +2 de vida, +1 de vigor, +0,2 de carga e +0,5% de força. Sobe na fogueira por enquanto."
+      "decisao": "Cada nível libera 1 ponto de habilidade e dá +2 de vida, +1 de vigor, +0,2 de carga e +0,5% de força. Sobe na fogueira por enquanto.",
+      "observacao": "Revista pela D27: o ganho igual para todos vale até o fim do Novato; daí em diante, o nível passa a focar nos atributos da classe."
     },
     {
       "id": "D2",
@@ -823,7 +824,8 @@
       "id": "D20",
       "tema": "O que fica escondido",
       "status": "decidido",
-      "decisao": "O personagem começa conhecendo uma só Maestria, a do Fogo; as outras serão desbloqueadas no jogo, por missões. Na tela da árvore só aparece o que está liberado: até a Maestria do Fogo chegar a 3, o resto do galho fica escondido, e o mesmo vale para cada linha e para as árvores de reação."
+      "decisao": "O personagem começa conhecendo uma só Maestria, a do Fogo; as outras serão desbloqueadas no jogo, por missões. Na tela da árvore só aparece o que está liberado: até a Maestria do Fogo chegar a 3, o resto do galho fica escondido, e o mesmo vale para cada linha e para as árvores de reação.",
+      "observacao": "Revista pela D26: o personagem começa sem elemento, e o ciclo elemental só abre com a classe. A regra de só mostrar o que está liberado continua."
     },
     {
       "id": "D21",
@@ -835,19 +837,75 @@
       "id": "D22",
       "tema": "Estilo único",
       "status": "decidido",
-      "decisao": "Duelista (uma mão + escudo), Bárbaro (duas mãos) ou Ágil (adaga ou punhos): só um por personagem. O primeiro ponto num estilo fecha os outros."
+      "decisao": "Duelista (uma mão + escudo), Bárbaro (duas mãos) ou Ágil (adaga ou punhos): só um por personagem. O primeiro ponto num estilo fecha os outros.",
+      "observacao": "Revista pela D25: os estilos viram as classes (o Duelista vira o Guardião, o Bárbaro segue Bárbaro, o Ágil vira o Andarilho)."
     },
     {
       "id": "D23",
       "tema": "Os juramentos",
       "status": "decidido",
-      "decisao": "Dois juramentos exclusivos, de 3 pontos, refeitos só na fogueira. O da Força Bruta (o Guerreiro) exige o estilo completo e nenhum ponto nos elementos: fecha o círculo inteiro (Maestrias e magias), o Éter vira Fúria e abre a árvore da Força Bruta, com a Pele de Ferro no lugar da resistência das Maestrias. O da Canalização (o Arcano), no centro do círculo, exige uma Maestria completa e nenhuma técnica de arma: fecha as técnicas e o Éter vira Mana."
+      "decisao": "Dois juramentos exclusivos, de 3 pontos, refeitos só na fogueira. O da Força Bruta (o Guerreiro) exige o estilo completo e nenhum ponto nos elementos: fecha o círculo inteiro (Maestrias e magias), o Éter vira Fúria e abre a árvore da Força Bruta, com a Pele de Ferro no lugar da resistência das Maestrias. O da Canalização (o Arcano), no centro do círculo, exige uma Maestria completa e nenhuma técnica de arma: fecha as técnicas e o Éter vira Mana.",
+      "observacao": "Revista pela D25: todas as classes vão ter juramentos, que o dono ainda vai definir. Os Juramentos da Força Bruta e da Canalização ficam em aberto."
     },
     {
       "id": "D24",
       "tema": "Orçamento do combate",
       "status": "decidido",
-      "decisao": "Fundamentos e estilo: 6 pontos; cada arma com a técnica: 3; o juramento: 3; a árvore da Força Bruta ou da Canalização: 8."
+      "decisao": "Fundamentos e estilo: 6 pontos; cada arma com a técnica: 3; o juramento: 3; a árvore da Força Bruta ou da Canalização: 8.",
+      "observacao": "A rever com a D25: o estilo virou classe e o juramento ficou em aberto."
+    },
+    {
+      "id": "D25",
+      "tema": "Classes e subclasses",
+      "status": "decidido",
+      "decisao": "Um sistema de classes inspirado na troca de classe do Ragnarok. Todos começam NOVATOS: Fundamentos e qualquer arma (o ciclo elemental vem depois, pela D26). Com o nível e a dedicação, cada um vira uma das 3 classes iniciais (Guerreiro, Arcano e Andarilho), e cada classe tem 2 subclasses. Os níveis provisórios são 10 para a classe e 30 para a subclasse. GUERREIRO: o Bárbaro (duas mãos; o Éter vira Fúria, que enche golpeando e apanhando) e o Guardião (uma mão + escudo; usa o próprio Éter, que enche batendo, bloqueando e apanhando, cada um numa quantidade diferente). A Fúria deixa de ser 'o guerreiro' e fica só com o Bárbaro. ARCANO, à moda souls-like, com duas escolas: as MAGIAS (dano elemental) e os MILAGRES (mais suporte). As magias começam no Elementalista, o primeiro nível do mago, e a Mana é só dele. As duas escolas vão se subdividir no futuro em Arcanista, Paladino e Sorcerer. ANDARILHO: a Sombra (adaga; o Foco enche golpeando sem ser visto) e o Lutador (punhos; o Ritmo enche no combo e cai ao apanhar). Os Estilos da D22 viram as classes. Fundamentos, Armas e técnicas seguem abertos a todos. A árvore da Força Bruta vira a do Bárbaro, e a da Canalização (Poço de Mana, Fluxo, Transbordar) vai para o Elementalista. O Híbrido deixa de ser o caminho 'sem juramento' e pode voltar como um nível acima.",
+      "observacao": "20/11/2026: o Arcano ficou vinculado ao Mago (só as Magias). Os MILAGRES saíram dele e viraram uma 4ª classe inicial, o ACÓLITO, liberada pela skill Milagres do Novato (que converte Éter em Milagres). As classes iniciais passam a ser Guerreiro, Arcano, Acólito e Andarilho.",
+      "em_aberto": [
+        "Os juramentos: todas as classes vão ter, e o dono vai definir como funcionam.",
+        "Como se muda de classe: os pontos do Novato decidem (D27); o nível da subclasse (30, provisório) e o rito ainda não foram definidos.",
+        "As subclasses do Acólito e o recurso dele (no Novato, os Milagres convertem Éter; a Mana é só do Elementalista).",
+        "Que escola vai para Arcanista, Paladino e Sorcerer.",
+        "Se a classe pode ser refeita (junto com a D9)."
+      ]
+    },
+    {
+      "id": "D26",
+      "tema": "A ordem da progressão: classe primeiro, ciclo elemental depois",
+      "status": "decidido",
+      "decisao": "Os pontos de nível vão primeiro na árvore de classes (Novato, classe, subclasse). O ciclo elemental só aparece conforme o que a classe desbloqueia, e cada classe abre uma parte dele. O ARCANO abre tudo: as Maestrias, as magias e as reações. O GUERREIRO e o ANDARILHO abrem só as Maestrias (dano e resistência no elemento), sem as magias nem as reações. O Novato não tem elemento; isso revê a D20 (começar com a Maestria do Fogo). Na tela, a árvore de classes passa a ser a primeira face, e o círculo vem depois.",
+      "em_aberto": [
+        "Que elemento cada um conhece quando o ciclo abre (hoje o Fogo é o inicial) e como descobre os outros.",
+        "Como o dano de elemento das Maestrias vale para o Guerreiro e o Andarilho sem magia (na arma?).",
+        "O que a escola dos Milagres usa do ciclo."
+      ]
+    },
+    {
+      "id": "D27",
+      "tema": "A árvore do Novato decide a classe",
+      "status": "decidido",
+      "decisao": "Inspirado no Ragnarok. Os 10 primeiros pontos de habilidade vão na árvore do NOVATO, que é de SKILLS BÁSICAS. O dono a desenha no Editor de Árvore (node ferramentas/habilidades/editor-arvore.mjs), que grava planejamento/arvores/novato.json. A distribuição desses pontos libera as árvores das classes. Depois da troca, a árvore do Novato fica para trás e abrem-se as skills da classe. Subir de nível na fogueira é igual para todos durante o Novato: todos os atributos sobem por igual, como na FICHA 3 de hoje. A partir do nível seguinte, o ganho passa a focar nos atributos da classe. Como o 1º ponto vem no nível 2, o 10º chega no nível 11.",
+      "observacao": "20/11/2026: o Éter segue só como recurso de combate (as almas ficam à parte) e passa a ser OPCIONAL. O Novato tem 3 raízes, cada uma liberando uma camada de mecânica básica, e dá para subir as 3 ou só uma: ÉTER (a barra; abre o Conhecimento do Éter), MAESTRIA EM BATALHA (os galhos dela definem o tipo de guerreiro) e FURTIVIDADE E ESQUIVA (o rolamento, depois um dash ou esquiva, e passivas de velocidade). Desenho em planejamento/arvores/novato-proposta.json (proposta 2).",
+      "em_aberto": [
+        "As skills básicas do Novato e o que libera cada classe: o dono desenha no Editor de Árvore.",
+        "Proposta: o que a árvore do Novato deu continua valendo depois da troca; ela só não recebe mais pontos.",
+        "Proposta: a subclasse sai do mesmo jeito, pelos pontos postos na árvore da classe.",
+        "O que cada classe ganha por nível do 12 em diante. Se Conhecimento e Agilidade viram atributos da ficha (hoje são vida, vigor, carga e força). Mudar isso é subir a FICHA, o que zera o progresso de todos.",
+        "O que fica da Arte Marcial (D21). Proposta: a árvore do Novato substitui os Fundamentos do Combate, e os galhos de arma vão para as árvores das classes.",
+        "A subclasse no nível 30 cai quase no topo da referência de hoje (nível 31): ou esse número ou o teto vão mudar."
+      ]
+    },
+    {
+      "id": "D28",
+      "tema": "A árvore livre: os Caminhos (sem classes)",
+      "status": "decidido; beta no jogo em 21/11/2026",
+      "decisao": "Revê a D25 e a D27: não há classes. Como no Dark Souls, o que define o personagem é onde ele põe os pontos. Uma árvore só, livre, com 3 COMEÇOS que podem se juntar: BATALHA (o golpe pesado, as armas, o corpo, o escudo), ÉTER (a barra, a Fé e o Arcano) e ESQUIVA (o rolamento, a agilidade, a furtividade). Quem não quiser saber do Éter segue pela Batalha e pela Esquiva, com armas e equipamento. Cada galho desce em degraus (1, 2 e 3 pontos); no fim ficam as IDENTIDADES (5 pontos), que dizem quem o jogador é ('claramente um paladino'). Onde dois começos se encontram, nascem as híbridas (Paladino = escudo + Fé). A BARRA é UMA SÓ, e o caminho muda o que ela é: Éter (enche batendo), Mana (o Conhecimento Arcano: enche sozinha), Fúria, Postura, Ritmo, Foco, Adrenalina, Graça. O 2º grau de identidade (identidade + a caminhada até outro lado, como as 3ª classes do Ragnarok) fica para depois. A página é desenhada pelo dono no Editor de Árvore: planejamento/arvores/resumo-3-comecos.json.",
+      "beta_no_jogo": "Face Caminhos na tecla K; travas do golpe pesado, do rolamento, da barra, das armas de duas mãos e das placas; barra única Éter → Mana; 19 cards com efeito (js/caminhos.js) e a Seta de Fogo nas vagas (teclas 1 a 4); a Arte Arcana abre com a Maestria Elemental; a Arte Marcial saiu (os pontos voltam); Refazer grátis na beta.",
+      "em_aberto": [
+        "O que cada card dá: utilidade em cada ponto, nada de 10 níveis de 'mais dano'.",
+        "As identidades e as barras delas (só no desenho) e o 2º grau.",
+        "Se um personagem pode ter mais de uma identidade (uma ativa por vez, trocando na fogueira).",
+        "O Refazer depois da beta (o da fogueira, D9, com custo)."
+      ]
     }
   ],
   "ideias_para_depois": [

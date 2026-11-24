@@ -29,51 +29,42 @@
  * por cima — o círculo alquímico). O que passa a aparecer entre um desenho e o seguinte NASCE
  * animado (`antes` = o que já estava na tela): a reta se desenha da Maestria conhecida até a
  * nova, o galho cresce até a habilidade liberada, e só então o nó surge. Abrir a tela não anima.
+ *
+ * OS CAMINHOS (D28, 21/11/2026; a BETA): a primeira face é a página dos 3 começos (Batalha,
+ * Éter, Esquiva), em cards, no layout do Editor de Árvore (o catálogo traz `x`/`y` prontos:
+ * gerar-catalogo.mjs). Tudo aparece; os requisitos são `requer_minimo` (todos). O que cada
+ * card faz no jogo está em `caminhos.js` (card sem efeito aceita ponto, com o aviso). A Arte
+ * Arcana (o círculo) só abre com a Maestria Elemental. A Arte Marcial saiu: o save devolve
+ * os pontos dela (save.js). Na beta, o Refazer devolve todos os pontos, de graça.
  */
 import { pontosGastos } from './ficha.js';
+import { efeitoDe, ATIVAS, abreArteArcana, definirCustos } from './caminhos.js';
 
 const ORDEM = ['fogo', 'vento', 'luz', 'eletrico', 'agua', 'terra', 'trevas'];
 const R = 250;                      // o raio do anel (onde ficam as Maestrias)
 const LIMITE = 650;                 // metade do tamanho do desenho
 const TUDO = { x: -LIMITE, y: -LIMITE, w: 2 * LIMITE };
 const PERTO = 900;                  // vista mais estreita que isto mostra os nomes dos nós
-const TIPO = { maestria: 'Maestria', ativa: 'Ativa', passiva: 'Passiva', suprema: 'Suprema' };
+const TIPO = { maestria: 'Maestria', ativa: 'Ativa', passiva: 'Passiva', suprema: 'Suprema', identidade: 'Identidade' };
 const COLUNA = { magia: 'Magia', defesa: 'Defesa', arma: 'Arma', base: 'Base' };
-const SECAO = {
-  fundamentos: 'Fundamentos', arma: 'Arma', tecnica: 'Técnica de arma', estilo: 'Estilo', juramento: 'Juramento',
-  forca: 'Força Bruta', juramento_arcano: 'Juramento', canalizacao: 'Canalização',
-};
-// os títulos das partes da Arte Marcial (seção, texto, altura)
-const TITULOS_MARCIAIS = [['arma', 'ARMAS', 245], ['estilo', 'ESTILO', -40], ['forca', 'FORÇA BRUTA', -420]];
+// o CARD da página dos Caminhos (unidades do desenho; o catálogo já vem na escala dele)
+const CARD = { w: 104, h: 46 };
+/** O nome do card em até 2 linhas (quebra nas palavras, ~15 letras por linha). */
+function linhasDoNome(nome) {
+  const linhas = [''];
+  for (const p of nome.split(' ')) {
+    const l = linhas[linhas.length - 1];
+    if (l && (l + ' ' + p).length > 15 && linhas.length < 2) linhas.push(p);
+    else linhas[linhas.length - 1] = l ? `${l} ${p}` : p;
+  }
+  return linhas;
+}
 // a rachadura do círculo quando se faz o Juramento da Força Bruta
 const RACHAS = [
   'M-30 -330 L-5 -250 L-45 -170 L10 -90 L-20 -10 L35 70 L0 150 L40 230 L15 330',
   'M-20 -10 L-110 30 L-150 110 L-240 140',
   'M10 -90 L110 -120 L170 -200',
 ];
-
-/**
- * Onde fica cada nó da ARTE MARCIAL, de baixo para cima: os Fundamentos, as armas (lado a
- * lado, a técnica em cima de cada uma), os estilos, o Juramento e a árvore da Força Bruta.
- */
-function posicoesMarciais(porSecao) {
-  const pos = new Map();
-  for (const no of porSecao.fundamentos ?? []) pos.set(no.id, [0, 480]);
-  const armas = porSecao.arma ?? [];
-  armas.forEach((no, i) => pos.set(no.id, [(i - (armas.length - 1) / 2) * 210, 300]));
-  for (const no of porSecao.tecnica ?? []) pos.set(no.id, [pos.get(no.requer[0])?.[0] ?? 0, 185]);
-  const estilos = (porSecao.estilo ?? []).filter((no) => no.grupo);
-  estilos.forEach((no, i) => pos.set(no.id, [(i - (estilos.length - 1) / 2) * 270, 20]));
-  for (const no of porSecao.estilo ?? []) if (!no.grupo) pos.set(no.id, [pos.get(no.requer[0])?.[0] ?? 0, -95]);
-  for (const no of porSecao.juramento ?? []) pos.set(no.id, [0, -250]);
-  const juras = new Set((porSecao.juramento ?? []).map((no) => no.id));
-  const base = (porSecao.forca ?? []).filter((no) => no.requer.some((r) => juras.has(r)));
-  base.forEach((no, i) => pos.set(no.id, [(i - (base.length - 1) / 2) * 300, -365]));
-  let y = -465;
-  for (const no of porSecao.forca ?? []) if (!pos.has(no.id)) { pos.set(no.id, [0, y]); y -= 100; }
-  for (const no of Object.values(porSecao).flat()) if (!pos.has(no.id)) pos.set(no.id, [0, 0]);
-  return pos;
-}
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const polar = (r, a) => [r * Math.cos(a), r * Math.sin(a)];
@@ -94,7 +85,8 @@ export class ArvoreUI {
     this.vista = { ...TUDO };
     this.mostrarTudo = false;
     this.descobertos = new Set();   // elementos descobertos além do inicial (um dia: as missões)
-    this.face = 'arcana';           // 'arcana' (o círculo dos elementos) ou 'marcial' (a árvore de combate)
+    this.face = 'caminhos';         // 'caminhos' (a página dos 3 começos) ou 'arcana' (o círculo dos elementos)
+    this.refazendo = 0;             // o Refazer pede o segundo clique (até este performance.now())
     // jurar só depois que existir o REFAZER na fogueira (D9): sem ele, o juramento seria para
     // sempre (a Força Bruta fecharia o Fogo sem volta). A vitrine liga.
     this.juramentosLiberados = false;
@@ -105,9 +97,21 @@ export class ArvoreUI {
     this.el.querySelector('.arv-tudo').addEventListener('click', () => this.irPara(TUDO));
     this.el.querySelector('.arv-mais').addEventListener('click', () => this.zoom(0.7));
     this.el.querySelector('.arv-menos').addEventListener('click', () => this.zoom(1 / 0.7));
+    this.btRefazer = this.el.querySelector('.arv-refazer');
+    this.btRefazer?.addEventListener('click', () => this.refazer());
+    // PONTOS INFINITOS (só no jogo local, para testar a árvore): `treino` guarda a árvore de verdade —
+    // é ELA que vai para o save (coletar, save.js) enquanto o teste estiver ligado, e volta ao desligar
+    this.treino = null;
+    this.btTreino = this.el.querySelector('.arv-treino');
+    if (this.btTreino && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+      this.btTreino.hidden = false;
+      this.btTreino.addEventListener('click', () => this.alternarTreino());
+    }
     this.detalhe.addEventListener('click', (e) => {
       const da = e.target.closest('[data-aprender]');
       if (da) { this.aprender(da.dataset.aprender); return; }
+      const dv = e.target.closest('[data-vaga]');
+      if (dv && this.sel) { this.porNaVaga(this.sel, Number(dv.dataset.vaga)); return; }
       if (e.target.closest('.arv-aprender') && this.sel) this.aprender(this.sel);
     });
     this.ligarMapa();
@@ -119,13 +123,52 @@ export class ArvoreUI {
     this.pend = {};
     this.el.classList.remove('hidden');
     this.aplicarVista();
-    const pronta = () => { this.antesFace = {}; this.normalizar(); this.vistaInicial(); this.render(); };
+    const pronta = () => {
+      this.antesFace = {};
+      this.normalizar();
+      // a Arte Arcana trancada (refez a árvore, save novo): abre nos Caminhos
+      if (this.face === 'arcana' && !this.arteArcanaAberta()) this.face = 'caminhos';
+      this.el.querySelectorAll('[data-face]').forEach((b) => b.classList.toggle('ativa', b.dataset.face === this.face));
+      this.vistaInicial();
+      this.render();
+    };
     if (this.cat) { pronta(); return; }
     this.detalhe.textContent = 'Carregando…';
+    this.carregar()
+      .then(() => { if (this.aberta) pronta(); })
+      .catch((e) => { this.detalhe.textContent = 'Não foi possível carregar as habilidades.'; console.warn('[arvore]', e); });
+  }
+
+  /**
+   * Lê o catálogo, uma vez: ao abrir a tela e ao começar o jogo (js/ao-vivo.js), para os efeitos
+   * dos cards de mais de 1 ponto saberem o custo deles (caminhos.js) sem esperar a tecla K.
+   */
+  carregar() {
+    this.carregando ??= fetch('assets/habilidades.json', { cache: 'no-store' })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((cat) => { if (!this.cat) this.montar(cat); return this.cat; })
+      .catch((e) => { this.carregando = null; throw e; });
+    return this.carregando;
+  }
+
+  /**
+   * O catálogo mudou (o Editor de Árvore gravou a página: js/ao-vivo.js): relê e redesenha.
+   * Não mexe nos pontos (card apagado só some da tela; a próxima abertura devolve o ponto).
+   */
+  recarregar() {
+    if (!this.cat) return;   // a tela nunca abriu: a primeira abertura já lê o novo
     fetch('assets/habilidades.json', { cache: 'no-store' })
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((cat) => { this.montar(cat); if (this.aberta) pronta(); })
-      .catch((e) => { this.detalhe.textContent = 'Não foi possível carregar as habilidades.'; console.warn('[arvore]', e); });
+      .then((cat) => {
+        const sel = this.sel;
+        this.montar(cat);
+        this.sel = sel && this.nos.has(sel) ? sel : null;
+        this.antesFace = {};
+        if (this.aberta) this.render();
+        this.game.ui.barraVista = null;   // os nomes das vagas
+        this.game.ui.toast('Árvore atualizada pelo editor.');
+      })
+      .catch((e) => console.warn('[arvore] recarregar', e));
   }
 
   fechar() {
@@ -165,31 +208,28 @@ export class ArvoreUI {
       if (a && b) this.reacoes.push({ r, a, b, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     }
     this.maestriaId = new Map([...this.elems.values()].map((x) => [x.e.id, x.e.arvore.maestria.id]));
-    this.juramentos = {};
-    // a ARTE MARCIAL (D21 a D24): a árvore de combate, de baixo para cima
-    const cores = cat.combate?.cores ?? {};
-    const COMBATE = { id: 'combate', nome: 'Combate', cor: cores.fundamentos ?? '#b9c3cc', funcional: true, inicial: true };
-    const porSecao = {};
-    for (const no of cat.combate?.nos ?? []) (porSecao[no.secao] ??= []).push(no);
-    const pos = posicoesMarciais(porSecao);
-    for (const no of cat.combate?.nos ?? []) {
-      const [x, y] = pos.get(no.id);
-      const pais = no.requer?.length ? no.requer : Object.keys(no.requer_minimo ?? {});
-      this.nos.set(no.id, { no, elem: COMBATE, face: 'marcial', cor: cores[no.secao] ?? COMBATE.cor, x, y, pais, linha: null });
-      if (no.tipo === 'maestria') this.maestriaId.set('combate', no.id);
-      if (no.juramento) this.juramentos[no.juramento] = no.id;
-    }
-    // a CANALIZAÇÃO (o Arcano): o juramento no centro do círculo; a árvore dela, no painel
-    const CANAL = { id: 'canalizacao', nome: 'Canalização', cor: cat.canalizacao?.cor ?? '#9a7cff', funcional: true, inicial: true };
-    for (const no of cat.canalizacao?.nos ?? []) {
-      this.nos.set(no.id, { no, elem: CANAL, face: no.juramento ? 'arcana' : 'painel', cor: CANAL.cor, x: 0, y: 0, pais: [], linha: null });
-      if (no.juramento) this.juramentos[no.juramento] = no.id;
+    this.juramentos = {};   // (os juramentos saíram com a Arte Marcial; `jurou` fica sempre falso)
+    // os CAMINHOS (D28): a página dos 3 começos, no layout do editor
+    this.comecos = new Map((cat.caminhos?.comecos ?? []).map((c) => [c.id, { ...c, funcional: true, inicial: true }]));
+    const HIBRIDO = { id: 'hibrido', nome: 'Híbrido', cor: cat.caminhos?.cor_hibrido ?? '#e8c25a', funcional: true, inicial: true };
+    definirCustos(cat.caminhos?.nos);   // os níveis dos cards de mais de 1 ponto (caminhos.js)
+    for (const no of cat.caminhos?.nos ?? []) {
+      const elem = this.comecos.get(no.comeco) ?? HIBRIDO;
+      this.nos.set(no.id, { no, elem, face: 'caminhos', cor: elem.cor, x: no.x, y: no.y, pais: Object.keys(no.requer_minimo ?? {}), linha: null });
     }
   }
 
-  /** Troca a face da árvore: o círculo dos elementos (Arte Arcana) ou o combate (Arte Marcial). */
+  /** A Arte Arcana está aberta? (a Maestria Elemental, ou já tem ponto no círculo, ou a vitrine) */
+  arteArcanaAberta() {
+    if (this.mostrarTudo || this.cat?.caminhos == null) return true;
+    const h = { nos: { ...this.hab.nos, ...this.pend } };
+    return abreArteArcana(h) || this.pontosElementais() > 0;
+  }
+
+  /** Troca a face da árvore: a página dos Caminhos ou o círculo dos elementos (Arte Arcana). */
   trocarFace(face) {
     if (face === this.face || !this.cat) return;
+    if (face === 'arcana' && !this.arteArcanaAberta()) { this.game.ui.toast('A Arte Arcana abre com a Maestria Elemental, no caminho do Éter.'); return; }
     this.face = face;
     this.sel = null;
     this.el.querySelectorAll('[data-face]').forEach((b) => b.classList.toggle('ativa', b.dataset.face === face));
@@ -202,13 +242,66 @@ export class ArvoreUI {
    * disponível — os disponíveis saem do nível, então basta cortar o excesso e gravar.
    */
   normalizar() {
-    let mudou = false;
+    let mudou = false, sumiu = false;
     for (const [id, n] of Object.entries(this.hab.nos)) {
       const info = this.nos.get(id);
-      const max = info ? info.no.ranks * (info.no.custo || 1) : n;
+      // card que saiu do catálogo (apagado no editor): os pontos voltam
+      if (!info) { delete this.hab.nos[id]; mudou = sumiu = true; continue; }
+      const max = info.no.ranks * (info.no.custo || 1);
       if (n > max) { this.hab.nos[id] = max; mudou = true; }
     }
-    if (mudou) { this.game.salvar({ nuvem: true }); this.game.ui.toast('Os pontos acima do novo máximo da Maestria voltaram.'); }
+    // a vaga com habilidade que não se tem mais fica vazia
+    this.hab.barra = this.hab.barra.map((id) => (id && !(this.hab.nos[id] > 0) ? ((mudou = true), null) : id));
+    if (!mudou) return;
+    this.game.salvar({ nuvem: true });
+    this.game.player?.aoMudarHabilidades?.();
+    this.game.ui.toast(sumiu ? 'A árvore mudou: os pontos de cards que saíram voltaram.' : 'Os pontos acima do novo máximo voltaram.');
+  }
+
+  /** O REFAZER da beta: o 1º clique pergunta, o 2º devolve todos os pontos (das duas faces) e esvazia as vagas. */
+  refazer() {
+    if (!pontosGastos(this.hab) && !this.totalPendente()) { this.game.ui.toast('Não há pontos para devolver.'); return; }
+    if (performance.now() > this.refazendo) {   // o 1º clique só pergunta (vale por 4 s)
+      this.refazendo = performance.now() + 4000;
+      this.renderLado();
+      return;
+    }
+    this.refazendo = 0;
+    this.pend = {};
+    this.hab.nos = {};
+    this.hab.barra = this.hab.barra.map(() => null);
+    this.game.salvar({ nuvem: true });
+    this.game.player?.aoMudarHabilidades?.();
+    this.game.ui.toast('Todos os pontos voltaram.');
+    if (this.face === 'arcana' && !this.arteArcanaAberta()) this.trocarFace('caminhos');
+    else this.render();
+  }
+
+  /** Liga/desliga os pontos infinitos do teste (só local): desligar devolve a árvore de antes. */
+  alternarTreino() {
+    const p = this.game.player;
+    this.pend = {};
+    if (!this.treino) {
+      this.treino = { v: this.hab.v, nos: { ...this.hab.nos }, barra: [...this.hab.barra] };
+      this.game.ui.toast('Pontos infinitos: teste à vontade. Nada disso fica salvo; desligar volta a sua árvore.');
+    } else {
+      p.habilidades = this.treino;
+      this.treino = null;
+      this.game.ui.toast('Teste desligado: a sua árvore voltou.');
+    }
+    p.aoMudarHabilidades?.();
+    if (this.face === 'arcana' && !this.arteArcanaAberta()) this.trocarFace('caminhos');
+    else this.render();
+  }
+
+  /** Põe a ativa `id` na vaga `i` (tira das outras); de novo na mesma vaga, tira. */
+  porNaVaga(id, i) {
+    const barra = this.hab.barra;
+    const tirar = barra[i] === id;
+    for (let k = 0; k < barra.length; k++) if (barra[k] === id) barra[k] = null;
+    if (!tirar) barra[i] = id;
+    this.game.salvar({ nuvem: true });
+    this.render();
   }
 
   /** A vista abre enquadrando os galhos dos elementos conhecidos (com o espaço para crescerem). */
@@ -220,13 +313,13 @@ export class ArvoreUI {
   /** O quadro que cabe os galhos INTEIROS (até o escondido) e os nomes dos elementos conhecidos. */
   enquadrar() {
     const pts = [];
-    if (this.face === 'marcial') {
-      // a Arte Marcial inteira, do chão ao topo (o desenho não muda de tamanho ao crescer)
-      for (const info of this.nos.values()) if (info.face === 'marcial') pts.push([info.x, info.y]);
-      const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
-      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-      const w = Math.max(x1 - x0, y1 - y0) + 200;
-      return { x: (x0 + x1) / 2 - w / 2, y: (y0 + y1) / 2 - w / 2, w };
+    if (this.face === 'caminhos') {
+      // a página é larga: abre no meio (o Éter), na altura da página inteira; o resto, arrastando
+      for (const info of this.nos.values()) if (info.face === 'caminhos') pts.push([info.x, info.y]);
+      if (!pts.length) return { ...TUDO };
+      const ys = pts.map((q) => q[1]), y0 = Math.min(...ys) - 70, y1 = Math.max(...ys) + 40;
+      const w = Math.max(720, y1 - y0);
+      return { x: -w / 2, y: (y0 + y1) / 2 - w / 2, w };
     }
     for (const info of this.nos.values()) if (info.face === 'arcana' && (this.mostrarTudo || this.conhecido(info.elem))) pts.push([info.x, info.y]);
     for (const x of this.elems.values()) if (this.mostrarTudo || this.conhecido(x.e)) pts.push(polar(LIMITE - 40, x.ang));
@@ -270,7 +363,7 @@ export class ArvoreUI {
   pts(id) { return (this.hab.nos[id] ?? 0) + (this.pend[id] ?? 0); }
   rank(info) { return Math.floor(this.pts(info.no.id) / (info.no.custo || 1)); }
   totalPendente() { return Object.values(this.pend).reduce((s, n) => s + n, 0); }
-  disponiveis() { return Math.max(0, this.game.player.level - 1 - pontosGastos(this.hab) - this.totalPendente()); }
+  disponiveis() { return this.treino ? 999 : Math.max(0, this.game.player.level - 1 - pontosGastos(this.hab) - this.totalPendente()); }
   maestria(idElem) { const m = this.nos.get(this.maestriaId?.get(idElem) ?? `${idElem}.maestria`); return m ? this.rank(m) : 0; }
   /** Fez o juramento ('forca' ou 'canalizacao')? */
   jurou(tipo) { const id = this.juramentos?.[tipo]; return !!id && this.pts(id) > 0; }
@@ -332,7 +425,7 @@ export class ArvoreUI {
 
   /** Aparece na tela? O que não está liberado fica escondido (D20); o que uma escolha travou aparece apagado. */
   visivel(info) {
-    if (this.mostrarTudo || this.pts(info.no.id) > 0) return true;
+    if (info.face === 'caminhos' || this.mostrarTudo || this.pts(info.no.id) > 0) return true;
     if (info.no.tipo === 'maestria' && this.ehElemental(info)) return this.conhecido(info.elem);
     return !this.requisito(info, true);
   }
@@ -364,6 +457,7 @@ export class ArvoreUI {
     if (!this.totalPendente()) return;
     for (const [id, n] of Object.entries(this.pend)) this.hab.nos[id] = (this.hab.nos[id] ?? 0) + n;
     this.pend = {};
+    this.game.player?.aoMudarHabilidades?.();
     this.game.salvar({ nuvem: true });
     this.game.sfx?.heal?.();
     this.game.ui.toast('Habilidades aprendidas.');
@@ -392,6 +486,12 @@ export class ArvoreUI {
     const reacoes = arcana ? this.reacoes.filter((x) => this.reacaoVisivel(x)) : [];
     const nos = [...this.nos.values()].filter((info) => info.face === this.face && this.visivel(info));
     const vistos = new Set(nos.map((info) => info.no.id));
+    if (this.face === 'caminhos') {
+      this.desenharCaminhos(nos, vistos, partes);
+      this.svg.innerHTML = partes.join('');
+      this.renderLado();
+      return;
+    }
     // o Juramento da Força Bruta APAGA e RACHA o círculo (a rachadura se desenha uma vez)
     if (arcana) {
       const rachaNova = forca && !!antes && !antes.has('racha');
@@ -432,10 +532,7 @@ export class ArvoreUI {
           const ap = Math.atan2(p.y, p.x), rm = (Math.hypot(p.x, p.y) + Math.hypot(info.x, info.y)) / 2;
           const [cx, cy] = polar(rm, ap);
           d = `M${n1(p.x)} ${n1(p.y)} Q${n1(cx)} ${n1(cy)} ${n1(info.x)} ${n1(info.y)}`;
-        } else {        // a árvore de combate sobe: o galho sai reto para cima e curva até o nó
-          const my = (p.y + info.y) / 2;
-          d = `M${n1(p.x)} ${n1(p.y)} C${n1(p.x)} ${n1(my)} ${n1(info.x)} ${n1(my)} ${n1(info.x)} ${n1(info.y)}`;
-        }
+        } else d = `M${n1(p.x)} ${n1(p.y)} L${n1(info.x)} ${n1(info.y)}`;
         const tem = this.pts(info.no.id) > 0 ? ' tem' : '';
         const t = traco(`galho:${pai}>${info.no.id}`, 0, 0.6);
         partes.push(`<path class="arv-galho${tem}${t.cl}"${t.at} style="--c:${info.cor};${t.st}" d="${d}"/>`);
@@ -479,29 +576,58 @@ export class ArvoreUI {
         const t = traco(i ? `racha:${i}` : 'racha', 0.3 + i * 0.5, 1.2);
         partes.push(`<path class="arv-racha${t.cl}"${t.at} style="${t.st}" d="${d}"/>`);
       }
-    } else {
-      // os títulos das partes da Arte Marcial, quando a parte aparece
-      for (const [secao, texto, y] of TITULOS_MARCIAIS) {
-        if (!nos.some((info) => info.no.secao === secao)) continue;
-        const s = surge(`titulo:${secao}`, 0.3);
-        partes.push(`<text class="arv-secao${s.cl}" style="${s.st}" x="-630" y="${y}">${texto}</text>`);
-      }
     }
     this.svg.innerHTML = `<defs>${defs.join('')}</defs>${partes.join('')}`;
     this.antesFace[this.face] = agora;
     this.renderLado();
   }
 
+  /**
+   * A página dos CAMINHOS: o nome de cada começo acima da raiz, as ligações (do requisito ao
+   * card, por baixo) e os cards. O card sem efeito no jogo leva uma bolinha no canto.
+   */
+  desenharCaminhos(nos, vistos, partes) {
+    for (const c of this.comecos.values()) {
+      const raiz = this.nos.get(c.raiz);
+      if (raiz) partes.push(`<text class="arv-comeco" style="--c:${c.cor}" x="${n1(raiz.x)}" y="${n1(raiz.y - CARD.h / 2 - 14)}">${esc(c.nome.toUpperCase())}</text>`);
+    }
+    for (const info of nos) for (const pai of info.pais) {
+      const p = this.nos.get(pai);
+      if (!p || !vistos.has(pai)) continue;
+      const tem = this.pts(info.no.id) > 0 ? ' tem' : '';
+      partes.push(`<path class="arv-galho arv-fio${tem}" style="--c:${info.cor}" d="M${n1(p.x)} ${n1(p.y)} L${n1(info.x)} ${n1(info.y)}"/>`);
+    }
+    for (const info of nos) {
+      const { no } = info, k = this.rank(info);
+      const est = [k > 0 ? 'tem' : this.motivo(info) ? 'trancado' : 'pode', no.tipo];
+      if (!efeitoDe(no.id)) est.push('breve');
+      if (this.pend[no.id]) est.push('novo');
+      if (this.sel === no.id) est.push('sel');
+      const linhas = linhasDoNome(no.nome), y0 = linhas.length > 1 ? -9 : -3;
+      partes.push(`<g class="arv-card ${est.join(' ')}" data-id="${no.id}" style="--c:${info.cor}" transform="translate(${n1(info.x)} ${n1(info.y)})">` +
+        `<title>${esc(no.nome)}</title>` +
+        `<rect x="${-CARD.w / 2}" y="${-CARD.h / 2}" width="${CARD.w}" height="${CARD.h}" rx="5"/>` +
+        linhas.map((l, i) => `<text class="arv-card-nome" y="${y0 + i * 12}">${esc(l)}</text>`).join('') +
+        `<text class="arv-card-pts" y="${CARD.h / 2 - 5}">${k}/${no.ranks}${no.custo > 1 ? ` · custa ${no.custo}` : ''}</text>` +
+        (est.includes('breve') ? `<circle class="arv-card-breve" cx="${CARD.w / 2 - 7}" cy="${-CARD.h / 2 + 7}" r="3"><title>Ainda sem efeito no jogo</title></circle>` : '') +
+        '</g>');
+    }
+  }
+
   renderLado() {
     const pend = this.totalPendente();
-    this.pontos.innerHTML = `Pontos disponíveis <b>${this.disponiveis()}</b>` + (pend ? ` <span class="arv-pend">· ${pend} a confirmar</span>` : '');
+    this.pontos.innerHTML = `Pontos disponíveis <b>${this.treino ? '∞ (teste)' : this.disponiveis()}</b>` + (pend ? ` <span class="arv-pend">· ${pend} a confirmar</span>` : '');
+    if (this.btTreino) { this.btTreino.classList.toggle('ligado', !!this.treino); this.btTreino.textContent = this.treino ? 'Sair do teste (volta a sua árvore)' : 'Pontos infinitos (teste)'; }
     this.btConfirmar.disabled = this.btDesfazer.disabled = !pend;
+    if (this.btRefazer) this.btRefazer.textContent = performance.now() < this.refazendo ? 'Devolver todos os pontos?' : 'Refazer (beta)';
 
     const sel = this.sel;
-    if (!sel && this.face === 'marcial') {
-      this.detalhe.innerHTML = `<p>A <b>Arte Marcial</b>: os Fundamentos, com 3 pontos, abrem os <b>Estilos</b> (só um por personagem) e as <b>Armas</b> (misture à vontade; o bônus vale com a arma na mão, e cada uma tem uma técnica que gasta Éter).</p>` +
-        `<p>Com o estilo completo vem o <b>Juramento da Força Bruta</b>: você abre mão dos elementos, o Éter vira Fúria, e cada elemento que você não domina vira força.</p>` +
-        (this.jurou('canalizacao') ? `<p class="arv-motivo">Você fez o Juramento da Canalização: as técnicas de arma estão fechadas.</p>` : '');
+    this.el.querySelector('[data-face="arcana"]')?.classList.toggle('trancada', !this.arteArcanaAberta());
+    if (!sel && this.face === 'caminhos') {
+      this.detalhe.innerHTML = `<p>Três <b>começos</b>, e você anda por quantos quiser: a <b>Batalha</b> (o golpe pesado, as armas, o escudo), o <b>Éter</b> (a barra, os milagres, a magia) e a <b>Esquiva</b> (o rolamento, a agilidade, a furtividade).</p>` +
+        `<p>Cada galho desce em degraus que custam 1, 2 e 3 pontos; no fim fica a <b>identidade</b> (5), o que diz quem você é. Onde dois começos se encontram, nascem as identidades híbridas.</p>` +
+        `<p>A barra é uma só: o Éter enche lutando; com o Conhecimento Arcano, vira Mana, que enche sozinha.</p>` +
+        `<p class="arv-breve">Beta: card com bolinha no canto ainda não tem efeito no jogo (aceita ponto, para seguir o caminho). O Refazer devolve todos os pontos.</p>`;
       return;
     }
     if (!sel) {
@@ -527,29 +653,24 @@ export class ArvoreUI {
     const info = this.nos.get(sel);
     if (!info) return;
     const { no, elem } = info, k = this.rank(info), mot = this.motivo(info);
-    const tipo = no.juramento ? 'Juramento' : TIPO[no.tipo] ?? no.tipo;
+    const tipo = TIPO[no.tipo] ?? no.tipo;
+    const caminho = info.face === 'caminhos';
     const sub = (this.ehElemental(info)
       ? [tipo, COLUNA[no.coluna], elem.nome, info.linha ? `linha ${info.linha}` : null]
-      : [tipo, no.juramento ? null : SECAO[no.secao], no.equipamento]).filter(Boolean).join(' · ');
+      : [tipo, elem.nome]).filter(Boolean).join(' · ');
+    // nos Caminhos: o que o card faz NO JOGO (caminhos.js) e, se for ativa que já funciona, as vagas
+    const efeito = caminho ? efeitoDe(no.id) : null;
+    const ativa = caminho && ATIVAS[no.id] && this.hab.nos[no.id] > 0;
     this.detalhe.innerHTML = `<h3 style="color:${info.cor}">${esc(no.nome)}</h3><div class="arv-sub">${esc(sub)}</div>` +
       `<div class="arv-nivel">Pontos nela <b>${k}/${no.ranks}</b>${no.custo > 1 ? ` · custa ${no.custo} pontos` : ''}</div>` +
-      (no.por_ponto?.length ? `<ol class="arv-ranks">${no.por_ponto.map((t, i) => `<li class="${i < k ? 'tem' : ''}">${esc(t)}</li>`).join('')}</ol>` : '') +
-      `<p>${esc(no.desc)}</p>` +
+      (no.por_ponto?.filter(Boolean).length ? `<ol class="arv-ranks">${no.por_ponto.map((t, i) => `<li class="${i < k ? 'tem' : ''}">${esc(t)}</li>`).join('')}</ol>` : '') +
+      (no.desc ? `<p>${esc(no.desc)}</p>` : '') +
+      (caminho ? (efeito ? `<p class="arv-nojogo"><b>No jogo:</b> ${esc(efeito)}</p>` : `<p class="arv-breve">Ainda sem efeito no jogo (beta): o ponto vale para seguir o caminho.</p>`) : '') +
       (no.tipo === 'maestria' ? `<p class="arv-sub">${esc(elem.identidade ?? '')}</p>` : '') +
       (mot ? `<p class="arv-motivo">${esc(mot)}</p>` : '') +
       `<button class="arv-aprender" ${mot ? 'disabled' : ''}>Aprender (${no.custo} ${no.custo > 1 ? 'pontos' : 'ponto'})</button>` +
-      (elem.funcional ? '' : `<p class="arv-breve">Em breve.</p>`) +
-      (no.juramento === 'canalizacao' ? this.listaDaCanalizacao() : '');
-  }
-
-  /** A árvore da Canalização, no painel do juramento (ela não tem lugar no desenho do círculo). */
-  listaDaCanalizacao() {
-    const itens = [...this.nos.values()].filter((info) => info.face === 'painel').map((info) => {
-      const { no } = info, k = this.rank(info), mot = this.motivo(info);
-      return `<li><b>${esc(no.nome)}</b> <span>${k}/${no.ranks}${no.custo > 1 ? ` · ${no.custo} pontos` : ''}</span><br>${esc(no.por_ponto?.[Math.min(k, no.ranks - 1)] ?? no.desc)}` +
-        (mot ? `<br><span class="arv-motivo">${esc(mot)}</span>` : `<br><button data-aprender="${no.id}">Aprender</button>`) + '</li>';
-    });
-    return `<h3 class="arv-sub-titulo">A árvore da Canalização</h3><ul class="arv-lista">${itens.join('')}</ul>`;
+      (ativa ? `<div class="arv-vagas"><span>${esc(ATIVAS[no.id].nome)} na vaga:</span>${this.hab.barra.map((id, i) => `<button data-vaga="${i}" class="${id === no.id ? 'ativa' : ''}">${i + 1}</button>`).join('')}</div>` : '') +
+      (elem.funcional ? '' : `<p class="arv-breve">Em breve.</p>`);
   }
 
   // ---------- Mover e aproximar ----------

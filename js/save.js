@@ -144,7 +144,8 @@ export function coletar(game) {
       aparencia: p.aparencia,   // o rosto e o cabelo (aparencia.js)
       nivel: p.level,
       ...atributosDeCompatibilidade(p.level),   // só para as validações de antes da migration 0005 (ver ficha.js)
-      habilidades: { v: p.habilidades.v, nos: { ...p.habilidades.nos }, barra: [...p.habilidades.barra] },
+      // com os pontos infinitos do teste (só local, ArvoreUI.treino) vai a árvore de ANTES do teste
+      habilidades: ((h) => ({ v: h.v, nos: { ...h.nos }, barra: [...h.barra] }))(game.arvore?.treino ?? p.habilidades),
       almas, vida: p.dead ? null : Math.ceil(p.hp), pos,
       fogueira: p.fogueira,
       mapa: MAPA_REV,
@@ -212,6 +213,14 @@ export function aplicarProgresso(game, s) {
   // O nível e a árvore de habilidades (save sem o campo abre com a árvore vazia)
   p.level = j.nivel;
   p.habilidades = habilidadesDoSave(j.habilidades, j.nivel);
+  // A ARTE MARCIAL SAIU (21/11/2026, D28): os pontos dela voltam ao saldo (os disponíveis saem
+  // do nível) e o que a árvore nova tranca sai da mão (caminhos.js)
+  const VELHOS = /^(combate|forca|arcano|canal)\./;
+  const velhos = Object.keys(p.habilidades.nos).filter((id) => VELHOS.test(id));
+  for (const id of velhos) delete p.habilidades.nos[id];
+  p.habilidades.barra = p.habilidades.barra.map((id) => (id && VELHOS.test(id) ? null : id));
+  if (velhos.length) game.after(4, () => game.ui.toast('A árvore de habilidades mudou: os pontos da Arte Marcial voltaram (tecla K).'));
+  p.aoMudarHabilidades();
   if (aparenciaValida(j.aparencia)) p.aparencia = j.aparencia;
   p.receitas = new Set((Array.isArray(j.receitas) ? j.receitas : []).filter((id) => typeof id === 'string' && RECEITAS.some((r) => r.id === id)));
   p.souls = j.almas;

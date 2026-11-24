@@ -1,5 +1,5 @@
 {
- "_leiame": "GERADO por ferramentas/habilidades/gerar-catalogo.mjs a partir de planejamento/arvore-de-habilidades.json: não edite aqui. Os números são provisórios.",
+ "_leiame": "GERADO por ferramentas/habilidades/gerar-catalogo.mjs a partir de planejamento/arvore-de-habilidades.json (os elementos e as reações) e de planejamento/arvores/resumo-3-comecos.json (os caminhos): não edite aqui. Os números são provisórios.",
  "regras": {
   "maestria": 3,
   "pontos_por_linha": 3,
@@ -2164,530 +2164,803 @@
    ]
   }
  ],
- "combate": {
-  "cores": {
-   "fundamentos": "#b9c3cc",
-   "arma": "#b9c3cc",
-   "tecnica": "#dfe6ec",
-   "estilo": "#c8a86a",
-   "juramento": "#d0482a",
-   "forca": "#d0482a"
-  },
-  "nos": [
+ "caminhos": {
+  "fonte": "planejamento/arvores/resumo-3-comecos.json",
+  "cor_hibrido": "#e8c25a",
+  "comecos": [
    {
-    "id": "combate.fundamentos",
-    "nome": "Fundamentos do Combate",
-    "tipo": "maestria",
-    "ranks": 3,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "+3% de dano físico e +5 de vigor",
-     "+6% de dano físico e +10 de vigor",
-     "+9% de dano físico e +15 de vigor"
-    ],
-    "desc": "O treino de todo lutador. Com 3 pontos, abre os Estilos e as Armas.",
-    "secao": "fundamentos"
+    "id": "batalha",
+    "nome": "Batalha",
+    "cor": "#d08a5a",
+    "raiz": "caminho.maestria_em_batalha"
    },
    {
-    "id": "combate.laminas",
-    "nome": "Lâminas Curtas",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "+5% de dano com adagas",
-     "+10% de dano com adagas"
-    ],
-    "desc": "Golpes curtos e rápidos.",
-    "secao": "arma",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "familia": "lamina_curta",
-    "armas": [
-     "dagger"
-    ]
+    "id": "eter",
+    "nome": "Éter",
+    "cor": "#a77dff",
+    "raiz": "caminho.eter"
    },
    {
-    "id": "combate.laminas.tecnica",
-    "nome": "Estocada Rápida",
-    "tipo": "ativa",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.laminas"
-    ],
-    "por_ponto": [
-     "3 estocadas seguidas de 18 de dano"
-    ],
-    "desc": "Técnica da adaga.",
-    "secao": "tecnica",
-    "familia": "lamina_curta"
-   },
-   {
-    "id": "combate.espadas",
-    "nome": "Espadas",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "+5% de dano com espadas",
-     "+10% de dano com espadas"
-    ],
-    "desc": "O equilíbrio entre alcance e rapidez.",
-    "secao": "arma",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "familia": "espada",
-    "armas": [
-     "longsword"
-    ]
-   },
-   {
-    "id": "combate.espadas.tecnica",
-    "nome": "Investida",
-    "tipo": "ativa",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.espadas"
-    ],
-    "por_ponto": [
-     "Avança 5 m e golpeia: 40 de dano"
-    ],
-    "desc": "Técnica da espada.",
-    "secao": "tecnica",
-    "familia": "espada"
-   },
-   {
-    "id": "combate.machados",
-    "nome": "Machados",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "+5% de dano com machados",
-     "+10% de dano com machados"
-    ],
-    "desc": "Golpes pesados que quebram a guarda.",
-    "secao": "arma",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "familia": "machado",
-    "armas": [
-     "axe"
-    ]
-   },
-   {
-    "id": "combate.machados.tecnica",
-    "nome": "Giro",
-    "tipo": "ativa",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.machados"
-    ],
-    "por_ponto": [
-     "Golpe em volta: 45 de dano em quem estiver perto"
-    ],
-    "desc": "Técnica do machado.",
-    "secao": "tecnica",
-    "familia": "machado"
-   },
-   {
-    "id": "combate.espadoes",
-    "nome": "Espadões",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "+5% de dano com espadões",
-     "+10% de dano com espadões"
-    ],
-    "desc": "Armas de duas mãos, lentas e devastadoras.",
-    "secao": "arma",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "familia": "espadao",
-    "armas": [
-     "greatsword"
-    ]
-   },
-   {
-    "id": "combate.espadoes.tecnica",
-    "nome": "Golpe Descendente",
-    "tipo": "ativa",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.espadoes"
-    ],
-    "por_ponto": [
-     "Salta e cai com o espadão: 70 de dano e quebra a postura"
-    ],
-    "desc": "Técnica do espadão.",
-    "secao": "tecnica",
-    "familia": "espadao"
-   },
-   {
-    "id": "combate.punhos",
-    "nome": "Punhos",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "+5% de dano com os punhos",
-     "+10% de dano com os punhos"
-    ],
-    "desc": "Sem arma, mas nunca desarmado.",
-    "secao": "arma",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "familia": "punhos",
-    "armas": [
-     "unarmed"
-    ]
-   },
-   {
-    "id": "combate.punhos.tecnica",
-    "nome": "Rajada de Socos",
-    "tipo": "ativa",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.punhos"
-    ],
-    "por_ponto": [
-     "6 socos de 9 de dano"
-    ],
-    "desc": "Técnica dos punhos.",
-    "secao": "tecnica",
-    "familia": "punhos"
-   },
-   {
-    "id": "combate.escudos",
-    "nome": "Escudos",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "+10% de estabilidade do escudo",
-     "+20% de estabilidade do escudo"
-    ],
-    "desc": "A defesa que também empurra.",
-    "secao": "arma",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "familia": "escudo",
-    "armas": []
-   },
-   {
-    "id": "combate.escudos.tecnica",
-    "nome": "Empurrão",
-    "tipo": "ativa",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.escudos"
-    ],
-    "por_ponto": [
-     "Empurra 3 m e desequilibra o alvo"
-    ],
-    "desc": "Técnica do escudo.",
-    "secao": "tecnica",
-    "familia": "escudo"
-   },
-   {
-    "id": "combate.duelista",
-    "nome": "Guarda do Duelista",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "Bloquear com escudo gasta 15% menos vigor",
-     "Bloquear com escudo gasta 30% menos vigor"
-    ],
-    "desc": "Estilo do Duelista: arma de uma mão e escudo. Escolher um estilo fecha os outros.",
-    "secao": "estilo",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "grupo": "estilo",
-    "estilo": "duelista",
-    "equipamento": "uma mão + escudo"
-   },
-   {
-    "id": "combate.contra",
-    "nome": "Contra-ataque",
-    "tipo": "passiva",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.duelista"
-    ],
-    "por_ponto": [
-     "O golpe logo depois de um bloqueio causa 40% a mais"
-    ],
-    "desc": "Quem bloqueia bem responde forte.",
-    "secao": "estilo",
-    "requer_minimo": {
-     "combate.duelista": 2
-    },
-    "estilo": "duelista"
-   },
-   {
-    "id": "combate.barbaro",
-    "nome": "Peso do Golpe",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "+10% de dano de postura com arma de duas mãos",
-     "+20% de dano de postura com arma de duas mãos"
-    ],
-    "desc": "Estilo do Bárbaro: espadão ou machado nas duas mãos. Escolher um estilo fecha os outros.",
-    "secao": "estilo",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "grupo": "estilo",
-    "estilo": "barbaro",
-    "equipamento": "duas mãos"
-   },
-   {
-    "id": "combate.inabalavel",
-    "nome": "Inabalável",
-    "tipo": "passiva",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.barbaro"
-    ],
-    "por_ponto": [
-     "O ataque pesado não é interrompido por golpes"
-    ],
-    "desc": "Nada para o golpe que já começou.",
-    "secao": "estilo",
-    "requer_minimo": {
-     "combate.barbaro": 2
-    },
-    "estilo": "barbaro"
-   },
-   {
-    "id": "combate.agil",
-    "nome": "Passo Leve",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [],
-    "por_ponto": [
-     "O rolamento gasta 10% menos vigor",
-     "O rolamento gasta 20% menos vigor"
-    ],
-    "desc": "Estilo Ágil: adaga ou punhos, sem escudo. Escolher um estilo fecha os outros.",
-    "secao": "estilo",
-    "requer_minimo": {
-     "combate.fundamentos": 3
-    },
-    "grupo": "estilo",
-    "estilo": "agil",
-    "equipamento": "adaga ou punhos"
-   },
-   {
-    "id": "combate.costas",
-    "nome": "Pelas Costas",
-    "tipo": "passiva",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "combate.agil"
-    ],
-    "por_ponto": [
-     "O golpe pelas costas causa 50% a mais"
-    ],
-    "desc": "Quem não é visto acerta onde dói.",
-    "secao": "estilo",
-    "requer_minimo": {
-     "combate.agil": 2
-    },
-    "estilo": "agil"
-   },
-   {
-    "id": "combate.juramento_forca",
-    "nome": "Juramento da Força Bruta",
-    "tipo": "suprema",
-    "ranks": 1,
-    "custo": 3,
-    "requer": [
-     "combate.contra",
-     "combate.inabalavel",
-     "combate.costas"
-    ],
-    "por_ponto": [
-     "O Éter vira Fúria, e os elementos se fecham"
-    ],
-    "desc": "Abre mão dos elementos (refazer, só na fogueira). Exige o estilo completo e nenhum ponto nos elementos. Abre a árvore da Força Bruta.",
-    "secao": "juramento",
-    "juramento": "forca"
-   },
-   {
-    "id": "forca.corpo",
-    "nome": "Corpo Sem Afinidade",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [
-     "combate.juramento_forca"
-    ],
-    "por_ponto": [
-     "+2% de dano físico por elemento sem ponto (+14% com os 7)",
-     "+4% de dano físico por elemento sem ponto (+28% com os 7)"
-    ],
-    "desc": "Cada elemento que você não domina vira força.",
-    "secao": "forca"
-   },
-   {
-    "id": "forca.pele",
-    "nome": "Pele de Ferro",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [
-     "combate.juramento_forca"
-    ],
-    "por_ponto": [
-     "+6% de resistência a todos os elementos",
-     "+12% de resistência a todos os elementos"
-    ],
-    "desc": "Sem afinidade com nenhum elemento, nenhum o domina.",
-    "secao": "forca"
-   },
-   {
-    "id": "forca.furia",
-    "nome": "Fúria",
-    "tipo": "passiva",
-    "ranks": 1,
-    "custo": 1,
-    "requer": [
-     "forca.corpo",
-     "forca.pele"
-    ],
-    "por_ponto": [
-     "Apanhar enche 50% mais Fúria, e as técnicas causam 25% a mais"
-    ],
-    "desc": "A dor vira combustível.",
-    "secao": "forca"
-   },
-   {
-    "id": "forca.imparavel",
-    "nome": "Fúria Imparável",
-    "tipo": "suprema",
-    "ranks": 1,
-    "custo": 3,
-    "requer": [
-     "forca.furia"
-    ],
-    "por_ponto": [
-     "Por 10 s, nada o interrompe e o dano sobe 30%"
-    ],
-    "desc": "A suprema do Guerreiro.",
-    "secao": "forca"
+    "id": "esquiva",
+    "nome": "Esquiva",
+    "cor": "#7fc79a",
+    "raiz": "caminho.furtividade_e_esquiva"
    }
-  ]
- },
- "canalizacao": {
-  "cor": "#9a7cff",
+  ],
   "nos": [
    {
-    "id": "arcano.juramento_canalizacao",
-    "nome": "Juramento da Canalização",
-    "tipo": "suprema",
+    "id": "caminho.maestria_em_batalha",
+    "nome": "Maestria em Batalha",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {},
+    "por_ponto": [
+     "Libera o golpe pesado (F)"
+    ],
+    "desc": "COMEÇO da BATALHA: armas, corpo e escudo. Não pede nem usa o Éter.",
+    "comeco": "batalha",
+    "x": -489,
+    "y": -222
+   },
+   {
+    "id": "caminho.maestria_com_armas",
+    "nome": "Maestria com Armas",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.maestria_em_batalha": 1
+    },
+    "por_ponto": [
+     "Habilita as armas de médio porte"
+    ],
+    "desc": "Galho das ARMAS.",
+    "comeco": "batalha",
+    "x": -609,
+    "y": -132
+   },
+   {
+    "id": "caminho.armas_pesadas",
+    "nome": "Armas Pesadas",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.maestria_com_armas": 1
+    },
+    "por_ponto": [
+     "Habilita as armas grandes (espadão, machado, martelo)"
+    ],
+    "desc": "",
+    "comeco": "batalha",
+    "x": -609,
+    "y": -42
+   },
+   {
+    "id": "caminho.golpe_devastador",
+    "nome": "Golpe Devastador",
+    "tipo": "ativa",
     "ranks": 1,
     "custo": 3,
     "requer": [],
+    "requer_minimo": {
+     "caminho.armas_pesadas": 1
+    },
     "por_ponto": [
-     "O Éter vira Mana, e as técnicas de arma se fecham"
+     "Golpe pesado carregado que derruba (gasta vigor)"
     ],
-    "desc": "Abre mão das técnicas de arma (refazer, só na fogueira). Exige uma Maestria completa e nenhum ponto em técnicas. Abre a árvore da Canalização.",
-    "secao": "juramento_arcano",
-    "juramento": "canalizacao"
+    "desc": "",
+    "ativa": {
+     "eter": 0,
+     "recarga": 0
+    },
+    "comeco": "batalha",
+    "x": -609,
+    "y": 48
    },
    {
-    "id": "canal.poco",
-    "nome": "Poço de Mana",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [
-     "arcano.juramento_canalizacao"
-    ],
+    "id": "caminho.barbaro",
+    "nome": "Bárbaro",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.golpe_devastador": 1
+    },
     "por_ponto": [
-     "A Mana guarda até 125 e não esvazia fora de combate",
-     "A Mana guarda até 150 e não esvazia fora de combate"
+     "Barra própria: FÚRIA. Enche golpeando e apanhando"
     ],
-    "desc": "O Éter da luta fica guardado para as magias.",
-    "secao": "canalizacao"
+    "desc": "Identidade das armas grandes.",
+    "comeco": "batalha",
+    "x": -609,
+    "y": 138
    },
    {
-    "id": "canal.golpe",
-    "nome": "Golpe Canalizado",
-    "tipo": "passiva",
-    "ranks": 2,
-    "custo": 1,
-    "requer": [
-     "arcano.juramento_canalizacao"
-    ],
-    "por_ponto": [
-     "+20% de Éter por golpe",
-     "+40% de Éter por golpe"
-    ],
-    "desc": "Cada golpe alimenta o poço.",
-    "secao": "canalizacao"
-   },
-   {
-    "id": "canal.fluxo",
-    "nome": "Fluxo",
+    "id": "caminho.vigor",
+    "nome": "Vigor",
     "tipo": "passiva",
     "ranks": 1,
     "custo": 1,
-    "requer": [
-     "canal.poco",
-     "canal.golpe"
-    ],
+    "requer": [],
+    "requer_minimo": {
+     "caminho.maestria_em_batalha": 1
+    },
     "por_ponto": [
-     "As magias custam 15% menos"
+     "+10 de vigor"
     ],
-    "desc": "A Mana corre sem perda.",
-    "secao": "canalizacao"
+    "desc": "",
+    "comeco": "batalha",
+    "x": -489,
+    "y": -132
    },
    {
-    "id": "canal.transbordar",
-    "nome": "Transbordar",
-    "tipo": "suprema",
+    "id": "caminho.resistencia",
+    "nome": "Resistência",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.vigor": 1
+    },
+    "por_ponto": [
+     "+3 em todas as resistências"
+    ],
+    "desc": "",
+    "comeco": "batalha",
+    "x": -489,
+    "y": -42
+   },
+   {
+    "id": "caminho.couraca",
+    "nome": "Couraça",
+    "tipo": "passiva",
     "ranks": 1,
     "custo": 3,
-    "requer": [
-     "canal.fluxo"
-    ],
+    "requer": [],
+    "requer_minimo": {
+     "caminho.resistencia": 1
+    },
     "por_ponto": [
-     "Por 10 s, as magias não custam Mana"
+     "Habilita a armadura pesada sem perder o rolamento"
     ],
-    "desc": "A suprema do Arcano.",
-    "secao": "canalizacao"
+    "desc": "",
+    "comeco": "batalha",
+    "x": -489,
+    "y": 48
+   },
+   {
+    "id": "caminho.bloqueio_firme",
+    "nome": "Bloqueio Firme",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.maestria_em_batalha": 1,
+     "caminho.vigor": 1
+    },
+    "por_ponto": [
+     "Bloquear gasta 20% menos vigor"
+    ],
+    "desc": "Galho do ESCUDO.",
+    "comeco": "batalha",
+    "x": -369,
+    "y": -132
+   },
+   {
+    "id": "caminho.muralha",
+    "nome": "Muralha",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.bloqueio_firme": 1
+    },
+    "por_ponto": [
+     "Golpes pesados não quebram a sua guarda"
+    ],
+    "desc": "",
+    "comeco": "batalha",
+    "x": -255,
+    "y": -132
+   },
+   {
+    "id": "caminho.contra_ataque",
+    "nome": "Contra-Ataque",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 3,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.resistencia": 1,
+     "caminho.bloqueio_firme": 1
+    },
+    "por_ponto": [
+     "Logo depois de bloquear, um golpe que quebra a guarda (gasta vigor)"
+    ],
+    "desc": "",
+    "ativa": {
+     "eter": 0,
+     "recarga": 0
+    },
+    "comeco": "batalha",
+    "x": -369,
+    "y": -42
+   },
+   {
+    "id": "caminho.guardiao",
+    "nome": "Guardião",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.couraca": 1
+    },
+    "por_ponto": [
+     "Barra própria: POSTURA. Enche batendo, bloqueando e apanhando"
+    ],
+    "desc": "Identidade do escudo (o recurso da D25, sem depender do Éter).",
+    "comeco": "batalha",
+    "x": -489,
+    "y": 138
+   },
+   {
+    "id": "caminho.eter",
+    "nome": "Éter",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {},
+    "por_ponto": [
+     "Libera a barra de Éter (100)"
+    ],
+    "desc": "COMEÇO do ÉTER: a barra, os milagres e a magia. As identidades daqui transformam a barra.",
+    "comeco": "eter",
+    "x": -9,
+    "y": -222
+   },
+   {
+    "id": "caminho.prece",
+    "nome": "Prece",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.eter": 1
+    },
+    "por_ponto": [
+     "Libera os milagres: uma cura leve paga com Éter"
+    ],
+    "desc": "Galho da FÉ.",
+    "ativa": {
+     "eter": 0,
+     "recarga": 0
+    },
+    "comeco": "eter",
+    "x": -129,
+    "y": -132
+   },
+   {
+    "id": "caminho.bencao",
+    "nome": "Bênção",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.prece": 1
+    },
+    "por_ponto": [
+     "Você e os aliados perto batem mais forte por 20 s"
+    ],
+    "desc": "",
+    "ativa": {
+     "eter": 0,
+     "recarga": 0
+    },
+    "comeco": "eter",
+    "x": -129,
+    "y": -42
+   },
+   {
+    "id": "caminho.milagres",
+    "nome": "Milagres",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 3,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.bencao": 1,
+     "caminho.fluxo_do_eter": 1
+    },
+    "por_ponto": [
+     ""
+    ],
+    "desc": "Ensina como Transformar Éter em vida",
+    "comeco": "eter",
+    "x": -129,
+    "y": 48
+   },
+   {
+    "id": "caminho.sacerdote",
+    "nome": "Sacerdote",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.milagres": 1
+    },
+    "por_ponto": [
+     "O Éter vira FÉ: enche curando aliados"
+    ],
+    "desc": "Identidade da Fé.",
+    "comeco": "eter",
+    "x": -129,
+    "y": 138
+   },
+   {
+    "id": "caminho.conhecimento_do_eter",
+    "nome": "Conhecimento do Éter",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.eter": 1
+    },
+    "por_ponto": [
+     "+20 de Éter máximo"
+    ],
+    "desc": "O TRONCO: a barra.",
+    "comeco": "eter",
+    "x": -9,
+    "y": -132
+   },
+   {
+    "id": "caminho.descarga_de_eter",
+    "nome": "Descarga de Éter",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.conhecimento_do_eter": 1
+    },
+    "por_ponto": [
+     "Uma onda curta que empurra quem está colado em você"
+    ],
+    "desc": "",
+    "ativa": {
+     "eter": 0,
+     "recarga": 0
+    },
+    "comeco": "eter",
+    "x": -9,
+    "y": -42
+   },
+   {
+    "id": "caminho.fluxo_do_eter",
+    "nome": "Fluxo do Éter",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 3,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.descarga_de_eter": 1
+    },
+    "por_ponto": [
+     "A barra enche 25% mais rápido"
+    ],
+    "desc": "",
+    "comeco": "eter",
+    "x": -9,
+    "y": 48
+   },
+   {
+    "id": "caminho.conhecimento_elemental",
+    "nome": "Conhecimento Elemental",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.eter": 1
+    },
+    "por_ponto": [
+     "Sempre mostra a fraqueza elemental de quem você mira e dá +1 de proficiência elemental: acertar a fraqueza causa mais dano"
+    ],
+    "desc": "Galho do ARCANO. Como um \"Observar\" que vale ponto: quem sabe a fraqueza bate mais forte.",
+    "comeco": "eter",
+    "x": 111,
+    "y": -132
+   },
+   {
+    "id": "caminho.maestria_elemental",
+    "nome": "Maestria Elemental",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.conhecimento_elemental": 1
+    },
+    "por_ponto": [
+     "A 1ª magia: uma seta do seu elemento"
+    ],
+    "desc": "Libera a Arvore de Elementos",
+    "comeco": "eter",
+    "x": 111,
+    "y": -42
+   },
+   {
+    "id": "caminho.manipulacao_elemental",
+    "nome": "Manipulação Elemental",
+    "tipo": "ativa",
+    "ranks": 1,
+    "custo": 3,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.maestria_elemental": 1,
+     "caminho.fluxo_do_eter": 1
+    },
+    "por_ponto": [
+     "Consome Éter pra Criar uma Spell"
+    ],
+    "desc": "",
+    "ativa": {
+     "eter": 0,
+     "recarga": 0
+    },
+    "comeco": "eter",
+    "x": 111,
+    "y": 48
+   },
+   {
+    "id": "caminho.elementalista",
+    "nome": "Elementalista",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.manipulacao_elemental": 1
+    },
+    "por_ponto": [
+     "O Éter vira MANA: enche sozinha, devagar"
+    ],
+    "desc": "Identidade do Arcano.",
+    "comeco": "eter",
+    "x": 231,
+    "y": 54
+   },
+   {
+    "id": "caminho.furtividade_e_esquiva",
+    "nome": "Esquiva e Mobilidade",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {},
+    "por_ponto": [
+     "+ 10% de recuperação de Vigor"
+    ],
+    "desc": "",
+    "comeco": "esquiva",
+    "x": 471,
+    "y": -222
+   },
+   {
+    "id": "caminho.passo_ligeiro",
+    "nome": "Passo Ligeiro",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.furtividade_e_esquiva": 1
+    },
+    "por_ponto": [
+     "Anda e corre 15% mais rápido"
+    ],
+    "desc": "Galho da AGILIDADE.",
+    "comeco": "esquiva",
+    "x": 351,
+    "y": -132
+   },
+   {
+    "id": "caminho.folego_leve",
+    "nome": "Fôlego Leve",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.passo_ligeiro": 1
+    },
+    "por_ponto": [
+     "-20% de consumo de Vigor"
+    ],
+    "desc": "Consome menos vigor",
+    "comeco": "esquiva",
+    "x": 351,
+    "y": -42
+   },
+   {
+    "id": "caminho.duelista",
+    "nome": "Duelista",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {},
+    "por_ponto": [
+     "Barra própria: RITMO. Enche no combo, cai ao apanhar"
+    ],
+    "desc": "Identidade das duas armas.",
+    "comeco": "hibrido",
+    "x": 591,
+    "y": 210
+   },
+   {
+    "id": "caminho.passos_leves",
+    "nome": "Passos Leves",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.furtividade_e_esquiva": 1
+    },
+    "por_ponto": [
+     "+15% de furtividade ao Agachar"
+    ],
+    "desc": "Libera \"Furtividade\".",
+    "comeco": "esquiva",
+    "x": 609,
+    "y": -132
+   },
+   {
+    "id": "caminho.golpe_pelas_costas",
+    "nome": "Golpe Rápido",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.passos_leves": 1
+    },
+    "por_ponto": [
+     "+10% de velocidade de Ataque "
+    ],
+    "desc": "Sair da furtividade faz com que seu próximo golpe receba 10% de velocidade de Ataque.",
+    "comeco": "esquiva",
+    "x": 609,
+    "y": -36
+   },
+   {
+    "id": "caminho.emboscada",
+    "nome": "Emboscada",
+    "tipo": "ativa",
+    "ranks": 3,
+    "custo": 3,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.golpe_pelas_costas": 1
+    },
+    "por_ponto": [
+     "+15% de area de furtividade.",
+     "+15% de area de furtividade.",
+     "Atacar na furtividade Aplica Sangramento no Alvo Atingido."
+    ],
+    "desc": "Sair da furtividade da +15% de Dano.",
+    "ativa": {
+     "eter": 0,
+     "recarga": 0
+    },
+    "comeco": "esquiva",
+    "x": 609,
+    "y": 48
+   },
+   {
+    "id": "caminho.sombra",
+    "nome": "Sombra",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.emboscada": 1,
+     "caminho.esquiva_perfeita": 1
+    },
+    "por_ponto": [
+     "Barra própria: FOCO. Enche golpeando sem ser visto"
+    ],
+    "desc": "Identidade da furtividade. Ao Esquivar, desfere um golpe em sequencia (Consome Foco)",
+    "comeco": "esquiva",
+    "x": 609,
+    "y": 120
+   },
+   {
+    "id": "caminho.rolamento",
+    "nome": "Esquiva",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.furtividade_e_esquiva": 1
+    },
+    "por_ponto": [
+     "-10% de consumo de Vigor ao Esquivar"
+    ],
+    "desc": "Galho da ESQUIVA.",
+    "comeco": "esquiva",
+    "x": 471,
+    "y": -132
+   },
+   {
+    "id": "caminho.passo_de_esquiva",
+    "nome": "Esquiva Avançada",
+    "tipo": "ativa",
+    "ranks": 2,
+    "custo": 2,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.nova_habilidade": 1,
+     "caminho.emboscada": 1
+    },
+    "por_ponto": [
+     "-10% de consumo de Vigor ao Esquivar",
+     "-10% de consumo de Vigor ao Esquivar"
+    ],
+    "desc": "",
+    "ativa": {
+     "eter": 0,
+     "recarga": 0
+    },
+    "comeco": "esquiva",
+    "x": 471,
+    "y": 48
+   },
+   {
+    "id": "caminho.esquiva_perfeita",
+    "nome": "Mestre da Esquiva",
+    "tipo": "passiva",
+    "ranks": 3,
+    "custo": 3,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.passo_de_esquiva": 1
+    },
+    "por_ponto": [
+     "-15% de consumo de Vigor ao Esquivar",
+     "+10% de velocidade de Movimento",
+     "+10% de VDM apos esquivar"
+    ],
+    "desc": "Rolamento vira um Dash",
+    "comeco": "esquiva",
+    "x": 471,
+    "y": 120
+   },
+   {
+    "id": "caminho.paladino",
+    "nome": "Paladino",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.escudo_drenador": 1
+    },
+    "por_ponto": [
+     "O Éter vira GRAÇA: enche bloqueando e curando"
+    ],
+    "desc": "Híbrida: Batalha (escudo) + Éter (Fé).",
+    "comeco": "hibrido",
+    "x": -255,
+    "y": 48
+   },
+   {
+    "id": "caminho.arcanista",
+    "nome": "Arcanista",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.conhecimento_arcano": 1
+    },
+    "por_ponto": [
+     "O Éter vira CARGA ARCANA: a magia sai junto do golpe"
+    ],
+    "desc": "Híbrida: Éter (Arcano) + Esquiva (agilidade).",
+    "comeco": "eter",
+    "x": 111,
+    "y": 222
+   },
+   {
+    "id": "caminho.lutador",
+    "nome": "Lutador",
+    "tipo": "identidade",
+    "ranks": 1,
+    "custo": 5,
+    "requer": [],
+    "requer_minimo": {},
+    "por_ponto": [
+     "Barra própria: ADRENALINA. Enche esquivando por um triz"
+    ],
+    "desc": "Híbrida: Batalha + Esquiva.",
+    "comeco": "hibrido",
+    "x": 471,
+    "y": 216
+   },
+   {
+    "id": "caminho.escudo_drenador",
+    "nome": "Escudo Drenador",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.muralha": 1,
+     "caminho.contra_ataque": 1,
+     "caminho.bencao": 1
+    },
+    "por_ponto": [
+     "Ao bloquear recupera PV"
+    ],
+    "desc": "",
+    "comeco": "hibrido",
+    "x": -255,
+    "y": -48
+   },
+   {
+    "id": "caminho.conhecimento_arcano",
+    "nome": "Conhecimento Arcano",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.manipulacao_elemental": 1
+    },
+    "por_ponto": [
+     "+100 de Mana"
+    ],
+    "desc": "Converte o Éter em Mana",
+    "comeco": "eter",
+    "x": 111,
+    "y": 132
+   },
+   {
+    "id": "caminho.nova_habilidade",
+    "nome": "Recuperação de Vigor",
+    "tipo": "passiva",
+    "ranks": 1,
+    "custo": 1,
+    "requer": [],
+    "requer_minimo": {
+     "caminho.rolamento": 1,
+     "caminho.folego_leve": 1
+    },
+    "por_ponto": [
+     "+15% de recuperação de Vigor"
+    ],
+    "desc": "",
+    "comeco": "esquiva",
+    "x": 471,
+    "y": -48
    }
   ]
  }

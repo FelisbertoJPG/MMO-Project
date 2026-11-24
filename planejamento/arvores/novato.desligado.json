@@ -1,0 +1,73 @@
+{
+  "_sobre": "Árvore desenhada no Editor de Árvore (node ferramentas/habilidades/editor-arvore.mjs). Rascunho: o jogo ainda não lê este arquivo.",
+  "arvore": "novato",
+  "nome": "Novato",
+  "pontos": 10,
+  "atualizado_em": "2026-11-19T19:09:45.258Z",
+  "nos": [
+    {
+      "id": "novato.conhecimento_do_eter",
+      "nome": "Conhecimento do Éter",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera a Barra de Eter"
+      ],
+      "desc": "",
+      "requer_minimo": {},
+      "pos": [-80, -210]
+    },
+    {
+      "id": "novato.maestria",
+      "nome": "Maestria",
+      "tipo": "passiva",
+      "ranks": 5,
+      "custo": 1,
+      "por_ponto": [
+        "+10 de Eter",
+        "+10 de Eter",
+        "+10 de Eter",
+        "+10 de Eter",
+        "+10 de Eter"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "novato.conhecimento_do_eter": 1
+      },
+      "pos": [-80, -70]
+    },
+    {
+      "id": "novato.vigor",
+      "nome": "Vigor",
+      "tipo": "passiva",
+      "ranks": 5,
+      "custo": 1,
+      "por_ponto": [
+        "+1 de Vigor",
+        "+1 de Vigor",
+        "+1 de Vigor",
+        "+1 de Vigor",
+        "+1 de Vigor"
+      ],
+      "desc": "",
+      "requer_minimo": {},
+      "pos": [110, -210]
+    },
+    {
+      "id": "novato.carga",
+      "nome": "Carga",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Aumenta a carga em 10%"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "novato.vigor": 1
+      },
+      "pos": [110, -70]
+    }
+  ]
+}

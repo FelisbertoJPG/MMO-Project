@@ -1,0 +1,206 @@
+{
+  "_sobre": "REFERÊNCIA do Ragnarok Online (pré-renewal), para estudo de design: não é conteúdo do jogo. Números conferidos no ratemyserver.net em 20/11/2026; o que diz \"de memória\" não foi conferido.",
+  "arvore": "ref-ro-gatuno",
+  "nome": "Gatuno (Thief) — referência do Ragnarok",
+  "pontos": 49,
+  "atualizado_em": "2026-11-20T17:09:18.618Z",
+  "nos": [
+    {
+      "id": "ref-ro-gatuno.double_attack",
+      "nome": "Double Attack",
+      "tipo": "passiva",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: 5% de chance de golpe duplo com adaga · +1 de precisão",
+        "Nv 2: 10% de chance de golpe duplo com adaga · +2 de precisão",
+        "Nv 3: 15% de chance de golpe duplo com adaga · +3 de precisão",
+        "Nv 4: 20% de chance de golpe duplo com adaga · +4 de precisão",
+        "Nv 5: 25% de chance de golpe duplo com adaga · +5 de precisão",
+        "Nv 6: 30% de chance de golpe duplo com adaga · +6 de precisão",
+        "Nv 7: 35% de chance de golpe duplo com adaga · +7 de precisão",
+        "Nv 8: 40% de chance de golpe duplo com adaga · +8 de precisão",
+        "Nv 9: 45% de chance de golpe duplo com adaga · +9 de precisão",
+        "Nv 10: 50% de chance de golpe duplo com adaga · +10 de precisão"
+      ],
+      "desc": "Só com adaga.",
+      "requer_minimo": {},
+      "pos": [0, 0]
+    },
+    {
+      "id": "ref-ro-gatuno.improve_dodge",
+      "nome": "Improve Dodge",
+      "tipo": "passiva",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: +3 de esquiva",
+        "Nv 2: +6 de esquiva",
+        "Nv 3: +9 de esquiva",
+        "Nv 4: +12 de esquiva",
+        "Nv 5: +15 de esquiva",
+        "Nv 6: +18 de esquiva",
+        "Nv 7: +21 de esquiva",
+        "Nv 8: +24 de esquiva",
+        "Nv 9: +27 de esquiva",
+        "Nv 10: +30 de esquiva"
+      ],
+      "desc": "Esquiva a mais (na 2ª classe rende +4 por nível). No site aparece como \"Increase Dodge\".",
+      "requer_minimo": {},
+      "pos": [190, 0]
+    },
+    {
+      "id": "ref-ro-gatuno.steal",
+      "nome": "Steal",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: 10% de chance de roubar um item do monstro · 10 SP",
+        "Nv 2: 16% de chance de roubar um item do monstro · 10 SP",
+        "Nv 3: 22% de chance de roubar um item do monstro · 10 SP",
+        "Nv 4: 28% de chance de roubar um item do monstro · 10 SP",
+        "Nv 5: 34% de chance de roubar um item do monstro · 10 SP",
+        "Nv 6: 40% de chance de roubar um item do monstro · 10 SP",
+        "Nv 7: 46% de chance de roubar um item do monstro · 10 SP",
+        "Nv 8: 52% de chance de roubar um item do monstro · 10 SP",
+        "Nv 9: 58% de chance de roubar um item do monstro · 10 SP",
+        "Nv 10: 64% de chance de roubar um item do monstro · 10 SP"
+      ],
+      "desc": "No nível 5 abre o Hiding.",
+      "requer_minimo": {},
+      "pos": [380, 0]
+    },
+    {
+      "id": "ref-ro-gatuno.hiding",
+      "nome": "Hiding",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: fica escondido por até 30 s (gasta 1 SP a cada 5 s)",
+        "Nv 2: fica escondido por até 60 s (gasta 1 SP a cada 6 s)",
+        "Nv 3: fica escondido por até 90 s (gasta 1 SP a cada 7 s)",
+        "Nv 4: fica escondido por até 120 s (gasta 1 SP a cada 8 s)",
+        "Nv 5: fica escondido por até 150 s (gasta 1 SP a cada 9 s)",
+        "Nv 6: fica escondido por até 180 s (gasta 1 SP a cada 10 s)",
+        "Nv 7: fica escondido por até 210 s (gasta 1 SP a cada 11 s)",
+        "Nv 8: fica escondido por até 240 s (gasta 1 SP a cada 12 s)",
+        "Nv 9: fica escondido por até 270 s (gasta 1 SP a cada 13 s)",
+        "Nv 10: fica escondido por até 300 s (gasta 1 SP a cada 14 s)"
+      ],
+      "desc": "Some da vista dos monstros (menos chefes, insetos e demônios). Pede Steal 5.",
+      "requer_minimo": {
+        "ref-ro-gatuno.steal": 5
+      },
+      "pos": [380, 150]
+    },
+    {
+      "id": "ref-ro-gatuno.envenom",
+      "nome": "Envenom",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: +15 de ATK de veneno · 14% de chance de envenenar · 12 SP",
+        "Nv 2: +30 de ATK de veneno · 18% de chance de envenenar · 12 SP",
+        "Nv 3: +45 de ATK de veneno · 22% de chance de envenenar · 12 SP",
+        "Nv 4: +60 de ATK de veneno · 26% de chance de envenenar · 12 SP",
+        "Nv 5: +75 de ATK de veneno · 30% de chance de envenenar · 12 SP",
+        "Nv 6: +90 de ATK de veneno · 34% de chance de envenenar · 12 SP",
+        "Nv 7: +105 de ATK de veneno · 38% de chance de envenenar · 12 SP",
+        "Nv 8: +120 de ATK de veneno · 42% de chance de envenenar · 12 SP",
+        "Nv 9: +135 de ATK de veneno · 46% de chance de envenenar · 12 SP",
+        "Nv 10: +150 de ATK de veneno · 50% de chance de envenenar · 12 SP"
+      ],
+      "desc": "Golpe com veneno. No nível 3 abre o Detoxify.",
+      "requer_minimo": {},
+      "pos": [570, 0]
+    },
+    {
+      "id": "ref-ro-gatuno.detoxify",
+      "nome": "Detoxify",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Cura o envenenamento de um aliado · 10 SP"
+      ],
+      "desc": "Pede Envenom 3.",
+      "requer_minimo": {
+        "ref-ro-gatuno.envenom": 3
+      },
+      "pos": [570, 150]
+    },
+    {
+      "id": "ref-ro-gatuno.pick_stone",
+      "nome": "Pick Stone",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Pega 1 pedra do chão (com menos de 50% de carga) · 3 SP"
+      ],
+      "desc": "Skill de missão: não gasta ponto.",
+      "requer_minimo": {},
+      "pos": [860, 0]
+    },
+    {
+      "id": "ref-ro-gatuno.throw_stone",
+      "nome": "Throw Stone",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Atira uma pedra: 50 de dano que ignora a defesa, a 7 células · 2 SP · gasta 1 pedra"
+      ],
+      "desc": "Skill de missão. Não pede o Pick Stone, só a pedra.",
+      "requer_minimo": {},
+      "pos": [1050, 0]
+    },
+    {
+      "id": "ref-ro-gatuno.sand_attack",
+      "nome": "Sand Attack",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "130% de ATK de terra e pode cegar · 9 SP"
+      ],
+      "desc": "Skill de missão (no site: \"Sprinkle Sand\").",
+      "requer_minimo": {},
+      "pos": [860, 150]
+    },
+    {
+      "id": "ref-ro-gatuno.back_slide",
+      "nome": "Back Slide",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Salta 5 células para trás · 7 SP"
+      ],
+      "desc": "Skill de missão (no site: \"Back Sliding\").",
+      "requer_minimo": {},
+      "pos": [1050, 150]
+    },
+    {
+      "id": "ref-ro-gatuno.assassin",
+      "nome": "Assassin",
+      "tipo": "classe",
+      "desc": "2ª classe (no Brasil: Mercenário). De memória: duas adagas ou katar, furtividade, críticos e veneno. De memória: troca a partir do nível de classe 40 (39 pontos gastos).",
+      "requer_minimo": {},
+      "requer_total": 39,
+      "pos": [190, 360]
+    },
+    {
+      "id": "ref-ro-gatuno.rogue",
+      "nome": "Rogue",
+      "tipo": "classe",
+      "desc": "2ª classe (no Brasil: Arruaceiro). De memória: roubo, arco e copiar skills de outros. De memória: troca a partir do nível de classe 40 (39 pontos gastos).",
+      "requer_minimo": {},
+      "requer_total": 39,
+      "pos": [570, 360]
+    }
+  ]
+}

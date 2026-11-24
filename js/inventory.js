@@ -1,5 +1,6 @@
 import { ITEMS, TORCH_LIFE } from './items.js';
 import { LUGARES, NOME_DO_LUGAR, ESCALA, SEM_REQUISITO } from './ficha.js';
+import { podeDuasMaos, podePlacas } from './caminhos.js';
 
 const TYPE_LABEL = { consumable: 'Consumível', ingrediente: 'Ingrediente — vai para a panela da fogueira', weapon: 'Arma', shield: 'Escudo', torch: 'Mão esquerda — fonte de luz', ring: 'Anel', key: 'Item especial', armadura: 'Armadura' };
 const TAB_TYPES = { consumable: ['consumable'], ingrediente: ['ingrediente'], weapon: ['weapon', 'shield', 'torch'], armadura: ['armadura'], ring: ['ring'], key: ['key'] };
@@ -46,9 +47,9 @@ export class Inventory {
       if (id === 'torch') this.torchTime = TORCH_LIFE;
       // Primeira arma/escudo encontrados já são equipados, como no início de DS
       const p = this.game.player;
-      if (def.type === 'weapon' && !this.equipped.weapon) { this.equipped.weapon = id; p?.refreshEquipment(); }
+      if (def.type === 'weapon' && !this.equipped.weapon && !this.trava(def)) { this.equipped.weapon = id; p?.refreshEquipment(); }
       // a primeira peça de cada lugar já é vestida
-      if (def.type === 'armadura' && !this.equipped.armadura[def.lugar]) { this.equipped.armadura[def.lugar] = id; p?.refreshEquipment(); }
+      if (def.type === 'armadura' && !this.equipped.armadura[def.lugar] && !this.trava(def)) { this.equipped.armadura[def.lugar] = id; p?.refreshEquipment(); }
       if (def.type === 'shield' && !this.lastShield) {
         this.lastShield = id;
         if (!this.equipped.left) { this.equipped.left = id; p?.refreshEquipment(); }
@@ -90,9 +91,34 @@ export class Inventory {
     return id;
   }
 
+  /**
+   * O que a árvore ainda não deixa usar (caminhos.js): a arma de duas mãos pede Armas
+   * Pesadas; a armadura de placas (conjunto 3), a Couraça. Devolve o aviso, ou null.
+   */
+  trava(def) {
+    const h = this.game.player?.habilidades;
+    if (!h) return null;
+    if (def.type === 'weapon' && def.twoHanded && !podeDuasMaos(h)) return 'Arma de duas mãos: aprenda Armas Pesadas, no caminho da Batalha (tecla K).';
+    if (def.type === 'armadura' && def.conjunto === 3 && !podePlacas(h)) return 'Armadura de placas: aprenda a Couraça, no caminho da Batalha (tecla K).';
+    return null;
+  }
+
+  /** Tira da mão e do corpo o que a árvore não deixa mais usar (refez a árvore, save antigo). Devolve os nomes. */
+  soltarTrancados() {
+    const eq = this.equipped, nomes = [];
+    if (eq.weapon && this.trava(ITEMS[eq.weapon])) { nomes.push(ITEMS[eq.weapon].name); eq.weapon = null; }
+    for (const l of LUGARES) if (eq.armadura[l] && this.trava(ITEMS[eq.armadura[l]])) { nomes.push(ITEMS[eq.armadura[l]].name); eq.armadura[l] = null; }
+    if (nomes.length) { this.game.player.refreshEquipment(); if (this.isOpen) this.render(); }
+    return nomes;
+  }
+
   equip(id) {
     const def = ITEMS[id];
     const p = this.game.player;
+    // vestir/empunhar o que a árvore tranca: só avisa (tirar sempre pode)
+    const tirando = this.isEquipped(id);
+    const trava = !tirando && this.trava(def);
+    if (trava) { this.game.ui.toast(trava); return; }
     if (def.type === 'weapon') this.equipped.weapon = this.equipped.weapon === id ? null : id;
     else if (def.type === 'shield') {
       if (this.equipped.left === id) this.equipped.left = null;

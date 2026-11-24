@@ -1,0 +1,96 @@
+{
+  "_sobre": "REFERÊNCIA do Ragnarok Online (pré-renewal), para estudo de design: não é conteúdo do jogo. Números conferidos no ratemyserver.net em 20/11/2026; o que diz \"de memória\" não foi conferido.",
+  "arvore": "ref-ro-aprendiz",
+  "nome": "Aprendiz (Novice) — referência do Ragnarok",
+  "pontos": 9,
+  "atualizado_em": "2026-11-20T17:09:18.611Z",
+  "nos": [
+    {
+      "id": "ref-ro-aprendiz.basic_skill",
+      "nome": "Basic Skill",
+      "tipo": "passiva",
+      "ranks": 9,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: negociar com outros jogadores",
+        "Nv 2: emotes (carinhas)",
+        "Nv 3: sentar (dobra a regeneração de HP e SP)",
+        "Nv 4: abrir sala de chat",
+        "Nv 5: entrar num grupo",
+        "Nv 6: usar o guarda-volumes (Kafra)",
+        "Nv 7: criar um grupo",
+        "Nv 8: nada novo",
+        "Nv 9: trocar de classe"
+      ],
+      "desc": "A ÚNICA skill de pontos do Aprendiz, e cada nível destrava uma FUNÇÃO do jogo. Com as 9 (nível de classe 10), troca de classe. Também abre o Arqueiro e o Mercador, que não montei.",
+      "requer_minimo": {},
+      "pos": [190, 0]
+    },
+    {
+      "id": "ref-ro-aprendiz.first_aid",
+      "nome": "First Aid",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Cura 5 de HP · 3 SP (de memória)"
+      ],
+      "desc": "Skill de missão: não gasta ponto.",
+      "requer_minimo": {},
+      "pos": [440, 0]
+    },
+    {
+      "id": "ref-ro-aprendiz.play_dead",
+      "nome": "Play Dead",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Finge de morto: os monstros param de atacar (de memória)"
+      ],
+      "desc": "Skill de missão: não gasta ponto.",
+      "requer_minimo": {},
+      "pos": [630, 0]
+    },
+    {
+      "id": "ref-ro-aprendiz.espadachim_swordman",
+      "nome": "Espadachim (Swordman)",
+      "tipo": "classe",
+      "desc": "O guerreiro. Abra a árvore ref-ro-espadachim (campo Árvore).",
+      "requer_minimo": {
+        "ref-ro-aprendiz.basic_skill": 9
+      },
+      "pos": [-90, 240]
+    },
+    {
+      "id": "ref-ro-aprendiz.mago_mage",
+      "nome": "Mago (Mage)",
+      "tipo": "classe",
+      "desc": "Abra a árvore ref-ro-mago.",
+      "requer_minimo": {
+        "ref-ro-aprendiz.basic_skill": 9
+      },
+      "pos": [100, 240]
+    },
+    {
+      "id": "ref-ro-aprendiz.novico_acolyte",
+      "nome": "Noviço (Acolyte)",
+      "tipo": "classe",
+      "desc": "A linha do Sacerdote. Abra a árvore ref-ro-novico.",
+      "requer_minimo": {
+        "ref-ro-aprendiz.basic_skill": 9
+      },
+      "pos": [290, 240]
+    },
+    {
+      "id": "ref-ro-aprendiz.gatuno_thief",
+      "nome": "Gatuno (Thief)",
+      "tipo": "classe",
+      "desc": "A linha do ladino. Abra a árvore ref-ro-gatuno.",
+      "requer_minimo": {
+        "ref-ro-aprendiz.basic_skill": 9
+      },
+      "pos": [480, 240]
+    }
+  ]
+}

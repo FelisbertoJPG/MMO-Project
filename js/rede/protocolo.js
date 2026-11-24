@@ -64,6 +64,7 @@ export function instantaneo(player, id) {
     st: player.state,
     h: r2(Math.max(0, player.hp / player.maxHp)),   // a barra do oponente no duelo
     c: corpoDe(m),   // o corpo (guerreiro.js): os outros desenham o mesmo
+    f: player.furtivo ? 1 : 0,   // FURTIVO (a Furtividade): os outros o veem como sombra e sem o nome
   };
 }
 
@@ -89,6 +90,7 @@ export function limparInstantaneo(c, { limites = null, meuId = null } = {}) {
     st: typeof c.st === 'string' && c.st.length <= 24 ? c.st : 'free',
     h: Number.isFinite(c.h) ? Math.min(1, Math.max(0, c.h)) : null,   // opcional
     c: corpoValido(c.c) ? c.c : 'antigo',   // opcional: sem ele (rastro antigo), o boneco antigo; senão o código da armadura
+    f: c.f === 1 ? 1 : 0,   // opcional: furtivo
   };
 }
 

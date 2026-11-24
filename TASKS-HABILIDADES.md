@@ -156,6 +156,88 @@ cada elemento sem ponto vira força. **Híbrido**: sem juramento, sem os bônus 
 - [ ] **Refazer na fogueira** desfaz o juramento (D9).
 - [ ] **O Livro de Habilidades** ainda não mostra a Arte Marcial (`gerar-livro.mjs`).
 
+## Classes e subclasses (D25, 19/11/2026)
+
+Revê a seção de cima: os **Estilos viram classes** e os **juramentos ficam em aberto**. Todos
+começam **Novatos** e, com o nível e a dedicação, mudam de classe (níveis provisórios: 10 para a
+classe, 30 para a subclasse).
+
+| Classe | Subclasse | Equipamento | Recurso: como enche |
+|---|---|---|---|
+| Guerreiro | **Bárbaro** | duas mãos | **Fúria**: golpeando e apanhando |
+| Guerreiro | **Guardião** | uma mão + escudo | **Éter**: batendo, bloqueando e apanhando, cada um numa quantidade |
+| Arcano (a linha do Mago: magias, dano elemental) | **Elementalista**, o 1º nível do mago | elementos | **Mana** (só dele) |
+| **Acólito** (milagres, suporte) | *em aberto* | — | *em aberto* (no Novato, os Milagres convertem Éter) |
+| Andarilho | **Sombra** | adaga | **Foco**: golpeando sem ser visto |
+| Andarilho | **Lutador** | punhos | **Ritmo**: no combo; cai ao apanhar |
+
+Mais adiante, as duas escolas do Arcano se subdividem em **Arcanista**, **Paladino** e **Sorcerer**.
+
+**20/11/2026:** o Arcano ficou vinculado ao Mago, e os Milagres saíram dele para uma 4ª classe
+inicial, o **Acólito**, liberada pela skill Milagres do Novato.
+
+- [x] **Registrada no rascunho** (D25 em `decisoes_em_aberto`; a D22, a D23 e a D24 ganharam a observação).
+- [ ] **Juramentos de cada classe:** o dono vai definir.
+- [ ] **Em aberto:** como se muda de classe; o nome e o recurso da subclasse dos milagres; que
+  escola vai para Arcanista, Paladino e Sorcerer; se a classe pode ser refeita.
+
+**A ordem da progressão (D26):** os pontos de nível vão **primeiro na árvore de classes**; o
+**ciclo elemental vem depois**, aberto pela classe. O Arcano abre tudo (Maestrias, magias,
+reações). O Guerreiro e o Andarilho abrem só as Maestrias (dano e resistência no elemento). O
+Novato não tem elemento, o que revê a D20.
+
+- [ ] **Inverter a tela da árvore** (`js/arvore.js`): a árvore de classes passa a ser a primeira
+  face, e o círculo só aparece com a classe. **Hoje, no jogo publicado, todos começam com a
+  Maestria do Fogo e já podem pôr pontos nela.**
+- [ ] **Em aberto (D26):** que elemento cada um conhece quando o ciclo abre e como descobre os
+  outros; como o dano de elemento vale para quem não tem magia (na arma?); o que os Milagres usam do ciclo.
+
+**A árvore do Novato (D27)**, como no Ragnarok: os **10 primeiros pontos** (do nível 2 ao 11) vão
+nas **skills básicas** do Novato, e **a distribuição deles libera as classes**. Depois da troca, a árvore do Novato fica para trás e abrem-se as skills
+da classe. Na fogueira, o nível sobe **igual para todos durante o Novato** (como a FICHA 3 faz
+hoje); depois, o ganho foca nos atributos da classe.
+
+- [x] **Editor de Árvore** (a aba Árvore do Editor de Personagem desde 24/11/2026; sozinho: `node ferramentas/habilidades/editor-arvore.mjs` → http://localhost:5181):
+  o dono cria os quadrinhos, liga os requisitos e dá os pontos; grava `planejamento/arvores/<nome>.json`.
+- [ ] **O dono desenhar o Novato** no editor; depois, ler o `novato.json` e levar para o rascunho.
+- [ ] **Propostas a confirmar:** o que o Novato deu continua valendo. A subclasse sai do mesmo jeito. A árvore do
+  Novato substitui os Fundamentos do Combate, e os galhos de arma vão para as classes.
+- [ ] **O ganho por nível de cada classe**, do 12 em diante, e se Conhecimento e Agilidade viram
+  atributos da ficha. **Mudar isso = subir a `FICHA`, o que zera o progresso de todos.**
+- [ ] **A subclasse no nível 30** cai quase no teto de referência de hoje (31): mudar um dos dois.
+- [ ] **Trocar os nomes no rascunho e na tela** (`arvore_de_combate`, `js/arvore.js`): hoje ainda
+  mostram os Estilos e os Juramentos da Força Bruta e da Canalização.
+- [ ] **A classe no save:** `saveTorto()` e `personagem_valido()` juntos.
+
+## A árvore livre: os Caminhos (D28, 20–21/11/2026) — BETA no jogo
+
+Revê a D25 e a D27: **sem classes**. Uma árvore só, livre, com **3 começos** (Batalha, Éter,
+Esquiva) que se juntam; galhos em degraus (1, 2 e 3 pontos) e, no fim, as **identidades** (5),
+que dizem quem o jogador é. O Éter é **opcional** e a barra é **uma só** (Éter, Mana, Fúria…).
+O dono desenha a página no Editor de Árvore (`planejamento/arvores/resumo-3-comecos.json`).
+
+- [x] **Beta no jogo (21/11/2026):** a face Caminhos na tecla K (cards, no layout do editor);
+  `gerar-catalogo.mjs` lê a página do editor; a Arte Marcial saiu (os pontos voltam); a Arte
+  Arcana abre com a Maestria Elemental; **Refazer** grátis na beta.
+- [x] **Travas:** golpe pesado (Maestria em Batalha), barra (Éter) — o rolamento é de todos desde 21/11/2026, lento e custoso, no painel Balanceamento, duas
+  mãos (Armas Pesadas), placas (Couraça).
+- [x] **Barra única:** Éter (enche lutando) → Mana com o Conhecimento Arcano (+100, enche sozinha).
+- [x] **19 cards com efeito** (`js/caminhos.js`) e a **Seta de Fogo** (Maestria Elemental) nas
+  vagas, teclas 1 a 4.
+- [ ] **O que cada card dá**: o dono ainda define (utilidade em cada ponto, nada de "+dano" em série).
+  Os 22 cards sem efeito aceitam ponto, com o aviso.
+- [ ] **As identidades** (Fúria, Postura, Ritmo, Foco, Adrenalina, Graça, Carga Arcana…) e o
+  2º grau (o `modelo-3-raizes`): só no desenho.
+- [ ] **A fraqueza elemental na tela** (Conhecimento Elemental): hoje só o dano.
+- [ ] **A Seta pela rede** (co-op e Mundo): hoje o outro jogador vê o golpe, não a seta.
+- [x] **A Mobilidade no jogo (21/11/2026):** os 11 cards da Esquiva com efeito (todos menos as identidades);
+  **agachar** de todos (Z) com a furtividade; sair dela dá o Golpe Rápido e o crítico da Emboscada.
+- [ ] **O agachar no Mundo online:** os inimigos de lá são do servidor e ainda não leem a furtividade.
+- [ ] **Dash COM DANO** (ideia do dono, 21/11/2026): numa árvore diferente da Mobilidade; o clipe `Sword_Dash` (UAL2, com o golpe) fica para ele. O dash do Mestre da Esquiva é só a arrancada (`Sprint_Loop`).
+- [x] **Dois cards com o nome "Esquiva Perfeita"**: o dono renomeou (Esquiva Avançada e Mestre da Esquiva; o Mestre faz do rolamento um DASH).
+- [ ] **O catálogo no Supabase** (`masmorra.habilidades`) ainda é o da 0005/0007: o jogo não o lê,
+  e o save só confere a forma e o total de pontos.
+
 ## Ideias para depois
 
 Fora da primeira versão. Os detalhes estão em `ideias_para_depois`, no JSON.

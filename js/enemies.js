@@ -114,7 +114,7 @@ export class Enemy {
       this.escudo = novoEscudo(this.cfg.left, this.cfg.poise);
     }
     this.cooldown = 0.6;
-    this.flashT = 0; this.burnT = 0;
+    this.flashT = 0; this.burnT = 0; this.bleedT = 0; this.bleedDps = 0;
     this.recentDmg = 0; this.lastHit = -99;
     this.knock = new THREE.Vector3();
     this.speedMul = 1;
@@ -211,6 +211,8 @@ export class Enemy {
   }
 
   ignite(sec) { this.burnT = Math.max(this.burnT, sec); }
+  /** SANGRA (a Emboscada no nível 3, caminhos.js): `porSeg` de dano por `sec` segundos, como o fogo. */
+  sangrar(sec, porSeg) { this.bleedT = Math.max(this.bleedT ?? 0, sec); this.bleedDps = porSeg; }
 
   dodge(srcPos) {
     const side = Math.random() < 0.5 ? 1 : -1;
@@ -246,7 +248,7 @@ export class Enemy {
   die() {
     this.hp = 0;
     this.dead = true;
-    this.burnT = 0;
+    this.burnT = 0; this.bleedT = 0;
     this.setState('dead');
     this.model.play(this.deathAnim, { loop: false, fade: 0.1 });
     this.game.sfx.rattle();
@@ -336,19 +338,22 @@ export class Enemy {
 
   updateAI(dt) {
     const game = this.game, p = this.alvo, cfg = this.cfg;
+    // `p.furtividade` (o jogador agachado: caminhos.js) encolhe a distância em que o inimigo percebe o alvo;
+    // FURTIVO (a Furtividade), ele só é percebido dentro de `p.areaFurtiva` (m)
     const d = flatDist(p.pos, this.pos);
+    const furt = p.furtividade ?? 1, area = p.areaFurtiva ?? Infinity;
     const speed = cfg.speed * this.speedMul;
     let moving = 0, strafe = 0;
 
     switch (this.state) {
       case 'dormant':
-        if (this.canEngage() && d < 6.5 && game.world.lineOfSight(this.pos, p.pos)) this.awaken();
+        if (this.canEngage() && d < Math.min(6.5 * furt, area) && game.world.lineOfSight(this.pos, p.pos)) this.awaken();
         break;
       case 'awaken':
         if (this.stateT >= this.st.dur) { this.setState('chase'); this.cooldown = 0.4; }
         break;
       case 'idle':
-        if (this.canEngage() && d < cfg.aggro && game.world.lineOfSight(this.pos, p.pos)) { this.setState('chase'); game.sfx.rattle(); }
+        if (this.canEngage() && d < Math.min(cfg.aggro * furt, area) && game.world.lineOfSight(this.pos, p.pos)) { this.setState('chase'); game.sfx.rattle(); }
         break;
       case 'return': {
         const toHome = flatDist(this.home, this.pos);
@@ -359,7 +364,7 @@ export class Enemy {
         this.pos.x += Math.sin(this.facing) * speed * 0.7 * dt;
         this.pos.z += Math.cos(this.facing) * speed * 0.7 * dt;
         moving = speed * 0.7;
-        if (this.canEngage() && d < cfg.aggro * 0.7 && game.world.lineOfSight(this.pos, p.pos)) this.setState('chase');
+        if (this.canEngage() && d < Math.min(cfg.aggro * 0.7 * furt, area) && game.world.lineOfSight(this.pos, p.pos)) this.setState('chase');
         break;
       }
       case 'chase': {
@@ -502,6 +507,12 @@ export class Enemy {
       this.burnT -= dt;
       this.hp -= 6 * dt;
       if (Math.random() < 0.6) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, Math.random() * this.height, (Math.random() - 0.5) * 0.8)), vel: new THREE.Vector3(0, 1.5, 0), color: [1, 0.5, 0.1], size: 0.18, life: 0.5 });
+      if (this.hp <= 0) this.die();
+    }
+    if (this.bleedT > 0 && !this.dead) {
+      this.bleedT -= dt;
+      this.hp -= this.bleedDps * dt;
+      if (Math.random() < 0.35) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, this.height * (0.3 + Math.random() * 0.5), (Math.random() - 0.5) * 0.6)), vel: new THREE.Vector3(0, -1.2, 0), color: [0.55, 0.02, 0.02], size: 0.12, life: 0.6 });
       if (this.hp <= 0) this.die();
     }
     // a postura da guarda volta aos poucos, sem apanhar por um tempo (escudo.js)

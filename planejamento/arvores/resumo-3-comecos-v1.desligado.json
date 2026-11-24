@@ -1,0 +1,369 @@
+{
+  "_sobre": "Árvore desenhada no Editor de Árvore (node ferramentas/habilidades/editor-arvore.mjs). Rascunho: o jogo ainda não lê este arquivo.",
+  "arvore": "resumo-3-comecos",
+  "nome": "Resumo: 3 começos",
+  "pontos": 30,
+  "atualizado_em": "2026-11-21T01:56:13.415Z",
+  "nos": [
+    {
+      "id": "resumo-3-comecos.maestria_em_batalha",
+      "nome": "Maestria em Batalha",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o golpe pesado (F)"
+      ],
+      "desc": "COMEÇO da BATALHA: a força, as armas e a armadura. Não pede nem usa o Éter.",
+      "requer_minimo": {},
+      "pos": [-200, 110]
+    },
+    {
+      "id": "resumo-3-comecos.escudo",
+      "nome": "Escudo",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Bloquear gasta menos vigor"
+      ],
+      "desc": "Galho do escudo: bloqueio, guarda que não quebra, contra-ataque.",
+      "requer_minimo": {
+        "resumo-3-comecos.maestria_em_batalha": 1
+      },
+      "pos": [-480, -40]
+    },
+    {
+      "id": "resumo-3-comecos.vigor_e_armadura",
+      "nome": "Vigor e Armadura",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "+5 de vigor"
+      ],
+      "desc": "O tronco da Batalha: vigor, resistências, carga e a armadura pesada.",
+      "requer_minimo": {
+        "resumo-3-comecos.maestria_em_batalha": 1
+      },
+      "pos": [-420, 240]
+    },
+    {
+      "id": "resumo-3-comecos.maestria_com_armas",
+      "nome": "Maestria com Armas",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Habilita as armas de médio porte"
+      ],
+      "desc": "Galho das armas: médias, depois as grandes, depois o golpe devastador.",
+      "requer_minimo": {
+        "resumo-3-comecos.maestria_em_batalha": 1
+      },
+      "pos": [-200, 440]
+    },
+    {
+      "id": "resumo-3-comecos.cavaleiro",
+      "nome": "Cavaleiro",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, sem Éter: POSTURA. Enche bloqueando"
+      ],
+      "desc": "Identidade do escudo.",
+      "requer_minimo": {
+        "resumo-3-comecos.escudo": 1
+      },
+      "pos": [-740, -60]
+    },
+    {
+      "id": "resumo-3-comecos.barbaro",
+      "nome": "Bárbaro",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, sem Éter: FÚRIA. Enche golpeando e apanhando"
+      ],
+      "desc": "Identidade das armas grandes.",
+      "requer_minimo": {
+        "resumo-3-comecos.maestria_com_armas": 1
+      },
+      "pos": [-310, 670]
+    },
+    {
+      "id": "resumo-3-comecos.eter",
+      "nome": "Éter",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera a barra de Éter (100)"
+      ],
+      "desc": "COMEÇO do ÉTER: a barra, a magia e os milagres. As identidades daqui transformam a barra.",
+      "requer_minimo": {},
+      "pos": [20, 120]
+    },
+    {
+      "id": "resumo-3-comecos.milagres",
+      "nome": "Milagres",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera gastar Éter em milagres"
+      ],
+      "desc": "Galho da Fé: cura, bênção, proteção.",
+      "requer_minimo": {
+        "resumo-3-comecos.eter": 1
+      },
+      "pos": [-280, -390]
+    },
+    {
+      "id": "resumo-3-comecos.maestria_do_eter",
+      "nome": "Maestria do Éter",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "+10 de Éter máximo"
+      ],
+      "desc": "O tronco do Éter: o tamanho da barra, o quanto enche, a Descarga.",
+      "requer_minimo": {
+        "resumo-3-comecos.eter": 1
+      },
+      "pos": [-200, -50]
+    },
+    {
+      "id": "resumo-3-comecos.conhecimento_elemental",
+      "nome": "Conhecimento Elemental",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera executar reações"
+      ],
+      "desc": "Galho do Arcano: seta, explosão, reações.",
+      "requer_minimo": {
+        "resumo-3-comecos.eter": 1
+      },
+      "pos": [280, -390]
+    },
+    {
+      "id": "resumo-3-comecos.sacerdote",
+      "nome": "Sacerdote",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira FÉ: enche curando aliados"
+      ],
+      "desc": "Identidade da Fé.",
+      "requer_minimo": {
+        "resumo-3-comecos.milagres": 1
+      },
+      "pos": [-420, -610]
+    },
+    {
+      "id": "resumo-3-comecos.sorcerer",
+      "nome": "Sorcerer",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira PACTO: enche também com a sua vida"
+      ],
+      "desc": "Identidade dos dois galhos do Éter (Fé + Arcano). Nome a decidir.",
+      "requer_minimo": {
+        "resumo-3-comecos.milagres": 1,
+        "resumo-3-comecos.conhecimento_elemental": 1
+      },
+      "pos": [0, -740]
+    },
+    {
+      "id": "resumo-3-comecos.elementalista",
+      "nome": "Elementalista",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira MANA: enche sozinha, devagar"
+      ],
+      "desc": "Identidade do Arcano.",
+      "requer_minimo": {
+        "resumo-3-comecos.conhecimento_elemental": 1
+      },
+      "pos": [420, -610]
+    },
+    {
+      "id": "resumo-3-comecos.furtividade_e_esquiva",
+      "nome": "Furtividade e Esquiva",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera agachar"
+      ],
+      "desc": "COMEÇO da ESQUIVA: a mobilidade, a furtividade e as armas leves. Não pede nem usa o Éter.",
+      "requer_minimo": {},
+      "pos": [200, 110]
+    },
+    {
+      "id": "resumo-3-comecos.passo_ligeiro",
+      "nome": "Passo Ligeiro",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Anda e corre mais rápido"
+      ],
+      "desc": "O tronco da Esquiva: velocidade, fôlego, duas armas.",
+      "requer_minimo": {
+        "resumo-3-comecos.furtividade_e_esquiva": 1
+      },
+      "pos": [480, -40]
+    },
+    {
+      "id": "resumo-3-comecos.passos_leves",
+      "nome": "Passos Leves",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Agachado, os inimigos te percebem de mais perto"
+      ],
+      "desc": "Galho da furtividade: golpe pelas costas, emboscada.",
+      "requer_minimo": {
+        "resumo-3-comecos.furtividade_e_esquiva": 1
+      },
+      "pos": [420, 240]
+    },
+    {
+      "id": "resumo-3-comecos.rolamento",
+      "nome": "Rolamento",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o rolamento"
+      ],
+      "desc": "Galho da esquiva: rolamento, dash, esquiva perfeita.",
+      "requer_minimo": {
+        "resumo-3-comecos.furtividade_e_esquiva": 1
+      },
+      "pos": [200, 440]
+    },
+    {
+      "id": "resumo-3-comecos.duelista",
+      "nome": "Duelista",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, sem Éter: RITMO. Enche no combo"
+      ],
+      "desc": "Identidade das duas armas.",
+      "requer_minimo": {
+        "resumo-3-comecos.passo_ligeiro": 1
+      },
+      "pos": [740, -60]
+    },
+    {
+      "id": "resumo-3-comecos.sombra",
+      "nome": "Sombra",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, sem Éter: FOCO. Enche golpeando sem ser visto"
+      ],
+      "desc": "Identidade da furtividade.",
+      "requer_minimo": {
+        "resumo-3-comecos.passos_leves": 1
+      },
+      "pos": [640, 370]
+    },
+    {
+      "id": "resumo-3-comecos.guardiao",
+      "nome": "Guardião",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter de hoje, mais forte no bloqueio"
+      ],
+      "desc": "Híbrida: Batalha (escudo) + Éter.",
+      "requer_minimo": {
+        "resumo-3-comecos.escudo": 1,
+        "resumo-3-comecos.maestria_do_eter": 1
+      },
+      "pos": [-490, -260]
+    },
+    {
+      "id": "resumo-3-comecos.paladino",
+      "nome": "Paladino",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira GRAÇA: enche bloqueando e curando"
+      ],
+      "desc": "Híbrida: Batalha (escudo) + Fé.",
+      "requer_minimo": {
+        "resumo-3-comecos.escudo": 1,
+        "resumo-3-comecos.milagres": 1
+      },
+      "pos": [-730, -380]
+    },
+    {
+      "id": "resumo-3-comecos.arcanista",
+      "nome": "Arcanista",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "O Éter vira CARGA ARCANA: a magia sai junto do golpe"
+      ],
+      "desc": "Híbrida: Arcano + Esquiva.",
+      "requer_minimo": {
+        "resumo-3-comecos.conhecimento_elemental": 1,
+        "resumo-3-comecos.passo_ligeiro": 1
+      },
+      "pos": [540, -310]
+    },
+    {
+      "id": "resumo-3-comecos.punhos",
+      "nome": "Punhos",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Habilita lutar sem arma"
+      ],
+      "desc": "A ponte sem Éter: pede os DOIS começos, Batalha e Esquiva.",
+      "requer_minimo": {
+        "resumo-3-comecos.maestria_em_batalha": 1,
+        "resumo-3-comecos.furtividade_e_esquiva": 1
+      },
+      "pos": [0, 420]
+    },
+    {
+      "id": "resumo-3-comecos.lutador",
+      "nome": "Lutador",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Barra própria, sem Éter: ADRENALINA. Enche esquivando por um triz"
+      ],
+      "desc": "Híbrida: Batalha + Esquiva.",
+      "requer_minimo": {
+        "resumo-3-comecos.punhos": 1,
+        "resumo-3-comecos.rolamento": 1
+      },
+      "pos": [0, 680]
+    }
+  ]
+}

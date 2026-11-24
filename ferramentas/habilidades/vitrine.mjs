@@ -19,6 +19,7 @@ const ARQUIVOS = {
   '/css/style.css': 'text/css; charset=utf-8',
   '/js/arvore.js': 'text/javascript; charset=utf-8',
   '/js/ficha.js': 'text/javascript; charset=utf-8',
+  '/js/caminhos.js': 'text/javascript; charset=utf-8',
   '/assets/habilidades.json': 'application/json; charset=utf-8',
 };
 

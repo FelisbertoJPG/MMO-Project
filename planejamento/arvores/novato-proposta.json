@@ -1,0 +1,412 @@
+{
+  "_sobre": "Árvore desenhada no Editor de Árvore (node ferramentas/habilidades/editor-arvore.mjs). Rascunho: o jogo ainda não lê este arquivo.",
+  "arvore": "novato-proposta",
+  "nome": "Novato (proposta 2)",
+  "pontos": 10,
+  "atualizado_em": "2026-11-21T00:05:43.419Z",
+  "nos": [
+    {
+      "id": "novato-proposta.maestria_em_batalha",
+      "nome": "Maestria em Batalha",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o golpe pesado (F)"
+      ],
+      "desc": "Permite a capacidade de usar armas e equipamentos basico corpo a corpo.",
+      "requer_minimo": {},
+      "pos": [-690, -620]
+    },
+    {
+      "id": "novato-proposta.vigor",
+      "nome": "Vigor",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "por_ponto": [
+        "+5 de vigor",
+        "+5 de vigor",
+        "+5 de vigor"
+      ],
+      "desc": "O fôlego para golpear, bloquear e correr. Com 3 pontos: +15.",
+      "requer_minimo": {
+        "novato-proposta.bloqueio_firme": 1
+      },
+      "pos": [-480, -430]
+    },
+    {
+      "id": "novato-proposta.bloqueio_firme",
+      "nome": "Bloqueio Firme",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "O bloqueio gasta 5% menos vigor",
+        "O bloqueio gasta 5% menos vigor"
+      ],
+      "desc": "O galho do escudo: aponta para o Guardião.",
+      "requer_minimo": {
+        "novato-proposta.maestria_em_batalha": 1
+      },
+      "pos": [-690, -430]
+    },
+    {
+      "id": "novato-proposta.forca_bruta",
+      "nome": "Força Bruta",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "+5% de dano no golpe pesado",
+        "+5% de dano no golpe pesado"
+      ],
+      "desc": "O galho da arma pesada: aponta para o Bárbaro.",
+      "requer_minimo": {
+        "novato-proposta.maestria_com_armas": 1
+      },
+      "pos": [-910, -160]
+    },
+    {
+      "id": "novato-proposta.carga",
+      "nome": "Carga",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Aumenta a carga em 10%"
+      ],
+      "desc": "Mais peso antes de ficar lento.",
+      "requer_minimo": {
+        "novato-proposta.maestria_em_batalha": 1
+      },
+      "pos": [-900, -430]
+    },
+    {
+      "id": "novato-proposta.eter",
+      "nome": "Éter",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera a barra de Éter (100): enche batendo, apanhando e bloqueando"
+      ],
+      "desc": "Raiz do Éter, que segue sendo só recurso de combate. Sem ela, não há barra de Éter.",
+      "requer_minimo": {},
+      "pos": [0, -650]
+    },
+    {
+      "id": "novato-proposta.maestria_do_eter",
+      "nome": "Maestria do Éter",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "por_ponto": [
+        "+10 de Éter máximo",
+        "+10 de Éter máximo",
+        "+10 de Éter máximo"
+      ],
+      "desc": "Com 3 pontos, o Éter vai de 100 a 130. Abre o caminho do Arcano.",
+      "requer_minimo": {
+        "novato-proposta.eter": 1
+      },
+      "pos": [0, -420]
+    },
+    {
+      "id": "novato-proposta.descarga_de_eter",
+      "nome": "Descarga de Éter",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Uma onda curta que empurra os inimigos colados em você"
+      ],
+      "desc": "O primeiro uso da barra: sem uma ativa, o Éter do Novato não serviria para nada.",
+      "requer_minimo": {
+        "novato-proposta.eter": 1,
+        "novato-proposta.maestria_do_eter": 1
+      },
+      "ativa": {
+        "eter": 50,
+        "recarga": 20
+      },
+      "pos": [-240, -420]
+    },
+    {
+      "id": "novato-proposta.fluxo_do_eter",
+      "nome": "Fluxo do Éter",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "por_ponto": [
+        "+5% de Éter de cada golpe, golpe recebido e bloqueio",
+        "+5% de Éter de cada golpe, golpe recebido e bloqueio",
+        "+5% de Éter de cada golpe, golpe recebido e bloqueio"
+      ],
+      "desc": "A barra enche mais rápido.",
+      "requer_minimo": {
+        "novato-proposta.descarga_de_eter": 1
+      },
+      "pos": [-240, -270]
+    },
+    {
+      "id": "novato-proposta.furtividade_e_esquiva",
+      "nome": "Furtividade e Esquiva",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera agachar: agachado, anda devagar e os inimigos só te percebem de mais perto"
+      ],
+      "desc": "Raiz da mobilidade. Sem ela, não há rolamento: só correr.",
+      "requer_minimo": {},
+      "pos": [720, -650]
+    },
+    {
+      "id": "novato-proposta.rolamento",
+      "nome": "Rolamento",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o rolamento (toque no Espaço)"
+      ],
+      "desc": "Com a raiz, são 2 pontos: dá para rolar já no nível 3.",
+      "requer_minimo": {
+        "novato-proposta.furtividade_e_esquiva": 1
+      },
+      "pos": [520, -470]
+    },
+    {
+      "id": "novato-proposta.passos_leves",
+      "nome": "Passos Leves",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Agachado, os inimigos te percebem 20% mais perto"
+      ],
+      "desc": "O galho da furtividade.",
+      "requer_minimo": {
+        "novato-proposta.furtividade_e_esquiva": 1
+      },
+      "pos": [720, -470]
+    },
+    {
+      "id": "novato-proposta.passo_de_esquiva",
+      "nome": "Passo de Esquiva",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o dash: um passo curto e rápido que gasta metade do vigor do rolamento"
+      ],
+      "desc": "Dash ou esquiva: a decidir. Usa vigor, não Éter.",
+      "requer_minimo": {
+        "novato-proposta.reflexos": 1
+      },
+      "ativa": {
+        "eter": 0,
+        "recarga": 0
+      },
+      "pos": [720, -170]
+    },
+    {
+      "id": "novato-proposta.reflexos",
+      "nome": "Reflexos",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "O rolamento gasta 10% menos vigor"
+      ],
+      "desc": "Com 2 pontos: o rolamento gasta 20% menos.",
+      "requer_minimo": {
+        "novato-proposta.passos_leves": 1,
+        "novato-proposta.passo_ligeiro": 1
+      },
+      "pos": [720, -320]
+    },
+    {
+      "id": "novato-proposta.passo_ligeiro",
+      "nome": "Passo Ligeiro",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "Anda e corre 5% mais rápido",
+        "Anda e corre 5% mais rápido"
+      ],
+      "desc": "A passiva de velocidade.",
+      "requer_minimo": {
+        "novato-proposta.rolamento": 1
+      },
+      "pos": [520, -320]
+    },
+    {
+      "id": "novato-proposta.cozinhar",
+      "nome": "Cozinhar",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera cozinhar na panela (as receitas básicas)"
+      ],
+      "desc": "Ofício essencial. Por ora vai só até o nível 1. Hoje no jogo qualquer um cozinha: com esta skill, quem não tiver o ponto deixa de cozinhar.",
+      "requer_minimo": {},
+      "pos": [-1200, -610]
+    },
+    {
+      "id": "novato-proposta.craftar",
+      "nome": "Craftar",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera a fabricação básica"
+      ],
+      "desc": "Ofício essencial. Por ora vai só até o nível 1. O jogo ainda não fabrica nada: esta skill espera o sistema de fabricação.",
+      "requer_minimo": {},
+      "pos": [-1200, -340]
+    },
+    {
+      "id": "novato-proposta.primeiros_socorros",
+      "nome": "Primeiros Socorros",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Cura 30 de vida em 3 s parado, só fora de combate"
+      ],
+      "desc": "Skill de missão (não gasta ponto), como o First Aid do Ragnarok: uma cura fraca para quem ficou sem comida.",
+      "requer_minimo": {},
+      "ativa": {
+        "eter": 0,
+        "recarga": 90
+      },
+      "pos": [-1000, -610]
+    },
+    {
+      "id": "novato-proposta.guerreiro",
+      "nome": "Guerreiro",
+      "tipo": "classe",
+      "desc": "Armas pesadas e escudo. Abre o Bárbaro (galho da Força Bruta) e o Guardião (galho do Bloqueio Firme; como vive de Éter, deve pedir também a raiz do Éter).",
+      "requer_minimo": {
+        "novato-proposta.forca_bruta": 1
+      },
+      "requer_total": 10,
+      "pos": [-910, 0]
+    },
+    {
+      "id": "novato-proposta.arcano",
+      "nome": "Arcano",
+      "tipo": "classe",
+      "desc": "A linha do Mago: Magias (dano elemental). Abre o Elementalista. Os Milagres saíram daqui e viraram o Acólito.",
+      "requer_minimo": {
+        "novato-proposta.fluxo_do_eter": 1,
+        "novato-proposta.conhecimento_elemental": 1
+      },
+      "requer_total": 10,
+      "pos": [-10, -280]
+    },
+    {
+      "id": "novato-proposta.andarilho",
+      "nome": "Andarilho",
+      "tipo": "classe",
+      "desc": "Adaga, punhos e mobilidade. Abre a Sombra e o Lutador.",
+      "requer_minimo": {
+        "novato-proposta.passo_de_esquiva": 1
+      },
+      "requer_total": 10,
+      "pos": [720, -40]
+    },
+    {
+      "id": "novato-proposta.conhecimento_elemental",
+      "nome": "Conhecimento Elemental",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "+1 de Proficiencia Elemental",
+        "+1 de Proficiencia Elemental"
+      ],
+      "desc": "Libera a Possibilidade de executar reações",
+      "requer_minimo": {
+        "novato-proposta.eter": 1
+      },
+      "pos": [190, -420]
+    },
+    {
+      "id": "novato-proposta.milagres",
+      "nome": "Milagres",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "+1 de Milagre"
+      ],
+      "desc": "Libera a possibilidade de converter Eter em Milagres",
+      "requer_minimo": {
+        "novato-proposta.conhecimento_elemental": 1
+      },
+      "pos": [200, -270]
+    },
+    {
+      "id": "novato-proposta.acolito",
+      "nome": "Acólito",
+      "tipo": "classe",
+      "desc": "Milagres (suporte): converte Éter em Milagres. Como o Acólito (o Noviço) do Ragnarok. As subclasses estão em aberto.",
+      "requer_minimo": {
+        "novato-proposta.milagres": 1
+      },
+      "requer_total": 10,
+      "pos": [200, -100]
+    },
+    {
+      "id": "novato-proposta.recuperacao_de_vida",
+      "nome": "Recuperação de vida",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Recupera PV ao se Alimentar"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "novato-proposta.cozinhar": 1,
+        "novato-proposta.primeiros_socorros": 1
+      },
+      "pos": [-1200, -470]
+    },
+    {
+      "id": "novato-proposta.maestria_com_armas",
+      "nome": "Maestria com Armas",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "+1 de Dano Fisico com Armas"
+      ],
+      "desc": "Habilita a possibilidade de usar armas de medio porte.",
+      "requer_minimo": {
+        "novato-proposta.carga": 1
+      },
+      "pos": [-910, -290]
+    },
+    {
+      "id": "novato-proposta.resistencia",
+      "nome": "Resistencia",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "+1 em Todas as Resistencias"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "novato-proposta.vigor": 1
+      },
+      "pos": [-480, -290]
+    }
+  ]
+}

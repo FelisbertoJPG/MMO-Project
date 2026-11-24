@@ -5,19 +5,22 @@ import { APARENCIA_PADRAO, lerAparencia } from './aparencia.js';
 import { racaDe, proporcoesDe } from './raca.js';
 import { tela } from './tela.js';
 import { VEU } from './veu.js';
+import { camuflar } from './camuflagem.js';
 import { DURACAO as DURACAO_REFEICAO, objetoDaRefeicao } from './refeicao.js';
 import {
   vidaDoNivel, vigorDoNivel, cargaDoNivel, bonusForcaDoNivel, forcaDoNivel, custoDoNivel, habilidadesVazias,
   ETER_MAX, ETER_GOLPE_RECEBIDO, ETER_BLOQUEIO, ETER_EM_COMBATE, ETER_PERDE_POR_SEG, eterDoGolpe,
-  ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES,
+  ESCALA, SEM_REQUISITO, DANO_RECEBIDO, DEFESA_MAX, estadoDaCarga, LUGARES, BALANCO,
 } from './ficha.js';
+import * as Caminho from './caminhos.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
 import { ITEMS, UNARMED, TORCH_LIFE } from './items.js';
 import { START_POS, NASCER } from './world.js';
 import { Assets } from './assets.js';
 
 const SPRINT_HOLD = 0.28;
-const ROLL_COST = 22;
+// o rolamento (o custo, a duração e a invulnerabilidade moram no balanceamento: ficha.js BALANCO)
+const ALCANCE_DO_ROLAMENTO = 4.47;   // dá os ~4,1 m de antes (com `rolamento_distancia` 1 e carga leve)
 const _v = new THREE.Vector3();
 // A CÂMERA ISOMÉTRICA (cameraIsometrica): a inclinação da projeção isométrica de verdade
 // (arctan 1/√2 ≈ 35,264°), a lente estreita de longe (quase sem perspectiva) e a altura do corte
@@ -56,8 +59,14 @@ export class Player {
     game.scene.add(this.torchLight);
 
     this.level = 1;
-    this.habilidades = habilidadesVazias();   // a árvore de habilidades (ficha.js); por enquanto só acumula pontos
-    this.eter = 0;                // a barra das habilidades (ficha.js, ÉTER): enche lutando
+    this.habilidades = habilidadesVazias();   // a árvore de habilidades (ficha.js); o que os cards fazem: caminhos.js
+    this.eter = 0;                // a BARRA única (caminhos.js): Éter (enche lutando) ou Mana (enche sozinha)
+    this.recargas = {};           // id da ativa → game.time em que pode de novo
+    this.avisoT = -99;            // o último aviso de trava (não repetir a cada tecla)
+    this.agachado = false;        // AGACHAR (tecla Z, caminhos.js): devagar e mais difícil de perceber
+    this.saidaFurtividade = -99;  // game.time em que saiu da furtividade (vale para o golpe seguinte)
+    this.furtivo = false;         // a FURTIVIDADE ligada (a ativa dos Passos Leves): sombra, sem nome, sem som; gasta vigor
+    this.fimDaEsquiva = -99;      // game.time em que a última esquiva acaba (o nível 3 do Mestre da Esquiva)
     this.ultimoCombate = -1e9;    // game.time do último golpe dado ou recebido
     this.aparencia = APARENCIA_PADRAO;   // o rosto e o cabelo (aparencia.js); vai no save e no corpo que viaja
     this.souls = 0;
@@ -96,7 +105,7 @@ export class Player {
   // ARMA aproveita dela, e a armadura defende mas pesa
   maxHpNoNivel(n) { return Math.round(vidaDoNivel(n) * (1 + this.ringEffect('hpMul'))); }
   get maxHp() { return this.maxHpNoNivel(this.level); }
-  get maxStamina() { return vigorDoNivel(this.level); }
+  get maxStamina() { return vigorDoNivel(this.level) + Caminho.vigorExtra(this.habilidades); }
   get cargaMax() { return cargaDoNivel(this.level); }
   /**
    * SUBIR DE NÍVEL: paga as almas e sobe, com a vida e o vigor cheios. A REGRA mora aqui
@@ -123,14 +132,39 @@ export class Player {
   get poise() { return 12 + this.ringEffect('poise') + this.armaduras.reduce((s, a) => s + a.equilibrio, 0); }
   /** A absorção da armadura vestida (soma das peças). */
   get absorcao() { return this.armaduras.reduce((s, a) => s + a.absorcao, 0); }
-  get defense() { return Math.min(DEFESA_MAX, this.absorcao + this.ringEffect('defense') + (this.buffs.fortaleza > 0 ? 0.15 : 0)); }
+  get defense() { return Math.min(DEFESA_MAX, this.absorcao + this.ringEffect('defense') + (this.buffs.fortaleza > 0 ? 0.15 : 0) + Caminho.defesaExtra(this.habilidades)); }
   /** O bônus de força (antes da escala da arma): +0,5% por nível acima do 1. */
   get bonusForca() { return bonusForcaDoNivel(this.level); }
   /** A força que conta para o `requisito` das armas: vem do nível (10 no 1, 20 no 31). */
   get forcaEfetiva() { return forcaDoNivel(this.level); }
   /** Quanto a força multiplica o dano de uma ARMA: a escala dela, e o requisito. */
   forcaNaArma(w) { return (1 + this.bonusForca * ESCALA[w.escala ?? 'E']) * (this.forcaEfetiva < (w.requisito ?? 0) ? SEM_REQUISITO : 1); }
-  get damageMul() { return this.forcaNaArma(this.weapon) * (this.buffs.resin > 0 ? 1.35 : 1) * (this.buffs.furia > 0 ? 1.2 : 1); }
+  get damageMul() {
+    return this.forcaNaArma(this.weapon) * (this.buffs.resin > 0 ? 1.35 : 1) * (this.buffs.furia > 0 ? 1.2 : 1);
+  }
+  /** O quanto o inimigo percebe o jogador (× a distância de sempre: `Enemy.updateAI` lê pelo alvo). */
+  get furtividade() { return Caminho.furtividade(this.habilidades, this.agachado); }
+  /** FURTIVO, o inimigo só percebe o jogador dentro desta distância (m; `Enemy.updateAI`). */
+  get areaFurtiva() { return this.furtivo ? BALANCO.furtividade_area * Caminho.areaDaFurtividade(this.habilidades) : Infinity; }
+  /** Liga ou desliga a FURTIVIDADE (a vaga dela; caminhos.js). */
+  alternarFurtividade() {
+    if (this.furtivo) { this.sairDaFurtividade(); return; }
+    if (this.dead || this.state !== 'free') return;
+    if (this.stamina <= 0) { this.avisoTrava('Sem vigor para a Furtividade.'); return; }
+    this.furtivo = true;
+  }
+  /** Sai da Furtividade (a vaga de novo, golpe, golpe recebido, outra habilidade, sem vigor): marca a SAÍDA, como o levantar. */
+  sairDaFurtividade() {
+    if (!this.furtivo) return;
+    this.furtivo = false;
+    this.saidaFurtividade = this.game.time;
+  }
+  /** Levanta (tecla Z de novo, golpe, rolamento, corrida, golpe recebido): marca a SAÍDA da furtividade. */
+  levantar() {
+    if (!this.agachado) return;
+    this.agachado = false;
+    this.saidaFurtividade = this.game.time;
+  }
   /** O código do corpo pela armadura vestida (guerreiro.js): um dígito por lugar. */
   get codigoDaArmadura() {
     const eq = this.inv.equipped.armadura, conj = {};
@@ -139,7 +173,8 @@ export class Player {
   }
   get dead() { return this.state === 'dead'; }
   get iframes() {
-    if (this.state === 'roll') { const p = this.stateT / this.st.dur; return p > 0.05 && p < 0.62; }
+    // a invulnerabilidade do rolamento é em SEGUNDOS (o balanceamento): rolar mais lento não a estica
+    if (this.state === 'roll') return this.stateT > 0.04 && this.stateT < 0.04 + (this.st.dash ? BALANCO.dash_invulneravel : BALANCO.rolamento_invulneravel);
     return ['fog', 'rest', 'restUp', 'lying', 'standing'].includes(this.state);
   }
   /**
@@ -155,12 +190,71 @@ export class Player {
     if (w.twoHanded && !this.torchLit) return { estabilidade: w.guarda ?? 0.4, pose: 'Sword_Block', loop: false, segura: 0.45, golpe: 'Sword_Block', mao: 'r' };
     return null;
   }
-  get eterMax() { return ETER_MAX; }
+  /** O que a barra única é agora: null (sem barra), 'eter' ou 'mana' (caminhos.js). */
+  get modoBarra() { return Caminho.modoDaBarra(this.habilidades); }
+  get eterMax() { return Caminho.barraMax(this.habilidades); }
 
-  /** Ganha Éter (golpe dado, recebido, bloqueio) e marca o combate. */
+  /** Golpe dado, recebido ou bloqueio: marca o combate e, se a barra for de Éter, enche. */
   ganharEter(n) {
-    this.eter = Math.min(this.eterMax, this.eter + n);
     this.ultimoCombate = this.game.time;
+    if (this.modoBarra !== 'eter') return;
+    this.eter = Math.min(this.eterMax, this.eter + n * Caminho.fluxoDoEter(this.habilidades));
+  }
+
+  /** Descansar na fogueira: o Éter zera; a Mana enche. */
+  descansarBarra() { this.eter = this.modoBarra === 'mana' ? this.eterMax : 0; }
+
+  /** A árvore mudou (confirmou, refez, carregou): a barra cabe no novo máximo e o que trancou sai da mão. */
+  aoMudarHabilidades() {
+    this.eter = this.modoBarra ? Math.min(this.eter, this.eterMax) : 0;
+    const guardou = this.inv.soltarTrancados?.() ?? [];
+    if (guardou.length) this.game.ui.toast(`Guardado no inventário: ${guardou.join(', ')} (falta a habilidade, tecla K).`);
+    this.stamina = Math.min(this.stamina, this.maxStamina);
+  }
+
+  /** Uma trava da árvore: avisa (no máximo a cada 3 s) o que falta aprender. */
+  avisoTrava(texto) {
+    if (this.game.time - this.avisoT < 3) return;
+    this.avisoT = this.game.time;
+    this.game.ui.toast(texto);
+  }
+
+  /**
+   * Usa a habilidade da vaga `i` (teclas 1 a 4; no toque, a vaga). Só as ativas de
+   * `Caminho.ATIVAS` funcionam; elas gastam a barra (Éter ou Mana) e têm recarga.
+   */
+  usarVaga(i) {
+    const game = this.game, id = this.habilidades.barra[i];
+    if (!id || this.dead) return;
+    const at = Caminho.ATIVAS[id];
+    // a que liga e desliga (a Furtividade): desligar vale em qualquer estado
+    if (at?.alterna && this.habilidades.nos[id] > 0) {
+      if ((this.recargas[id] ?? 0) > game.time) return;
+      this.recargas[id] = game.time + at.recarga;
+      this.alternarFurtividade();
+      return;
+    }
+    if (this.state !== 'free') return;
+    if (!at || !(this.habilidades.nos[id] > 0)) { this.avisoTrava('Esta habilidade ainda não funciona no jogo.'); return; }
+    if ((this.recargas[id] ?? 0) > game.time) return;
+    if (!this.modoBarra || this.eter < at.custo) { this.avisoTrava(`Falta ${this.modoBarra === 'mana' ? 'Mana' : 'Éter'}: ${at.nome} gasta ${at.custo}.`); return; }
+    this.eter -= at.custo;
+    this.recargas[id] = game.time + at.recarga;
+    this.sairDaFurtividade();
+    // vira para o alvo travado e lança no meio do gesto
+    const face = this.lockTarget ? yawTo(this.pos, this.lockTarget.pos) : this.primeiraPessoa ? this.camYaw : this.facing;
+    this.setState('interact', { dur: 0.55, at: 0.22, face, fn: () => this.lancarSeta(at) });
+    this.model.play('OverhandThrow', { loop: false, duration: 0.65, restart: true, fade: 0.08 });
+    game.sfx.cast?.();
+  }
+
+  /** A Seta de Fogo: sai do peito na direção em que o jogador olha (ou no alvo travado). */
+  lancarSeta(at) {
+    const de = this.pos.clone().setY(this.pos.y + 1.35);
+    de.addScaledVector(_v.set(Math.sin(this.facing), 0, Math.cos(this.facing)), 0.6);
+    const alvo = this.lockTarget && !this.lockTarget.dead ? this.lockTarget.pos.clone().setY(this.lockTarget.pos.y + this.lockTarget.height * 0.55) : null;
+    const dir = alvo ? alvo.sub(de) : new THREE.Vector3(Math.sin(this.facing), 0, Math.cos(this.facing));
+    this.game.projectiles.seta({ pos: de, dir, damage: at.dano, mult: Caminho.fraquezaElemental(this.habilidades) });
   }
 
   get blocking() {
@@ -281,8 +375,11 @@ export class Player {
     if (this.bufferT <= 0) this.buffer = null;
     for (const k in this.buffs) this.buffs[k] = Math.max(0, this.buffs[k] - dt);
     this.blockHitT = Math.max(0, this.blockHitT - dt);
-    // fora de combate o Éter esvazia aos poucos (ficha.js)
-    if (this.eter > 0 && game.time - this.ultimoCombate > ETER_EM_COMBATE) this.eter = Math.max(0, this.eter - ETER_PERDE_POR_SEG * dt);
+    // a barra única (caminhos.js): o Éter esvazia fora de combate (ficha.js); a Mana enche sozinha
+    const modo = this.modoBarra;
+    if (modo === 'mana') { if (!this.dead) this.eter = Math.min(this.eterMax, this.eter + Caminho.MANA_POR_SEG * dt); }
+    else if (!modo) this.eter = 0;
+    else if (this.eter > 0 && game.time - this.ultimoCombate > ETER_EM_COMBATE) this.eter = Math.max(0, this.eter - ETER_PERDE_POR_SEG * dt);
 
     if (game.modoCamera === 'isometrica') {
       // a ISOMÉTRICA não gira solta: arrastar de lado vira a vista de 90 em 90 graus (cameraIsometrica)
@@ -308,23 +405,45 @@ export class Player {
       this.spaceHeld = 0;
       this.spaceArmed = false;
     }
-    if (rollPressed) this.bufferAction('roll');
+    // os 3 começos trancam o rolamento e o golpe pesado (caminhos.js)
+    if (rollPressed) this.bufferAction('roll');   // o rolamento é de todos (lento e custoso: o balanceamento)
     if (inp.mousePressed(0)) this.bufferAction('light');
-    if (inp.pressed('KeyF')) this.bufferAction('heavy');
+    if (inp.pressed('KeyF')) {
+      if (Caminho.podeGolpePesado(this.habilidades)) this.bufferAction('heavy');
+      else if (!this.dead) this.avisoTrava('O golpe pesado abre com a Maestria em Batalha (tecla K).');
+    }
+    // as vagas de habilidade: teclas 1 a 4 (lendo uma mensagem, o 1 e o 2 votam: main.js)
+    if (!game.lendo) for (let i = 0; i < 4; i++) if (inp.pressed(`Digit${i + 1}`)) this.usarVaga(i);
+    // AGACHAR (de todos): Z liga e desliga; golpe, rolamento, corrida e golpe recebido levantam
+    if (inp.pressed('KeyZ') && !this.dead) {
+      if (this.agachado) this.levantar();
+      else if (this.state === 'free') this.agachado = true;
+    }
+    if (this.agachado && (this.state !== 'free' || this.dead || this.buffer)) this.levantar();
+    // a FURTIVIDADE acaba ao golpear (o golpe ganha a saída) e ao morrer; rolar e comer, não
+    if (this.furtivo && (this.dead || (this.buffer && this.buffer !== 'roll' && this.buffer !== 'item'))) this.sairDaFurtividade();
     if (inp.pressed('KeyR')) this.bufferAction('item');
     if (inp.mousePressed(2) && this.torchLit) this.bufferAction('torch');
 
     const dir = this.dead ? null : this.moveInput();
     let staminaUse = false;
     this.moveSpeed = 0;
+    // a FURTIVIDADE gasta vigor enquanto dura (e ele não volta): sem vigor, acaba
+    if (this.furtivo) {
+      this.stamina -= BALANCO.furtividade_vigor * dt * Caminho.consumoDeVigor(this.habilidades);
+      staminaUse = true;
+      if (this.stamina <= 0) this.sairDaFurtividade();
+    }
 
     switch (this.state) {
       case 'free': {
         if (this.buffer && this.tryAction(this.buffer, dir)) break;
         const carga = this.carga;
         const sprint = dir && carga.corre && inp.isDown('Space') && this.spaceHeld >= SPRINT_HOLD && this.stamina > 0;
+        if (sprint || this.blocking) this.levantar();
         const blocking = this.blocking;
-        const speed = (blocking ? 1.8 : sprint ? 6.8 : 4.3) * carga.passo;
+        const speed = (blocking ? 1.8 : sprint ? BALANCO.corrida_velocidade : BALANCO.andar_velocidade) * carga.passo * Caminho.passo(this.habilidades) * (this.agachado ? Caminho.AGACHADO_PASSO : 1)
+          * Caminho.passoAposEsquiva(this.habilidades, this.game.time - this.fimDaEsquiva);
         if (dir) {
           this.pos.addScaledVector(dir, speed * dt);
           this.moveSpeed = speed;
@@ -334,7 +453,7 @@ export class Player {
         } else if (this.lockTarget) {
           this.facing = turnTowards(this.facing, yawTo(this.pos, this.lockTarget.pos), dt * 10);
         } else if (this.primeiraPessoa) this.facing = this.camYaw;
-        if (sprint) { this.stamina -= 14 * dt; staminaUse = true; this.staminaDelay = 0.4; }
+        if (sprint) { this.stamina -= BALANCO.corrida_vigor * dt * Caminho.consumoDeVigor(this.habilidades); staminaUse = true; this.staminaDelay = 0.4; }
         this.st.sprint = sprint;
         this.st.dir = dir;
         break;
@@ -369,7 +488,7 @@ export class Player {
     // Vigor
     if (this.staminaDelay > 0) this.staminaDelay -= dt;
     else if (!staminaUse && this.state !== 'attack' && this.state !== 'roll') {
-      let regen = 52 * (1 + this.ringEffect('staminaRegen') + (this.buffs.blossom > 0 || this.buffs.folego > 0 ? 0.6 : 0)) * this.carga.regen;
+      let regen = BALANCO.vigor_recupera * Caminho.recuperaVigor(this.habilidades) * (1 + this.ringEffect('staminaRegen') + (this.buffs.blossom > 0 || this.buffs.folego > 0 ? 0.6 : 0)) * this.carga.regen;
       if (this.blocking) regen *= 0.35;
       this.stamina = Math.min(this.maxStamina, this.stamina + regen * dt);
     }
@@ -391,22 +510,31 @@ export class Player {
 
     if (this.moveSpeed > 0 && this.state === 'free') {
       this.stepTimer -= dt * this.moveSpeed;
-      if (this.stepTimer <= 0) { this.stepTimer = 1.7; game.sfx.step(); }
+      if (this.stepTimer <= 0) { this.stepTimer = 1.7; if (!this.furtivo) game.sfx.step(); }   // furtivo, sem som
     }
     this.animate(dt);
+    camuflar(this.model, this.furtivo);   // furtivo, uma sombra (camuflagem.js)
   }
+
+  /**
+   * Tem vigor para COMEÇAR um golpe? Pede o mínimo do balanceamento (assets/balanco.json,
+   * `golpe_vigor_minimo`): com o vigor zerado, não dá para emendar golpe a cada fio que volta.
+   */
+  get vigorParaGolpe() { return this.stamina > 0 && this.stamina >= BALANCO.golpe_vigor_minimo; }
+  /** Dá para rolar? O rolamento pede só vigor acima de zero; o DASH (Mestre da Esquiva), o `dash_vigor_minimo`. */
+  get vigorParaRolar() { return this.stamina > 0 && (!Caminho.rolamentoViraDash(this.habilidades) || this.stamina >= BALANCO.dash_vigor_minimo); }
 
   tryAction(a, dir) {
     if (a === 'roll') {
-      if (this.stamina <= 0) return false;
+      if (!this.vigorParaRolar) return false;
       this.buffer = null; this.startRoll(dir); return true;
     }
     if (a === 'light' || a === 'heavy') {
-      if (this.stamina <= 0) return false;
+      if (!this.vigorParaGolpe) return false;
       this.buffer = null; this.startAttack(a, 0, dir); return true;
     }
     if (a === 'torch') {
-      if (this.stamina <= 0 || !this.torchLit) return false;
+      if (!this.vigorParaGolpe || !this.torchLit) return false;
       this.buffer = null; this.startAttack('torch', 0, dir); return true;
     }
     if (a === 'item') {
@@ -432,7 +560,12 @@ export class Player {
     const spec = ATTACKS[key];
     const from = spec.from ?? 0;
     const seg = spec.to - from;
-    const speed = w.speed * (heavy ? 0.9 : 1);
+    // SAIR DA FURTIVIDADE (caminhos.js) vale para UM golpe: o Golpe Rápido e a Emboscada
+    const h = this.habilidades;
+    const saiu = this.game.time - this.saidaFurtividade < Caminho.JANELA_DA_SAIDA;
+    if (saiu) this.saidaFurtividade = -99;
+    // o BALANCEAMENTO (ficha.js, assets/balanco.json): a velocidade e o vigor de cada golpe
+    const speed = w.speed * (heavy ? BALANCO.pesado_velocidade : 1) * BALANCO.golpe_velocidade * (saiu ? Caminho.golpeRapido(h) : 1);
     const dur = seg / speed;
     const data = {
       kind, combo, key, dur,
@@ -443,13 +576,15 @@ export class Player {
       // contra ESCUDO (escudo.js): o forte racha 1,6× mais; a tocha não racha
       quebra: w.quebra && kind !== 'torch' ? { nivel: w.quebra.nivel, dano: w.quebra.dano * (heavy ? 1.6 : 1) } : null,
       fire: kind === 'torch',
+      emboscada: saiu ? Caminho.danoDaEmboscada(h) : 1,   // a Emboscada: + dano no golpe que sai da furtividade
+      sangra: saiu && Caminho.sangraNaSaida(h),          // e, no nível 3, o alvo sangra
       hitSet: new Set(), queued: null, swung: false, recovering: false,
       // de onde o golpe pode ser emendado (outro golpe, rolar): logo depois do acerto, ou
       // só no FIM da animação nas armas que pedem (`terminaGolpe`: o espadão)
       solta: w.terminaGolpe ? 1 : (spec.hit[1] - from) / seg + 0.08,
     };
-    this.stamina -= w.stamina * (heavy ? 1.6 : 1);
-    this.staminaDelay = 0.6;
+    this.stamina -= w.stamina * (heavy ? BALANCO.pesado_vigor : 1) * BALANCO.golpe_vigor * Caminho.consumoDeVigor(h);
+    this.staminaDelay = BALANCO.vigor_espera_golpe;
     if (this.lockTarget) this.facing = yawTo(this.pos, this.lockTarget.pos);
     else if (dir || this.primeiraPessoa) this.facing = this.rumo(dir);
     this.setState('attack', data);
@@ -476,7 +611,16 @@ export class Player {
         const allowed = a.arc + Math.atan2(e.radius, Math.max(d, 0.1));
         if (a.arc < 3 && angleToTarget(this.pos, this.facing, e.pos) > allowed) continue;
         a.hitSet.add(e);
-        const res = this.game.golpear(e, a.damage, this.pos, a.poise, { fire: a.fire || this.buffs.resin > 0, quebra: a.quebra });
+        const fogo = a.fire || this.buffs.resin > 0;
+        // os caminhos: a Emboscada; fogo em quem é fraco a fogo
+        const mult = a.emboscada
+          * (fogo && (e.cfg?.fireWeak ?? 1) > 1 ? Caminho.fraquezaElemental(this.habilidades) : 1);
+        const res = this.game.golpear(e, a.damage * mult, this.pos, a.poise, { fire: fogo, quebra: a.quebra });
+        if (res && a.sangra) e.sangrar?.(Caminho.SANGRAMENTO.seg, Caminho.SANGRAMENTO.porSeg);
+        if (res && a.emboscada > 1) {   // a EMBOSCADA se vê: faíscas douradas e um tranco maior
+          game.effects.burst(e.pos.clone().setY(e.pos.y + e.height * 0.65), { count: 30, color: [1, 0.85, 0.35], speed: 5, size: 0.16, life: 0.5, gravity: 1 });
+          game.addShake(0.18);
+        }
         if (res) {
           this.ganharEter(eterDoGolpe(a.damage));
           game.hitstop = a.kind === 'heavy' ? 0.1 : 0.06;
@@ -499,9 +643,9 @@ export class Player {
     if (p > 0.25 && this.buffer && !a.queued) { a.queued = this.buffer; this.buffer = null; }
     if (p >= a.solta && a.queued) {
       const q = a.queued; a.queued = null;
-      if ((q === 'light' || q === 'heavy') && this.stamina > 0) return this.startAttack(q, a.combo + 1, dir);
-      if (q === 'torch' && this.stamina > 0 && this.torchLit) return this.startAttack('torch', 0, dir);
-      if (q === 'roll' && this.stamina > 0) return this.startRoll(dir);
+      if ((q === 'light' || q === 'heavy') && this.vigorParaGolpe) return this.startAttack(q, a.combo + 1, dir);
+      if (q === 'torch' && this.vigorParaGolpe && this.torchLit) return this.startAttack('torch', 0, dir);
+      if (q === 'roll' && this.vigorParaRolar) return this.startRoll(dir);
       this.bufferAction(q);
     }
     // Fim do trecho do clipe: volta suavemente para a guarda
@@ -513,22 +657,31 @@ export class Player {
   // Rolamento na direção do movimento; sem direção, rola para a frente do personagem
   startRoll(dir) {
     const carga = this.carga;
-    this.stamina -= ROLL_COST * carga.rolagemCusto;
-    this.staminaDelay = 0.55;
+    // o MESTRE DA ESQUIVA troca o rolamento por um DASH (o mesmo estado 'roll': a rede e o cancelar em golpe valem)
+    const dash = Caminho.rolamentoViraDash(this.habilidades);
+    // o ROLAMENTO é de todos, lento e custoso (o balanceamento: assets/balanco.json); a árvore o barateia.
+    // O dash tem o vigor dele (`dash_vigor`), com os mesmos descontos
+    this.stamina -= (dash ? BALANCO.dash_vigor : BALANCO.rolamento_vigor) * carga.rolagemCusto * Caminho.custoDoRolamento(this.habilidades) * Caminho.consumoDeVigor(this.habilidades);
+    this.staminaDelay = BALANCO.rolamento_espera;
     const d = dir ?? new THREE.Vector3(Math.sin(this.facing), 0, Math.cos(this.facing));
     this.facing = Math.atan2(d.x, d.z);
-    const dur = 0.78;
-    this.setState('roll', { dir: d.clone(), dur, dist: carga.rolagemDist });
-    this.model.play('Roll', { loop: false, duration: dur, restart: true, fade: 0.06 });
-    this.game.sfx.roll();
+    const dur = dash ? BALANCO.dash_duracao : BALANCO.rolamento_duracao;
+    this.fimDaEsquiva = this.game.time + dur;
+    this.setState('roll', { dir: d.clone(), dur, dash, dist: carga.rolagemDist * (dash ? BALANCO.dash_distancia : BALANCO.rolamento_distancia) });
+    // o dash é uma ARRANCADA: uma passada inteira da corrida no tempo dele (o Sword_Dash tem golpe:
+    // fica para o dash com dano, de outra árvore)
+    if (dash) this.model.play('Sprint_Loop', { loop: true, duration: dur, restart: true, fade: 0.05 });
+    else this.model.play('Roll', { loop: false, duration: dur, restart: true, fade: 0.06 });
+    if (!this.furtivo) this.game.sfx.roll();   // furtivo, sem som
   }
 
   updateRoll(dt) {
     const r = this.st;
     const p = Math.min(1, this.stateT / r.dur);
-    const speed = 9 * (r.dist ?? 1) * Math.sin(Math.PI * Math.min(1, p * 1.08));
+    // a DISTÂNCIA não depende da duração: ~4,1 m × `dist` (a de antes: 9 × sen, com 0,78 s fixos)
+    const speed = ALCANCE_DO_ROLAMENTO * (r.dist ?? 1) * Math.PI / (2 * r.dur) * Math.sin(Math.PI * Math.min(1, p * 1.08));
     this.pos.addScaledVector(r.dir, speed * dt);
-    if (p > 0.82 && this.buffer === 'light' && this.stamina > 0) { this.buffer = null; return this.startAttack('light', 0, r.dir); }
+    if (p > 0.82 && this.buffer === 'light' && this.vigorParaGolpe) { this.buffer = null; return this.startAttack('light', 0, r.dir); }
     if (p >= 1) this.setState('free');
   }
 
@@ -623,13 +776,18 @@ export class Player {
   takeDamage(amount, srcPos, { poise = 30, unblockable = false } = {}) {
     const game = this.game;
     if (this.dead || this.iframes) return 'iframe';
+    this.levantar();   // apanhou: sai da furtividade (o agachar e a Furtividade)
+    this.sairDaFurtividade();
     if (this.blocking && !unblockable && angleToTarget(this.pos, this.facing, srcPos) < 1.25) {
-      const guarda = this.guarda, stability = guarda.estabilidade;
+      const guarda = this.guarda, stability = guarda.estabilidade, h = this.habilidades;
       this.ganharEter(ETER_BLOQUEIO);
-      this.stamina -= amount * (1.5 - stability);
+      this.stamina -= amount * (1.5 - stability) * Caminho.custoDoBloqueio(h) * Caminho.consumoDeVigor(h);
       this.staminaDelay = 0.8;
+      // Muralha: golpe pesado não quebra a guarda (fica com um fio de vigor)
+      if (this.stamina <= 0 && poise >= 60 && Caminho.guardaFirme(h)) this.stamina = 1;
       const pushDir = new THREE.Vector3(this.pos.x - srcPos.x, 0, this.pos.z - srcPos.z).normalize();
       game.effects.sparks((guarda.mao === 'r' ? this.model.handR : this.model.handL).getWorldPosition(new THREE.Vector3()));
+      if (this.stamina > 0) this.hp = Math.min(this.maxHp, this.hp + Caminho.vidaPorBloqueio(h));   // Escudo Drenador
       if (this.stamina <= 0) {
         this.stamina = 0;
         this.hp -= amount * 0.3 * DANO_RECEBIDO * (1 - this.defense);
@@ -683,7 +841,9 @@ export class Player {
     // arma de duas mãos: a esquerda vai ao cabo (character.js), menos com ela ocupada
     m.duasMaos = !!this.weapon.twoHanded && !this.torchLit && !MAO_OCUPADA.includes(this.state);
     if (this.state === 'free') {
-      if (this.blockHitT > 0 && this.guarda) m.play(this.guarda.golpe, { loop: false, fade: 0.05 });
+      // agachado (caminhos.js): parado ou andando devagar, abaixado
+      if (this.agachado) m.play(this.moveSpeed > 0 ? 'Crouch_Fwd_Loop' : 'Crouch_Idle_Loop', { fade: 0.2, speed: this.moveSpeed > 0 ? Math.max(0.6, this.moveSpeed / 1.6) : 1 });
+      else if (this.blockHitT > 0 && this.guarda) m.play(this.guarda.golpe, { loop: false, fade: 0.05 });
       else if (this.blocking) {
         const g = this.guarda, a = m.play(g.pose, { loop: g.loop, fade: 0.12 });
         // a guarda com a arma é o MEIO do Sword_Block (a espada atravessada): para ali

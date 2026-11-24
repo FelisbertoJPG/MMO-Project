@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-19.5",
-  "nota": "Arvore de habilidades com duas faces: a Arte Arcana (os elementos) e a nova Arte Marcial (armas e estilos). O Eter agora fica abaixo da vida, e o chat comeca no canto de baixo a direita."
+  "versao": "2026-11-24.1",
+  "nota": "Nova arvore de habilidades livre (os Caminhos): a Mobilidade com a Furtividade e o dash. Rolamento, golpe e vigor rebalanceados."
 }

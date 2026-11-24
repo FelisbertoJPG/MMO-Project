@@ -2,6 +2,7 @@ import { tela } from './tela.js';
 import * as THREE from 'three';
 import { ITEMS, ICON_PANELA, RARIDADES } from './items.js';
 import { custoDoNivel, vigorDoNivel, cargaDoNivel, bonusForcaDoNivel, pontosDisponiveis } from './ficha.js';
+import { ATIVAS } from './caminhos.js';
 import { RECEITAS, podeCozinhar, listaDaReceita, NA_PANELA } from './receitas.js';
 import { fmtTime } from './inventory.js';
 
@@ -240,21 +241,41 @@ export class UI {
    * a largura do Éter em passos de 0,5% e os nomes das vagas quando a barra muda.
    */
   atualizarHabilidades(p) {
+    // a barra única (caminhos.js): some sem o começo do Éter; com o Conhecimento Arcano, vira Mana
+    const modo = p.modoBarra;
+    if (modo !== this.modoVisto) {
+      this.modoVisto = modo;
+      const bar = this.eterFill.parentElement;
+      bar.style.display = modo ? '' : 'none';
+      bar.classList.toggle('mana', modo === 'mana');
+      this.eterPct = -1;
+      if (!this.vagasLigadas) {   // tocar na vaga usa a habilidade (no toque; no teclado, 1 a 4)
+        this.vagasLigadas = true;
+        this.habVagas.forEach((v, i) => v.addEventListener('pointerdown', (e) => { e.stopPropagation(); this.game.player.usarVaga(i); }));
+      }
+    }
+    if (!modo) return this.atualizarVagas(p);
     const pct = Math.round(Math.max(0, Math.min(1, p.eter / p.eterMax)) * 200) / 2;
     if (pct !== this.eterPct) {
       this.eterPct = pct;
       this.eterFill.style.width = `${pct}%`;
       this.eterFill.parentElement.classList.toggle('cheia', pct >= 100);
     }
-    this.texto('eter', this.eterNum, `Éter ${Math.floor(p.eter)} / ${p.eterMax}`);
-    const barra = p.habilidades.barra, chave = barra.join('|');
+    this.texto('eter', this.eterNum, `${modo === 'mana' ? 'Mana' : 'Éter'} ${Math.floor(p.eter)} / ${p.eterMax}`);
+    this.atualizarVagas(p);
+  }
+
+  /** Os nomes das 4 vagas (só quando a barra de atalhos muda). */
+  atualizarVagas(p) {
+    const barra = p.habilidades.barra, chave = barra.join('|') + (p.furtivo ? '|furtivo' : '');
     if (chave === this.barraVista) return;
     this.barraVista = chave;
     barra.forEach((id, i) => {
       const vaga = this.habVagas[i];
       if (!vaga) return;
-      const nome = id ? (this.game.arvore?.nos?.get(id)?.no.nome ?? id) : '';
+      const nome = id ? (ATIVAS[id]?.nome ?? this.game.arvore?.nos?.get(id)?.no.nome ?? id) : '';
       vaga.classList.toggle('vazia', !id);
+      vaga.classList.toggle('ligada', !!(id && ATIVAS[id]?.alterna && p.furtivo));   // a Furtividade ligada
       vaga.querySelector('.hab-nome').textContent = nome;
       vaga.title = id ? nome : 'Vaga de habilidade (monte na árvore: K)';
     });

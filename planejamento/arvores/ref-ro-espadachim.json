@@ -1,0 +1,228 @@
+{
+  "_sobre": "REFERÊNCIA do Ragnarok Online (pré-renewal), para estudo de design: não é conteúdo do jogo. Números conferidos no ratemyserver.net em 20/11/2026; o que diz \"de memória\" não foi conferido.",
+  "arvore": "ref-ro-espadachim",
+  "nome": "Espadachim (Swordman) — referência do Ragnarok",
+  "pontos": 49,
+  "atualizado_em": "2026-11-20T17:09:18.614Z",
+  "nos": [
+    {
+      "id": "ref-ro-espadachim.sword_mastery",
+      "nome": "Sword Mastery",
+      "tipo": "passiva",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: +4 de ATK com espada de uma mão e adaga",
+        "Nv 2: +8 de ATK com espada de uma mão e adaga",
+        "Nv 3: +12 de ATK com espada de uma mão e adaga",
+        "Nv 4: +16 de ATK com espada de uma mão e adaga",
+        "Nv 5: +20 de ATK com espada de uma mão e adaga",
+        "Nv 6: +24 de ATK com espada de uma mão e adaga",
+        "Nv 7: +28 de ATK com espada de uma mão e adaga",
+        "Nv 8: +32 de ATK com espada de uma mão e adaga",
+        "Nv 9: +36 de ATK com espada de uma mão e adaga",
+        "Nv 10: +40 de ATK com espada de uma mão e adaga"
+      ],
+      "desc": "Domínio de arma: dano fixo a mais com espada de uma mão e adaga. Abre o domínio de duas mãos.",
+      "requer_minimo": {},
+      "pos": [0, 0]
+    },
+    {
+      "id": "ref-ro-espadachim.two_handed_sword_mastery",
+      "nome": "Two-Handed Sword Mastery",
+      "tipo": "passiva",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: +4 de ATK com espada de duas mãos",
+        "Nv 2: +8 de ATK com espada de duas mãos",
+        "Nv 3: +12 de ATK com espada de duas mãos",
+        "Nv 4: +16 de ATK com espada de duas mãos",
+        "Nv 5: +20 de ATK com espada de duas mãos",
+        "Nv 6: +24 de ATK com espada de duas mãos",
+        "Nv 7: +28 de ATK com espada de duas mãos",
+        "Nv 8: +32 de ATK com espada de duas mãos",
+        "Nv 9: +36 de ATK com espada de duas mãos",
+        "Nv 10: +40 de ATK com espada de duas mãos"
+      ],
+      "desc": "O mesmo, para espada de duas mãos. Pede Sword Mastery 1.",
+      "requer_minimo": {
+        "ref-ro-espadachim.sword_mastery": 1
+      },
+      "pos": [0, 150]
+    },
+    {
+      "id": "ref-ro-espadachim.bash",
+      "nome": "Bash",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: 130% de ATK · +5 de precisão · 8 SP",
+        "Nv 2: 160% de ATK · +10 de precisão · 8 SP",
+        "Nv 3: 190% de ATK · +15 de precisão · 8 SP",
+        "Nv 4: 220% de ATK · +20 de precisão · 8 SP",
+        "Nv 5: 250% de ATK · +25 de precisão · 8 SP",
+        "Nv 6: 280% de ATK · +30 de precisão · 15 SP",
+        "Nv 7: 310% de ATK · +35 de precisão · 15 SP",
+        "Nv 8: 340% de ATK · +40 de precisão · 15 SP",
+        "Nv 9: 370% de ATK · +45 de precisão · 15 SP",
+        "Nv 10: 400% de ATK · +50 de precisão · 15 SP"
+      ],
+      "desc": "O golpe assinatura: dano forte num alvo só. No nível 5 abre o Magnum Break; no 6, a skill de missão Fatal Blow.",
+      "requer_minimo": {},
+      "pos": [190, 0]
+    },
+    {
+      "id": "ref-ro-espadachim.magnum_break",
+      "nome": "Magnum Break",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: 120% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 2: 140% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 3: 160% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 4: 180% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 5: 200% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 6: 220% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 7: 240% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 8: 260% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 9: 280% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP",
+        "Nv 10: 300% de ATK de fogo em volta (5×5) · 30 SP e um pouco de HP"
+      ],
+      "desc": "Explosão de fogo em volta, que empurra os inimigos. Pede Bash 5.",
+      "requer_minimo": {
+        "ref-ro-espadachim.bash": 5
+      },
+      "pos": [190, 150]
+    },
+    {
+      "id": "ref-ro-espadachim.fatal_blow",
+      "nome": "Fatal Blow",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "O Bash do nível 6 em diante pode atordoar: 5% no Nv 6 → 25% no Nv 10"
+      ],
+      "desc": "Skill de missão (não gasta ponto). Pede Bash 6.",
+      "requer_minimo": {
+        "ref-ro-espadachim.bash": 6
+      },
+      "pos": [380, 150]
+    },
+    {
+      "id": "ref-ro-espadachim.provoke",
+      "nome": "Provoke",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: alvo: +5% de ATK e −10% de DEF · 4 SP",
+        "Nv 2: alvo: +8% de ATK e −15% de DEF · 5 SP",
+        "Nv 3: alvo: +11% de ATK e −20% de DEF · 6 SP",
+        "Nv 4: alvo: +14% de ATK e −25% de DEF · 7 SP",
+        "Nv 5: alvo: +17% de ATK e −30% de DEF · 8 SP",
+        "Nv 6: alvo: +20% de ATK e −35% de DEF · 9 SP",
+        "Nv 7: alvo: +23% de ATK e −40% de DEF · 10 SP",
+        "Nv 8: alvo: +26% de ATK e −45% de DEF · 11 SP",
+        "Nv 9: alvo: +29% de ATK e −50% de DEF · 12 SP",
+        "Nv 10: alvo: +32% de ATK e −55% de DEF · 13 SP"
+      ],
+      "desc": "Provoca um inimigo: ele bate mais forte, defende menos e vem atrás de você (o \"tanque\" do grupo). No nível 5 abre o Endure.",
+      "requer_minimo": {},
+      "pos": [570, 0]
+    },
+    {
+      "id": "ref-ro-espadachim.endure",
+      "nome": "Endure",
+      "tipo": "ativa",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: não é interrompido ao apanhar, por 10 s · +1 de DEF mágica · 10 SP",
+        "Nv 2: não é interrompido ao apanhar, por 13 s · +2 de DEF mágica · 10 SP",
+        "Nv 3: não é interrompido ao apanhar, por 16 s · +3 de DEF mágica · 10 SP",
+        "Nv 4: não é interrompido ao apanhar, por 19 s · +4 de DEF mágica · 10 SP",
+        "Nv 5: não é interrompido ao apanhar, por 22 s · +5 de DEF mágica · 10 SP",
+        "Nv 6: não é interrompido ao apanhar, por 25 s · +6 de DEF mágica · 10 SP",
+        "Nv 7: não é interrompido ao apanhar, por 28 s · +7 de DEF mágica · 10 SP",
+        "Nv 8: não é interrompido ao apanhar, por 31 s · +8 de DEF mágica · 10 SP",
+        "Nv 9: não é interrompido ao apanhar, por 34 s · +9 de DEF mágica · 10 SP",
+        "Nv 10: não é interrompido ao apanhar, por 37 s · +10 de DEF mágica · 10 SP"
+      ],
+      "desc": "Aguenta os golpes sem parar o que está fazendo. Pede Provoke 5.",
+      "requer_minimo": {
+        "ref-ro-espadachim.provoke": 5
+      },
+      "pos": [570, 150]
+    },
+    {
+      "id": "ref-ro-espadachim.increase_hp_recovery",
+      "nome": "Increase HP Recovery",
+      "tipo": "passiva",
+      "ranks": 10,
+      "custo": 1,
+      "por_ponto": [
+        "Nv 1: +5 de HP a cada 10 s parado, e +0,2% do HP máximo",
+        "Nv 2: +10 de HP a cada 10 s parado, e +0,4% do HP máximo",
+        "Nv 3: +15 de HP a cada 10 s parado, e +0,6% do HP máximo",
+        "Nv 4: +20 de HP a cada 10 s parado, e +0,8% do HP máximo",
+        "Nv 5: +25 de HP a cada 10 s parado, e +1% do HP máximo",
+        "Nv 6: +30 de HP a cada 10 s parado, e +1,2% do HP máximo",
+        "Nv 7: +35 de HP a cada 10 s parado, e +1,4% do HP máximo",
+        "Nv 8: +40 de HP a cada 10 s parado, e +1,6% do HP máximo",
+        "Nv 9: +45 de HP a cada 10 s parado, e +1,8% do HP máximo",
+        "Nv 10: +50 de HP a cada 10 s parado, e +2% do HP máximo"
+      ],
+      "desc": "Regenera mais vida parado (no site aparece como \"Increase Recuperative Power\").",
+      "requer_minimo": {},
+      "pos": [760, 0]
+    },
+    {
+      "id": "ref-ro-espadachim.moving_hp_recovery",
+      "nome": "Moving HP Recovery",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Regenera vida andando também (50% da regeneração parada)"
+      ],
+      "desc": "Skill de missão: não gasta ponto.",
+      "requer_minimo": {},
+      "pos": [760, 150]
+    },
+    {
+      "id": "ref-ro-espadachim.auto_berserk",
+      "nome": "Auto Berserk",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Com menos de 25% de vida, ganha em si o efeito do Provoke 10: +32% de ATK e −55% de DEF · 1 SP"
+      ],
+      "desc": "Skill de missão: um modo fúria quando está quase morrendo.",
+      "requer_minimo": {},
+      "pos": [950, 0]
+    },
+    {
+      "id": "ref-ro-espadachim.knight",
+      "nome": "Knight",
+      "tipo": "classe",
+      "desc": "2ª classe (no Brasil: Cavaleiro). De memória: lanças, montaria e golpes em área. De memória: troca a partir do nível de classe 40 (39 pontos gastos).",
+      "requer_minimo": {},
+      "requer_total": 39,
+      "pos": [190, 390]
+    },
+    {
+      "id": "ref-ro-espadachim.crusader",
+      "nome": "Crusader",
+      "tipo": "classe",
+      "desc": "2ª classe (no Brasil: Templário). De memória: escudo, poder sagrado e proteger aliados. De memória: troca a partir do nível de classe 40 (39 pontos gastos).",
+      "requer_minimo": {},
+      "requer_total": 39,
+      "pos": [570, 390]
+    }
+  ]
+}

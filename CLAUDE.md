@@ -46,6 +46,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 - Retimou um golpe (`ATTACKS`)? Ajuste a janela `hit`.
 - **As armaduras vêm de ARQUIVO** (`assets/modelos/traje-*.json`): mudar o `gear.js` não muda nada; edite no Editor de modelo.
 - `js/blocos.js` é CÓPIA gerada do editor — não edite aqui.
+- Árvore de habilidades (tecla K): a página dos Caminhos é desenhada no Editor de Árvore (`planejamento/arvores/resumo-3-comecos.json`) e entra no jogo por `node ferramentas/habilidades/gerar-catalogo.mjs`; o que cada card FAZ mora em `js/caminhos.js`, pelo id `caminho.<nome sem acento>` (o id nasce do nome e fica: renomear o card não muda nada). Com o editor ligado, o jogo LOCAL muda ao vivo (`js/ao-vivo.js`). O golpe, o vigor, o rolamento (e o dash) e o movimento do jogador vêm de `assets/balanco.json` (o painel Balanceamento do editor), não de número no código (→ base `interface-e-celular`, `combate-e-itens`).
 - Altura no mundo é RELATIVA ao chão: `X.clone().setY(X.y + h)`, nunca `setY(h)` (terraço, relevo).
 - Medida de tela em JS: `tela.w`/`tela.h` (nunca `innerWidth`); em CSS, `var(--vw)` (→ base `interface-e-celular`).
 - Teclas em `input`/`textarea` são ignoradas pelo `Input`.

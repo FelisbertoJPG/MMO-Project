@@ -48,6 +48,7 @@ const BOTOES = [
   { id: 'mira', rotulo: 'Mira', tecla: 'KeyQ', lugar: 'combate' },
   { id: 'usar', rotulo: 'Usar', tecla: 'KeyR', lugar: 'combate' },
   { id: 'interagir', rotulo: 'E', tecla: 'KeyE', lugar: 'combate' },
+  { id: 'agachar', rotulo: 'Agachar', tecla: 'KeyZ', lugar: 'combate' },   // caminhos.js
   // barra de cima
   { id: 'menu', rotulo: '☰', titulo: 'Menu', lugar: 'topo', acao: (g) => g.openMenu('pause') },
   { id: 'inventario', rotulo: 'Itens', tecla: 'KeyI', lugar: 'topo' },

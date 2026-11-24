@@ -23,6 +23,7 @@ import { Online } from './rede/online.js';
 import { MAX_LETRAS } from './rede/mensagens.js';
 import { SalaUI } from './salaui.js';
 import { ArvoreUI } from './arvore.js';
+import { ligarAoVivo } from './ao-vivo.js';
 import { Voz } from './rede/voz.js';
 import { VozUI } from './vozui.js';
 import { ControlesToque, ehToque } from './toque.js';
@@ -160,6 +161,7 @@ class Game {
     this.telaPerfis = new TelaPerfis(this);
     this.salaUI = new SalaUI(this);
     this.arvore = new ArvoreUI(this);   // a árvore de habilidades (tecla K)
+    ligarAoVivo(this);                  // o balanceamento (assets/balanco.json) e, no local, o Editor de Árvore ao vivo
     // o chat de voz com quem está junto (rede/voz.js; as opções ficam no menu de pausa)
     this.voz = new Voz(this);
     this.vozUI = new VozUI(this);
@@ -1295,7 +1297,7 @@ class Game {
     p.setState('rest');
     p.model.play('Crouch_Idle_Loop', { fade: 0.5 });
     p.hp = p.maxHp; p.stamina = p.maxStamina;
-    p.eter = 0;   // descansar esvazia o Éter (ficha.js)
+    p.descansarBarra();   // descansar esvazia o Éter e enche a Mana (caminhos.js)
     p.buffs.resin = 0;
     // no mundo de todos o descanso é só meu: os inimigos renascem por tempo (`Mundo.tique`)
     if (this.regras.mundoReinicia) this.resetWorld();

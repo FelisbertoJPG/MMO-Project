@@ -1,0 +1,194 @@
+{
+  "_sobre": "PROPOSTA do Claude para a árvore do Novato (19/11/2026), feita a partir do novato.json do dono (que não foi mexido). Abra em http://localhost:5181/?arvore=novato-proposta.",
+  "arvore": "novato-proposta",
+  "nome": "Novato (proposta)",
+  "pontos": 10,
+  "atualizado_em": "2026-11-20T18:31:32.117Z",
+  "nos": [
+    {
+      "id": "novato-proposta.conhecimento_do_eter",
+      "nome": "Conhecimento do Éter",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera a barra de Éter"
+      ],
+      "desc": "Sentir o Éter é o primeiro passo de qualquer caminho: toda classe pede esta skill.",
+      "requer_minimo": {},
+      "pos": [-80, -400]
+    },
+    {
+      "id": "novato-proposta.maestria_do_eter",
+      "nome": "Maestria do Éter",
+      "tipo": "passiva",
+      "ranks": 5,
+      "custo": 1,
+      "por_ponto": [
+        "+10 de Éter máximo",
+        "+10 de Éter máximo",
+        "+10 de Éter máximo",
+        "+10 de Éter máximo",
+        "+10 de Éter máximo"
+      ],
+      "desc": "Com 5 pontos, o Éter vai de 100 a 150.",
+      "requer_minimo": {
+        "novato-proposta.conhecimento_do_eter": 1
+      },
+      "pos": [-80, -220]
+    },
+    {
+      "id": "novato-proposta.vigor",
+      "nome": "Vigor",
+      "tipo": "passiva",
+      "ranks": 5,
+      "custo": 1,
+      "por_ponto": [
+        "+5 de vigor",
+        "+5 de vigor",
+        "+5 de vigor",
+        "+5 de vigor",
+        "+5 de vigor"
+      ],
+      "desc": "O fôlego para golpear, bloquear e rolar. Com 5 pontos: +25 (o nível dá +1 por nível).",
+      "requer_minimo": {},
+      "pos": [-360, -220]
+    },
+    {
+      "id": "novato-proposta.carga",
+      "nome": "Carga",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Aumenta a carga em 10%"
+      ],
+      "desc": "Mais peso antes de ficar lento.",
+      "requer_minimo": {
+        "novato-proposta.vigor": 1
+      },
+      "pos": [-560, -220]
+    },
+    {
+      "id": "novato-proposta.reflexos",
+      "nome": "Reflexos",
+      "tipo": "passiva",
+      "ranks": 5,
+      "custo": 1,
+      "por_ponto": [
+        "O rolamento gasta 4% menos vigor",
+        "O rolamento gasta 4% menos vigor",
+        "O rolamento gasta 4% menos vigor",
+        "O rolamento gasta 4% menos vigor",
+        "O rolamento gasta 4% menos vigor"
+      ],
+      "desc": "Com 5 pontos: o rolamento gasta 20% menos.",
+      "requer_minimo": {},
+      "pos": [200, -220]
+    },
+    {
+      "id": "novato-proposta.passo_ligeiro",
+      "nome": "Passo Ligeiro",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Corre 10% mais rápido"
+      ],
+      "desc": "Chegar antes e sair antes.",
+      "requer_minimo": {
+        "novato-proposta.reflexos": 1
+      },
+      "pos": [400, -220]
+    },
+    {
+      "id": "novato-proposta.cozinhar",
+      "nome": "Cozinhar",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera cozinhar na panela (as receitas básicas)"
+      ],
+      "desc": "Ofício essencial. Por ora vai só até o nível 1. Hoje no jogo qualquer um cozinha: com esta skill, quem não tiver o ponto deixa de cozinhar.",
+      "requer_minimo": {},
+      "pos": [-560, -400]
+    },
+    {
+      "id": "novato-proposta.craftar",
+      "nome": "Craftar",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera a fabricação básica"
+      ],
+      "desc": "Ofício essencial. Por ora vai só até o nível 1. O jogo ainda não fabrica nada: esta skill espera o sistema de fabricação.",
+      "requer_minimo": {},
+      "pos": [-360, -400]
+    },
+    {
+      "id": "novato-proposta.primeiros_socorros",
+      "nome": "Primeiros Socorros",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Cura 30 de vida em 3 s parado, só fora de combate"
+      ],
+      "desc": "Skill de missão (não gasta ponto), como o First Aid do Aprendiz do Ragnarok: uma cura fraca para quem ficou sem comida.",
+      "requer_minimo": {},
+      "ativa": { "eter": 0, "recarga": 90 },
+      "pos": [200, -400]
+    },
+    {
+      "id": "novato-proposta.fingir_de_morto",
+      "nome": "Fingir de Morto",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 0,
+      "por_ponto": [
+        "Cai no chão: os inimigos perdem o interesse por 5 s; qualquer ação cancela"
+      ],
+      "desc": "Skill de missão (não gasta ponto), como o Play Dead do Aprendiz do Ragnarok: a fuga de quem ainda não sabe lutar.",
+      "requer_minimo": {},
+      "ativa": { "eter": 0, "recarga": 60 },
+      "pos": [400, -400]
+    },
+    {
+      "id": "novato-proposta.guerreiro",
+      "nome": "Guerreiro",
+      "tipo": "classe",
+      "desc": "Armas pesadas e escudo. Abre as subclasses Bárbaro e Guardião.",
+      "requer_minimo": {
+        "novato-proposta.conhecimento_do_eter": 1,
+        "novato-proposta.vigor": 4
+      },
+      "requer_total": 10,
+      "pos": [-360, 0]
+    },
+    {
+      "id": "novato-proposta.arcano",
+      "nome": "Arcano",
+      "tipo": "classe",
+      "desc": "Magias (dano elemental) e Milagres (suporte). Abre o Elementalista e a escola dos Milagres.",
+      "requer_minimo": {
+        "novato-proposta.maestria_do_eter": 4
+      },
+      "requer_total": 10,
+      "pos": [-80, 0]
+    },
+    {
+      "id": "novato-proposta.andarilho",
+      "nome": "Andarilho",
+      "tipo": "classe",
+      "desc": "Adaga, punhos e mobilidade. Abre a Sombra e o Lutador.",
+      "requer_minimo": {
+        "novato-proposta.conhecimento_do_eter": 1,
+        "novato-proposta.reflexos": 4
+      },
+      "requer_total": 10,
+      "pos": [200, 0]
+    }
+  ]
+}

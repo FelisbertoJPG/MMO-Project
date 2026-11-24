@@ -10,6 +10,12 @@
  * As reações viram os GALHOS DE REAÇÃO, cada um com a sua maestria: o "Conhecimento do …".
  * INICIAIS = a Maestria que o personagem já conhece ao nascer (D20); as outras virão das
  * missões. A tela esconde o elemento que o personagem não conhece.
+ *
+ * OS CAMINHOS (D28, 21/11/2026): a página dos 3 começos vem do EDITOR DE ÁRVORE
+ * (`planejamento/arvores/resumo-3-comecos.json`, o que o dono desenha): cada card vira
+ * `caminho.<nome sem acento>`, com o começo de que descende (ou `hibrido`) e o lugar na tela
+ * (`x`/`y`, centrados e na escala da tecla K). O que cada card FAZ no jogo mora em
+ * js/caminhos.js. A Arte Marcial e a Canalização saíram do catálogo (seguem no rascunho).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -55,25 +61,80 @@ const reacoes = plano.reacoes.map((r) => ({
   arvore: r.arvore.nome, nos: r.arvore.nos.map(no),
 }));
 
-// a ARTE MARCIAL (D21 a D24): a árvore de combate e, no centro do círculo, a Canalização
-const noCombate = (n) => ({
-  ...no(n), secao: n.secao,
-  ...(n.requer_minimo ? { requer_minimo: n.requer_minimo } : {}),
-  ...(n.grupo ? { grupo: n.grupo } : {}), ...(n.juramento ? { juramento: n.juramento } : {}),
-  ...(n.familia ? { familia: n.familia } : {}), ...(n.armas ? { armas: n.armas } : {}),
-  ...(n.estilo ? { estilo: n.estilo } : {}), ...(n.equipamento ? { equipamento: n.equipamento } : {}),
-});
-const combate = { cores: plano.arvore_de_combate.cores, nos: plano.arvore_de_combate.nos.map(noCombate) };
-const canalizacao = { cor: plano.canalizacao.cor, nos: plano.canalizacao.nos.map(noCombate) };
+// OS CAMINHOS (D28): a página dos 3 começos, do Editor de Árvore
+const PAGINA = 'planejamento/arvores/resumo-3-comecos.json';
+const COMECOS = [   // a raiz de cada começo (o nome do card sem acento) e a cor dele
+  { id: 'batalha', nome: 'Batalha', raiz: 'maestria_em_batalha', cor: '#d08a5a' },
+  { id: 'eter', nome: 'Éter', raiz: 'eter', cor: '#a77dff' },
+  { id: 'esquiva', nome: 'Esquiva', raiz: 'furtividade_e_esquiva', cor: '#7fc79a' },
+];
+const COR_HIBRIDO = '#e8c25a';
+const ESCALA_DA_PAGINA = 0.6;      // o editor espaça 200 × 150; na tecla K, 120 × 90
+const ID_HABILIDADE = /^[a-z][a-z0-9_.-]{0,59}$/;   // o mesmo do save (ficha.js, saveTorto)
+
+function caminhos() {
+  const pag = JSON.parse(readFileSync(raiz + PAGINA, 'utf8'));
+  const novo = (velho) => `caminho.${velho.slice(velho.indexOf('.') + 1)}`;
+  const por = new Map(pag.nos.map((n) => [n.id, n]));
+  // AS RAÍZES: pelo id (o editor mantém o id ao renomear); a que não achar fica com o card SEM
+  // requisito que sobrar, pela posição na página (da esquerda para a direita: Batalha, Éter, Esquiva)
+  const raizes = new Map();
+  const soltos = pag.nos.filter((n) => !Object.keys(n.requer_minimo ?? {}).length && n.tipo !== 'identidade').sort((a, b) => a.pos[0] - b.pos[0]);
+  const faltam = [];
+  for (const c of COMECOS) {
+    const id = `${pag.arvore}.${c.raiz}`;
+    if (por.has(id)) raizes.set(id, c); else faltam.push(c);
+  }
+  const livres = soltos.filter((s) => !raizes.has(s.id));   // já em ordem da esquerda para a direita
+  faltam.forEach((c, i) => {
+    if (!livres[i]) throw new Error(`não achei a raiz do começo ${c.nome} em ${PAGINA}`);
+    raizes.set(livres[i].id, c);
+  });
+  const memo = new Map();
+  const comecosDe = (id) => {
+    if (memo.has(id)) return memo.get(id);
+    const s = new Set(raizes.has(id) ? [raizes.get(id).id] : []);
+    memo.set(id, s);
+    for (const r of Object.keys(por.get(id)?.requer_minimo ?? {})) for (const c of comecosDe(r)) s.add(c);
+    return s;
+  };
+  // o centro de cada card (o editor grava o canto: o card tem 150 × 70); a página centrada no zero
+  const cx = (n) => n.pos[0] + 75, cy = (n) => n.pos[1] + 35;
+  const xs = pag.nos.map(cx), ys = pag.nos.map(cy);
+  const mx = (Math.min(...xs) + Math.max(...xs)) / 2, my = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const nos = pag.nos.map((n) => {
+    const cs = [...comecosDe(n.id)];
+    const req = Object.fromEntries(Object.entries(n.requer_minimo ?? {}).map(([k, v]) => {
+      if (!por.has(k)) throw new Error(`${n.nome} pede ${k}, que não existe`);
+      return [novo(k), v];
+    }));
+    return {
+      id: novo(n.id), nome: n.nome, tipo: n.tipo, ranks: n.ranks ?? 1, custo: n.custo ?? 1, requer: [], requer_minimo: req,
+      por_ponto: (n.por_ponto ?? []).slice(0, n.ranks ?? 1), desc: n.desc ?? '', ...(n.ativa ? { ativa: n.ativa } : {}),
+      comeco: cs.length === 1 ? cs[0] : 'hibrido',
+      x: Math.round((cx(n) - mx) * ESCALA_DA_PAGINA), y: Math.round((cy(n) - my) * ESCALA_DA_PAGINA),
+    };
+  });
+  const ids = new Set(nos.map((n) => n.id));
+  if (ids.size !== nos.length) throw new Error('dois cards com o mesmo nome na página');
+  for (const n of nos) if (!ID_HABILIDADE.test(n.id)) throw new Error(`id que o save não aceita: ${n.id}`);
+  return {
+    fonte: PAGINA, cor_hibrido: COR_HIBRIDO,
+    comecos: [...raizes].map(([id, c]) => ({ id: c.id, nome: c.nome, cor: c.cor, raiz: novo(id) })),
+    nos,
+  };
+}
 
 const saida = {
-  _leiame: 'GERADO por ferramentas/habilidades/gerar-catalogo.mjs a partir de planejamento/arvore-de-habilidades.json: não edite aqui. Os números são provisórios.',
+  _leiame: `GERADO por ferramentas/habilidades/gerar-catalogo.mjs a partir de planejamento/arvore-de-habilidades.json (os elementos e as reações) e de ${PAGINA} (os caminhos): não edite aqui. Os números são provisórios.`,
   regras: {
     maestria: PONTOS_DA_MAESTRIA,
     pontos_por_linha: plano.modelo_de_arvore.regras.limite_de_pontos_por_linha,
     reacao_abre_com_maestria: plano.regras.arvore_de_reacao.abre_com_maestria_em_cada_elemento,
   },
-  elementos, reacoes, combate, canalizacao,
+  elementos, reacoes, caminhos: caminhos(),
 };
 writeFileSync(raiz + 'assets/habilidades.json', JSON.stringify(saida, null, 1) + '\n');
-console.log(`assets/habilidades.json: ${elementos.length} elementos (${[...FUNCIONAIS].join(', ')} funcional), ${reacoes.length} reações`);
+const porComeco = {};
+for (const n of saida.caminhos.nos) porComeco[n.comeco] = (porComeco[n.comeco] ?? 0) + 1;
+console.log(`assets/habilidades.json: ${elementos.length} elementos (${[...FUNCIONAIS].join(', ')} funcional), ${reacoes.length} reações, ${saida.caminhos.nos.length} cards nos caminhos`, porComeco);

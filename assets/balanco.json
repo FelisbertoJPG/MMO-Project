@@ -1,0 +1,213 @@
+{
+  "_sobre": "O BALANCEAMENTO do golpe e do vigor do JOGADOR (21/11/2026). O dono mexe pelo Editor de Árvore (botão Balanceamento, node ferramentas/habilidades/editor-arvore.mjs) e o jogo local muda na hora (js/ao-vivo.js). Cada campo: o valor, o de antes desta rodada de balanceamento e a faixa aceita. Os padrões do código ficam em js/ficha.js (BALANCO).",
+  "_referencia": {
+    "vigor_no_nivel_1": 90,
+    "vigor_por_golpe_das_armas": {
+      "Punhos": 10,
+      "Adaga Enferrujada": 9,
+      "Espada Longa": 16,
+      "Machado de Batalha": 21,
+      "Espadão do Cavaleiro": 30
+    }
+  },
+  "campos": {
+    "golpe_vigor": {
+      "valor": 2.5,
+      "antes": 1,
+      "min": 0.3,
+      "max": 4,
+      "passo": 0.05,
+      "rotulo": "Vigor por golpe (×)",
+      "desc": "Multiplica o vigor que cada golpe gasta (o da arma). Maior = menos golpes seguidos."
+    },
+    "golpe_velocidade": {
+      "valor": 0.5,
+      "antes": 1,
+      "min": 0.4,
+      "max": 1.6,
+      "passo": 0.05,
+      "rotulo": "Velocidade do golpe (×)",
+      "desc": "Multiplica a velocidade da animação do golpe (a janela do acerto acompanha). Menor = mais lento."
+    },
+    "golpe_vigor_minimo": {
+      "valor": 5,
+      "antes": 0,
+      "min": 0,
+      "max": 40,
+      "passo": 1,
+      "rotulo": "Vigor mínimo para golpear",
+      "desc": "Com menos vigor que isto, o golpe não sai (nem o emendado no combo): é preciso esperar o vigor voltar. Acabou o vigor = sem golpe até juntar este tanto."
+    },
+    "pesado_vigor": {
+      "valor": 1.5,
+      "antes": 1.6,
+      "min": 1,
+      "max": 3,
+      "passo": 0.05,
+      "rotulo": "Golpe pesado: vigor (× o leve)",
+      "desc": "Quanto o golpe pesado (F) gasta a mais que o leve."
+    },
+    "pesado_velocidade": {
+      "valor": 1,
+      "antes": 0.9,
+      "min": 0.5,
+      "max": 1.5,
+      "passo": 0.05,
+      "rotulo": "Golpe pesado: velocidade (× o leve)",
+      "desc": "Quanto o golpe pesado é mais lento que o leve."
+    },
+    "vigor_recupera": {
+      "valor": 10,
+      "antes": 52,
+      "min": 10,
+      "max": 120,
+      "passo": 1,
+      "rotulo": "Vigor que volta por segundo",
+      "desc": "Parado ou andando (bloqueando, 35% disso). Não volta durante o golpe nem o rolamento."
+    },
+    "vigor_espera_golpe": {
+      "valor": 1,
+      "antes": 0.6,
+      "min": 0,
+      "max": 2,
+      "passo": 0.05,
+      "rotulo": "Espera depois do golpe (s)",
+      "desc": "Segundos sem recuperar vigor depois de cada golpe."
+    },
+    "rolamento_vigor": {
+      "valor": 50,
+      "antes": 22,
+      "min": 5,
+      "max": 80,
+      "passo": 1,
+      "rotulo": "Rolamento: vigor",
+      "desc": "Quanto vigor cada rolamento gasta (antes das reduções da árvore e da carga)."
+    },
+    "rolamento_duracao": {
+      "valor": 1,
+      "antes": 0.78,
+      "min": 0.4,
+      "max": 1.6,
+      "passo": 0.01,
+      "rotulo": "Rolamento: duração (s)",
+      "desc": "Quanto tempo o rolamento leva, do chão ao fim. Maior = mais lento (a distância e a invulnerabilidade não mudam com isto)."
+    },
+    "rolamento_distancia": {
+      "valor": 0.9,
+      "antes": 1,
+      "min": 0.4,
+      "max": 1.8,
+      "passo": 0.05,
+      "rotulo": "Rolamento: distância (×)",
+      "desc": "Multiplica o quanto o rolamento leva (uns 4 m com carga leve)."
+    },
+    "rolamento_invulneravel": {
+      "valor": 0.3,
+      "antes": 0.44,
+      "min": 0,
+      "max": 1,
+      "passo": 0.01,
+      "rotulo": "Rolamento: invulnerável (s)",
+      "desc": "Segundos sem levar golpe, logo no começo do rolamento (os i-frames)."
+    },
+    "rolamento_espera": {
+      "valor": 0.7,
+      "antes": 0.55,
+      "min": 0,
+      "max": 2,
+      "passo": 0.05,
+      "rotulo": "Rolamento: espera do vigor (s)",
+      "desc": "Segundos sem recuperar vigor depois de rolar."
+    },
+    "dash_duracao": {
+      "valor": 0.4,
+      "antes": 0.4,
+      "min": 0.15,
+      "max": 1.2,
+      "passo": 0.05,
+      "rotulo": "Dash: duração (s)",
+      "desc": "Com o Mestre da Esquiva o rolamento vira um dash: quanto tempo ele leva (o rolamento leva a \"Rolamento: duração\")."
+    },
+    "dash_distancia": {
+      "valor": 0.8,
+      "antes": 0.8,
+      "min": 0.3,
+      "max": 1.8,
+      "passo": 0.05,
+      "rotulo": "Dash: distância (×)",
+      "desc": "Multiplica o quanto o dash leva (1 = a distância do rolamento, uns 4 m; 0,8 ≈ 3,3 m)."
+    },
+    "dash_invulneravel": {
+      "valor": 0.25,
+      "antes": 0.25,
+      "min": 0,
+      "max": 1,
+      "passo": 0.01,
+      "rotulo": "Dash: invulnerável (s)",
+      "desc": "Segundos sem levar golpe, logo no começo do dash. O vigor é o do rolamento (com os descontos da árvore)."
+    },
+    "dash_vigor": {
+      "valor": 50,
+      "antes": 50,
+      "min": 0,
+      "max": 120,
+      "passo": 1,
+      "rotulo": "Dash: vigor",
+      "desc": "Vigor que cada dash gasta (os descontos da árvore valem por cima: Esquiva, Esquiva Avançada, Mestre da Esquiva, Fôlego Leve)."
+    },
+    "dash_vigor_minimo": {
+      "valor": 10,
+      "antes": 0,
+      "min": 0,
+      "max": 60,
+      "passo": 1,
+      "rotulo": "Dash: vigor mínimo",
+      "desc": "Com menos vigor que isso, o dash não sai (como o mínimo do golpe)."
+    },
+    "andar_velocidade": {
+      "valor": 3.5,
+      "antes": 4.3,
+      "min": 1.5,
+      "max": 8,
+      "passo": 0.1,
+      "rotulo": "Movimento: velocidade normal (m/s)",
+      "desc": "O passo de sempre, sem o Espaço (a animação de trote acompanha; abaixo de 2,5 vira caminhada)."
+    },
+    "corrida_velocidade": {
+      "valor": 5,
+      "antes": 6.8,
+      "min": 3,
+      "max": 12,
+      "passo": 0.1,
+      "rotulo": "Corrida: velocidade (m/s)",
+      "desc": "Segurando o Espaço. A animação de corrida acompanha."
+    },
+    "corrida_vigor": {
+      "valor": 20,
+      "antes": 14,
+      "min": 0,
+      "max": 40,
+      "passo": 1,
+      "rotulo": "Corrida: vigor por segundo",
+      "desc": "Quanto vigor a corrida gasta a cada segundo (antes do Fôlego Leve)."
+    },
+    "furtividade_vigor": {
+      "valor": 8,
+      "antes": 8,
+      "min": 0,
+      "max": 40,
+      "passo": 0.5,
+      "rotulo": "Furtividade: vigor por segundo",
+      "desc": "Vigor que a Furtividade (a ativa dos Passos Leves) gasta por segundo enquanto dura; furtivo, o vigor não volta. Sem vigor, ela acaba."
+    },
+    "furtividade_area": {
+      "valor": 4,
+      "antes": 4,
+      "min": 1,
+      "max": 15,
+      "passo": 0.5,
+      "rotulo": "Furtividade: área (m)",
+      "desc": "Furtivo, o inimigo só te percebe dentro desta distância (a Emboscada a encolhe 15% por nível, até 2)."
+    }
+  }
+}

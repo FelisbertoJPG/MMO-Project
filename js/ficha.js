@@ -78,6 +78,32 @@ export const ETER_EM_COMBATE = 8;          // s depois do último golpe (dado ou
 export const ETER_PERDE_POR_SEG = 5;        // fora de combate
 export const eterDoGolpe = (dano) => Math.min(ETER_DO_GOLPE.max, Math.max(ETER_DO_GOLPE.min, dano * ETER_DO_GOLPE.fracao));
 
+/**
+ * O BALANCEAMENTO do golpe e do vigor do JOGADOR (21/11/2026): os números moram em
+ * `assets/balanco.json` (o dono mexe pelo Editor de Árvore e o jogo local muda na hora:
+ * js/ao-vivo.js). Estes são os padrões, se ele não carregar (iguais aos valores do arquivo em 21/11/2026).
+ */
+export const BALANCO = {
+  golpe_vigor: 2.5, golpe_velocidade: 0.5, golpe_vigor_minimo: 5, pesado_vigor: 1.5, pesado_velocidade: 1,
+  vigor_recupera: 10, vigor_espera_golpe: 1,
+  // o ROLAMENTO (de todos; a árvore só o barateia): lento e custoso
+  rolamento_vigor: 50, rolamento_duracao: 1, rolamento_distancia: 0.9, rolamento_invulneravel: 0.3, rolamento_espera: 0.7,
+  // o DASH (o rolamento com o Mestre da Esquiva): rápido, com o vigor dele (gasto e mínimo para sair)
+  dash_duracao: 0.4, dash_distancia: 0.8, dash_invulneravel: 0.25, dash_vigor: 50, dash_vigor_minimo: 10,
+  // o MOVIMENTO (m/s) e o vigor da corrida (Espaço segurado)
+  andar_velocidade: 3.5, corrida_velocidade: 5, corrida_vigor: 20,
+  // a FURTIVIDADE (a ativa dos Passos Leves): o vigor por segundo e a área (m) em que o inimigo percebe
+  furtividade_vigor: 8, furtividade_area: 4,
+};
+/** Aplica o balanceamento: o arquivo inteiro (`campos.<k>.valor`) ou só os valores ({ k: v }). */
+export function aplicarBalanco(d) {
+  for (const k of Object.keys(BALANCO)) {
+    const v = d?.campos ? d.campos[k]?.valor : d?.[k];
+    // (velocidade, duração e distância nunca zero: o golpe e o rolamento dividem por elas)
+    if (Number.isFinite(v) && v >= 0 && v <= 500) BALANCO[k] = /velocidade|duracao|distancia/.test(k) ? Math.max(0.1, v) : v;
+  }
+}
+
 export const ESCALA = { A: 1.2, B: 1.0, C: 0.75, D: 0.5, E: 0.25 };
 // abaixo do requisito de força da arma: golpes fracos
 export const SEM_REQUISITO = 0.6;

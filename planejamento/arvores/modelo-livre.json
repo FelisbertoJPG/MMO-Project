@@ -1,0 +1,577 @@
+{
+  "_sobre": "MODELO do Claude (20/11/2026) para discutir: SEM CLASSES. Uma árvore só, livre, com o Éter no centro e 4 caminhos (Batalha a oeste, Fé ao norte, Arcano a leste, Esquiva ao sul). O 2º nível de cada caminho custa 2 por ponto. No fim de cada caminho, e entre dois caminhos vizinhos, ficam as IDENTIDADES (custam 5): cada uma muda a forma do Éter e diz quem o jogador é. Só uma identidade vale por vez; troca-se na fogueira. A árvore do dono (novato-proposta) não foi mexida.",
+  "arvore": "modelo-livre",
+  "nome": "Modelo livre (sem classes)",
+  "pontos": 30,
+  "atualizado_em": "2026-11-21T00:50:20.679Z",
+  "nos": [
+    {
+      "id": "modelo-livre.eter",
+      "nome": "Éter",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera a barra de Éter (100): enche batendo, apanhando e bloqueando"
+      ],
+      "desc": "O CENTRO. Toda Identidade transforma esta barra (Fúria, Mana, Fé, Adrenalina…): quem quer uma identidade passa por aqui.",
+      "requer_minimo": {},
+      "pos": [0, 0]
+    },
+    {
+      "id": "modelo-livre.maestria_em_batalha",
+      "nome": "Maestria em Batalha",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o golpe pesado (F)"
+      ],
+      "desc": "Raiz do caminho da BATALHA.",
+      "requer_minimo": {},
+      "pos": [-260, 0]
+    },
+    {
+      "id": "modelo-livre.vigor",
+      "nome": "Vigor",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "por_ponto": [
+        "+5 de vigor",
+        "+5 de vigor",
+        "+5 de vigor"
+      ],
+      "desc": "Fôlego para golpear, bloquear e correr.",
+      "requer_minimo": {
+        "modelo-livre.maestria_em_batalha": 1
+      },
+      "pos": [-480, 0]
+    },
+    {
+      "id": "modelo-livre.bloqueio_firme",
+      "nome": "Bloqueio Firme",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "O bloqueio gasta 10% menos vigor",
+        "O bloqueio gasta 10% menos vigor"
+      ],
+      "desc": "Galho do escudo: para cima, rumo ao Guardião e ao Paladino.",
+      "requer_minimo": {
+        "modelo-livre.maestria_em_batalha": 1
+      },
+      "pos": [-480, -200]
+    },
+    {
+      "id": "modelo-livre.forca_bruta",
+      "nome": "Força Bruta",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "+10% de dano no golpe pesado",
+        "+10% de dano no golpe pesado"
+      ],
+      "desc": "Galho da arma pesada: para baixo, rumo ao Bárbaro e ao Lutador.",
+      "requer_minimo": {
+        "modelo-livre.maestria_em_batalha": 1
+      },
+      "pos": [-480, 200]
+    },
+    {
+      "id": "modelo-livre.muralha",
+      "nome": "Muralha",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 2,
+      "por_ponto": [
+        "Golpes pesados quebram a sua guarda 25% menos",
+        "Golpes pesados quebram a sua guarda 25% menos"
+      ],
+      "desc": "2º nível do caminho: cada ponto custa 2.",
+      "requer_minimo": {
+        "modelo-livre.bloqueio_firme": 2
+      },
+      "pos": [-700, -200]
+    },
+    {
+      "id": "modelo-livre.resistencia",
+      "nome": "Resistência",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 2,
+      "por_ponto": [
+        "+3 em todas as resistências",
+        "+3 em todas as resistências"
+      ],
+      "desc": "2º nível: cada ponto custa 2.",
+      "requer_minimo": {
+        "modelo-livre.vigor": 2
+      },
+      "pos": [-700, 0]
+    },
+    {
+      "id": "modelo-livre.golpe_devastador",
+      "nome": "Golpe Devastador",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Golpe pesado carregado que derruba quem acerta"
+      ],
+      "desc": "2º nível: custa 2.",
+      "requer_minimo": {
+        "modelo-livre.forca_bruta": 2
+      },
+      "ativa": { "eter": 30, "recarga": 15 },
+      "pos": [-700, 200]
+    },
+    {
+      "id": "modelo-livre.guardiao",
+      "nome": "Guardião",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: o Éter de hoje, mais forte. Bloquear no tempo certo enche o dobro e devolve vigor"
+      ],
+      "desc": "IDENTIDADE pura da Batalha (escudo). Só uma identidade vale por vez; troca-se na fogueira.",
+      "requer_minimo": {
+        "modelo-livre.muralha": 2,
+        "modelo-livre.eter": 1
+      },
+      "pos": [-920, -200]
+    },
+    {
+      "id": "modelo-livre.barbaro",
+      "nome": "Bárbaro",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: FÚRIA. Enche golpeando e apanhando, não esvazia enquanto você bate; cheia, +20% de dano"
+      ],
+      "desc": "IDENTIDADE pura da Batalha (arma pesada).",
+      "requer_minimo": {
+        "modelo-livre.golpe_devastador": 1,
+        "modelo-livre.eter": 1
+      },
+      "pos": [-920, 200]
+    },
+    {
+      "id": "modelo-livre.milagres",
+      "nome": "Milagres",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera gastar Éter em milagres"
+      ],
+      "desc": "Raiz do caminho da FÉ. Pede o Éter, porque milagre se paga com ele.",
+      "requer_minimo": {
+        "modelo-livre.eter": 1
+      },
+      "pos": [0, -260]
+    },
+    {
+      "id": "modelo-livre.prece",
+      "nome": "Prece",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Cura 40 de vida em você"
+      ],
+      "desc": "O primeiro milagre.",
+      "requer_minimo": {
+        "modelo-livre.milagres": 1
+      },
+      "ativa": { "eter": 30, "recarga": 10 },
+      "pos": [-200, -480]
+    },
+    {
+      "id": "modelo-livre.fe",
+      "nome": "Fé",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "por_ponto": [
+        "+10% de efeito dos milagres",
+        "+10% de efeito dos milagres",
+        "+10% de efeito dos milagres"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "modelo-livre.milagres": 1
+      },
+      "pos": [0, -480]
+    },
+    {
+      "id": "modelo-livre.bencao",
+      "nome": "Bênção",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Você e os aliados perto: +10% de dano por 20 s"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "modelo-livre.milagres": 1
+      },
+      "ativa": { "eter": 40, "recarga": 30 },
+      "pos": [200, -480]
+    },
+    {
+      "id": "modelo-livre.cura_em_area",
+      "nome": "Cura em Área",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Cura 30 de vida em você e nos aliados perto"
+      ],
+      "desc": "2º nível: custa 2.",
+      "requer_minimo": {
+        "modelo-livre.prece": 1
+      },
+      "ativa": { "eter": 50, "recarga": 20 },
+      "pos": [-200, -700]
+    },
+    {
+      "id": "modelo-livre.luz_sagrada",
+      "nome": "Luz Sagrada",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Um clarão curto que fere e cega os inimigos perto"
+      ],
+      "desc": "2º nível: custa 2.",
+      "requer_minimo": {
+        "modelo-livre.bencao": 1
+      },
+      "ativa": { "eter": 40, "recarga": 15 },
+      "pos": [200, -700]
+    },
+    {
+      "id": "modelo-livre.sacerdote",
+      "nome": "Sacerdote",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: FÉ. Enche curando e abençoando aliados; milagres custam 25% menos"
+      ],
+      "desc": "IDENTIDADE pura da Fé.",
+      "requer_minimo": {
+        "modelo-livre.fe": 3,
+        "modelo-livre.cura_em_area": 1
+      },
+      "pos": [0, -920]
+    },
+    {
+      "id": "modelo-livre.conhecimento_elemental",
+      "nome": "Conhecimento Elemental",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "+1 de proficiência elemental",
+        "+1 de proficiência elemental"
+      ],
+      "desc": "Raiz do caminho ARCANO (a sua skill): libera executar reações.",
+      "requer_minimo": {
+        "modelo-livre.eter": 1
+      },
+      "pos": [260, 0]
+    },
+    {
+      "id": "modelo-livre.seta_elemental",
+      "nome": "Seta Elemental",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "A 1ª magia: uma seta do elemento que você conhece"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "modelo-livre.conhecimento_elemental": 1
+      },
+      "ativa": { "eter": 25, "recarga": 3 },
+      "pos": [480, -200]
+    },
+    {
+      "id": "modelo-livre.maestria_do_eter",
+      "nome": "Maestria do Éter",
+      "tipo": "passiva",
+      "ranks": 3,
+      "custo": 1,
+      "por_ponto": [
+        "+10 de Éter máximo",
+        "+10 de Éter máximo",
+        "+10 de Éter máximo"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "modelo-livre.conhecimento_elemental": 1
+      },
+      "pos": [480, 0]
+    },
+    {
+      "id": "modelo-livre.descarga_de_eter",
+      "nome": "Descarga de Éter",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Uma onda curta que empurra os inimigos colados em você"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "modelo-livre.conhecimento_elemental": 1
+      },
+      "ativa": { "eter": 50, "recarga": 20 },
+      "pos": [480, 200]
+    },
+    {
+      "id": "modelo-livre.explosao_elemental",
+      "nome": "Explosão Elemental",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Uma bola do elemento que estoura em área"
+      ],
+      "desc": "2º nível: custa 2.",
+      "requer_minimo": {
+        "modelo-livre.seta_elemental": 1
+      },
+      "ativa": { "eter": 60, "recarga": 12 },
+      "pos": [700, -200]
+    },
+    {
+      "id": "modelo-livre.fluxo_do_eter",
+      "nome": "Fluxo do Éter",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 2,
+      "por_ponto": [
+        "+15% de Éter ganho",
+        "+15% de Éter ganho"
+      ],
+      "desc": "2º nível: cada ponto custa 2.",
+      "requer_minimo": {
+        "modelo-livre.maestria_do_eter": 2
+      },
+      "pos": [700, 0]
+    },
+    {
+      "id": "modelo-livre.lamina_elemental",
+      "nome": "Lâmina Elemental",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "A arma leva o seu elemento por 15 s"
+      ],
+      "desc": "2º nível: custa 2.",
+      "requer_minimo": {
+        "modelo-livre.descarga_de_eter": 1
+      },
+      "ativa": { "eter": 40, "recarga": 30 },
+      "pos": [700, 200]
+    },
+    {
+      "id": "modelo-livre.elementalista",
+      "nome": "Elementalista",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: MANA. Enche sozinha, devagar, e não com golpes; magias e reações mais fortes"
+      ],
+      "desc": "IDENTIDADE pura do Arcano.",
+      "requer_minimo": {
+        "modelo-livre.explosao_elemental": 1,
+        "modelo-livre.fluxo_do_eter": 1
+      },
+      "pos": [920, 0]
+    },
+    {
+      "id": "modelo-livre.furtividade_e_esquiva",
+      "nome": "Furtividade e Esquiva",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera agachar: agachado, anda devagar e os inimigos só te percebem de mais perto"
+      ],
+      "desc": "Raiz do caminho da ESQUIVA.",
+      "requer_minimo": {},
+      "pos": [0, 260]
+    },
+    {
+      "id": "modelo-livre.rolamento",
+      "nome": "Rolamento",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 1,
+      "por_ponto": [
+        "Libera o rolamento (toque no Espaço)"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "modelo-livre.furtividade_e_esquiva": 1
+      },
+      "pos": [-200, 480]
+    },
+    {
+      "id": "modelo-livre.passo_ligeiro",
+      "nome": "Passo Ligeiro",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "Anda e corre 5% mais rápido",
+        "Anda e corre 5% mais rápido"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "modelo-livre.furtividade_e_esquiva": 1
+      },
+      "pos": [0, 480]
+    },
+    {
+      "id": "modelo-livre.passos_leves",
+      "nome": "Passos Leves",
+      "tipo": "passiva",
+      "ranks": 2,
+      "custo": 1,
+      "por_ponto": [
+        "Agachado, os inimigos te percebem 20% mais perto",
+        "Agachado, os inimigos te percebem 20% mais perto"
+      ],
+      "desc": "",
+      "requer_minimo": {
+        "modelo-livre.furtividade_e_esquiva": 1
+      },
+      "pos": [200, 480]
+    },
+    {
+      "id": "modelo-livre.passo_de_esquiva",
+      "nome": "Passo de Esquiva",
+      "tipo": "ativa",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "Libera o dash: um passo curto e rápido"
+      ],
+      "desc": "2º nível: custa 2. Usa vigor.",
+      "requer_minimo": {
+        "modelo-livre.rolamento": 1
+      },
+      "ativa": { "eter": 0, "recarga": 0 },
+      "pos": [-200, 700]
+    },
+    {
+      "id": "modelo-livre.golpe_pelas_costas",
+      "nome": "Golpe pelas Costas",
+      "tipo": "passiva",
+      "ranks": 1,
+      "custo": 2,
+      "por_ponto": [
+        "+50% de dano em quem não te viu"
+      ],
+      "desc": "2º nível: custa 2.",
+      "requer_minimo": {
+        "modelo-livre.passos_leves": 2
+      },
+      "pos": [200, 700]
+    },
+    {
+      "id": "modelo-livre.sombra",
+      "nome": "Sombra",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: FOCO. Enche golpeando sem ser visto; esvazia quando te veem"
+      ],
+      "desc": "IDENTIDADE pura da Esquiva.",
+      "requer_minimo": {
+        "modelo-livre.golpe_pelas_costas": 1,
+        "modelo-livre.eter": 1
+      },
+      "pos": [200, 920]
+    },
+    {
+      "id": "modelo-livre.paladino",
+      "nome": "Paladino",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: GRAÇA. Enche bloqueando e curando; milagres saem com o escudo erguido"
+      ],
+      "desc": "IDENTIDADE híbrida: Batalha (escudo) + Fé. Ninguém vira Paladino sem andar pelos dois caminhos.",
+      "requer_minimo": {
+        "modelo-livre.muralha": 1,
+        "modelo-livre.fe": 2
+      },
+      "pos": [-640, -640]
+    },
+    {
+      "id": "modelo-livre.sorcerer",
+      "nome": "Sorcerer",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: PACTO. A barra também enche com a sua vida; magias sombrias, mais fortes e mais caras"
+      ],
+      "desc": "IDENTIDADE híbrida: Arcano + Fé, como as hexes do Dark Souls, que pedem Inteligência e Fé. Nome a decidir.",
+      "requer_minimo": {
+        "modelo-livre.explosao_elemental": 1,
+        "modelo-livre.luz_sagrada": 1
+      },
+      "pos": [640, -640]
+    },
+    {
+      "id": "modelo-livre.arcanista",
+      "nome": "Arcanista",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: CARGA ARCANA. Golpes de arma leve enchem; a magia sai junto do golpe, e dá para conjurar correndo"
+      ],
+      "desc": "IDENTIDADE híbrida: Arcano + Esquiva.",
+      "requer_minimo": {
+        "modelo-livre.lamina_elemental": 1,
+        "modelo-livre.passo_ligeiro": 2
+      },
+      "pos": [640, 640]
+    },
+    {
+      "id": "modelo-livre.lutador",
+      "nome": "Lutador",
+      "tipo": "identidade",
+      "ranks": 1,
+      "custo": 5,
+      "por_ponto": [
+        "Forma do Éter: ADRENALINA. Enche esquivando por um triz e emendando golpes; cai ao apanhar; cheia, golpes mais rápidos"
+      ],
+      "desc": "IDENTIDADE híbrida: Batalha + Esquiva (punhos).",
+      "requer_minimo": {
+        "modelo-livre.forca_bruta": 2,
+        "modelo-livre.passo_de_esquiva": 1,
+        "modelo-livre.eter": 1
+      },
+      "pos": [-640, 640]
+    }
+  ]
+}
