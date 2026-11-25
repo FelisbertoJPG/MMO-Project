@@ -13,13 +13,21 @@ export const ERGUER = { coxa: 1.3, canela: -1.0, pe: -0.3, corpo: 0.1 };
  *  (os lábios e os dentes se encostam), 1 = escancarada. Em repouso ficam semiabertas e respiram; abrem tudo
  *  quando a cabeça EMPINA (o cuspe, o rugido: a pose `cab` > 0), um pouco no pisão; dormindo, quase fechadas. */
 export const BOCA = { dormindo: 0.08, repouso: 0.35, pisao: 0.6, morta: 0.7, largura: [0.3, 0.85], altura: [0.8, 0.3] };
-/** A MANDÍBULA DE BAIXO (`mandibula<k>`, filha da cabeça; 25/11/2026): segue a abertura da boca girando o queixo em volta da
- *  articulação (+x: o queixo, à frente, desce).
- *  - COM a de CIMA (`maxila<k>`, as duas com `ponta` — o .glb as traz em `userData.ponta`): o modelo já vem de boca ABERTA, então
- *    aberta (1) = como o modelo veio, mais `alem` rad; fechada (0) = girada até o queixo apontar para a ponta da de cima (o ângulo sai
- *    das juntas: `fecha`, medido no ossosDaHidra). A boca então não escala (as mandíbulas abrem e fecham por ela).
- *  - SEM a de cima: abre `abre` rad além do modelo com a boca escancarada (o jeito de antes), e a boca escala. */
-export const MANDIBULA = { abre: 0.45, alem: 0.1 };
+/** A MANDÍBULA DE BAIXO (`mandibula<k>`, filha da cabeça; 25/11/2026) — HOJE SÓ NO EDITOR (`quem.comMandibulas`; no jogo fica como o
+ *  modelo veio).
+ *  - COM a de CIMA (`maxila<k>`, as duas com `ponta` — o .glb as traz em `userData.ponta`): o modelo já vem de boca ABERTA; `s` = o
+ *    quanto a de baixo foi para a de cima (0 como veio, 1 fechada: o giro até o queixo apontar para a ponta de cima, ou o ENCAIXE —
+ *    `fecha`, medido no ossosDaHidra). A BOCA VIVA: parada, ela sobe e desce até `respira` (o do osso — `userData.respira`, do config —,
+ *    senão `MANDIBULA.respira`), devagar; some quando a cabeça empina para atacar. A boca não escala (as mandíbulas fazem por ela).
+ *  - SEM a de cima: abre `abre` rad além do modelo com a boca escancarada, e a boca escala. */
+export const MANDIBULA = { abre: 0.45, respira: 0.1 };
+
+/** a mandíbula de baixo `m` na fração `s` do caminho até a de cima (0 = como o modelo veio, 1 = fechada): o giro ou o encaixe */
+export function porFechamento(m, fecha, s) {
+  if (typeof fecha === 'number') { m.rotation.set(fecha * s, 0, 0); return; }
+  m.position.copy(fecha.pos0).addScaledVector(fecha.anda, s);
+  m.quaternion.identity().slerp(fecha.gira, s);
+}
 
 /** onde o osso está na pose de ligação, no espaço da malha (a pose de ligação do rigar.mjs não gira nada: a soma das posições) */
 function naLigacao(b) {
@@ -96,20 +104,19 @@ export function animarHidra(O, a, quem, t, dt) {
     if (deFora == null && quem.state === 'pisao') alvo = Math.max(alvo, BOCA.pisao);
     if (deFora == null && !quem.dead && quem.state !== 'dormant') alvo += Math.sin(t * 1.1 + k * 1.9) * 0.05;   // respira
     const ab = quem.aberturas[k] = THREE.MathUtils.lerp(quem.aberturas[k], alvo, Math.min(1, dt * 8));
-    const fecha = O.fecha[k];
+    // AS MANDÍBULAS só se mexem com `quem.comMandibulas` (25/11/2026, o dono: "não sobe essas animações pro jogo ainda, apenas a posição
+    // dos ossos"): hoje só o EDITOR o liga — no jogo elas ficam como o modelo veio e a boca abre e fecha escalando, como antes
+    const m = O.mandibulas[k], fecha = quem.comMandibulas ? O.fecha[k] : null;
     if (fecha == null) {
       boca?.scale.set(BOCA.largura[0] + BOCA.largura[1] * ab, BOCA.altura[0] + BOCA.altura[1] * ab, 1);
-      O.mandibulas[k]?.rotation.set(ab * MANDIBULA.abre, 0, 0);   // (+x: o queixo, à frente, desce)
-    } else if (typeof fecha === 'number') {
-      // (as duas mandíbulas: aberta = o modelo + `alem`; fechada = o queixo na ponta da de cima)
-      boca?.scale.set(1, 1, 1);
-      O.mandibulas[k].rotation.set((1 - ab) * fecha + ab * MANDIBULA.alem, 0, 0);
+      if (quem.comMandibulas) m?.rotation.set(ab * MANDIBULA.abre, 0, 0);   // (sem a de cima: +x, o queixo, à frente, desce)
     } else {
-      // (o ENCAIXE: aberta = como o modelo veio; fechada = a peça de baixo inteira em cima da de cima)
-      const m = O.mandibulas[k], f = 1 - Math.min(1, Math.max(0, ab));
+      // (as duas mandíbulas: `s` = o quanto a de baixo foi para a de cima — 0 como o modelo veio, 1 fechada nela. De fora (o editor), o
+      // `abrir`; senão, a BOCA VIVA: sobe e desce um pouco, o `respira` do osso, e some quando a cabeça empina para atacar)
       boca?.scale.set(1, 1, 1);
-      m.position.copy(fecha.pos0).addScaledVector(fecha.anda, f);
-      m.quaternion.identity().slerp(fecha.gira, f);
+      const s = deFora != null ? 1 - deFora : quem.dead ? 0
+        : (m.userData.respira ?? MANDIBULA.respira) * (0.5 - 0.5 * Math.cos(t * (quem.state === 'dormant' ? 0.6 : 1.1) + k * 1.9)) * (1 - empina);
+      porFechamento(m, fecha, s);
     }
   });
   // as PERNAS: o pé da pose sobe (coxa para fora e para cima, a canela devolve, o pé pende); as outras

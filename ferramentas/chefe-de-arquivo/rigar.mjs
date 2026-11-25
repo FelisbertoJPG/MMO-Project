@@ -225,8 +225,14 @@ const nos = [{ name: cfg.nome ?? path.basename(saida, '.glb'), mesh: 0, skin: 0 
 ossos.forEach((o, b) => {
   const pai = o.pai ? mundo[porNome.get(o.pai)] : [0, 0, 0];
   // (a PONTA vai junto, em metros no espaço da malha — `extras` vira o `userData` do osso no three: o corpo a usa, ex.: a mandíbula
-  // de baixo fecha até o queixo apontar para a ponta da de cima); e o `fecha` da mandíbula ("encaixe": vai inteira até a de cima)
-  nos.push({ name: o.nome, translation: mundo[b].map((v, e) => v - pai[e]), ...(o.ponta || o.fecha ? { extras: { ...(o.ponta ? { ponta: noMundo(o.ponta).map((v) => Math.round(v * 1e4) / 1e4) } : {}), ...(o.fecha ? { fecha: o.fecha } : {}) } } : {}) });
+  // de baixo fecha até o queixo apontar para a ponta da de cima); o `fecha` da mandíbula ("encaixe": vai inteira até a de cima) e o
+  // `respira` dela (a boca viva: o quanto sobe e desce, parada — 0 a 1 do caminho até a de cima)
+  const extras = {
+    ...(o.ponta ? { ponta: noMundo(o.ponta).map((v) => Math.round(v * 1e4) / 1e4) } : {}),
+    ...(o.fecha ? { fecha: o.fecha } : {}),
+    ...(Number.isFinite(o.respira) ? { respira: o.respira } : {}),
+  };
+  nos.push({ name: o.nome, translation: mundo[b].map((v, e) => v - pai[e]), ...(Object.keys(extras).length ? { extras } : {}) });
 });
 ossos.forEach((o, b) => { const f = filhos[b].map((x) => 1 + porNome.get(x.nome)); if (f.length) nos[1 + b].children = f; });
 const raizes = ossos.map((o, b) => (o.pai ? null : 1 + b)).filter((x) => x !== null);
