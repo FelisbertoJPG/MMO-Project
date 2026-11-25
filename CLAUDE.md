@@ -52,7 +52,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 - Medida de tela em JS: `tela.w`/`tela.h` (nunca `innerWidth`); em CSS, `var(--vw)` (→ base `interface-e-celular`).
 - Teclas em `input`/`textarea` são ignoradas pelo `Input`.
 
-**Rede, modos e save** (→ base `rede-e-mmo`, `nucleo-do-jogo`)
+**Rede, modos e save** (→ base `rede-e-mmo`, `nucleo-do-jogo`; o que vira regra do servidor → `migracao-servidor`)
 - **A IA nunca lê `game.player`** (usa `alvo` / `game.alvoPara`); golpe do jogador passa SEMPRE por `game.golpear`.
 - **O servidor do Mundo online confere o passo e o golpe pelos números do JOGO** (`regras-do-mundo.mjs`; a PAREDE no passo, pelo mapa lógico — `mapa-do-servidor.mjs`): conta nova de dano, velocidade, VIGOR ou ritmo do golpe no `player.js` vai também para lá (os números divididos ficam na `ficha.js`: `GOLPE_FORTE`, `BUFF_DANO`, `FOLEGO_DA_COMIDA`…; a tabela dos golpes em `js/ataques.js`), senão o jogador honesto é cortado.
 - Diferença entre Jornada e Mundo online é `game.regras.<nome>` (`js/modo.js`), não `if (game.modo === 'mmo')`.
@@ -101,6 +101,7 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 | `/agent_corpo` | `/agent_corpo_forte` | `corpo-e-animacao` | o guerreiro (`guerreiro.glb`), retarget, malha fundida, dedos, clipes do Mixamo, guarda, duas mãos (IK), empunhadura, personagens esculpidos de fotos (`ferramentas/contorno`, `esculpido.js`), corpo de arquivo (modelo pronto → `ferramentas/corpo-de-arquivo`) |
 | `/agent_aparencia` | `/agent_aparencia_forte` | `aparencia-e-racas` | painel de Aparência, raças e corpo feminino, o 3º corpo (corpo de arquivo), raça esculpida, proporções, busto, rosto, presas, orelhas, penteados, barbas, sobrancelhas, boca e batom, ímã, modelagem, pintura, piscada |
 | `/agent_combate` | `/agent_combate_forte` | `combate-e-itens` | escudo e postura, fratura, esqueleto desmontado, item caído e raridade, expositores, quebráveis, comida e receitas, a ficha (atributos, armaduras, peso, `FICHA`) |
+| `/agent_migracao` | `/agent_migracao_forte` | `migracao-servidor` | a MIGRAÇÃO PARA O SERVIDOR (o caminho 2 contra trapaça): o que o jogador pode manipular vira regra do servidor — `regras-do-mundo.mjs` (passo, parede, golpe, vigor, ritmo), o mapa lógico (`mapa-logico.js`, `mapa-do-servidor.mjs`), as criaturas em camadas (`js/inimigos/`: base, comportamentos, traços, fichas), as tabelas medidas dos `.glb`, os projéteis, o simulador no servidor, a vida do jogador, o save no Supabase e os itens como ficha + efeitos; a receita em camadas e a validação (foto de antes/depois, Node, honesto × trapaceiro) |
 | `/agent_rede` | `/agent_rede_forte` | `rede-e-mmo` | `js/rede/`, protocolo, sala, duelo, co-op, o Mundo online (`servidor-mundo.mjs`, simulador, `game.sessao`), chat global, chat de voz |
 | `/agent_interface` | `/agent_interface_forte` | `interface-e-celular` | tela de entrada, HUD, menu de pausa em telas, coordenadas, câmeras (primeira pessoa, isométrica, véu), toque, tela deitada, carregamento no celular |
 | `/agent_desempenho` | `/agent_desempenho_forte` | `desempenho-do-jogo` | qualidades gráficas, luzes, LOD, sombras, resolução automática, máquina fraca e celular, o monitor (F3), perfil de CPU, telemetria |
