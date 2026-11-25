@@ -27,7 +27,7 @@
     { "nome": "cabeca1", "pai": "pescoco1c", "de": [0.29, 0.22, 0.03], "ponta": [0.341855, 0.277825, 0.093697] },
     { "nome": "boca1", "pai": "cabeca1", "de": [0.296274, 0.226491, 0.076824], "regiao": { "raio": [0.095, 0.11, 0.08], "frente": true, "so": ["cabeca1", "pescoco1c"] } },
     { "nome": "mandibula1", "pai": "cabeca1", "de": [0.30704, 0.183488, 0.072913], "ponta": [0.312447, 0.154271, 0.120031], "regiao": { "raio": 0.045, "capsula": true, "so": ["cabeca1", "pescoco1c"] } },
-    { "nome": "maxila1", "pai": "cabeca1", "de": [0.307, 0.203, 0.073], "ponta": [0.296, 0.256, 0.127], "regiao": { "raio": 0.035, "capsula": true, "so": ["cabeca1", "pescoco1c"] } },
+    { "nome": "maxila1", "pai": "cabeca1", "de": [0.306999, 0.24684, 0.104137], "ponta": [0.331946, 0.236142, 0.147677], "regiao": { "raio": 0.035, "capsula": true, "so": ["cabeca1", "pescoco1c"] } },
 
     { "nome": "pescoco2a", "pai": "tronco", "de": [0.12, -0.08, -0.01] },
     { "nome": "pescoco2b", "pai": "pescoco2a", "de": [0.19, -0.07, -0.02] },

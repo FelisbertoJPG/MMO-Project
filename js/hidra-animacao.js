@@ -81,9 +81,11 @@ export function animarHidra(O, a, quem, t, dt) {
   // as BOCAS: o alvo de cada uma pelo estado e pela pose, seguido devagar; abrir é escalar o osso
   O.bocas.forEach((boca, k) => {
     const empina = Math.max(0, Math.min(1, a.cab[k] ?? 0));
-    let alvo = quem.state === 'dormant' ? BOCA.dormindo : quem.dead ? BOCA.morta : BOCA.repouso + (1 - BOCA.repouso) * empina;
-    if (quem.state === 'pisao') alvo = Math.max(alvo, BOCA.pisao);
-    if (!quem.dead && quem.state !== 'dormant') alvo += Math.sin(t * 1.1 + k * 1.9) * 0.05;   // respira
+    // (`quem.abrir[k]`, se houver, manda a abertura de fora — o editor, para ver a boca abrir e fechar; no jogo não há)
+    const deFora = quem.abrir?.[k];
+    let alvo = deFora ?? (quem.state === 'dormant' ? BOCA.dormindo : quem.dead ? BOCA.morta : BOCA.repouso + (1 - BOCA.repouso) * empina);
+    if (deFora == null && quem.state === 'pisao') alvo = Math.max(alvo, BOCA.pisao);
+    if (deFora == null && !quem.dead && quem.state !== 'dormant') alvo += Math.sin(t * 1.1 + k * 1.9) * 0.05;   // respira
     const ab = quem.aberturas[k] = THREE.MathUtils.lerp(quem.aberturas[k], alvo, Math.min(1, dt * 8));
     const fecha = O.fecha[k];
     if (fecha == null) {
