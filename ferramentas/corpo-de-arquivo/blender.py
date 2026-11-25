@@ -15,6 +15,8 @@
 #       a UNIÃO de duas malhas (fundir-uniao.mjs): { a: { pos, idx }, b: { pos, idx } } — os furinhos de b fechados e o booleano exato; fica o lado de fora das duas; grava { pos, idx }
 #   blender --background --factory-startup --python blender.py -- reduzirmalha <entrada.json> <saida.json> <triângulos>
 #       uma malha solta { pos, idx } (cm) soldada e reduzida até <triângulos> (o reduzir-malha.mjs, os modelos soltos do editor)
+#   blender --background --factory-startup --python blender.py -- reduzirchefe <entrada.json> <saida.json> <triângulos>
+#       a malha de um chefe de arquivo { pos, uv } (três cantos por triângulo) reduzida COM o UV (o malha-editada.mjs)
 import bpy, sys, json, math
 
 args = sys.argv[sys.argv.index('--') + 1:]
@@ -317,3 +319,40 @@ elif modo == 'reduzirmalha':
     for p in obj.data.polygons: idx += list(p.vertices)
     json.dump({'pos': pos, 'idx': idx}, open(args[2], 'w', encoding='utf-8'))
     print('[corpo] reduzirmalha: %d -> %d triângulos' % (antes, triangulos(obj)))
+
+elif modo == 'reduzirchefe':
+    # A MALHA DE UM CHEFE DE ARQUIVO, REDUZIDA COM A TEXTURA (25/11/2026; ferramentas/chefe-de-arquivo/malha-editada.mjs — o "reduzir"
+    # da aba Modelo do editor com a Mycohydra aberta): { pos, uv } (três cantos por triângulo; o UV é do CANTO, então a costura da
+    # textura não impede a solda) → solda os pontos repetidos, reduz até `alvo` triângulos pelo colapso de arestas (o UV de cada canto
+    # é interpolado junto) e grava { pos, uv } do mesmo jeito, no mesmo espaço
+    d = json.load(open(args[1], encoding='utf-8')); alvo = int(args[3])
+    P, U = d['pos'], d['uv']
+    chave, verts, faces, cantos = {}, [], [], []
+    for c in range(len(P) // 3):
+        k = (round(P[c * 3] * 1e5), round(P[c * 3 + 1] * 1e5), round(P[c * 3 + 2] * 1e5))
+        if k not in chave: chave[k] = len(verts); verts.append(paraB(P[c * 3:c * 3 + 3]))
+    for t in range(len(P) // 9):
+        f = [chave[(round(P[c * 3] * 1e5), round(P[c * 3 + 1] * 1e5), round(P[c * 3 + 2] * 1e5))] for c in range(t * 3, t * 3 + 3)]
+        if len(set(f)) == 3: faces.append(f); cantos.append(t * 3)
+    me = bpy.data.meshes.new('chefe')
+    me.from_pydata(verts, [], faces)
+    uvl = me.uv_layers.new(name='uv')
+    for p in me.polygons:
+        c0 = cantos[p.index]
+        for j, li in enumerate(p.loop_indices): uvl.data[li].uv = (U[(c0 + j) * 2], U[(c0 + j) * 2 + 1])
+    me.update()
+    obj = bpy.data.objects.new('chefe', me); bpy.context.scene.collection.objects.link(obj)
+    bpy.context.view_layer.objects.active = obj; obj.select_set(True)
+    antes = triangulos(obj)
+    if antes > alvo:
+        c = obj.modifiers.new('junta', 'DECIMATE'); c.decimate_type = 'COLLAPSE'; c.ratio = alvo / antes; c.use_collapse_triangulate = True
+        bpy.ops.object.modifier_apply(modifier='junta')
+    t = obj.modifiers.new('tri', 'TRIANGULATE'); bpy.ops.object.modifier_apply(modifier='tri')
+    me = obj.data; uvl = me.uv_layers.active
+    pos, uv = [], []
+    for p in me.polygons:
+        for li in p.loop_indices:
+            pos += [round(x, 6) for x in deB(me.vertices[me.loops[li].vertex_index].co)]
+            uv += [round(x, 6) for x in uvl.data[li].uv]
+    json.dump({'pos': pos, 'uv': uv}, open(args[2], 'w', encoding='utf-8'))
+    print('[corpo] reduzirchefe: %d -> %d triângulos' % (antes, triangulos(obj)))

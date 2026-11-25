@@ -1,6 +1,10 @@
 {
-  "_leiame": "A MYCOHYDRA (o chefe das WindHills): o .glb do Meshy (sem esqueleto) + as JUNTAS abaixo -> assets/chefes/mycohydra.glb com esqueleto e pesos, pelo rigar.mjs. As juntas estao no espaco do modelo do Meshy (cerca de 1 unidade de altura, a frente e +Z: as bocas olham para la), lidas nas vistas ortograficas. As BOCAS (boca<k>) sao ossos de REGIAO: o centro da bocarra vertical de cada cabeca (por baixo do chapeu, virada para +Z) e o elipsoide dos labios; o jogo as abre e fecha escalando o osso. Mudou uma junta? Rode de novo: node ferramentas/chefe-de-arquivo/rigar.mjs ferramentas/chefe-de-arquivo/mycohydra.json",
+  "_leiame": "A MYCOHYDRA (o chefe das WindHills): o .glb do Meshy (sem esqueleto) + as JUNTAS abaixo -> assets/chefes/mycohydra.glb com esqueleto e pesos, pelo rigar.mjs. As juntas estao no espaco do modelo do Meshy (cerca de 1 unidade de altura, a frente e +Z: as bocas olham para la), lidas nas vistas ortograficas. As BOCAS (boca<k>) sao ossos de REGIAO: o centro da bocarra vertical de cada cabeca (por baixo do chapeu, virada para +Z) e o elipsoide dos labios; o jogo as abre e fecha escalando o osso. Mudou uma junta? Rode de novo: node ferramentas/chefe-de-arquivo/rigar.mjs ferramentas/chefe-de-arquivo/mycohydra.json (ou mova na aba Esqueleto do Editor de Personagem, que grava aqui e roda). A MALHA se edita na aba Modelo (modelo solto \"Mycohydra\"): o original fica em `original`, a editada vira a `fonte` (malha-editada.mjs). `caixa` = a caixa do ORIGINAL: a escala e o lugar nao mudam quando a malha muda. `ficha`: o rigar troca as `bocas` (a junta da boca + `frenteDaBoca` m em +Z) e os `pes` dessa ficha em js/inimigos/tipos.js.",
   "fonte": "mycohydra-meshy.glb",
+  "original": "mycohydra-meshy.glb",
+  "caixa": { "min": [-0.4670409858226776, -0.47680699825286865, -0.3698729872703552], "max": [0.4626460075378418, 0.4753420054912567, 0.37084999680519104] },
+  "ficha": "mycohydra",
+  "frenteDaBoca": 0.68,
   "saida": "assets/chefes/mycohydra.glb",
   "altura": 14,
   "textura": 1024,

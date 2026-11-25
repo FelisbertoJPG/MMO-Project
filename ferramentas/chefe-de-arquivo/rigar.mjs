@@ -57,6 +57,9 @@ for (let i = 0; i < N; i++) {
   const x = P0[i * 3], y = P0[i * 3 + 1], z = P0[i * 3 + 2];
   if (x < xmin) xmin = x; if (x > xmax) xmax = x; if (y < ymin) ymin = y; if (y > ymax) ymax = y; if (z < zmin) zmin = z; if (z > zmax) zmax = z;
 }
+// (a CAIXA do config — a do modelo ORIGINAL — vale no lugar da desta malha: editada na aba Modelo do editor ou reduzida, a malha
+// não muda de escala nem de lugar, e as juntas, que estão no espaço do original, seguem certas)
+if (cfg.caixa) ({ min: [xmin, ymin, zmin], max: [xmax, ymax, zmax] } = cfg.caixa);
 const ESC = cfg.altura / (ymax - ymin), cx = (xmin + xmax) / 2, cz = (zmin + zmax) / 2;
 const noMundo = ([x, y, z]) => [(x - cx) * ESC, (y - ymin) * ESC, (z - cz) * ESC];
 
@@ -245,6 +248,27 @@ const m2 = (v) => v.map((x) => Math.round(x * 100) / 100);
 console.log('juntas em metros (de → ponta):', JSON.stringify(Object.fromEntries(ossos.map((o, b) => [o.nome, o.ponta ? [m2(mundo[b]), m2(noMundo(o.ponta))] : m2(mundo[b])]))));
 const vazios = ossos.filter((_, b) => !contagem[b]).map((o) => o.nome);
 if (vazios.length) console.warn('AVISO: ossos sem vértice nenhum (confira a junta):', vazios.join(', '));
+
+// a FICHA (`ficha` no config: o tipo em js/inimigos/tipos.js): as `bocas` (a junta `boca<k>` + `frenteDaBoca` m em +Z: o cuspe
+// nasce na frente da bocarra) e os `pes` ([x, z] da junta `pe<k>`) medidos agora entram no lugar dos de lá, linha a linha —
+// moveu uma junta (aba Esqueleto do editor), o cuspe e o pisão saem do lugar novo
+if (cfg.ficha) {
+  const arq = path.join(RAIZ, 'js/inimigos/tipos.js');
+  const txt = fs.readFileSync(arq, 'utf8'), ini = txt.indexOf(`ENEMY_TYPES.${cfg.ficha} = {`), fim = ini < 0 ? -1 : txt.indexOf('\n};', ini);
+  const deNome = (re) => ossos.map((o, b) => [re.exec(o.nome), b]).filter(([m]) => m).sort((a, b) => a[0][1] - b[0][1]).map(([, b]) => mundo[b]);
+  const bocas = deNome(/^boca(\d+)$/).map(([x, y, z]) => m2([x, y, z + (cfg.frenteDaBoca ?? 0)]));
+  const pes = deNome(/^pe(\d+)$/).map(([x, , z]) => m2([x, z]));
+  const lista = (l) => JSON.stringify(l).replace(/,/g, ', ');
+  let bloco = fim < 0 ? '' : txt.slice(ini, fim);
+  const troca = (campo, l) => { const re = new RegExp(`^(\\s*${campo}:\\s*)\\[.*\\],?\\s*$`, 'm'); if (!l.length || !re.test(bloco)) return false; bloco = bloco.replace(re, `$1${lista(l)},`); return true; };
+  const ok = [troca('bocas', bocas), troca('pes', pes)];
+  if (fim < 0 || !ok.every(Boolean)) console.warn(`AVISO: não achei ${fim < 0 ? `a ficha ENEMY_TYPES.${cfg.ficha}` : 'as linhas bocas:/pes:'} em js/inimigos/tipos.js — a ficha ficou como estava`);
+  else {
+    const novo = txt.slice(0, ini) + bloco + txt.slice(fim);
+    if (novo !== txt) fs.writeFileSync(arq, novo);
+    console.log(`ficha ${cfg.ficha} (js/inimigos/tipos.js)${novo === txt ? ', igual' : ''}: bocas ${lista(bocas)}, pes ${lista(pes)}`);
+  }
+}
 
 // a textura: reduzida e em JPEG
 if (cfg.textura) execFileSync(process.execPath, [path.join(RAIZ, 'ferramentas/enxugar-glb.mjs'), `--max=${cfg.textura}`, '--jpeg', saida], { stdio: 'inherit' });
