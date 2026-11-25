@@ -12,8 +12,7 @@ import { World, START_POS, SAQUES, horaDoMundo, CELL } from './world.js';
 import { Effects, Projectiles, flatDist, yawTo } from './combat.js';
 import { Player } from './player.js';
 import { Monitor } from './monitor.js';
-import { spawnEnemies } from './enemies.js';
-import { Boss } from './boss.js';
+import { spawnEnemies, criarChefe, Enemy } from './enemies.js';
 import { Dragao } from './dragao.js';
 import { Inventory } from './inventory.js';
 import { UI } from './ui.js';
@@ -140,7 +139,7 @@ class Game {
     this.inventory = new Inventory(this);
     this.player = new Player(this);
     this.enemies = spawnEnemies(this);
-    this.boss = new Boss(this);
+    this.boss = criarChefe(this, 'carrasco');   // (a ficha dele: js/inimigos/tipos.js; os traços: tracos.js)
     this.dragao = new Dragao(this);   // o chefe secreto do terraço
     this.bossAtual = null;            // de quem é a barra de chefe (null = o Carrasco)
     this.all = [...this.enemies, this.boss, this.dragao];
@@ -239,6 +238,24 @@ class Game {
     }
     if (atual && !atual.dead && pode(atual) && this.jogadores.includes(atual) && flatDist(atual.pos, pos) < dMelhor + 3) return atual;
     return melhor ?? this.player;
+  }
+
+  /**
+   * Um inimigo INVOCADO (o traço `invocar`: os lacaios do Carrasco) entra no mundo: com corpo, na
+   * lista de todos e com o nome de rede `lacaio<n>`. O cérebro pede; quem cria é o mundo.
+   */
+  invocar(cfg, pos, rumo, opts = {}) {
+    const m = new Enemy(this, cfg, pos, rumo, opts);
+    m.netId = `lacaio${++this.contLacaios}`;
+    this.all.push(m);
+    return m;
+  }
+
+  /** Tira do mundo quem foi invocado (o lacaio que já sumiu, ou o chefe que voltou a dormir). */
+  dispensar(m) {
+    if (m.model) this.scene.remove(m.model.root);
+    const i = this.all.indexOf(m);
+    if (i >= 0) this.all.splice(i, 1);
   }
 
   /**

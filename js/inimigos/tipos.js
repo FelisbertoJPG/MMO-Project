@@ -58,6 +58,39 @@ export const ENEMY_TYPES = {
 };
 
 /**
+ * OS CHEFES: fichas como as de cima, com TRAÇOS (tracos.js) — cada chave abaixo de `drops` liga um.
+ * Chefe novo = uma ficha nova aqui (e o lugar dele em `CHEFES`, nascimentos.js).
+ */
+const ESCALA_DO_CARRASCO = 1.55;
+ENEMY_TYPES.carrasco = {
+  name: 'O Carrasco da Masmorra', outfit: 'executioner', skinTint: 0x4e4038, hp: 1500, souls: 5000, speed: 2.9,
+  runAnim: 'Jog_Fwd_Loop', runRef: 3.9 * ESCALA_DO_CARRASCO, idleAnim: 'Sword_Idle',
+  radius: 0.75, height: 1.85 * ESCALA_DO_CARRASCO, scale: ESCALA_DO_CARRASCO, poise: 170, aggro: 999, cooldown: [0.8, 1.7], turnRate: 2.4,
+  right: 'greataxe',
+  attacks: [
+    { anim: 'heavy1', dmg: 50, poise: 70, reach: 3.4, range: 3.4, lunge: 2.5, speed: 0.7, next: 'b2', nextChance: 0.6, weight: 1.3 },
+    { id: 'b2', anim: 'heavy2', dmg: 46, poise: 70, reach: 3.4, range: 0, follow: true, lunge: 2.0, speed: 0.7, next: 'b3', nextChance: 0.45 },
+    { id: 'b3', anim: 'heavy3', dmg: 52, poise: 80, reach: 3.4, range: 0, follow: true, lunge: 2.0, speed: 0.7 },
+    { anim: 'overhead', dmg: 74, poise: 110, reach: 3.6, range: 3.8, lunge: 2.0, speed: 0.6, shock: { radius: 3.0, speed: 10 } },
+    { anim: 'dash', dmg: 56, poise: 90, reach: 3.2, range: 11, minRange: 5, lunge: 12, dash: true, speed: 0.55, trackMul: 1.3 },
+    { anim: 'heavy4', dmg: 46, poise: 80, reach: 3.6, range: 3.0, speed: 0.8, arc: 2.2, weight: 0.8 },
+    // Fase 2
+    { anim: 'leap', dmg: 72, poise: 120, reach: 3.2, range: 17, minRange: 6.5, leap: true, speed: 0.75, arc: 3.2, phase: 2, shock: { radius: 7, speed: 12 }, weight: 1.2, gap: 5, after: 'NinjaJump_Land', recover: 0.9 },
+    { anim: 'summon', cast: 'summon', range: 40, phase: 2, gap: 22, weight: 2, speed: 0.9 },
+  ],
+  drops: [],
+  animDormindo: 'Crouch_Idle_Loop',   // ajoelhado junto ao cepo, esperando o próximo condenado
+  chefe: { intro: 2.6, rugido: 1.2 },
+  arena: true,
+  fases: [{ vida: 0.5, explode: 0.9, dura: 2.4, velocidade: 1.2, giro: 3.1, pausa: [0.5, 1.2], explosao: { raio: 7, dano: 30, poise: 100 } }],
+  perseguir: { perto: 3.0, correDe: 12, corrida: 1.35, andar: ['Walk_Loop', 1.5], correr: ['Jog_Fwd_Loop', 3.9] },
+  firme: { cambalear: 1.3, recuo: 0.3 },
+  invocar: { tipo: 'minion', quantos: 2, max: 3, vida: 80, raio: 4.5 },
+  morte: { estilo: 'encolher', espera: 3.5, dura: 1.5 },
+  corpo: { olhos: 'brasa', pulsoNaFase: true },
+};
+
+/**
  * O REFORÇO DOS ESQUELETOS (05/10/2026): com a ficha nova (ficha.js) eles ficaram fracos
  * demais. O ajuste fica AQUI, por cima da tabela, para ser mexido num lugar só: vida,
  * dano dos golpes, equilíbrio (quanto aguenta sem cambalear), a pausa entre ataques

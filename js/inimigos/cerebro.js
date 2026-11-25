@@ -32,6 +32,7 @@ import * as THREE from 'three';
 import { ATTACKS } from '../ataques.js';
 import { novoEscudo, danoNoEscudo, RECUPERA_APOS, RECUPERA_POR_S } from '../escudo.js';
 import { angleToTarget, yawTo, turnTowards, flatDist } from '../geometria.js';
+import { TRACOS } from './tracos.js';
 
 const _v = new THREE.Vector3();
 
@@ -45,8 +46,9 @@ const FEITICO = { frente: -0.44, direita: 0.2, altura: 1.8 };
 export class Inimigo {
   constructor(mundo, cfg, spawnPos, facing = 0, { dormant = false } = {}) {
     this.mundo = mundo;
-    this.cfg = cfg;
+    this.cfg = this.cfgBase = cfg;
     this.name = cfg.name;
+    this.isBoss = false;
     this.pos = new THREE.Vector3();
     this.home = spawnPos.clone();
     this.homeFacing = facing;
@@ -55,8 +57,41 @@ export class Inimigo {
     this.maxHp = cfg.hp;
     this.startsDormant = dormant;
     this.ouvintes = [];
+    // os TRAÇOS que a ficha liga (tracos.js), na ordem da tabela
+    this.tracos = Object.keys(TRACOS).filter((nome) => cfg[nome]).map((nome) => ({ nome, def: TRACOS[nome] }));
+    this.traco('iniciar');
     this.reset();
+    this.traco('nascer');
   }
+
+  /** Chama o gancho `gancho` dos traços: devolve o que o primeiro respondeu (undefined: nenhum decidiu). */
+  traco(gancho, ...args) {
+    for (const { nome, def } of this.tracos) {
+      const f = def[gancho];
+      if (!f) continue;
+      const v = f(this, this.cfg[nome], ...args);
+      if (v !== undefined) return v;
+    }
+    return undefined;
+  }
+
+  /** O CHEFE dorme (de vida cheia, à espera de quem entra) / acorda (traço `chefe`; sem ele, nada). */
+  sleep() { this.traco('dormir'); }
+  wake() { this.traco('acordar'); }
+
+  /** Passa para a fase `n` (traço `fases`): a velocidade, o giro e a pausa dela. */
+  entrarNaFase(n) {
+    const f = this.cfg.fases?.[n - 2];
+    if (!f) return;
+    this.phase = n;
+    if (f.velocidade) this.speedMul = f.velocidade;
+    this.cfg = { ...this.cfg, turnRate: f.giro ?? this.cfg.turnRate, cooldown: f.pausa ?? this.cfg.cooldown };
+    this.emitir('fase', { n });
+  }
+
+  /** Como ele DORME: a animação da ficha (`animDormindo`, o Carrasco ajoelhado), ou deitado no chão. */
+  animDeDormir() { return this.cfg.animDormindo ? { nome: this.cfg.animDormindo, opcoes: { fade: 0 } } : { nome: 'LayToIdle', pose: 0 }; }
+  posarDormindo() { this.animPedida = this.animDeDormir(); this.emitir('anim', this.animPedida); }
 
   // ---------- A conversa com o corpo ----------
   /** Quem quer saber o que acontece com este inimigo (o corpo, no navegador). */
@@ -93,23 +128,31 @@ export class Inimigo {
     this.emitir('renasceu', { escudoDeVolta });
     if (this.startsDormant) {
       this.setState('dormant');
-      this.posar('LayToIdle', 0);
+      this.posarDormindo();
     } else {
       this.setState('idle');
       this.tocar(this.idleAnim, { fade: 0 });
     }
+    this.traco('aoReset');
   }
 
   get idleAnim() { return this.cfg.idleAnim ?? 'Sword_Idle'; }
-  get lockable() { return this.state !== 'dormant' && this.state !== 'awaken'; }
-  get invulnerable() { return this.state === 'awaken'; }
-  get inArenaZone() { return false; }
-  get deathAnim() { return 'Death01'; }
+  get lockable() { return this.state !== 'dormant' && this.state !== 'awaken' && this.traco('travavel') !== false; }
+  get invulnerable() { return this.state === 'awaken' || this.traco('invulneravel') === true; }
+  get inArenaZone() { return this.traco('naArena') ?? false; }
+  get deathAnim() { return this.cfg.deathAnim ?? 'Death01'; }
 
   setState(s, data = {}) { this.state = s; this.stateT = 0; this.st = data; }
 
   // ---------- Dano ----------
+  /** Um golpe: 'hit', 'blocked' ou false (não pegou). Os traços sabem do que pegou (`aoSofrer`: as fases). */
   takeDamage(amount, srcPos, poiseDmg = 20, opts = {}) {
+    const res = this.receberGolpe(amount, srcPos, poiseDmg, opts);
+    if (res) this.traco('aoSofrer', res);
+    return res;
+  }
+
+  receberGolpe(amount, srcPos, poiseDmg = 20, opts = {}) {
     const fire = !!opts.fire;
     if (this.dead || this.invulnerable) return false;
     this.golpeDe = srcPos?.clone?.() ?? null;   // (de onde veio o último golpe: o esqueleto desmonta para longe dele)
@@ -199,13 +242,18 @@ export class Inimigo {
   }
 
   stagger(srcPos, dur = 0.6) {
+    const t = this.traco('cambalear', srcPos, dur);   // (o traço `firme`)
+    if (t === false) return;
+    if (typeof t === 'number') dur = t;
     const dir = new THREE.Vector3(this.pos.x - srcPos.x, 0, this.pos.z - srcPos.z).normalize();
     this.knock.copy(dir).multiplyScalar(4);
     this.setState('hurt', { dur });
     this.tocar(dur > 0.8 ? 'Hit_Knockback' : 'Hit_Chest', { loop: false, duration: dur + 0.1, restart: true, fade: 0.05 });
+    this.traco('depoisDeCambalear');
   }
 
   die() {
+    this.traco('antesDeMorrer');
     this.hp = 0;
     this.dead = true;
     this.burnT = 0; this.bleedT = 0;
@@ -234,10 +282,12 @@ export class Inimigo {
     this._alvo = this.mundo.alvoPara(this.pos, this._alvo, (j) => this.podeMirar(j));
   }
 
-  /** Quem este inimigo pode escolher como alvo: os comuns não entram na arena do chefe. */
-  podeMirar(j) { return !j.inArena; }
+  /** Quem este inimigo pode escolher como alvo: os comuns não entram na arena do chefe (traço `arena`: só quem está nela). */
+  podeMirar(j) { return this.traco('podeMirar', j) ?? !j.inArena; }
 
   canEngage() {
+    const v = this.traco('podeLutar');
+    if (v !== undefined) return v;
     const p = this.alvo;
     return !p.dead && !p.inArena && !['rest', 'restUp', 'lying', 'standing', 'fog'].includes(p.state);
   }
@@ -284,6 +334,7 @@ export class Inimigo {
   }
 
   updateAI(dt) {
+    if (this.traco('pensar', dt)) return;   // (um traço cuidou deste estado: o chefe dormindo, a fase, o perseguir direto)
     const world = this.mundo.world, p = this.alvo, cfg = this.cfg;
     // `p.furtividade` (o jogador agachado: caminhos.js) encolhe a distância em que o inimigo percebe o alvo;
     // FURTIVO (a Furtividade), ele só é percebido dentro de `p.areaFurtiva` (m)
@@ -440,6 +491,7 @@ export class Inimigo {
   }
 
   doCast(a) {
+    if (this.traco('conjurar', a)) return;   // (o traço `invocar`)
     const from = this.origemDoFeitico();
     const target = this.alvo.pos.clone().setY(this.alvo.pos.y + 1.2);
     this.mundo.projectiles.orb({ pos: from, dir: target.sub(from), speed: 10, damage: a.dmg, homing: 1.2, alvo: this.alvo });
@@ -448,6 +500,11 @@ export class Inimigo {
 
   // ---------- Atualização ----------
   update(dt) {
+    this.viver(dt);
+    this.traco('depois', dt);   // (o fim do quadro dos traços: os lacaios que já saíram de cena)
+  }
+
+  viver(dt) {
     this.stateT += dt;
     if (!this.active) return;
     this.escolherAlvo(dt);
@@ -476,8 +533,9 @@ export class Inimigo {
     }
   }
 
-  /** Caído: afunda no chão e, no fim, sai de cena (`active` falso, invisível). */
-  updateDeath() {
+  /** Caído: afunda no chão e, no fim, sai de cena (`active` falso, invisível). O traço `morte` muda o jeito. */
+  updateDeath(dt) {
+    if (this.traco('morrendo', dt)) return;
     if (this.stateT > 3) {
       const k = (this.stateT - 3) / 1.2;
       this.pos.y = this.mundo.world.alturaChao(this.pos) - k * 0.8;
@@ -491,6 +549,7 @@ export class Inimigo {
    * volta para casa inteiro, e com o retrato segue de onde estava.
    */
   retomar(r) {
+    if (this.traco('retomar', r)) return;   // (o chefe tem o seu jeito: traço `chefe`)
     this.reset();
     if (!r || r.morto || !r.ativo) return;
     this.pos.set(r.x, r.y, r.z);

@@ -6,7 +6,12 @@
  * A ORDEM É O NOME NA REDE: o `netId` de cada um é a posição na lista (`e<i>`, ver main.js), os
  * esqueletos primeiro e os bichos depois. Novo entra sempre no FIM, e nunca se tira do meio.
  */
-import { CELL, S } from '../mapa-logico.js';
+import { CELL, S, ARENA } from '../mapa-logico.js';
+
+/** Os CHEFES (fichas em tipos.js): onde cada um espera, em metros. O `netId` é o nome (`carrasco`). */
+export const CHEFES = {
+  carrasco: { x: ARENA.x, z: ARENA.z - 4 * S, rumo: 0 },   // ao fundo da arena, junto ao cepo
+};
 
 /** O lugar (m) de quem nasce na célula [r, c], com o deslocamento. */
 export const lugarDoNascimento = (r, c, dx = 0, dz = 0) => ({ x: c * CELL + dx * S, z: r * CELL + dz * S });

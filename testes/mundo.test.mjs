@@ -706,6 +706,43 @@ await teste('o CÉREBRO do inimigo roda sem o navegador: persegue, ataca, conjur
   const m = lutar('mage');
   assert.ok(orbes.length > 0 && m.eventos.has('conjurou'), 'o necromante não conjurou');
   assert.ok(orbes.every((o) => o.pos.distanceTo(m.e.home) < 40 && Number.isFinite(o.dir.x)), 'o feitiço saiu de lugar torto');
+
+  // O CARRASCO é só uma FICHA com traços (chefe, arena, fases, perseguir, firme, invocar, morte)
+  const { CHEFES } = await import('../js/inimigos/nascimentos.js');
+  const todos = [];
+  mundo.invocar = (cfg, pos, rumo, opts) => { const x = new Inimigo(mundo, cfg, pos, rumo, opts); todos.push(x); return x; };
+  mundo.dispensar = (x) => { const i = todos.indexOf(x); if (i >= 0) todos.splice(i, 1); };
+  const lc = CHEFES.carrasco, c = new Inimigo(mundo, ENEMY_TYPES.carrasco, new THREE.Vector3(lc.x, 0, lc.z), lc.rumo);
+  const ev = []; c.ouvir((t) => ev.push(t));
+  const passar = (s) => { for (let i = 0; i < s * 30; i++) { mundo.time += 1 / 30; c.update(1 / 30); for (const x of [...todos]) x.update(1 / 30); } };
+  assert.ok(c.isBoss && c.state === 'dormant' && c.invulnerable, 'o chefe não nasce dormindo');
+  alvo.pos.set(lc.x, 0, lc.z + 5); alvo.inArena = true; golpes.length = 0;
+  c.wake();
+  assert.equal(c.state, 'intro');
+  passar(3);
+  assert.ok(ev.includes('rugiu') && ev.includes('olhosAcesos'), 'não rugiu ao acordar');
+  assert.ok(['chase', 'attack'].includes(c.state), `não partiu para a luta: ${c.state}`);
+  alvo.inArena = false; passar(1); assert.equal(c.canEngage(), false, 'o chefe lutou com quem está fora da arena'); alvo.inArena = true;
+  // a FASE 2: passou da metade da vida, recua, explode em volta e volta mais rápido
+  while (c.hp > c.maxHp * 0.55) c.takeDamage(200, alvo.pos.clone(), 0, {});
+  c.takeDamage(200, alvo.pos.clone(), 0, {});
+  assert.equal(c.state, 'phase', 'não entrou na fase 2');
+  assert.ok(c.invulnerable, 'leva dano no meio da troca de fase');
+  passar(3);
+  assert.ok(c.phase === 2 && c.speedMul === 1.2 && ev.includes('explodiu') && golpes.includes(30), 'a fase 2 não explodiu nem acelerou');
+  // INVOCAR: dois lacaios em volta do alvo (até 3 vivos), que lutam dentro da arena e morrem com ele
+  c.doCast({ cast: 'summon' });
+  assert.equal(c.minions.length, 2, 'não invocou');
+  assert.ok(c.minions.every((x) => x.inArenaZone && x.state === 'awaken'), 'os lacaios não acordaram na arena');
+  // morre: vencido, os lacaios caem junto, e ele some encolhendo
+  while (!c.dead) c.takeDamage(500, alvo.pos.clone(), 0, {});
+  assert.ok(c.defeated && c.minions.every((x) => x.dead), 'os lacaios não caíram com ele');
+  passar(6);
+  assert.ok(c.state === 'gone' && !c.active && !c.visivel, `não sumiu: ${c.state}`);
+  // dormir de novo: vencido continua fora; o relógio do chefe (o Mundo online) o põe de pé
+  c.sleep(); assert.equal(c.state, 'gone');
+  c.defeated = false; c.sleep();
+  assert.ok(c.state === 'dormant' && c.hp === c.maxHp && c.phase === 1 && c.cfg.turnRate === 2.4 && c.minions.length === 0, 'dormir não o pôs de volta como era');
 });
 
 await teste('o MAPA LÓGICO: toda peça do PROPS tem caixa medida, e as colisões montam dos arquivos do jogo', async () => {

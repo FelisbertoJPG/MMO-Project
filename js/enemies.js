@@ -14,8 +14,9 @@ import { desmontar } from './desmontar.js';
 import { Interpolador, giroCurto, loopa } from './remoto.js';
 import { Inimigo } from './inimigos/cerebro.js';
 import { ENEMY_TYPES } from './inimigos/tipos.js';
-import { ESQUELETOS, BICHOS, lugarDoNascimento } from './inimigos/nascimentos.js';
+import { ESQUELETOS, BICHOS, CHEFES, lugarDoNascimento } from './inimigos/nascimentos.js';
 import { Animal } from './animais.js';
+import { GLOW } from './world.js';
 
 export { ENEMY_TYPES, REFORCO_ESQUELETOS } from './inimigos/tipos.js';
 
@@ -31,6 +32,7 @@ export class Enemy extends Inimigo {
     if (cfg.left) this.model.equip('l', shieldMesh(cfg.left));
     game.scene.add(this.model.root);
     this.desmontado = false; this.desmontarEm = null;
+    if (cfg.corpo?.olhos === 'brasa') this.montarOlhos();
     this.ouvir((tipo, d) => this.aoEvento(tipo, d));
     // o que o cérebro já pediu ao nascer (antes de o corpo existir): a pose e o lugar
     this.aplicarAnim(this.animPedida);
@@ -47,6 +49,35 @@ export class Enemy extends Inimigo {
 
   /** A mão esquerda no mundo (onde o escudo segura o golpe). */
   maoEsquerda() { return this.model.handL.getWorldPosition(new THREE.Vector3()); }
+
+  /**
+   * OLHOS EM BRASA (a ficha: `corpo.olhos = 'brasa'`, o Carrasco): dois pontos acesos sob o capuz e
+   * uma luz fraca. Apagados dormindo, acesos no rugido, maiores na fase 2. A luz (`eyeGlow`) entra no
+   * orçamento de luzes do mundo (`World.distribuirLuzes`).
+   */
+  montarOlhos() {
+    const anchor = this.model.scene.userData.eyeAnchor;
+    if (!anchor) return;
+    const eyeMat = new THREE.SpriteMaterial({ map: GLOW.tex, color: 0xff2a10, blending: THREE.AdditiveBlending, depthWrite: false });
+    this.eyes = [-1, 1].map((s) => {
+      const e = new THREE.Sprite(eyeMat.clone());
+      e.scale.set(0.07, 0.045, 1);
+      e.position.set(s * 0.045, 0, 0.005);
+      anchor.add(e);
+      return e;
+    });
+    this.eyeGlow = new THREE.PointLight(0xff2a10, 0, 4, 2);
+    this.eyeGlow.position.set(0, 0, 0.12);
+    anchor.add(this.eyeGlow);
+    this.olhos(0, 0.25, 1);
+  }
+
+  /** A luz, o quanto os olhos aparecem e o tamanho deles. */
+  olhos(luz, opacidade, tamanho) {
+    if (!this.eyes) return;
+    this.eyeGlow.intensity = luz;
+    for (const e of this.eyes) { e.material.opacity = opacidade; e.scale.set(0.07 * tamanho, 0.045 * tamanho, 1); }
+  }
 
   aoEvento(tipo, d) {
     const g = this.game;
@@ -85,6 +116,16 @@ export class Enemy extends Inimigo {
         g.effects.burst(d.pos.clone().setY(d.pos.y + 0.2), { count: 40, color: [0.45, 0.4, 0.35], speed: 6, size: 0.22, life: 0.8, gravity: 8 });
         return;
       case 'conjurou': g.sfx.cast(); return;
+      // o CHEFE (os traços `chefe`, `fases` e `invocar`)
+      case 'adormeceu': this.olhos(0, 0.25, 1); this.model.setEmissive(0, 0, 0); return;
+      case 'olhosAcesos': this.olhos(5, 1, 1); return;
+      case 'fase': this.olhos(10, 1, 1.4); return;
+      case 'rugiu': g.sfx.roar(); if (d.tremor) g.addShake(d.tremor); return;
+      case 'explodiu':
+        g.effects.ring(d.pos, d.raio, 0.6, 0xff2a10);
+        g.effects.burst(d.pos.clone().setY(d.pos.y + 2), { count: 120, color: [0.9, 0.15, 0.05], speed: 12, size: 0.3, life: 1.0, gravity: 0 });
+        return;
+      case 'invocou': g.effects.burst(d.pos.clone().setY(d.pos.y + 0.2), { count: 40, color: [0.5, 0.2, 0.6], speed: 4, size: 0.2, life: 0.8, gravity: 4 }); return;
     }
   }
 
@@ -104,6 +145,7 @@ export class Enemy extends Inimigo {
       this.stateT += dt;
       if (this.flashT > 0) this.flashT -= dt;   // (o golpe dado aqui pisca na hora: `Mundo.golpear`)
       this.updateMarionete(dt);
+      this.traco('depois', dt);
     } else super.update(dt);
     this.vestirCorpo(dt);
   }
@@ -120,13 +162,32 @@ export class Enemy extends Inimigo {
       if (this.burnT > 0 && Math.random() < 0.6) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, Math.random() * this.height, (Math.random() - 0.5) * 0.8)), vel: new THREE.Vector3(0, 1.5, 0), color: [1, 0.5, 0.1], size: 0.18, life: 0.5 });
       if (this.bleedT > 0 && Math.random() < 0.35) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, this.height * (0.3 + Math.random() * 0.5), (Math.random() - 0.5) * 0.6)), vel: new THREE.Vector3(0, -1.2, 0), color: [0.55, 0.02, 0.02], size: 0.12, life: 0.6 });
     }
+    // a FASE 2 de quem tem `corpo.pulsoNaFase` (o Carrasco): o corpo pulsa em brasa e solta faíscas
+    if (this.cfg.corpo?.pulsoNaFase && this.phase >= 2 && !this.dead && this.active) {
+      const pulso = 0.5 + Math.sin(this.game.time * 5) * 0.5;
+      if (this.flashT <= 0) this.model.setEmissive(0.03 + pulso * 0.04, 0.004, 0);
+      if (Math.random() < 0.7) {
+        this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.6, Math.random() * 2.8, (Math.random() - 0.5) * 1.6)),
+          vel: new THREE.Vector3(0, 1.5 + Math.random(), 0), color: [0.8, 0.1, 0.03], size: 0.2, life: 1.0 });
+      }
+    }
     raiz.rotation.y = this.facing;
     this.model.update(dt);
   }
 
-  /** Caído: o cérebro afunda o corpo; aqui, a poeira de quem afunda. */
+  /** Caído: o cérebro afunda o corpo (ou o encolhe: o traço `morte`); aqui, a poeira (ou as brasas). */
   updateDeath(dt) {
     super.updateDeath(dt);
+    const m = this.cfg.morte;
+    if (m?.estilo === 'encolher') {
+      if (this.state === 'gone') return;
+      if (this.stateT < m.espera && Math.random() < 0.9) {
+        this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2.5, Math.random() * 1.5, (Math.random() - 0.5) * 2.5)),
+          vel: new THREE.Vector3(0, 2 + Math.random() * 2, 0), color: [1, 0.55, 0.25], size: 0.22, life: 1.5 });
+      }
+      if (this.stateT > m.espera) this.model.root.scale.setScalar(1 - Math.min(1, (this.stateT - m.espera) / m.dura) * 0.999);
+      return;
+    }
     if (this.stateT > 3 && Math.random() < 0.4) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0.3, (Math.random() - 0.5) * 1.5)), vel: new THREE.Vector3(0, 1 + Math.random(), 0), color: [0.4, 0.38, 0.35], size: 0.1, life: 1.2 });
   }
 
@@ -191,14 +252,20 @@ export class Enemy extends Inimigo {
   /** Larga o modo marionete: de volta ao próprio mundo, `reset` põe de pé. */
   soltarMarionete() { this.fio = null; }
 
-  /** A pose de quem dorme: deitado no chão (o Carrasco, ajoelhado junto ao cepo). */
-  poseDormindo() { this.model.pose('LayToIdle', 0); }
+  /** A pose de quem dorme (a da ficha: deitado no chão; o Carrasco, ajoelhado junto ao cepo). */
+  poseDormindo() { this.aplicarAnim(this.animDeDormir()); }
 
   /** ASSUMIR este inimigo no meio do caminho (o cérebro: `Inimigo.retomar`). */
   retomar(r) {
     this.soltarMarionete();
     super.retomar(r);
   }
+}
+
+/** Um CHEFE (a ficha `tipo` e o lugar dele em `CHEFES`, nascimentos.js): o Carrasco. */
+export function criarChefe(game, tipo) {
+  const c = CHEFES[tipo];
+  return new Enemy(game, ENEMY_TYPES[tipo], new THREE.Vector3(c.x, 0, c.z), c.rumo);
 }
 
 /** Os inimigos e os bichos do mapa (js/inimigos/nascimentos.js), na ordem que dá o `netId` de cada um. */
