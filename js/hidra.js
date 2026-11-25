@@ -13,7 +13,7 @@ import { Hidra, POSE_DA_HIDRA_PARADA } from './inimigos/hidra.js';
  * o arrastar dos pés quando ela gira no lugar, o brilho que pulsa).
  *
  * Os OSSOS são achados pelo nome (o JSON do rigar.mjs): `raiz`, `tronco`, `pescoco<k>a|b|c` + `cabeca<k>` + `boca<k>`
- * para cada cabeça e `coxa<k>`, `canela<k>`, `pe<k>` para cada perna (k a partir de 0, na ordem das
+ * + `mandibula<k>` para cada cabeça e `coxa<k>`, `canela<k>`, `pe<k>` para cada perna (k a partir de 0, na ordem das
  * `bocas` e dos `pes` da ficha). Faltando um osso, aquela parte só não se mexe.
  *
  * O BRILHO: a própria textura como `emissiveMap`, com pouca força e pulsando — o que é claro (as manchas
@@ -32,6 +32,9 @@ const ERGUER = { coxa: 1.3, canela: -1.0, pe: -0.3, corpo: 0.1 };
  *  (os lábios e os dentes se encostam), 1 = escancarada. Em repouso ficam semiabertas e respiram; abrem tudo
  *  quando a cabeça EMPINA (o cuspe, o rugido: a pose `cab` > 0), um pouco no pisão; dormindo, quase fechadas. */
 const BOCA = { dormindo: 0.08, repouso: 0.35, pisao: 0.6, morta: 0.7, largura: [0.3, 0.85], altura: [0.8, 0.3] };
+/** A MANDÍBULA (`mandibula<k>`, filha da cabeça; 25/11/2026): abre junto com a boca, girando o queixo para baixo em volta da
+ *  articulação — `abre` rad com a boca escancarada (a mesma abertura da boca: semiaberta em repouso, toda no cuspe). */
+const MANDIBULA = { abre: 0.45 };
 
 export class CorpoDaHidra extends Hidra {
   constructor(game, cfg, pos, rumo = 0) {
@@ -65,6 +68,7 @@ export class CorpoDaHidra extends Hidra {
       raiz: osso('raiz'), tronco: osso('tronco'),
       cabecas: cfg.bocas.map((_, k) => ['a', 'b', 'c'].map((s) => osso(`pescoco${k}${s}`)).concat([osso(`cabeca${k}`)])),
       bocas: cfg.bocas.map((_, k) => osso(`boca${k}`)),
+      mandibulas: cfg.bocas.map((_, k) => osso(`mandibula${k}`)),
       pernas: cfg.pes.map(([x, z], k) => {
         // o eixo de erguer: deitado, de lado para a perna — gira o pé PARA FORA e para cima
         const fora = new THREE.Vector3(x, 0, z).normalize();
@@ -184,13 +188,13 @@ export class CorpoDaHidra extends Hidra {
     });
     // as BOCAS: o alvo de cada uma pelo estado e pela pose, seguido devagar; abrir é escalar o osso
     O.bocas.forEach((boca, k) => {
-      if (!boca) return;
       const empina = Math.max(0, Math.min(1, a.cab[k] ?? 0));
       let alvo = this.state === 'dormant' ? BOCA.dormindo : this.dead ? BOCA.morta : BOCA.repouso + (1 - BOCA.repouso) * empina;
       if (this.state === 'pisao') alvo = Math.max(alvo, BOCA.pisao);
       if (!this.dead && this.state !== 'dormant') alvo += Math.sin(t * 1.1 + k * 1.9) * 0.05;   // respira
       const ab = this.aberturas[k] = THREE.MathUtils.lerp(this.aberturas[k], alvo, Math.min(1, dt * 8));
-      boca.scale.set(BOCA.largura[0] + BOCA.largura[1] * ab, BOCA.altura[0] + BOCA.altura[1] * ab, 1);
+      boca?.scale.set(BOCA.largura[0] + BOCA.largura[1] * ab, BOCA.altura[0] + BOCA.altura[1] * ab, 1);
+      O.mandibulas[k]?.rotation.set(ab * MANDIBULA.abre, 0, 0);   // (+x: o queixo, à frente, desce)
     });
     // as PERNAS: o pé da pose sobe (coxa para fora e para cima, a canela devolve, o pé pende); as outras
     // arrastam um pouco quando ela gira no lugar

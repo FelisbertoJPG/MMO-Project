@@ -1,5 +1,5 @@
 {
-  "_leiame": "A MYCOHYDRA (o chefe das WindHills): o .glb do Meshy (sem esqueleto) + as JUNTAS abaixo -> assets/chefes/mycohydra.glb com esqueleto e pesos, pelo rigar.mjs. As juntas estao no espaco do modelo do Meshy (cerca de 1 unidade de altura, a frente e +Z: as bocas olham para la), lidas nas vistas ortograficas. As BOCAS (boca<k>) sao ossos de REGIAO: o centro da bocarra vertical de cada cabeca (por baixo do chapeu, virada para +Z) e o elipsoide dos labios; o jogo as abre e fecha escalando o osso. Mudou uma junta? Rode de novo: node ferramentas/chefe-de-arquivo/rigar.mjs ferramentas/chefe-de-arquivo/mycohydra.json (ou mova na aba Esqueleto do Editor de Personagem, que grava aqui e roda). A MALHA se edita na aba Modelo (modelo solto \"Mycohydra\"): o original fica em `original`, a editada vira a `fonte` (malha-editada.mjs). `caixa` = a caixa do ORIGINAL: a escala e o lugar nao mudam quando a malha muda. `ficha`: o rigar troca as `bocas` (a junta da boca + `frenteDaBoca` m em +Z) e os `pes` dessa ficha em js/inimigos/tipos.js.",
+  "_leiame": "A MYCOHYDRA (o chefe das WindHills): o .glb do Meshy (sem esqueleto) + as JUNTAS abaixo -> assets/chefes/mycohydra.glb com esqueleto e pesos, pelo rigar.mjs. As juntas estao no espaco do modelo do Meshy (cerca de 1 unidade de altura, a frente e +Z: as bocas olham para la), lidas nas vistas ortograficas. As BOCAS (boca<k>) sao ossos de REGIAO: o centro da bocarra vertical de cada cabeca (por baixo do chapeu, virada para +Z) e o elipsoide dos labios; o jogo as abre e fecha escalando o osso. As MANDIBULAS (mandibula<k>, filhas da cabeca): de = a articulacao, ponta = o queixo; a pele a menos de `raio` desse segmento (capsula), tirada da cabeca, do pescoco de cima e da boca (o labio de baixo); o jogo a abre girando para baixo junto com a boca. Mudou uma junta? Rode de novo: node ferramentas/chefe-de-arquivo/rigar.mjs ferramentas/chefe-de-arquivo/mycohydra.json (ou mova na aba Esqueleto do Editor de Personagem, que grava aqui e roda). A MALHA se edita na aba Modelo (modelo solto \"Mycohydra\"): o original fica em `original`, a editada vira a `fonte` (malha-editada.mjs). `caixa` = a caixa do ORIGINAL: a escala e o lugar nao mudam quando a malha muda. `ficha`: o rigar troca as `bocas` (a junta da boca + `frenteDaBoca` m em +Z) e os `pes` dessa ficha em js/inimigos/tipos.js.",
   "fonte": "mycohydra-meshy.glb",
   "original": "mycohydra-meshy.glb",
   "caixa": { "min": [-0.4670409858226776, -0.47680699825286865, -0.3698729872703552], "max": [0.4626460075378418, 0.4753420054912567, 0.37084999680519104] },
@@ -18,30 +18,35 @@
     { "nome": "pescoco0c", "pai": "pescoco0b", "de": [0.0, 0.25, -0.01] },
     { "nome": "cabeca0", "pai": "pescoco0c", "de": [0.0, 0.36, 0.01], "ponta": [0.0, 0.44, 0.02] },
     { "nome": "boca0", "pai": "cabeca0", "de": [0, 0.335, 0.03], "regiao": { "raio": [0.1, 0.11, 0.08], "frente": true, "so": ["cabeca0", "pescoco0c"] } },
+    { "nome": "mandibula0", "pai": "cabeca0", "de": [0, 0.35, -0.02], "ponta": [0, 0.275, 0.08], "regiao": { "raio": 0.045, "capsula": true, "so": ["cabeca0", "pescoco0c"] } },
 
     { "nome": "pescoco1a", "pai": "tronco", "de": [0.08, 0.02, -0.03] },
     { "nome": "pescoco1b", "pai": "pescoco1a", "de": [0.15, 0.10, -0.03] },
     { "nome": "pescoco1c", "pai": "pescoco1b", "de": [0.22, 0.17, -0.02] },
     { "nome": "cabeca1", "pai": "pescoco1c", "de": [0.29, 0.22, 0.03], "ponta": [0.32, 0.29, 0.05] },
     { "nome": "boca1", "pai": "cabeca1", "de": [0.29, 0.195, 0.05], "regiao": { "raio": [0.095, 0.11, 0.08], "frente": true, "so": ["cabeca1", "pescoco1c"] } },
+    { "nome": "mandibula1", "pai": "cabeca1", "de": [0.29, 0.21, 0], "ponta": [0.29, 0.135, 0.1], "regiao": { "raio": 0.045, "capsula": true, "so": ["cabeca1", "pescoco1c"] } },
 
     { "nome": "pescoco2a", "pai": "tronco", "de": [0.12, -0.08, -0.01] },
     { "nome": "pescoco2b", "pai": "pescoco2a", "de": [0.19, -0.07, -0.02] },
     { "nome": "pescoco2c", "pai": "pescoco2b", "de": [0.25, -0.05, 0.02] },
     { "nome": "cabeca2", "pai": "pescoco2c", "de": [0.30, -0.02, 0.05], "ponta": [0.32, 0.03, 0.06] },
     { "nome": "boca2", "pai": "cabeca2", "de": [0.3, -0.04, 0.07], "regiao": { "raio": [0.07, 0.08, 0.07], "frente": true, "so": ["cabeca2", "pescoco2c"] } },
+    { "nome": "mandibula2", "pai": "cabeca2", "de": [0.3, -0.025, 0.02], "ponta": [0.3, -0.1, 0.12], "regiao": { "raio": 0.045, "capsula": true, "so": ["cabeca2", "pescoco2c"] } },
 
     { "nome": "pescoco3a", "pai": "tronco", "de": [-0.07, 0.02, -0.04] },
     { "nome": "pescoco3b", "pai": "pescoco3a", "de": [-0.14, 0.10, -0.06] },
     { "nome": "pescoco3c", "pai": "pescoco3b", "de": [-0.21, 0.16, -0.05] },
     { "nome": "cabeca3", "pai": "pescoco3c", "de": [-0.28, 0.21, 0.0], "ponta": [-0.32, 0.28, 0.02] },
     { "nome": "boca3", "pai": "cabeca3", "de": [-0.28, 0.18, 0.02], "regiao": { "raio": [0.095, 0.1, 0.08], "frente": true, "so": ["cabeca3", "pescoco3c"] } },
+    { "nome": "mandibula3", "pai": "cabeca3", "de": [-0.28, 0.195, -0.03], "ponta": [-0.28, 0.12, 0.07], "regiao": { "raio": 0.045, "capsula": true, "so": ["cabeca3", "pescoco3c"] } },
 
     { "nome": "pescoco4a", "pai": "tronco", "de": [-0.12, -0.08, 0.0] },
     { "nome": "pescoco4b", "pai": "pescoco4a", "de": [-0.20, -0.07, 0.01] },
     { "nome": "pescoco4c", "pai": "pescoco4b", "de": [-0.27, -0.05, 0.04] },
     { "nome": "cabeca4", "pai": "pescoco4c", "de": [-0.34, -0.02, 0.07], "ponta": [-0.37, 0.03, 0.08] },
     { "nome": "boca4", "pai": "cabeca4", "de": [-0.34, -0.04, 0.09], "regiao": { "raio": [0.07, 0.08, 0.07], "frente": true, "so": ["cabeca4", "pescoco4c"] } },
+    { "nome": "mandibula4", "pai": "cabeca4", "de": [-0.34, -0.025, 0.04], "ponta": [-0.34, -0.1, 0.14], "regiao": { "raio": 0.045, "capsula": true, "so": ["cabeca4", "pescoco4c"] } },
 
     { "nome": "coxa0", "pai": "raiz", "de": [0.20, -0.22, 0.0] },
     { "nome": "canela0", "pai": "coxa0", "de": [0.27, -0.34, 0.05] },

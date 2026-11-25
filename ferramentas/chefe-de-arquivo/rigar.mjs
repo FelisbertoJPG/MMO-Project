@@ -144,16 +144,20 @@ for (let it = 0; it < (cfg.suavizar ?? 10); it++) {
 
 // ---------------------------------------------------------------- 5. os ossos de região (a boca)
 const suave = (k) => { k = Math.min(1, Math.max(0, k)); return k * k * (3 - 2 * k); };
+// (a CÁPSULA — `capsula: true`, a MANDÍBULA, 25/11/2026: a pele a menos de `raio` (um número) do segmento de → ponta, da
+// articulação ao queixo; cheia por dentro, caindo até a borda. Em ordem: depois da boca, leva junto a parte da boca que cai nela —
+// o lábio de baixo)
 ossos.forEach((o, b) => {
   if (!o.regiao) return;
-  const [rx, ry, rz] = o.regiao.raio, [cx0, cy0, cz0] = o.de;
+  const R = o.regiao.raio, [rx, ry, rz] = Array.isArray(R) ? R : [R, R, R], [cx0, cy0, cz0] = o.de;
+  const capsula = o.regiao.capsula ? [o.de, o.ponta ?? o.de] : null;
   const so = new Set((o.regiao.so ?? []).map((n) => porNome.get(n)));
   for (let u = 0; u < M; u++) {
     if (so.size && !so.has(dono[u])) continue;
     const dx = (PX(u, 0) - cx0) / rx, dy = (PX(u, 1) - cy0) / ry, dz = (PX(u, 2) - cz0) / rz;
-    const e = Math.hypot(dx, dy, dz);
+    const e = capsula ? distSeg(u, capsula) / rx : Math.hypot(dx, dy, dz);
     let w = 1 - suave((e - 0.55) / 0.45);   // (cheio até a borda dos lábios, caindo do lado de fora)
-    if (o.regiao.frente) w *= suave((dz + 0.5) / 0.5);   // (atrás do centro some: a nuca não fecha junto)
+    if (o.regiao.frente && !capsula) w *= suave((dz + 0.5) / 0.5);   // (atrás do centro some: a nuca não fecha junto)
     if (w <= 0.01) continue;
     const base = u * B;
     for (let k = 0; k < B; k++) W[base + k] *= 1 - w;
