@@ -82,15 +82,24 @@ export const ESCULPIDOS = [];
 // OS CORPOS DE ARQUIVO (corpo-arquivo.js; um modelo pronto feito corpo do guerreiro por
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
 // (`<nome>:lisa` = só a versão LISA dele — 02/11/2026, a Feminino 4 lisa é o Feminino da Humana, raca.js `femininaDeArquivo`; a com
-// textura fica no editor. Corpo novo entra no FIM: o penteado "malha" acha o corpo pelo lugar aqui)
+// textura fica no editor. O penteado "malha" acha o corpo pelo NÚMERO dele, `NUMERO_DOS_CORPOS`, não pelo lugar aqui)
 // (08/11/2026: o MASCULINO JOVEM, `masculino3`, saiu da lista do editor para a do jogo — é o Masculino da Humana, raca.js
-// `MASCULINO_DE_ARQUIVO`; o `masculino1` segue como o "Masculino Adulto")
-export const CORPOS_DE_ARQUIVO = ['feminino2', 'feminino4:lisa', 'masculino1', 'masculino3'];
+// `MASCULINO_DE_ARQUIVO`)
+// (24/11/2026, o dono: "apaga o Feminino 2 e o Masculino Adulto do MMO, eram de teste e subiram por acidente": a `feminino2` e
+// o `masculino1` voltaram para a lista do EDITOR — os arquivos ficam; quem tinha um deles joga com o corpo padrão do mesmo sexo,
+// raca.js `sexoQueExiste`)
+export const CORPOS_DE_ARQUIVO = ['feminino4:lisa', 'masculino3'];
 // (os que SÓ O EDITOR carrega — a aba Modelo os edita antes de irem para o jogo: o jogo nem baixa o arquivo; 27/10/2026, a
 // Feminino 3 e a 4, até o dono diminuir os triângulos delas. Pronta para o jogo = passar para a lista de cima. 01/11/2026: a
 // Feminino 3 — a "Meshy 2", o modelo antigo — saiu, a pedido; os arquivos dela ficam. A 4 traz junto a versão LISA, o sexo 3)
 // (02/11/2026: o HOMEM 2 — `masculino2`, o .glb do Meshy inteiro, liso — para o dono ajustar antes de ir para o jogo)
-export const CORPOS_DO_EDITOR = ['feminino4', 'masculino2'];
+export const CORPOS_DO_EDITOR = ['feminino4', 'masculino2', 'feminino2', 'masculino1'];
+/**
+ * O NÚMERO de cada corpo de arquivo para o penteado `malha` (a régua `corpo` da aba Cabelo: o cabelo pronto de um modelo, o
+ * "Coques (do modelo)" é o da `feminino2`). A ORDEM é o número: corpo novo entra no FIM, e tirar um corpo do jogo NÃO o tira daqui
+ * (era o lugar em CORPOS_DE_ARQUIVO até 24/11/2026: tirar a Feminino 2 do jogo mudaria o número dos outros).
+ */
+export const NUMERO_DOS_CORPOS = ['feminino2', 'feminino4', 'masculino1', 'masculino3'];
 export const ANIMAIS_MODELOS =['cervo', 'cervoReal', 'raposa', 'lobo', 'touro', 'cavalo'];
 
 export const MODELOS = ['dragao', 'traje-knight', 'traje-corpse', 'traje-executioner', 'traje-skminion', 'traje-skwarrior', 'traje-skrogue', 'traje-skmage'];

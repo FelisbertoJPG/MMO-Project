@@ -33,7 +33,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { tela, pontoNaTela, retanguloNaTela } from './tela.js';
-import { racaDe, proporcoesDe, sexosDoPainel, temFeminino, temArquivo, esculpidoDe, MASCULINO_ADULTO, MASCULINO_DE_ARQUIVO } from './raca.js';
+import { racaDe, proporcoesDe, sexosDoPainel, temFeminino, esculpidoDe, sexoQueExiste } from './raca.js';
 import { penteadosDe, nomeDoPenteado, barbasDe, nomeDaBarba, sobrancelhasDe, nomeDaSobrancelha } from './penteado.js';
 
 export const PELES = [
@@ -108,9 +108,10 @@ export function lerAparencia(c) {
   const [s, ext] = (CODIGO.test(c ?? '') ? c : APARENCIA_PADRAO).split('~');
   const d = [...s].map(Number), x = ext ? [...ext.slice(0, 3)].map(Number) : [0, 0, 0], hs = ext ? ext.slice(3).match(/\.|[0-9a-f]{6}/g) ?? [] : [];
   const cores = Object.fromEntries(CORES_DA_EXTENSAO.map((k, i) => [k, hs[i] && hs[i] !== '.' ? `#${hs[i]}` : null]));
+  const raca = d[5] ?? 0, sexo = sexoQueExiste(raca, d[7] >= 1 && d[7] <= 9 ? d[7] : 0);
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1] + (s.length >= 12 ? d[11] * 10 : 0), cor: d[2] < CABELOS.length ? d[2] : 0,
-    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca: d[5] ?? 0, sobrancelha: d[6] ?? 1, sexo: d[7] >= 1 && d[7] <= 9 ? d[7] : 0,   // (até o 9: os corpos de arquivo do editor — 02/11/2026, o Homem 2 é o 6; no jogo a linha Sexo para no último corpo carregado)
+    barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca, sobrancelha: d[6] ?? 1, sexo,   // (até o 9: os corpos de arquivo do editor — 02/11/2026, o Homem 2 é o 6; o corpo que este jogo não tem vira o padrão do mesmo sexo: raca.js `sexoQueExiste`)
     batom: d[8] < BATONS.length ? d[8] : 0, tom: s.length >= 11 ? d[9] * 10 + d[10] : null, sombra: s.length >= 13 && d[12] < SOMBRAS.length ? d[12] : 0,
     pintada: x[0], delineado: x[1], maquiagem: x[2], extra: !!ext, cores,
   };
@@ -336,8 +337,8 @@ export class EditorDeAparencia {
   mudar(parcial) {
     const p = this.game.player, antes = lerAparencia(p.aparencia), a = { ...antes, ...parcial };
     // (trocou de raça: o sexo só vale se ela tem o corpo — o 2, o de arquivo; sem ele, o feminino)
-    // (o Masculino Adulto e o jovem — corpos de arquivo MASCULINOS — voltam ao Masculino)
-    if (a.sexo >= 2 && !temArquivo(a.raca, a.sexo)) a.sexo = a.sexo === MASCULINO_ADULTO || a.sexo === MASCULINO_DE_ARQUIVO ? 0 : a.sexo > 2 && temArquivo(a.raca, 2) ? 2 : 1;
+    // (os corpos de arquivo MASCULINOS voltam ao Masculino; os femininos, ao Feminino — raca.js `sexoQueExiste`)
+    a.sexo = sexoQueExiste(a.raca, a.sexo);
     if (a.sexo === 1 && !temFeminino(a.raca)) a.sexo = 0;
     // O número do cabelo, da barba e da sobrancelha é o lugar na lista de CADA raça (e de cada
     // corpo dela). Trocou de raça ou de sexo: fica o MESMO corte, se o outro o tem (a "Longa"

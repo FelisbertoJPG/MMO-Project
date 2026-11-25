@@ -58,7 +58,7 @@
  */
 import * as THREE from 'three';
 import { texelClaro } from './casca.js';
-import { Assets, CORPOS_DE_ARQUIVO } from './assets.js';   // (o cabelo dos corpos de arquivo: a forma `malha`; só lido ao desenhar)
+import { Assets, NUMERO_DOS_CORPOS } from './assets.js';   // (o cabelo dos corpos de arquivo: a forma `malha`; só lido ao desenhar)
 import { triangulosDe, raio, raioDe, grudar, lugar, normalLisa, pesos, misturar } from './ima.js';
 
 // OS MOLDES (06/11/2026, o "Lobo preguiçoso": o cabelo do busto do Meshy, colado no Masculino jovem e levado para cá por
@@ -710,11 +710,11 @@ const FORMAS = {
 
   // A MALHA (26/10/2026): o cabelo PRONTO de um corpo de arquivo (corpo-arquivo.js — o da Feminino 2, tirado do modelo
   // dela pelo importar.mjs: `Assets.corpos[nome].cabelo`), inteiro e preso à cabeça. `corpo`: o número dele em
-  // CORPOS_DE_ARQUIVO. As réguas: `escala` (e por eixo `largura`, `altura`, `fundo`) em volta do meio da cabeça dele
+  // NUMERO_DOS_CORPOS (assets.js). As réguas: `escala` (e por eixo `largura`, `altura`, `fundo`) em volta do meio da cabeça dele
   // (`pivo`), `giro` (em volta do eixo de pé) e `inclina` (para trás), e andar `x`, `y`, `z` cm; o tom vai de `tomBaixo`
   // a `tomCima`. Ele está no lugar da cabeça DAQUELE corpo: em outro corpo, fica onde ela estaria. Com elmo, sai.
   malha(m, c, { corpo = 0, escala = 1, largura = 1, altura = 1, fundo = 1, x = 0, y = 0, z = 0, giro = 0, inclina = 0, tomBaixo = 0.8, tomCima = 1.08 }) {
-    const cab = Assets.corpos?.[CORPOS_DE_ARQUIVO[Math.round(corpo)]]?.cabelo;
+    const cab = Assets.corpos?.[NUMERO_DOS_CORPOS[Math.round(corpo)]]?.cabelo;
     if (c.elmo || !cab) return;
     const piv = new THREE.Vector3(...cab.pivo), anda = new THREE.Vector3(x, y, z);
     const q = new THREE.Quaternion().setFromEuler(new THREE.Euler((inclina * Math.PI) / 180, (giro * Math.PI) / 180, 0, 'YXZ'));

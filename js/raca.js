@@ -143,6 +143,17 @@ export const FEMININA_DE_ARQUIVO = 3;
 // jovem: o código da aparência não muda)
 export const MASCULINO_DE_ARQUIVO = 7;
 export const MASCULINO_ADULTO = 5;
+// os dígitos de corpo de arquivo que são MASCULINOS (o Masculino Adulto, o Homem 2 do editor, o jovem); os outros são femininos
+const DIGITOS_MASCULINOS = new Set([MASCULINO_ADULTO, 6, MASCULINO_DE_ARQUIVO]);
+/**
+ * O dígito do sexo que ESTE jogo sabe desenhar (24/11/2026): um corpo de arquivo que não está carregado aqui (saiu do jogo, ou é
+ * só do editor) vira o corpo padrão do mesmo sexo — 0 (o Masculino) ou 1 (o Feminino). Assim o corpo desenhado e as edições da
+ * malha dele (modelagem.js `chaveDoCorpo`) sempre casam. Antes de os corpos carregarem, fica como veio.
+ */
+export function sexoQueExiste(n, s) {
+  if (!(s >= 2) || !Object.keys(Assets.corpos ?? {}).length || deArquivo(n, s)) return s;
+  return DIGITOS_MASCULINOS.has(s) ? 0 : 1;
+}
 /**
  * As SOBRANCELHAS PINTADAS de um corpo (as edições dele, no modelagem.json): as camadas de triângulos (`sobrancelhas`, a "pintar
  * triângulos" do editor) e, depois delas, as DESENHADAS (02/11/2026, o dono: "faz variações de sobrancelha mais livres… eu fiz pela
