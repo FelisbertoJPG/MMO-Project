@@ -123,6 +123,9 @@ export const FOGUEIRAS_DO_MAPA = [
   { id: 'acampamento', nome: 'Acampamento', x: 47.5 * CELL, z: 16 * CELL, acordar: [3.2, 0], rumo: -Math.PI / 2 },
   // a das COLINAS DO VENTO: o lugar vem da tag `colinas` do mapa; sem ela, fica na rocha
   { id: 'colinas', nome: 'WindHills', x: -99, z: -99, acordar: [3.2, 0], rumo: Math.PI / 2 },
+  // a das RUÍNAS DO PLATÔ (25/11/2026): ao pé da subida, do lado da trilha de pedras, a 41 m da Mycohydra —
+  // fora da zona da luta dela (34 m: renascer aqui não põe ninguém na briga), acordando de frente para ela
+  { id: 'ruinas', nome: 'Ruínas do Platô', x: 518, z: 58, acordar: [3.2, 0], rumo: 1.84 },
 ];
 
 /** O lugar (m) de cada fogueira: o padrão, ou a tag de lugar do mapa (`marcos[id]` = [linha, coluna]). */
