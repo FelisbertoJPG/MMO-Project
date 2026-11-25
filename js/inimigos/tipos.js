@@ -66,7 +66,8 @@ export const ENEMY_TYPES = {
  * dano, poise, alcance, janela [frações do clipe], atras (o coice) }; `espera` = a pausa entre golpes.
  * Bicho novo = uma ficha aqui, o modelo em ANIMAIS_MODELOS (assets.js) e `medir-clipes.mjs` de novo.
  */
-const BICHO = { comportamento: 'quadrupede' };
+// (o fogo do golpe entra × 1,25; não pega fogo nem sangra depois)
+const BICHO = { comportamento: 'quadrupede', fireWeak: 1.25, queima: false, sangra: false };
 Object.assign(ENEMY_TYPES, {
   cervo: { ...BICHO, name: 'Cervo', modelo: 'cervo', escala: 0.36, temperamento: 'pacifico',
     hp: 60, souls: 40, drops: [['carneCrua', 0.8]], andar: 1.3, correr: 7.5, radius: 0.5, height: 1.5, medo: 10 },
@@ -125,6 +126,28 @@ ENEMY_TYPES.carrasco = {
   invocar: { tipo: 'minion', quantos: 2, max: 3, vida: 80, raio: 4.5 },
   morte: { estilo: 'encolher', espera: 3.5, dura: 1.5 },
   corpo: { olhos: 'brasa', pulsoNaFase: true },
+};
+
+/**
+ * O WYRM DAS CINZAS (o chefe secreto do terraço; o comportamento `dragao`, inimigos/dragao.js): o corpo é o MODELO DE
+ * BLOCOS `assets/modelos/dragao.json` (montado no Editor de modelo), na escala `escala`. Mora no andar de cima (o traço
+ * `territorio`: o ninho é a célula mais longe da escada) e acorda quando alguém pisa lá. `velocidade` (m/s) e `giro`
+ * (rad/s) da perseguição, `perto` = onde para de andar; `golpes` = os números de cada golpe (o ritmo de cada um é a
+ * coreografia do dragao.js); `pausa` = entre um golpe e outro.
+ */
+ENEMY_TYPES.wyrm = {
+  comportamento: 'dragao', name: 'Wyrm das Cinzas', modelo: 'dragao', escala: 1.4,
+  hp: 2400, souls: 8000, drops: [], radius: 2.3, height: 4.2,
+  fireWeak: 0.35, queima: false, sangra: false,   // ESCAMA DE DRAGÃO: o fogo quase não entra
+  velocidade: 3.3, giro: 1.5, perto: 4.2, pausa: [1.1, 2.3],
+  golpes: {
+    mordida: { dano: 58, poise: 90, alcance: 6.2, angulo: 0.7, tremor: 0.3 },
+    cauda: { dano: 46, poise: 110, alcance: 7.8, tremor: 0.35 },
+    sopro: { dano: 13, poise: 12, alcance: 14, angulo: 0.38, intervalo: 0.3 },
+    salto: { dano: 55, poise: 90, raio: 8, velocidade: 11 },
+  },
+  chefe: { intro: 2.6, rugido: 1.0, tremor: 0.5, pausa: 1.5 },
+  territorio: { nivel: 1 },
 };
 
 /**

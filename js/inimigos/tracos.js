@@ -22,13 +22,17 @@
  */
 import * as THREE from 'three';
 import { ENEMY_TYPES } from './tipos.js';
+import { CELL } from '../mapa-logico.js';
 import { yawTo, turnTowards, flatDist } from '../geometria.js';
 
 export const TRACOS = {
   /**
-   * CHEFE: `{ intro, rugido }` (s). Dorme até o jogo o acordar (`wake`, ao entrar na arena), acorda
-   * rugindo, e vencido fica fora (`gone`) até `sleep` (no Mundo online, o relógio do chefe).
-   * `defeated` vai no save (save.js) e na rede.
+   * CHEFE: `{ intro, rugido (s), tremor (a câmera no rugido), pausa (s até o 1º golpe, assumido do
+   * retrato) }`. Dorme até o jogo o acordar (`wake`: ao entrar na arena, ou o traço `territorio`),
+   * acorda rugindo, e vencido fica fora (`gone`) até `sleep` (no Mundo online, o relógio do chefe).
+   * `defeated` vai no save (save.js) e na rede. Na ENTRADA (`intro`) o comportamento também roda (a
+   * pose do dragão se levantando); dormindo ou fora, não. Quem não existe neste mapa (`fora`: sem
+   * terraço, sem modelo) dorme sempre fora.
    */
   chefe: {
     iniciar(e) { e.isBoss = true; e.defeated = false; },
@@ -36,6 +40,7 @@ export const TRACOS = {
     invulneravel(e) { return ['dormant', 'intro', 'gone'].includes(e.state) || undefined; },
     travavel(e) { return e.state === 'gone' ? false : undefined; },
     dormir(e) {
+      if (e.fora) { e.active = false; e.dead = true; e.defeated = true; e.visivel = false; e.setState('gone'); return true; }
       e.cfg = e.cfgBase;   // (a fase muda a ficha: volta a de antes)
       e.reset();
       e.phase = 1; e.speedMul = 1;
@@ -56,11 +61,11 @@ export const TRACOS = {
       if (e.state !== 'intro') return undefined;
       if (e.stateT > c.rugido && !e.st.roared) {
         e.st.roared = true;
-        e.emitir('rugiu', { tremor: 0.6 });
+        e.emitir('rugiu', { tremor: c.tremor ?? 0.6 });
         e.emitir('olhosAcesos');
       }
       if (e.stateT > c.intro) { e.setState('chase'); e.cooldown = 0.6; }
-      return true;
+      return undefined;   // (o comportamento anima a entrada)
     },
     antesDeMorrer(e) { e.defeated = true; },
     /** Assumir no meio do caminho: dormindo, vencido ou sem retrato, `sleep` resolve; em luta, segue dela na fase certa. */
@@ -74,7 +79,7 @@ export const TRACOS = {
       e.emitir('olhosAcesos');
       (e.cfg.fases ?? []).forEach((f, i) => { if (e.hp <= e.maxHp * f.vida) e.entrarNaFase(i + 2); });
       e.setState('chase');
-      e.cooldown = 1.2;
+      e.cooldown = c.pausa ?? 1.2;
       e.tocar(e.idleAnim, { fade: 0 });
       return true;
     },
@@ -193,6 +198,29 @@ export const TRACOS = {
     },
   },
 
+  /**
+   * TERRITÓRIO: `{ nivel }` (o andar do mapa: 1 = o andar de cima, o terraço). Não sai dele (o passo
+   * que termina fora é desfeito: um chefe que desce a escada vira um dragão na floresta, fora da luta),
+   * o NINHO (onde nasce e dorme) é a célula dele mais longe da escada, e acorda quando um jogador
+   * vivo pisa nele (`podeAcordar`). Sem nenhuma célula desse andar no mapa, a criatura fica `fora`.
+   */
+  territorio: {
+    iniciar(e, c) {
+      const n = ninho(e.mundo.world, c.nivel);
+      if (n) e.home = n; else e.fora = true;
+    },
+    aoPisar(e, c) {
+      const w = e.mundo.world, [r, col] = w.cellOf(e.pos);
+      if (w.nivel(r, col) !== c.nivel) { e.pos.x = e.antesDoPasso.x; e.pos.z = e.antesDoPasso.z; }
+    },
+    podeAcordar(e, c) {
+      // (no mundo de outro, quem acorda é quem simula)
+      if (e.state !== 'dormant' || e.defeated || e.mundo.marionetes) return false;
+      const w = e.mundo.world;
+      return e.mundo.jogadores.some((j) => !j.dead && w.nivel(...w.cellOf(j.pos)) === c.nivel);
+    },
+  },
+
   /** MORTE: `{ estilo: 'encolher', espera, dura }` (s). Em vez de afundar, some encolhendo (o corpo desenha). */
   morte: {
     morrendo(e, c) {
@@ -205,3 +233,16 @@ export const TRACOS = {
     },
   },
 };
+
+/** O NINHO de quem vive no andar `nivel`: a célula dele mais longe da escada, sem encostar na borda (o corpo é largo). */
+function ninho(w, nivel) {
+  let escada = null, melhor = null, dMelhor = -1;
+  for (let r = 0; r < w.rows; r++) for (let c = 0; c < w.cols; c++) if (w.ch(r, c) === 'e') escada = [r, c];
+  for (let r = 0; r < w.rows; r++) for (let c = 0; c < w.cols; c++) {
+    if (w.nivel(r, c) !== nivel) continue;
+    const d = escada ? Math.abs(r - escada[0]) + Math.abs(c - escada[1]) : 0;
+    const vizinhos = [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, b]) => w.nivel(r + a, c + b) === nivel);
+    if (vizinhos && d > dMelhor) { dMelhor = d; melhor = [r, c]; }
+  }
+  return melhor ? new THREE.Vector3(melhor[1] * CELL, 0, melhor[0] * CELL) : null;
+}

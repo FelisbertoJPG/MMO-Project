@@ -11,6 +11,7 @@ import { CELL, S, ARENA } from '../mapa-logico.js';
 /** Os CHEFES (fichas em tipos.js): onde cada um espera, em metros. O `netId` é o nome (`carrasco`). */
 export const CHEFES = {
   carrasco: { x: ARENA.x, z: ARENA.z - 4 * S, rumo: 0 },   // ao fundo da arena, junto ao cepo
+  wyrm: { x: 0, z: 0, rumo: 0 },                          // (o lugar é o ninho: o traço `territorio` o acha no mapa)
 };
 
 /** O lugar (m) de quem nasce na célula [r, c], com o deslocamento. */

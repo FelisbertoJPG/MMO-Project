@@ -16,6 +16,7 @@ import { Humanoide } from './inimigos/humanoide.js';
 import { ENEMY_TYPES } from './inimigos/tipos.js';
 import { ESQUELETOS, BICHOS, CHEFES, lugarDoNascimento } from './inimigos/nascimentos.js';
 import { Animal } from './animais.js';
+import { Dragao } from './dragao.js';
 import { GLOW } from './world.js';
 
 export { ENEMY_TYPES, REFORCO_ESQUELETOS } from './inimigos/tipos.js';
@@ -262,15 +263,17 @@ export class Enemy extends Humanoide {
   }
 }
 
-/** A criatura da ficha `cfg`, com o corpo do comportamento dela (o bicho é `Animal`; o resto, `Enemy`). */
+/** A criatura da ficha `cfg`, com o corpo do comportamento dela (o bicho é `Animal`, o dragão `Dragao`; o resto, `Enemy`). */
 export function criarCriatura(game, cfg, pos, rumo = 0, opts = {}) {
-  return cfg.comportamento === 'quadrupede' ? new Animal(game, cfg, pos, rumo) : new Enemy(game, cfg, pos, rumo, opts);
+  if (cfg.comportamento === 'quadrupede') return new Animal(game, cfg, pos, rumo);
+  if (cfg.comportamento === 'dragao') return new Dragao(game, cfg, pos, rumo);
+  return new Enemy(game, cfg, pos, rumo, opts);
 }
 
-/** Um CHEFE (a ficha `tipo` e o lugar dele em `CHEFES`, nascimentos.js): o Carrasco. */
+/** Um CHEFE (a ficha `tipo` e o lugar dele em `CHEFES`, nascimentos.js): o Carrasco, o Wyrm. */
 export function criarChefe(game, tipo) {
   const c = CHEFES[tipo];
-  return new Enemy(game, ENEMY_TYPES[tipo], new THREE.Vector3(c.x, 0, c.z), c.rumo);
+  return criarCriatura(game, ENEMY_TYPES[tipo], new THREE.Vector3(c.x, 0, c.z), c.rumo);
 }
 
 /** Os inimigos e os bichos do mapa (js/inimigos/nascimentos.js), na ordem que dá o `netId` de cada um. */

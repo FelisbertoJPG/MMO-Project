@@ -11,8 +11,8 @@
  * (assets/clipes-dos-bichos.json, medido nos .glb: o mesmo no jogo e no servidor).
  *
  * Só anda em chão de AR LIVRE do térreo (`isOpenAir` e `nivel` 0): passo que termina na masmorra,
- * na escada ou no terraço é desfeito. Não sangra nem pega fogo depois do golpe (o fogo já entra no
- * dano: × 1,25).
+ * na escada ou no terraço é desfeito. A ficha diz que não sangra nem pega fogo depois do golpe (`sangra`,
+ * `queima`: o fogo já entra no dano, `fireWeak` 1,25).
  *
  * Os EVENTOS deste comportamento (o corpo, animais.js, desenha): 'sangrou' { pos }.
  */
@@ -47,7 +47,7 @@ export class Quadrupede extends Inimigo {
   receberGolpe(amount, srcPos, poise = 20, opts = {}) {
     if (this.dead || !this.active) return false;
     const m = this.mundo;
-    const dano = amount * (opts.fire ? 1.25 : 1);
+    const dano = amount * (opts.fire ? (this.cfg.fireWeak ?? 1) : 1);
     this.hp -= dano;
     this.recentDmg = m.time - this.lastHit < 2.5 ? this.recentDmg + Math.round(dano) : Math.round(dano);
     this.lastHit = m.time;
@@ -67,9 +67,6 @@ export class Quadrupede extends Inimigo {
     }
     return 'hit';
   }
-
-  ignite() { /* o fogo já entra no golpe (`opts.fire`) */ }
-  sangrar() { /* bicho não sangra depois do golpe */ }
 
   // ------------------------------------------------------------ andar
 

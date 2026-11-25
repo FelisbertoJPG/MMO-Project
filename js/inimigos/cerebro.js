@@ -7,8 +7,8 @@
  *   • a BASE (este arquivo, `Inimigo`): o que toda criatura tem — o lugar, a vida, o estado, o fogo
  *     e o sangramento, a morte, o alvo, a conversa com o corpo, os traços e a troca de simulador;
  *   • o COMPORTAMENTO (a ficha: `comportamento`): como ela anda e decide. `humanoide` (humanoide.js:
- *     os esqueletos e o Carrasco) e `quadrupede` (quadrupede.js: os bichos). `criarCerebro` (criar.js)
- *     escolhe pela ficha;
+ *     os esqueletos e o Carrasco), `quadrupede` (quadrupede.js: os bichos) e `dragao` (dragao.js: o Wyrm).
+ *     `criarCerebro` (criar.js) escolhe pela ficha;
  *   • os TRAÇOS (tracos.js): o que vai além do comum (chefe, arena, fases, invocar…), ligados pela ficha;
  *   • a FICHA (tipos.js): os números, os golpes, o comportamento e os traços.
  *
@@ -49,6 +49,7 @@ export class Inimigo {
     this.maxHp = cfg.hp;
     this.startsDormant = dormant;
     this.ouvintes = [];
+    this.antesDoPasso = new THREE.Vector3();   // onde estava antes da IA deste quadro (o traço `territorio` desfaz o passo)
     // os TRAÇOS que a ficha liga (tracos.js), na ordem da tabela
     this.tracos = Object.keys(TRACOS).filter((nome) => cfg[nome]).map((nome) => ({ nome, def: TRACOS[nome] }));
     this.traco('iniciar');
@@ -70,6 +71,8 @@ export class Inimigo {
   /** O CHEFE dorme (de vida cheia, à espera de quem entra) / acorda (traço `chefe`; sem ele, nada). */
   sleep() { this.traco('dormir'); }
   wake() { this.traco('acordar'); }
+  /** Alguém entrou onde ele dorme? (traço `territorio`: o jogo pergunta a cada quadro e então chama `wake`) */
+  podeAcordar() { return this.traco('podeAcordar') ?? false; }
 
   /** Passa para a fase `n` (traço `fases`): a velocidade, o giro e a pausa dela. */
   entrarNaFase(n) {
@@ -144,9 +147,10 @@ export class Inimigo {
     this.lastHit = this.mundo.time;
   }
 
-  ignite(sec) { this.burnT = Math.max(this.burnT, sec); }
-  /** SANGRA (a Emboscada no nível 3, caminhos.js): `porSeg` de dano por `sec` segundos, como o fogo. */
-  sangrar(sec, porSeg) { this.bleedT = Math.max(this.bleedT ?? 0, sec); this.bleedDps = porSeg; }
+  /** PEGA FOGO por `sec` segundos (a ficha: `queima: false` = não pega; o fogo do golpe é `fireWeak`). */
+  ignite(sec) { if (this.cfg.queima !== false) this.burnT = Math.max(this.burnT, sec); }
+  /** SANGRA (a Emboscada no nível 3, caminhos.js): `porSeg` de dano por `sec` segundos (a ficha: `sangra: false` = não sangra). */
+  sangrar(sec, porSeg) { if (this.cfg.sangra === false) return; this.bleedT = Math.max(this.bleedT ?? 0, sec); this.bleedDps = porSeg; }
 
   die() {
     this.traco('antesDeMorrer');
@@ -206,6 +210,7 @@ export class Inimigo {
     this.recuperar(dt);
     if (this.dead) this.updateDeath(dt);
     else {
+      this.antesDoPasso.copy(this.pos);
       this.updateAI(dt);
       this.pisar();
     }

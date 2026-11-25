@@ -778,6 +778,39 @@ await teste('o CÉREBRO das criaturas roda sem o navegador: esqueletos, o Carras
   assert.equal(touro.state, 'morto');
   correr(touro, 5);
   assert.ok(!touro.active && !touro.visivel && mortos.includes(touro) && touro.cfg.souls === 180, 'o touro não saiu de cena');
+
+  // O DRAGÃO (o comportamento `dragao`, com os traços `chefe` e `territorio`): nasce no ninho do terraço
+  const wyrm = criarCerebro(mundo, ENEMY_TYPES.wyrm, new THREE.Vector3(), 0);
+  assert.ok(!wyrm.fora && world.nivel(...world.cellOf(wyrm.pos)) === 1, 'o dragão não achou o ninho no terraço');
+  assert.ok(wyrm.isBoss && wyrm.state === 'dormant' && wyrm.invulnerable, 'o dragão não nasce dormindo');
+  // acorda quando um jogador vivo pisa no terraço
+  mundo.jogadores = [alvo];
+  alvo.pos.set(wyrm.pos.x + 60, 0, wyrm.pos.z);
+  assert.equal(wyrm.podeAcordar(), world.nivel(...world.cellOf(alvo.pos)) === 1);
+  alvo.pos.set(wyrm.pos.x, 0, wyrm.pos.z + 9);
+  for (let k = 0; k < 16 && world.nivel(...world.cellOf(alvo.pos)) !== 1; k++) alvo.pos.set(wyrm.pos.x + Math.sin(k) * 7, 0, wyrm.pos.z + Math.cos(k) * 7);
+  assert.ok(wyrm.podeAcordar(), 'pisar no terraço não acorda o dragão');
+  wyrm.wake();
+  golpes.length = 0;
+  const visto = new Set(); let saiu = false;
+  for (let i = 0; i < 25 * 30; i++) {
+    mundo.time += 1 / 30; wyrm.update(1 / 30); visto.add(wyrm.state);
+    if (world.nivel(...world.cellOf(wyrm.pos)) !== 1) saiu = true;
+  }
+  assert.ok(!saiu, 'o dragão saiu do terraço');
+  assert.ok(visto.has('intro') && visto.has('chase') && golpes.length > 0, `o dragão não lutou: ${[...visto]}`);
+  assert.ok(['mordida', 'cauda', 'sopro', 'salto'].some((s) => visto.has(s)), 'nenhum golpe de dragão');
+  // a escama: o fogo quase não entra, e ele não pega fogo
+  const hp0 = wyrm.hp;
+  wyrm.setState('chase');
+  wyrm.takeDamage(100, alvo.pos.clone(), 0, { fire: true });
+  wyrm.ignite(5);
+  assert.ok(Math.abs(hp0 - wyrm.hp - 35) < 0.01 && wyrm.burnT === 0, 'o fogo entrou inteiro no dragão');
+  // morre: tomba, fica vencido e sai de cena
+  while (!wyrm.dead) wyrm.takeDamage(500, alvo.pos.clone(), 0, {});
+  assert.ok(wyrm.state === 'morrendo' && wyrm.defeated, 'o dragão não morreu como chefe');
+  for (let i = 0; i < 6 * 30; i++) { mundo.time += 1 / 30; wyrm.update(1 / 30); }
+  assert.ok(wyrm.state === 'gone' && !wyrm.visivel && wyrm.tombo > 1, 'o dragão não sumiu tombado');
 });
 
 await teste('o MAPA LÓGICO: toda peça do PROPS e todo bicho têm medida, e as colisões montam dos arquivos do jogo', async () => {

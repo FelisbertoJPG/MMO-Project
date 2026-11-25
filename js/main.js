@@ -13,7 +13,6 @@ import { Effects, Projectiles, flatDist, yawTo } from './combat.js';
 import { Player } from './player.js';
 import { Monitor } from './monitor.js';
 import { spawnEnemies, criarChefe, criarCriatura } from './enemies.js';
-import { Dragao } from './dragao.js';
 import { Inventory } from './inventory.js';
 import { UI } from './ui.js';
 import { ITEMS } from './items.js';
@@ -140,7 +139,7 @@ class Game {
     this.player = new Player(this);
     this.enemies = spawnEnemies(this);
     this.boss = criarChefe(this, 'carrasco');   // (a ficha dele: js/inimigos/tipos.js; os traços: tracos.js)
-    this.dragao = new Dragao(this);   // o chefe secreto do terraço
+    this.dragao = criarChefe(this, 'wyrm');   // o chefe secreto do terraço (a ficha `wyrm`, tipos.js; o corpo: dragao.js)
     this.bossAtual = null;            // de quem é a barra de chefe (null = o Carrasco)
     this.all = [...this.enemies, this.boss, this.dragao];
     // ---- O terreno do co-op (níveis 2 e 3 do online) ----
