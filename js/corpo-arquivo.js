@@ -266,6 +266,36 @@ export function inversosDoArquivo(corpo, ordem, inversos, ligacao) {
   return inversos.map((m, i) => { d.copy(anda[i]).applyMatrix4(ligacao).sub(zero); return m.clone().multiply(new THREE.Matrix4().makeTranslation(-d.x, -d.y, -d.z)); });
 }
 
+/** Onde fica cada osso de `ordem` na pose T, no espaço da malha (cm), pelos inversos de ligação — a aba Esqueleto do editor lê daqui. */
+export { juntas as juntasDoEsqueleto };
+
+/**
+ * O ESQUELETO CORRIGIDO À MÃO do GUERREIRO (24/11/2026; assets/esqueletos.json → `Assets.esqueletos.guerreiro`, a aba Esqueleto do
+ * editor de cenas): `correcao` = { <osso>: [x, y, z] } — onde a junta fica, cm no espaço da malha, pose T. A malha NÃO se mexe (os
+ * pesos ficam): o osso vai para lá, os filhos dele ficam onde estavam e o inverso de ligação segue o osso. (No CORPO DE ARQUIVO a
+ * correção entra direto nas juntas dele, `corpo.ossos` — assets.js `carregarCorpos`.) O local novo = o de sempre (`resto`) + o quanto
+ * o osso andou em relação ao pai, no espaço do pai: não depende de a pose do arquivo ser a da ligação. Devolve { locais (null = o de
+ * sempre), inversos, anda (cm no espaço da malha, null = não andou) }, ou null sem nada a corrigir.
+ */
+export function esqueletoCorrigido(correcao, ossos, ordem, inversos, ligacao, resto) {
+  const J = juntas(ordem, inversos, ligacao);
+  const anda = ordem.map((n, i) => (Array.isArray(correcao?.[n]) ? new THREE.Vector3(...correcao[n]).sub(J[i]) : null));
+  if (!anda.some(Boolean)) return null;
+  const zero = new THREE.Vector3().applyMatrix4(ligacao), d = new THREE.Vector3(), lin = new THREE.Matrix3(), m = new THREE.Matrix4();
+  const novos = inversos.map((inv, i) => {
+    if (!anda[i]) return inv.clone();
+    d.copy(anda[i]).applyMatrix4(ligacao).sub(zero);
+    return inv.clone().multiply(new THREE.Matrix4().makeTranslation(-d.x, -d.y, -d.z));
+  });
+  const locais = ossos.map((b, i) => {
+    const p = ordem.indexOf(b.parent?.name ?? ''), a = anda[i], ap = p >= 0 ? anda[p] : null;
+    if (p < 0 || (!a && !ap)) return null;
+    const v = (a ? a.clone() : new THREE.Vector3()).sub(ap ?? new THREE.Vector3());
+    return resto[i].clone().add(v.applyMatrix3(lin.setFromMatrix4(m.multiplyMatrices(inversos[p], ligacao))));
+  });
+  return { locais, inversos: novos, anda };
+}
+
 /**
  * O BATOM nos lábios de um corpo de arquivo SEM o rosto da modelo 1 (01/11/2026; a Feminino 4 lisa — o dono pintou a boca
  * de preto e pediu "liga o batom nos lábios dela"): os triângulos dos lábios são os marcados em `boca` nas edições do corpo

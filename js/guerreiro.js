@@ -39,7 +39,7 @@ import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 import { folhaDaSombra } from './sombra.js';
 import { peleNova, PELE, TROCADAS, OSSOS_DO_CORPO } from './retopologia.js';
-import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, rostoDaModelo, edicoesDoRosto, transplantarRosto, materialDaTextura, batomDoArquivo } from './corpo-arquivo.js';
+import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, esqueletoCorrigido, rostoDaModelo, edicoesDoRosto, transplantarRosto, materialDaTextura, batomDoArquivo } from './corpo-arquivo.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -785,11 +785,29 @@ export class CorpoGuerreiro {
       d.inversos.forEach((m, i) => inv[i].copy(m));
       if (arq.ossos.Hips) this.hipRestoG.set(...arq.ossos.Hips).applyMatrix4(ligacao);
     } else {
-      this.inversos.forEach((m, i) => inv[i].copy(m));
-      for (const a of this.afastados) a.osso.position.copy(a.resto).addScaledVector(a.lado, a.resto.dot(a.lado) * (p[a.chave] - 1));
+      // (as juntas CORRIGIDAS à mão — a aba Esqueleto do editor, assets/esqueletos.json: o osso vai para lá, a malha fica; a
+      // raça afasta os ombros e o quadril a partir do lugar corrigido)
+      const fix = this.correcao(), ligacao = this.pecas[0].bindMatrix;
+      (fix?.inversos ?? this.inversos).forEach((m, i) => inv[i].copy(m));
+      fix?.locais.forEach((v, i) => { if (v) ossos[i].position.copy(v); });
+      for (const a of this.afastados) {
+        const base = fix?.locais[ossos.indexOf(a.osso)] ?? a.resto;
+        a.osso.position.copy(base).addScaledVector(a.lado, base.dot(a.lado) * (p[a.chave] - 1));
+      }
       this.hipRestoG.copy(this.hipRestoBase);
+      const h = fix?.anda[this.ordem.indexOf('Hips')];
+      if (h) this.hipRestoG.add(h.clone().applyMatrix3(new THREE.Matrix3().setFromMatrix4(ligacao)));
     }
     return antes !== this.altura * 1000 + this.maos;
+  }
+
+  /** As juntas do guerreiro corrigidas à mão (`Assets.esqueletos.guerreiro`; corpo-arquivo.js `esqueletoCorrigido`), feitas uma vez por correção — ou null. */
+  correcao() {
+    const c = Assets.esqueletos?.guerreiro, chave = c ? JSON.stringify(c) : '';
+    if (this.correcaoFeita?.chave !== chave) {
+      this.correcaoFeita = { chave, feita: c ? esqueletoCorrigido(c, this.esqueleto.bones, this.ordem, this.inversos, this.pecas[0].bindMatrix, this.ossosDeResto) : null };
+    }
+    return this.correcaoFeita.feita;
   }
 
   // a armadura dele: o CÓDIGO (um dígito por lugar, ver `NU`, e a aparência depois de ':');

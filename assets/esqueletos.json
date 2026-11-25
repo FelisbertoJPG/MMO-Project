@@ -1,0 +1,4 @@
+{
+  "_leiame": "As JUNTAS do esqueleto corrigidas à mão (a aba Esqueleto do Editor de Personagem; js/assets.js carregarEsqueletos): corpos → <corpo> → <osso> → [x, y, z], onde a junta fica em cm no espaço da malha, na pose T. <corpo> = o nome do corpo de arquivo (assets/corpos/<nome>.json) ou guerreiro (a Orc e as raças sem arquivo). Só a junta muda: a malha e os pesos ficam.",
+  "corpos": {}
+}

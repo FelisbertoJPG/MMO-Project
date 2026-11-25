@@ -273,10 +273,35 @@ export async function carregarModelagem() {
 }
 
 /**
+ * O ESQUELETO CORRIGIDO À MÃO (24/11/2026; `assets/esqueletos.json`, gravado pela aba Esqueleto do editor de cenas):
+ * { <corpo>: { <osso>: [x, y, z] } } — onde a junta do osso fica, em cm no espaço da malha, na pose T. <corpo> = o nome do
+ * arquivo do corpo de arquivo (a versão lisa usa o do arquivo dela) ou `guerreiro` (o corpo da Orc e das raças sem arquivo).
+ * Só a JUNTA muda: a malha e os pesos ficam (corpo-arquivo.js `esqueletoCorrigido`; no corpo de arquivo, `carregarCorpos`
+ * troca as juntas dele). Sem o arquivo, ou o que vier torto: nada corrigido.
+ */
+export async function carregarEsqueletos() {
+  try {
+    const r = await fetch('assets/esqueletos.json', { cache: 'no-store' });
+    if (!r.ok) return {};
+    const j = (await r.json())?.corpos, bom = {};
+    if (!j || typeof j !== 'object' || Array.isArray(j)) return {};
+    for (const [corpo, ossos] of Object.entries(j)) {
+      if (!/^[a-z0-9-]{1,40}$/.test(corpo) || !ossos || typeof ossos !== 'object' || Array.isArray(ossos)) continue;
+      const l = Object.entries(ossos).filter(([n, v]) => /^\w{1,40}$/.test(n) && Array.isArray(v) && v.length === 3 && v.every((x) => Number.isFinite(x) && Math.abs(x) <= 400));
+      if (l.length) bom[corpo] = Object.fromEntries(l.map(([n, v]) => [n, v.slice()]));
+    }
+    return bom;
+  } catch { return {}; }
+}
+
+/**
  * Os CORPOS DE ARQUIVO (assets/corpos/<nome>.json, corpo-arquivo.js): nome → os dados já abertos (as listas em
  * base64 viram arrays). Arquivo que falta ou vem torto fica de fora: a opção dele some do painel.
+ * As juntas corrigidas à mão (`esqueletos`, `carregarEsqueletos`; sem elas, lidas aqui e guardadas em `Assets.esqueletos`,
+ * que o guerreiro também lê) entram em `ossos`; as do importar.mjs ficam em `ossosAuto`, para a aba Esqueleto do editor.
  */
-export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
+export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO, esqueletos = null) {
+  if (!esqueletos) esqueletos = Assets.esqueletos = await carregarEsqueletos();
   const de64 = (s, T) => { const b = Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); return new T(b.buffer, 0, b.byteLength / T.BYTES_PER_ELEMENT); };
   const corpos = {}, inteiros = new Set(lista.filter((n) => !n.endsWith(':lisa')));
   await Promise.all([...new Set(lista.map((n) => n.replace(/:lisa$/, '')))].map(async (nome) => {
@@ -303,6 +328,10 @@ export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO) {
         const cab = { pivo: j.cabelo.pivo, pos: de64(j.cabelo.pos, Float32Array), idx: de64(j.cabelo.idx, Uint16Array) };
         if (!cab.idx.some((i) => i >= cab.pos.length / 3)) c.cabelo = cab;
       }
+      // (as juntas corrigidas na aba Esqueleto do editor: só as dos ossos que o corpo tem)
+      c.ossosAuto = c.ossos;
+      const fix = Object.entries(esqueletos[nome] ?? {}).filter(([n]) => n in c.ossosAuto);
+      if (fix.length) c.ossos = { ...c.ossosAuto, ...Object.fromEntries(fix) };
       corpos[nome] = c;
       // (a versão LISA — 01/11/2026, o dono: "uma versão sem textura, pq ela tem uma maquiagem gótica, e eu quero
       // generalizar o modelo pra feminino"; e: "eu mandei remover a textura, MODELO LIMPO"): `jogo.lisa` { sexo, rotulo } no
@@ -553,6 +582,7 @@ export const Assets = {
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
   esculpidos: {},    // nome → a cena dos personagens feitos de fotos (esculpido.js)
   corpos: {},        // nome → um CORPO DE ARQUIVO (corpo-arquivo.js): a malha, os pesos e os ossos de um modelo pronto
+  esqueletos: {},    // as JUNTAS corrigidas à mão (assets/esqueletos.json, a aba Esqueleto do editor): corpo → osso → [x, y, z] cm
 
   async load(onProgress = () => {}) {
     const loader = new GLTFLoader();
@@ -604,7 +634,8 @@ export const Assets = {
     this.empunhadura = await carregarEmpunhadura();
     this.armaduras = await carregarArmaduras();
     ({ racas: this.racas, humano: this.humano } = await lerRacas());
-    this.corpos = await carregarCorpos();
+    this.esqueletos = await carregarEsqueletos();
+    this.corpos = await carregarCorpos(CORPOS_DE_ARQUIVO, this.esqueletos);
     this.modelagem = await carregarModelagem();
     this.pinturas = await carregarPinturas(this.modelagem);
     usarPenteados(await carregarPenteados());   // (os penteados editados na aba Cabelo do editor, por cima dos do código)
