@@ -147,8 +147,12 @@ const suave = (k) => { k = Math.min(1, Math.max(0, k)); return k * k * (3 - 2 * 
 // (a CÁPSULA — `capsula: true`, a MANDÍBULA, 25/11/2026: a pele a menos de `raio` (um número) do segmento de → ponta, da
 // articulação ao queixo; cheia por dentro, caindo até a borda. Em ordem: depois da boca, leva junto a parte da boca que cai nela —
 // o lábio de baixo)
-ossos.forEach((o, b) => {
-  if (!o.regiao) return;
+// (RÍGIDA — `rigida: true`, 25/11/2026, o dono: "um pedaço da malha fica pra trás, ela deveria ir junto (meio estática mesmo)": toda a
+// pele dentro do raio é INTEIRA do osso, sem a borda que vai enfraquecendo — a peça anda como um bloco. As rígidas entram por ÚLTIMO:
+// onde cruzam outra região, ganham)
+const regioes = ossos.map((o, b) => [o, b]).filter(([o]) => o.regiao);
+regioes.sort(([a], [z]) => !!a.regiao.rigida - !!z.regiao.rigida);
+regioes.forEach(([o, b]) => {
   const R = o.regiao.raio, [rx, ry, rz] = Array.isArray(R) ? R : [R, R, R], [cx0, cy0, cz0] = o.de;
   const capsula = o.regiao.capsula ? [o.de, o.ponta ?? o.de] : null;
   const so = new Set((o.regiao.so ?? []).map((n) => porNome.get(n)));
@@ -156,7 +160,7 @@ ossos.forEach((o, b) => {
     if (so.size && !so.has(dono[u])) continue;
     const dx = (PX(u, 0) - cx0) / rx, dy = (PX(u, 1) - cy0) / ry, dz = (PX(u, 2) - cz0) / rz;
     const e = capsula ? distSeg(u, capsula) / rx : Math.hypot(dx, dy, dz);
-    let w = 1 - suave((e - 0.55) / 0.45);   // (cheio até a borda dos lábios, caindo do lado de fora)
+    let w = o.regiao.rigida ? (e <= 1 ? 1 : 0) : 1 - suave((e - 0.55) / 0.45);   // (cheio até a borda dos lábios, caindo do lado de fora; a rígida, inteira até o raio)
     if (o.regiao.frente && !capsula) w *= suave((dz + 0.5) / 0.5);   // (atrás do centro some: a nuca não fecha junto)
     if (w <= 0.01) continue;
     const base = u * B;
@@ -221,8 +225,8 @@ const nos = [{ name: cfg.nome ?? path.basename(saida, '.glb'), mesh: 0, skin: 0 
 ossos.forEach((o, b) => {
   const pai = o.pai ? mundo[porNome.get(o.pai)] : [0, 0, 0];
   // (a PONTA vai junto, em metros no espaço da malha — `extras` vira o `userData` do osso no three: o corpo a usa, ex.: a mandíbula
-  // de baixo fecha até o queixo apontar para a ponta da de cima)
-  nos.push({ name: o.nome, translation: mundo[b].map((v, e) => v - pai[e]), ...(o.ponta ? { extras: { ponta: noMundo(o.ponta).map((v) => Math.round(v * 1e4) / 1e4) } } : {}) });
+  // de baixo fecha até o queixo apontar para a ponta da de cima); e o `fecha` da mandíbula ("encaixe": vai inteira até a de cima)
+  nos.push({ name: o.nome, translation: mundo[b].map((v, e) => v - pai[e]), ...(o.ponta || o.fecha ? { extras: { ...(o.ponta ? { ponta: noMundo(o.ponta).map((v) => Math.round(v * 1e4) / 1e4) } : {}), ...(o.fecha ? { fecha: o.fecha } : {}) } } : {}) });
 });
 ossos.forEach((o, b) => { const f = filhos[b].map((x) => 1 + porNome.get(x.nome)); if (f.length) nos[1 + b].children = f; });
 const raizes = ossos.map((o, b) => (o.pai ? null : 1 + b)).filter((x) => x !== null);

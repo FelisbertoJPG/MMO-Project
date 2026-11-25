@@ -27,10 +27,18 @@ function naLigacao(b) {
   for (let p = b.parent; p?.isBone; p = p.parent) v.add(p.position);
   return v;
 }
-/** o giro em x (rad) que leva o queixo (a ponta da de baixo) a apontar, da articulação dela, para a ponta da de cima — ou null */
+/** o giro em x (rad) que leva o queixo (a ponta da de baixo) a apontar, da articulação dela, para a ponta da de cima — ou null.
+ *  Com `fecha: "encaixe"` no osso de baixo (o .glb: `userData.fecha`; 25/11/2026, o dono: "pega a mandíbula de baixo + o queixo e
+ *  move até a mandíbula de cima, meio estático"): em vez do giro, o ENCAIXE — { pos0, anda, gira }: fechada, a articulação de baixo
+ *  vai até a de cima (`anda`, no espaço da cabeça) e o osso se alinha com o de cima (`gira`), a peça inteira como um bloco */
 function anguloDeFechar(baixo, cima) {
   const C = baixo?.userData.ponta, U = cima?.userData.ponta;
   if (!C || !U) return null;
+  if (baixo.userData.fecha === 'encaixe') {
+    const Hb = naLigacao(baixo), Hc = naLigacao(cima);
+    const de = new THREE.Vector3().fromArray(C).sub(Hb).normalize(), para = new THREE.Vector3().fromArray(U).sub(Hc).normalize();
+    return { pos0: baixo.position.clone(), anda: Hc.sub(Hb), gira: new THREE.Quaternion().setFromUnitVectors(de, para) };
+  }
   const H = naLigacao(baixo), y1 = C[1] - H.y, z1 = C[2] - H.z, y2 = U[1] - H.y, z2 = U[2] - H.z;
   return Math.atan2(y1 * z2 - z1 * y2, y1 * y2 + z1 * z2);
 }
@@ -91,10 +99,16 @@ export function animarHidra(O, a, quem, t, dt) {
     if (fecha == null) {
       boca?.scale.set(BOCA.largura[0] + BOCA.largura[1] * ab, BOCA.altura[0] + BOCA.altura[1] * ab, 1);
       O.mandibulas[k]?.rotation.set(ab * MANDIBULA.abre, 0, 0);   // (+x: o queixo, à frente, desce)
-    } else {
+    } else if (typeof fecha === 'number') {
       // (as duas mandíbulas: aberta = o modelo + `alem`; fechada = o queixo na ponta da de cima)
       boca?.scale.set(1, 1, 1);
       O.mandibulas[k].rotation.set((1 - ab) * fecha + ab * MANDIBULA.alem, 0, 0);
+    } else {
+      // (o ENCAIXE: aberta = como o modelo veio; fechada = a peça de baixo inteira em cima da de cima)
+      const m = O.mandibulas[k], f = 1 - Math.min(1, Math.max(0, ab));
+      boca?.scale.set(1, 1, 1);
+      m.position.copy(fecha.pos0).addScaledVector(fecha.anda, f);
+      m.quaternion.identity().slerp(fecha.gira, f);
     }
   });
   // as PERNAS: o pé da pose sobe (coxa para fora e para cima, a canela devolve, o pé pende); as outras
