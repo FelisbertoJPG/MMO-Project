@@ -57,6 +57,9 @@ export class CorpoDaHidra extends Hidra {
     });
     this.material = this.malha?.material;
     this.ossos = ossosDaHidra(this.malha?.skeleton.bones ?? [], cfg);
+    // as MANDÍBULAS animam (a BOCA VIVA: parada, a de baixo sobe e desce um pouco até a de cima — o `respira` de cada uma, ajustado na
+    // aba Esqueleto do editor; 25/11/2026, o dono: "pode subir pra jogo com a animação de living"). Antes só o editor as mexia
+    this.comMandibulas = true;
     this.aberturas = cfg.bocas.map(() => BOCA.dormindo);   // o quanto cada boca está aberta agora (vai até o alvo suave)
     this.passo = 0;          // o arrastar dos pés quando gira no lugar (enfeite): a fase
     this.arrastar = 0;       // … e a força (0 parada, 1 girando)

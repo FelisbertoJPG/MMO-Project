@@ -13,8 +13,8 @@ export const ERGUER = { coxa: 1.3, canela: -1.0, pe: -0.3, corpo: 0.1 };
  *  (os lábios e os dentes se encostam), 1 = escancarada. Em repouso ficam semiabertas e respiram; abrem tudo
  *  quando a cabeça EMPINA (o cuspe, o rugido: a pose `cab` > 0), um pouco no pisão; dormindo, quase fechadas. */
 export const BOCA = { dormindo: 0.08, repouso: 0.35, pisao: 0.6, morta: 0.7, largura: [0.3, 0.85], altura: [0.8, 0.3] };
-/** A MANDÍBULA DE BAIXO (`mandibula<k>`, filha da cabeça; 25/11/2026) — HOJE SÓ NO EDITOR (`quem.comMandibulas`; no jogo fica como o
- *  modelo veio).
+/** A MANDÍBULA DE BAIXO (`mandibula<k>`, filha da cabeça; 25/11/2026) — com `quem.comMandibulas` (o editor e, desde 25/11/2026 à noite,
+ *  o corpo do jogo; sem ele, fica como o modelo veio e a boca escala).
  *  - COM a de CIMA (`maxila<k>`, as duas com `ponta` — o .glb as traz em `userData.ponta`): o modelo já vem de boca ABERTA; `s` = o
  *    quanto a de baixo foi para a de cima (0 como veio, 1 fechada: o giro até o queixo apontar para a ponta de cima, ou o ENCAIXE —
  *    `fecha`, medido no ossosDaHidra). A BOCA VIVA: parada, ela sobe e desce até `respira` (o do osso — `userData.respira`, do config —,
@@ -104,8 +104,8 @@ export function animarHidra(O, a, quem, t, dt) {
     if (deFora == null && quem.state === 'pisao') alvo = Math.max(alvo, BOCA.pisao);
     if (deFora == null && !quem.dead && quem.state !== 'dormant') alvo += Math.sin(t * 1.1 + k * 1.9) * 0.05;   // respira
     const ab = quem.aberturas[k] = THREE.MathUtils.lerp(quem.aberturas[k], alvo, Math.min(1, dt * 8));
-    // AS MANDÍBULAS só se mexem com `quem.comMandibulas` (25/11/2026, o dono: "não sobe essas animações pro jogo ainda, apenas a posição
-    // dos ossos"): hoje só o EDITOR o liga — no jogo elas ficam como o modelo veio e a boca abre e fecha escalando, como antes
+    // AS MANDÍBULAS só se mexem com `quem.comMandibulas`: o editor o liga, e o corpo do jogo também (25/11/2026, o dono: "pode subir pra
+    // jogo com a animação de living"; antes ficava só no editor). Sem ele, elas ficam como o modelo veio e a boca abre escalando
     const m = O.mandibulas[k], fecha = quem.comMandibulas ? O.fecha[k] : null;
     if (fecha == null) {
       boca?.scale.set(BOCA.largura[0] + BOCA.largura[1] * ab, BOCA.altura[0] + BOCA.altura[1] * ab, 1);
