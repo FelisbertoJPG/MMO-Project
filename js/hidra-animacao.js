@@ -30,8 +30,9 @@ function naLigacao(b) {
 /** o giro em x (rad) que leva o queixo (a ponta da de baixo) a apontar, da articulação dela, para a ponta da de cima — ou null.
  *  Com `fecha: "encaixe"` no osso de baixo (o .glb: `userData.fecha`; 25/11/2026, o dono: "pega a mandíbula de baixo + o queixo e
  *  move até a mandíbula de cima, meio estático"): em vez do giro, o ENCAIXE — { pos0, anda, gira }: fechada, a articulação de baixo
- *  vai até a de cima (`anda`, no espaço da cabeça) e o osso se alinha com o de cima (`gira`), a peça inteira como um bloco */
-function anguloDeFechar(baixo, cima) {
+ *  vai até a de cima (`anda`, no espaço da cabeça) e o osso se alinha com o de cima (`gira`), a peça inteira como um bloco.
+ *  Exportada: a aba Esqueleto do editor a chama a cada quadro (o bloco da de baixo fechada, ao vivo, enquanto as juntas se movem) */
+export function fechamentoDaBoca(baixo, cima) {
   const C = baixo?.userData.ponta, U = cima?.userData.ponta;
   if (!C || !U) return null;
   if (baixo.userData.fecha === 'encaixe') {
@@ -56,7 +57,7 @@ export function ossosDaHidra(bones, cfg) {
     bocas: cfg.bocas.map((_, k) => osso(`boca${k}`)),
     mandibulas, maxilas,
     // (o giro que fecha a de baixo até a de cima, medido nas juntas como estão agora — chame com o esqueleto na pose de ligação)
-    fecha: mandibulas.map((m, k) => anguloDeFechar(m, maxilas[k])),
+    fecha: mandibulas.map((m, k) => fechamentoDaBoca(m, maxilas[k])),
     pernas: cfg.pes.map(([x, z], k) => {
       // o eixo de erguer: deitado, de lado para a perna — gira o pé PARA FORA e para cima
       const fora = new THREE.Vector3(x, 0, z).normalize();
