@@ -1,259 +1,91 @@
+/**
+ * OS INIMIGOS NO NAVEGADOR (24/11/2026: o cérebro saiu para js/inimigos/cerebro.js). O `Enemy` é
+ * o cérebro (`Inimigo`) com um CORPO: o boneco (`CharacterModel`), as armas na mão, as animações
+ * que o cérebro pede, as faíscas, os sons, o escudo em pedaços e o esqueleto que desmonta. O corpo
+ * NÃO decide nada: lê o estado do cérebro a cada quadro (`vestirCorpo`) e responde aos eventos dele
+ * (`aoEvento`). Lá, as regras; aqui, só o que se vê e se ouve.
+ *
+ * A MARIONETE (o co-op e o Mundo online, quando outro simula) também é daqui: quem decide é o
+ * retrato que chega pela rede, e o corpo só o repete.
+ */
 import * as THREE from 'three';
-import { CharacterModel, ATTACKS, weaponMesh, shieldMesh } from './character.js';
-import { novoEscudo, danoNoEscudo, RECUPERA_APOS, RECUPERA_POR_S } from './escudo.js';
+import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
 import { desmontar } from './desmontar.js';
 import { Interpolador, giroCurto, loopa } from './remoto.js';
-import { angleToTarget, yawTo, turnTowards, flatDist } from './combat.js';
-import { CELL, S } from './world.js';
+import { Inimigo } from './inimigos/cerebro.js';
+import { ENEMY_TYPES } from './inimigos/tipos.js';
+import { ESQUELETOS, BICHOS, lugarDoNascimento } from './inimigos/nascimentos.js';
 import { Animal } from './animais.js';
 
-const _v = new THREE.Vector3();
+export { ENEMY_TYPES, REFORCO_ESQUELETOS } from './inimigos/tipos.js';
 
-export const ENEMY_TYPES = {
-  minion: {
-    name: 'Esqueleto Desperto', outfit: 'skMinion', skeleton: true, hp: 70, souls: 50, speed: 2.2,
-    runAnim: 'Zombie_Walk_Fwd_Loop', runRef: 1.1, idleAnim: 'Zombie_Idle_Loop',
-    radius: 0.4, height: 1.8, scale: 1, poise: 15, aggro: 11, cooldown: [0.9, 2.0], turnRate: 4.5,
-    right: 'rustySword', fireWeak: 1.3,
-    attacks: [
-      { anim: 'scratch', dmg: 22, poise: 30, reach: 1.6, range: 1.8, lunge: 1.5, speed: 0.9 },
-      { anim: 'slashA', dmg: 20, poise: 25, reach: 1.9, range: 2.0, lunge: 2.0, speed: 0.55, next: 'm2', nextChance: 0.4 },
-      { id: 'm2', anim: 'slashB', dmg: 18, poise: 25, reach: 1.9, range: 0, follow: true, lunge: 1.8, speed: 0.55 },
-    ],
-    drops: [['firebomb', 0.12], ['lostSoul', 0.15], ['cogumelo', 0.25]],
-  },
-  warrior: {
-    name: 'Guerreiro Esqueleto', outfit: 'skWarrior', skeleton: true, hp: 150, souls: 150, speed: 2.6,
-    runAnim: 'Jog_Fwd_Loop', runRef: 3.9, idleAnim: 'Sword_Idle',
-    radius: 0.45, height: 1.9, scale: 1.05, poise: 45, aggro: 12, cooldown: [1.0, 2.2], turnRate: 3.6,
-    right: 'rustyAxe', left: 'rustyRound', blockChance: 0.55, fireWeak: 1.3,
-    attacks: [
-      { anim: 'slashC', dmg: 30, poise: 40, reach: 2.0, range: 2.2, lunge: 2.0, speed: 0.8, next: 'w2', nextChance: 0.45 },
-      { id: 'w2', anim: 'overhead', dmg: 36, poise: 55, reach: 2.1, range: 0, follow: true, lunge: 1.8, speed: 0.75 },
-      { anim: 'dash', dmg: 38, poise: 60, reach: 2.0, range: 6, minRange: 3.2, lunge: 6.5, speed: 0.75, trackMul: 1.4 },
-    ],
-    // a MALHA do Sentinela (rara; a primeira que sair é a que cai — ver onEnemyKilled)
-    drops: [['arm2_peito', 0.05], ['arm2_bracos', 0.06], ['arm2_pernas', 0.06], ['resin', 0.4], ['lostSoul', 0.3], ['carneCrua', 0.35]],
-  },
-  rogue: {
-    name: 'Ladino Esqueleto', outfit: 'skRogue', skeleton: true, hp: 85, souls: 110, speed: 3.6,
-    runAnim: 'Jog_Fwd_Loop', runRef: 3.9, idleAnim: 'Sword_Idle',
-    radius: 0.4, height: 1.85, scale: 1, poise: 12, aggro: 13, cooldown: [0.5, 1.4], turnRate: 6, dodgeChance: 0.35,
-    right: 'dagger', fireWeak: 1.3,
-    attacks: [
-      { anim: 'slashA', dmg: 18, poise: 20, reach: 1.6, range: 1.8, lunge: 3.2, speed: 0.7, next: 'r2', nextChance: 0.5 },
-      { id: 'r2', anim: 'hook', dmg: 16, poise: 20, reach: 1.6, range: 0, follow: true, lunge: 2.5, speed: 0.6 },
-    ],
-    drops: [['blossom', 0.35], ['pimenta', 0.4]],
-  },
-  mage: {
-    name: 'Necromante Esqueleto', outfit: 'skMage', skeleton: true, hp: 60, souls: 120, speed: 2.2,
-    runAnim: 'Walk_Loop', runRef: 1.5, idleAnim: 'Spell_Simple_Idle_Loop',
-    radius: 0.4, height: 1.9, scale: 1, poise: 8, aggro: 16, cooldown: [1.8, 3.0], turnRate: 5, ranged: true,
-    right: 'staff', fireWeak: 1.3,
-    attacks: [
-      { anim: 'summon', cast: 'orb', dmg: 28, range: 15, minRange: 2.5, speed: 1.0 },
-      { anim: 'slashA', dmg: 16, poise: 20, reach: 1.8, range: 1.9, lunge: 1.5, speed: 0.6 },
-    ],
-    drops: [['firebomb', 0.35], ['erva', 0.45]],
-  },
-};
-
-/**
- * O REFORÇO DOS ESQUELETOS (05/10/2026): com a ficha nova (ficha.js) eles ficaram fracos
- * demais. O ajuste fica AQUI, por cima da tabela, para ser mexido num lugar só: vida,
- * dano dos golpes, equilíbrio (quanto aguenta sem cambalear), a pausa entre ataques
- * (menor = mais agressivo) e as almas (um pouco mais, que agora dão mais trabalho).
- */
 /** Quanto da queda o esqueleto faz inteiro antes de desmontar (desmontar.js). */
 const DESMONTA_APOS = 0.3;
 
-export const REFORCO_ESQUELETOS = { vida: 1.6, dano: 1.2, equilibrio: 1.5, pausa: 0.85, almas: 1.3 };
-for (const t of Object.values(ENEMY_TYPES)) {
-  if (!t.skeleton) continue;
-  const R = REFORCO_ESQUELETOS;
-  t.hp = Math.round(t.hp * R.vida);
-  t.poise = Math.round(t.poise * R.equilibrio);
-  t.souls = Math.round(t.souls * R.almas);
-  t.cooldown = t.cooldown.map((c) => Math.round(c * R.pausa * 100) / 100);
-  for (const a of t.attacks) a.dmg = Math.round(a.dmg * R.dano);
-}
-
-export class Enemy {
-  constructor(game, cfg, spawnPos, facing = 0, { dormant = false } = {}) {
+export class Enemy extends Inimigo {
+  constructor(game, cfg, spawnPos, facing = 0, opts = {}) {
+    super(game, cfg, spawnPos, facing, opts);   // o cérebro (o `Game` é o mundo dele)
     this.game = game;
-    this.cfg = cfg;
-    this.name = cfg.name;
     this.model = new CharacterModel({ outfit: cfg.outfit, scale: cfg.scale, hideBody: !!cfg.skeleton, skinTint: cfg.skinTint });
     if (cfg.right) this.model.equip('r', weaponMesh(cfg.right));
     if (cfg.left) this.model.equip('l', shieldMesh(cfg.left));
     game.scene.add(this.model.root);
-    this.pos = this.model.root.position;
-    this.home = spawnPos.clone();
-    this.homeFacing = facing;
-    this.radius = cfg.radius;
-    this.height = cfg.height;
-    this.maxHp = cfg.hp;
-    this.startsDormant = dormant;
-    this.reset();
-  }
-
-  reset() {
-    this.pos.copy(this.home);
-    this.facing = this.homeFacing;
-    this.hp = this.maxHp;
-    this.dead = false;
-    this.active = true;
-    this.model.root.visible = true;
-    this.model.root.scale.setScalar(1);
     this.desmontado = false; this.desmontarEm = null;
-    this.poiseCur = this.cfg.poise;
-    // o ESCUDO (escudo.js): volta inteiro a cada renascer (o quebrado é posto de novo no braço)
-    if (this.cfg.left) {
-      if (this.escudo?.quebrado) this.model.equip('l', shieldMesh(this.cfg.left));
-      this.escudo = novoEscudo(this.cfg.left, this.cfg.poise);
-    }
-    this.cooldown = 0.6;
-    this.flashT = 0; this.burnT = 0; this.bleedT = 0; this.bleedDps = 0;
-    this.recentDmg = 0; this.lastHit = -99;
-    this.knock = new THREE.Vector3();
-    this.speedMul = 1;
-    this.lastAttacks = [];
-    this.usedAt = new Map();
-    this.strafeDir = Math.random() < 0.5 ? 1 : -1; this.strafeT = 0;
-    this.pathT = 0; this.waypoint = null;
-    this.model.flash(false);
-    if (this.startsDormant) {
-      this.setState('dormant');
-      this.model.pose('LayToIdle', 0);
-    } else {
-      this.setState('idle');
-      this.model.play(this.idleAnim, { fade: 0 });
-    }
+    this.ouvir((tipo, d) => this.aoEvento(tipo, d));
+    // o que o cérebro já pediu ao nascer (antes de o corpo existir): a pose e o lugar
+    this.aplicarAnim(this.animPedida);
+    this.model.root.position.copy(this.pos);
+    this.model.root.rotation.y = this.facing;
   }
 
-  get idleAnim() { return this.cfg.idleAnim ?? 'Sword_Idle'; }
-  get lockable() { return this.state !== 'dormant' && this.state !== 'awaken'; }
-  get invulnerable() { return this.state === 'awaken'; }
-  get inArenaZone() { return false; }
+  // ---------- O corpo responde ao cérebro ----------
+  aplicarAnim(p) {
+    if (!p) return;
+    if (p.pose != null) this.model.pose(p.nome, p.pose);
+    else this.model.play(p.nome, p.opcoes);
+  }
 
-  setState(s, data = {}) { this.state = s; this.stateT = 0; this.st = data; }
+  /** A mão esquerda no mundo (onde o escudo segura o golpe). */
+  maoEsquerda() { return this.model.handL.getWorldPosition(new THREE.Vector3()); }
 
-  // ---------- Dano ----------
-  takeDamage(amount, srcPos, poiseDmg = 20, opts = {}) {
-    const fire = !!opts.fire;
-    if (this.dead || this.invulnerable) return false;
-    this.golpeDe = srcPos?.clone?.() ?? null;   // (de onde veio o último golpe: o esqueleto desmonta para longe dele)
-    const game = this.game;
-    if (this.state === 'dormant') this.awaken(true);
-    if (fire) amount *= this.cfg.fireWeak ?? 1;
-    // Bloqueio frontal com escudo
-    const frontal = angleToTarget(this.pos, this.facing, srcPos) < 1.0;
-    const chance = this.guarding ? 0.9 : this.cfg.blockChance;
-    const esc = this.escudo;
-    if (this.cfg.blockChance && !esc?.quebrado && ['chase', 'idle', 'blockstun'].includes(this.state) && frontal && Math.random() < chance) {
-      const mao = this.model.handL.getWorldPosition(new THREE.Vector3());
-      game.effects.sparks(mao);
-      this.applyDamage(amount * 0.15);
-      if (this.hp <= 0) { this.die(); return 'hit'; }
-      if (esc) {
-        esc.ultimoGolpe = game.time;
-        // o ESCUDO (escudo.js): só a arma com força para o material o racha; zerou, ele se parte
-        // em pedaços e a postura vai junto
-        const d = danoNoEscudo(opts.quebra, esc.material);
-        if (d > 0) {
-          esc.vida = Math.max(0, esc.vida - d);
-          game.effects.burst(mao, { count: 10, color: [0.5, 0.36, 0.22], speed: 3.5, size: 0.07, life: 0.5, gravity: 10 });
-          if (esc.vida <= 0) { this.quebrarEscudo(srcPos); return 'hit'; }
-        }
-        // a POSTURA da guarda: TODO golpe defendido gasta (até o que não arranha o escudo); zerou, a guarda abre
-        esc.postura -= poiseDmg;
-        if (esc.postura <= 0) {
-          esc.postura = esc.posturaMax;
-          this.guarding = false;
-          this.stagger(srcPos, 1.1);
-          return 'hit';
-        }
-      } else if (poiseDmg >= 45 && Math.random() < 0.6) {
-        // (sem a ficha do escudo: golpes pesados quebram a guarda)
-        this.guarding = false;
-        this.stagger(srcPos, 1.1);
-        return 'hit';
+  aoEvento(tipo, d) {
+    const g = this.game;
+    switch (tipo) {
+      case 'anim': this.aplicarAnim(d); return;
+      case 'renasceu':
+        this.model.root.scale.setScalar(1);
+        this.desmontado = false; this.desmontarEm = null;
+        if (d.escudoDeVolta) this.model.equip('l', shieldMesh(this.cfg.left));
+        this.model.flash(false); this._piscando = false;
+        return;
+      case 'bloqueou': g.effects.sparks(this.maoEsquerda()); return;
+      case 'escudoRachou': g.effects.burst(this.maoEsquerda(), { count: 10, color: [0.5, 0.36, 0.22], speed: 3.5, size: 0.07, life: 0.5, gravity: 10 }); return;
+      case 'escudoPartiu': {
+        // os pedaços dele voam (fratura.js) e o braço fica vazio
+        const peca = this.model.slotL?.children[0];
+        if (peca && this.model.root.visible) g.world.soltarFragmentos(peca, `escudo:${this.escudo.kind}`, 7, d.de, 1.2);
+        this.model.equip('l', null);
+        g.sfx.quebrar?.();
+        return;
       }
-      this.model.play('Shield_OneShot', { loop: false, restart: true, fade: 0.05 });
-      this.setState('blockstun', { dur: 0.5 });
-      return 'blocked';
+      case 'ferido':
+        g.effects.burst(d.pos, { count: 16, color: [0.85, 0.82, 0.72], speed: 5, size: 0.09, life: 0.5, gravity: 12 });
+        g.effects.sparks(d.pos);
+        g.sfx.rattle();
+        return;
+      case 'morreu':
+        g.sfx.rattle();
+        if (this.cfg.skeleton) this.desmontarEm = DESMONTA_APOS;
+        return;
+      case 'acordou': case 'avistou': g.sfx.rattle(); return;
+      case 'brandiu': g.sfx.swing(d.pesado); return;
+      case 'pancada':
+        g.sfx.slam();
+        g.addShake(0.45);
+        g.effects.burst(d.pos.clone().setY(d.pos.y + 0.2), { count: 40, color: [0.45, 0.4, 0.35], speed: 6, size: 0.22, life: 0.8, gravity: 8 });
+        return;
+      case 'conjurou': g.sfx.cast(); return;
     }
-    // Ladino às vezes recua
-    if (this.cfg.dodgeChance && this.state === 'chase' && Math.random() < this.cfg.dodgeChance) {
-      this.dodge(srcPos);
-      return false;
-    }
-    this.applyDamage(amount);
-    this.flashT = 0.12;
-    const hitPos = this.pos.clone().setY(this.pos.y + this.height * 0.6);
-    game.effects.burst(hitPos, { count: 16, color: [0.85, 0.82, 0.72], speed: 5, size: 0.09, life: 0.5, gravity: 12 });
-    game.effects.sparks(hitPos);
-    game.sfx.rattle();
-    if (this.state === 'idle' || this.state === 'return') this.setState('chase');
-    if (this.hp <= 0) { this.die(); return 'hit'; }
-    this.poiseCur -= poiseDmg;
-    if (this.poiseCur <= 0) { this.poiseCur = this.cfg.poise; this.stagger(srcPos); }
-    return 'hit';
-  }
-
-  applyDamage(amount) {
-    amount = Math.round(amount);
-    this.hp -= amount;
-    if (this.game.time - this.lastHit > 2.5) this.recentDmg = 0;
-    this.recentDmg += amount;
-    this.lastHit = this.game.time;
-  }
-
-  ignite(sec) { this.burnT = Math.max(this.burnT, sec); }
-  /** SANGRA (a Emboscada no nível 3, caminhos.js): `porSeg` de dano por `sec` segundos, como o fogo. */
-  sangrar(sec, porSeg) { this.bleedT = Math.max(this.bleedT ?? 0, sec); this.bleedDps = porSeg; }
-
-  dodge(srcPos) {
-    const side = Math.random() < 0.5 ? 1 : -1;
-    this.facing = yawTo(this.pos, srcPos) + side * Math.PI / 2;
-    this.setState('dodge', { dur: 0.6 });
-    this.model.play('Roll', { loop: false, duration: 0.6, restart: true, fade: 0.05 });
-  }
-
-  /**
-   * O ESCUDO SE PARTE (escudo.js): os pedaços dele voam (fratura.js), o braço fica vazio e a
-   * postura quebra junto (cambaleia longo). Na MARIONETE (`srcPos` nulo) é só o visual: quem
-   * cambaleia é o retrato que chega.
-   */
-  quebrarEscudo(srcPos) {
-    const esc = this.escudo;
-    if (!esc || esc.quebrado) return;
-    esc.quebrado = true; esc.vida = 0;
-    const peca = this.model.slotL?.children[0];
-    if (peca && this.model.root.visible) this.game.world.soltarFragmentos(peca, `escudo:${esc.kind}`, 7, srcPos, 1.2);
-    this.model.equip('l', null);
-    this.guarding = false;
-    this.game.sfx.quebrar?.();
-    if (srcPos && !this.game.marionetes) this.stagger(srcPos, 1.4);
-  }
-
-  stagger(srcPos, dur = 0.6) {
-    const dir = new THREE.Vector3(this.pos.x - srcPos.x, 0, this.pos.z - srcPos.z).normalize();
-    this.knock.copy(dir).multiplyScalar(4);
-    this.setState('hurt', { dur });
-    this.model.play(dur > 0.8 ? 'Hit_Knockback' : 'Hit_Chest', { loop: false, duration: dur + 0.1, restart: true, fade: 0.05 });
-  }
-
-  die() {
-    this.hp = 0;
-    this.dead = true;
-    this.burnT = 0; this.bleedT = 0;
-    this.setState('dead');
-    this.model.play(this.deathAnim, { loop: false, fade: 0.1 });
-    this.game.sfx.rattle();
-    if (this.cfg.skeleton) this.desmontarEm = DESMONTA_APOS;
-    this.game.onEnemyKilled(this);
   }
 
   /** O ESQUELETO DESMONTA (desmontar.js): as partes caem soltas e o boneco some. */
@@ -264,280 +96,46 @@ export class Enemy {
     raiz.visible = false;
   }
 
-  get deathAnim() { return 'Death01'; }
-
-  awaken(fast = false) {
-    this.setState('awaken', { dur: fast ? 1.0 : 2.3 });
-    this.model.play('LayToIdle', { loop: false, fade: 0.1, duration: fast ? 1.0 : 2.3, restart: true });
-    this.game.sfx.rattle();
-  }
-
-  // ---------- IA ----------
-  /**
-   * Quem este inimigo persegue. Hoje é sempre o jogador local; no co-op é o
-   * jogador vivo mais perto (ver `Game.alvoPara`), relido a cada meio segundo
-   * por `escolherAlvo`. TODO código de IA lê `this.alvo`, nunca `game.player`:
-   * é o que deixa um segundo jogador ser perseguido sem reescrever a IA.
-   */
-  get alvo() { return this._alvo ?? this.game.player; }
-  escolherAlvo(dt) {
-    this.alvoT = (this.alvoT ?? 0) - dt;
-    if (this.alvoT > 0 && this._alvo && !this._alvo.dead) return;
-    this.alvoT = 0.5;
-    this._alvo = this.game.alvoPara(this.pos, this._alvo, (j) => this.podeMirar(j));
-  }
-
-  /** Quem este inimigo pode escolher como alvo: os comuns não entram na arena do chefe. */
-  podeMirar(j) { return !j.inArena; }
-
-  canEngage() {
-    const p = this.alvo;
-    return !p.dead && !p.inArena && !['rest', 'restUp', 'lying', 'standing', 'fog'].includes(p.state);
-  }
-
-  pickAttack(d) {
-    const now = this.game.time;
-    const options = this.cfg.attacks.filter((a) => !a.follow && d <= a.range && d >= (a.minRange ?? 0)
-      && (!a.phase || a.phase <= (this.phase ?? 1)) && (!a.gap || now - (this.usedAt.get(a) ?? -99) > a.gap));
-    if (!options.length) return null;
-    const weighted = options.map((a) => ({ a, w: (a.weight ?? 1) * (this.lastAttacks.slice(-2).includes(a) ? 0.35 : 1) }));
-    let r = Math.random() * weighted.reduce((s, x) => s + x.w, 0);
-    for (const x of weighted) { r -= x.w; if (r <= 0) return x.a; }
-    return weighted[0].a;
-  }
-
-  startAttack(atk) {
-    const p = this.alvo;
-    this.lastAttacks.push(atk); if (this.lastAttacks.length > 4) this.lastAttacks.shift();
-    this.usedAt.set(atk, this.game.time);
-    const spec = ATTACKS[atk.anim];
-    const from = spec.from ?? 0, seg = spec.to - from;
-    const speed = (atk.speed ?? 1) * this.speedMul;
-    const dur = seg / speed;
-    const data = { atk, dur, spec, speed, hitStart: (spec.hit[0] - from) / seg, hitEnd: (spec.hit[1] - from) / seg, endAt: 1 + (atk.recover ?? 0.3) / dur, arc: atk.arc ?? spec.arc, hitDone: false, swung: false, fx: false, recovering: false };
-    if (atk.leap) {
-      data.from = this.pos.clone();
-      const d = flatDist(p.pos, this.pos);
-      data.to = this.pos.clone().add(new THREE.Vector3(p.pos.x - this.pos.x, 0, p.pos.z - this.pos.z).normalize().multiplyScalar(Math.max(0, Math.min(d - 1.8, 16))));
-    }
-    this.setState('attack', data);
-    this.model.play(spec.clip, { loop: false, speed, from, restart: true, fade: 0.12 });
-  }
-
-  // Alvo de movimento: direto se houver linha de visão, senão pelo caminho no grid
-  steerTarget(dt) {
-    const p = this.alvo, world = this.game.world;
-    this.pathT -= dt;
-    if (this.pathT <= 0) {
-      this.pathT = 0.4;
-      this.waypoint = world.lineOfSight(this.pos, p.pos) ? null : world.nextWaypoint(this.pos, p.pos);
-      this.unreachable = !this.waypoint && !world.lineOfSight(this.pos, p.pos);
-    }
-    return this.waypoint ?? p.pos;
-  }
-
-  updateAI(dt) {
-    const game = this.game, p = this.alvo, cfg = this.cfg;
-    // `p.furtividade` (o jogador agachado: caminhos.js) encolhe a distância em que o inimigo percebe o alvo;
-    // FURTIVO (a Furtividade), ele só é percebido dentro de `p.areaFurtiva` (m)
-    const d = flatDist(p.pos, this.pos);
-    const furt = p.furtividade ?? 1, area = p.areaFurtiva ?? Infinity;
-    const speed = cfg.speed * this.speedMul;
-    let moving = 0, strafe = 0;
-
-    switch (this.state) {
-      case 'dormant':
-        if (this.canEngage() && d < Math.min(6.5 * furt, area) && game.world.lineOfSight(this.pos, p.pos)) this.awaken();
-        break;
-      case 'awaken':
-        if (this.stateT >= this.st.dur) { this.setState('chase'); this.cooldown = 0.4; }
-        break;
-      case 'idle':
-        if (this.canEngage() && d < Math.min(cfg.aggro * furt, area) && game.world.lineOfSight(this.pos, p.pos)) { this.setState('chase'); game.sfx.rattle(); }
-        break;
-      case 'return': {
-        const toHome = flatDist(this.home, this.pos);
-        this.hp = Math.min(this.maxHp, this.hp + dt * 20);
-        if (toHome < 0.5) { this.setState('idle'); this.facing = this.homeFacing; break; }
-        const tgt = game.world.lineOfSight(this.pos, this.home) ? this.home : (game.world.nextWaypoint(this.pos, this.home) ?? this.home);
-        this.facing = turnTowards(this.facing, yawTo(this.pos, tgt), dt * 6);
-        this.pos.x += Math.sin(this.facing) * speed * 0.7 * dt;
-        this.pos.z += Math.cos(this.facing) * speed * 0.7 * dt;
-        moving = speed * 0.7;
-        if (this.canEngage() && d < Math.min(cfg.aggro * 0.7 * furt, area) && game.world.lineOfSight(this.pos, p.pos)) this.setState('chase');
-        break;
-      }
-      case 'chase': {
-        const tgt = this.steerTarget(dt);
-        if (!this.canEngage() || flatDist(this.pos, this.home) > 38 || this.unreachable) { this.setState('return'); break; }
-        this.cooldown -= dt;
-        const direct = tgt === p.pos;
-        this.facing = turnTowards(this.facing, yawTo(this.pos, tgt), dt * cfg.turnRate);
-        if (direct && this.cooldown <= 0) {
-          const atk = this.pickAttack(d);
-          if (atk) { this.startAttack(atk); break; }
-        }
-        this.strafeT -= dt;
-        if (this.strafeT <= 0) { this.strafeT = 1.5 + Math.random() * 2; this.strafeDir *= -1; }
-        const fwd = _v.set(Math.sin(this.facing), 0, Math.cos(this.facing));
-        let want;
-        if (!direct) want = 1;
-        else if (cfg.ranged) want = d > 11 ? 1 : d < 5 ? -0.7 : 0;
-        else want = d > this.engageRange() ? 1 : 0;
-        if (want > 0) {
-          const dir = game.world.avoid(this.pos, fwd.clone(), this.radius);
-          this.pos.addScaledVector(dir, speed * dt); moving = speed;
-        } else if (want < 0) { this.pos.addScaledVector(fwd, want * speed * dt); moving = speed * want; }
-        else {
-          const side = new THREE.Vector3(fwd.z, 0, -fwd.x);
-          this.pos.addScaledVector(side, this.strafeDir * speed * 0.4 * dt);
-          strafe = this.strafeDir;
-        }
-        break;
-      }
-      case 'attack': this.updateAttack(dt, p, d); break;
-      case 'hurt':
-        this.pos.addScaledVector(this.knock, dt);
-        this.knock.multiplyScalar(Math.max(0, 1 - dt * 6));
-        if (this.stateT >= this.st.dur) { this.setState('chase'); this.cooldown = 0.3; }
-        break;
-      case 'blockstun':
-        if (this.stateT >= this.st.dur) { this.setState('chase'); this.cooldown = 0.2; }
-        break;
-      case 'dodge': {
-        const roll = _v.set(Math.sin(this.facing), 0, Math.cos(this.facing));
-        this.pos.addScaledVector(roll, 7 * Math.sin(Math.PI * Math.min(1, this.stateT / this.st.dur)) * dt);
-        if (this.stateT >= this.st.dur) { this.setState('chase'); this.cooldown = 0; }
-        break;
-      }
-    }
-    this.animLoco(moving, strafe);
-  }
-
-  animLoco(moving, strafe) {
-    const m = this.model;
-    // Guerreiro com escudo ergue a guarda enquanto espera para atacar
-    const p = this.alvo;
-    this.guarding = !!this.cfg.blockChance && !this.escudo?.quebrado && this.state === 'chase' && this.cooldown > 0.25 && flatDist(p.pos, this.pos) < 4.5;
-    if (!['chase', 'return', 'idle'].includes(this.state)) return;
-    if (this.guarding) { m.play('Idle_Shield_Loop', { fade: 0.15 }); return; }
-    if (strafe) m.play('Walk_Loop', { speed: 1.0 });
-    else if (moving > 0) m.play(this.cfg.runAnim, { speed: moving / this.cfg.runRef });
-    else if (moving < 0) m.play('Walk_Loop', { speed: -1.2 });
-    else m.play(this.idleAnim, { fade: 0.2 });
-  }
-
-  engageRange() {
-    const ranges = this.cfg.attacks.filter((a) => !a.follow && !a.cast && !a.minRange).map((a) => a.range);
-    return Math.max(1.5, Math.min(...ranges) * 0.85);
-  }
-
-  updateAttack(dt, p, d) {
-    const game = this.game;
-    const s = this.st, a = s.atk;
-    const t = this.stateT / s.dur;
-    if (t < s.hitStart * 0.85 && !a.leap) this.facing = turnTowards(this.facing, yawTo(this.pos, p.pos), dt * this.cfg.turnRate * (a.trackMul ?? 1));
-    const fwd = _v.set(Math.sin(this.facing), 0, Math.cos(this.facing));
-    if (a.leap && s.from) {
-      const k = THREE.MathUtils.clamp((t - 0.15) / (s.hitStart - 0.15), 0, 1);
-      if (t < 0.15) this.facing = turnTowards(this.facing, yawTo(this.pos, s.to), dt * 6);
-      this.pos.x = THREE.MathUtils.lerp(s.from.x, s.to.x, k);
-      this.pos.z = THREE.MathUtils.lerp(s.from.z, s.to.z, k);
-      this.pos.y = this.game.world.alturaChao(this.pos) + Math.sin(k * Math.PI) * 4.5;
-    }
-    if (a.lunge && t > s.hitStart * 0.5 && t < s.hitEnd) {
-      const close = d < this.radius + p.radius + 0.4;
-      if (!close || a.dash) this.pos.addScaledVector(fwd, a.lunge * dt * this.speedMul);
-    }
-    if (!s.swung && t >= s.hitStart - 0.08) { s.swung = true; if (!a.cast) game.sfx.swing(this.cfg.scale > 1.3); }
-    if (!a.cast && !s.hitDone && t >= s.hitStart && t <= s.hitEnd) {
-      const reach = a.reach + p.radius;
-      const allowed = s.arc + Math.atan2(p.radius, Math.max(d, 0.1));
-      if (d <= reach && (s.arc >= 3 || angleToTarget(this.pos, this.facing, p.pos) <= allowed) && game.world.lineOfSight(this.pos, p.pos)) {
-        const res = p.takeDamage(a.dmg, this.pos, { poise: a.poise, unblockable: a.unblockable });
-        if (res !== 'iframe') s.hitDone = true;
-      }
-    }
-    if (t >= s.hitStart && !s.fx) {
-      s.fx = true;
-      if (a.cast) this.doCast(a);
-      if (a.shock) {
-        const center = this.pos.clone().addScaledVector(fwd, a.leap ? 0 : a.reach * 0.7);
-        center.y = game.world.alturaChao(center);
-        game.projectiles.shock({ pos: center, maxR: a.shock.radius, speed: a.shock.speed ?? 10, damage: a.dmg * 0.6, poise: 60, skip: s.hitDone });
-        game.sfx.slam();
-        game.addShake(0.45);
-        game.effects.burst(center.clone().setY(center.y + 0.2), { count: 40, color: [0.45, 0.4, 0.35], speed: 6, size: 0.22, life: 0.8, gravity: 8 });
-      }
-    }
-    if (t >= 1 && !s.recovering) {
-      s.recovering = true; this.pos.y = game.world.alturaChao(this.pos);
-      if (a.after) this.model.play(a.after, { loop: false, fade: 0.1, restart: true });
-      else this.model.play(this.idleAnim, { fade: 0.3 });
-    }
-    if (t >= s.endAt) {
-      this.pos.y = game.world.alturaChao(this.pos);
-      const next = a.next && this.cfg.attacks.find((x) => x.id === a.next);
-      if (next && Math.random() < (a.nextChance ?? 0.6)) return this.startAttack(next);
-      this.setState('chase');
-      const [c0, c1] = this.cfg.cooldown;
-      this.cooldown = (c0 + Math.random() * (c1 - c0)) / this.speedMul;
-    }
-  }
-
-  doCast(a) {
-    const game = this.game;
-    const from = this.model.handR.getWorldPosition(new THREE.Vector3());
-    from.y = Math.max(from.y, this.pos.y + 1.8);
-    const target = this.alvo.pos.clone().setY(this.alvo.pos.y + 1.2);
-    game.projectiles.orb({ pos: from, dir: target.sub(from), speed: 10, damage: a.dmg, homing: 1.2, alvo: this.alvo });
-    game.sfx.cast();
-  }
-
   // ---------- Atualização ----------
   update(dt) {
-    this.stateT += dt;
     // o esqueleto vencido desmonta um instante depois de cair (o começo da queda é a animação)
     if (this.desmontarEm != null && this.dead && (this.desmontarEm -= dt) <= 0) { this.desmontarEm = null; this.desmontarAgora(); }
-    if (this.game.marionetes) return this.updateMarionete(dt);
-    if (!this.active) return;
-    this.escolherAlvo(dt);
-    if (this.flashT > 0) { this.flashT -= dt; this.model.flash(this.flashT > 0); }
-    if (this.burnT > 0 && !this.dead) {
-      this.burnT -= dt;
-      this.hp -= 6 * dt;
-      if (Math.random() < 0.6) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, Math.random() * this.height, (Math.random() - 0.5) * 0.8)), vel: new THREE.Vector3(0, 1.5, 0), color: [1, 0.5, 0.1], size: 0.18, life: 0.5 });
-      if (this.hp <= 0) this.die();
+    if (this.game.marionetes) {
+      this.stateT += dt;
+      if (this.flashT > 0) this.flashT -= dt;   // (o golpe dado aqui pisca na hora: `Mundo.golpear`)
+      this.updateMarionete(dt);
+    } else super.update(dt);
+    this.vestirCorpo(dt);
+  }
+
+  /** O corpo segue o cérebro: o lugar, o rumo, se aparece, o piscar, o fogo e o sangue, a animação. */
+  vestirCorpo(dt) {
+    const raiz = this.model.root;
+    raiz.position.copy(this.pos);
+    raiz.visible = this.visivel && !this.desmontado;
+    if (!this.game.marionetes && !this.active) return;   // (fora de cena: nem anima)
+    const pisca = this.flashT > 0;
+    if (pisca !== this._piscando) { this._piscando = pisca; this.model.flash(pisca); }
+    if (!this.game.marionetes && !this.dead) {
+      if (this.burnT > 0 && Math.random() < 0.6) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.8, Math.random() * this.height, (Math.random() - 0.5) * 0.8)), vel: new THREE.Vector3(0, 1.5, 0), color: [1, 0.5, 0.1], size: 0.18, life: 0.5 });
+      if (this.bleedT > 0 && Math.random() < 0.35) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, this.height * (0.3 + Math.random() * 0.5), (Math.random() - 0.5) * 0.6)), vel: new THREE.Vector3(0, -1.2, 0), color: [0.55, 0.02, 0.02], size: 0.12, life: 0.6 });
     }
-    if (this.bleedT > 0 && !this.dead) {
-      this.bleedT -= dt;
-      this.hp -= this.bleedDps * dt;
-      if (Math.random() < 0.35) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, this.height * (0.3 + Math.random() * 0.5), (Math.random() - 0.5) * 0.6)), vel: new THREE.Vector3(0, -1.2, 0), color: [0.55, 0.02, 0.02], size: 0.12, life: 0.6 });
-      if (this.hp <= 0) this.die();
-    }
-    // a postura da guarda volta aos poucos, sem apanhar por um tempo (escudo.js)
-    const esc = this.escudo;
-    if (esc && esc.postura < esc.posturaMax && this.game.time - esc.ultimoGolpe > RECUPERA_APOS) esc.postura = Math.min(esc.posturaMax, esc.postura + esc.posturaMax * RECUPERA_POR_S * dt);
-    if (this.dead) this.updateDeath(dt);
-    else {
-      this.updateAI(dt);
-      const w = this.game.world;
-      // pisa no chão de onde está (a escada, o andar de cima) — menos no salto,
-      // que é quem cuida da própria altura
-      if (!(this.state === 'attack' && this.st?.atk?.leap)) this.pos.y = w.alturaChao(this.pos);
-      if (w.acimaDoChao(this.pos) <= 0.01) w.resolve(this.pos, this.radius);
-    }
-    this.model.root.rotation.y = this.facing;
+    raiz.rotation.y = this.facing;
     this.model.update(dt);
   }
 
-  // ---------- Marionete (co-op, no CONVIDADO) ----------
-  // No mundo de outro, quem decide o que este inimigo faz é o ANFITRIÃO: ele
-  // manda o estado (`TIPO.MUNDO`, ver rede/coop.js) e aqui só se repete,
-  // interpolado. Nada de IA, de dano, de alma: o golpe do convidado vai para
-  // o anfitrião (`game.golpear`) e volta como vida nova aqui.
+  /** Caído: o cérebro afunda o corpo; aqui, a poeira de quem afunda. */
+  updateDeath(dt) {
+    super.updateDeath(dt);
+    if (this.stateT > 3 && Math.random() < 0.4) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0.3, (Math.random() - 0.5) * 1.5)), vel: new THREE.Vector3(0, 1 + Math.random(), 0), color: [0.4, 0.38, 0.35], size: 0.1, life: 1.2 });
+  }
 
-  /** Um retrato do anfitrião: `{x, y, z, g, a, s, hp, st, ativo, morto, visivel}`. */
+  // ---------- Marionete (co-op e Mundo online, quando outro simula) ----------
+  // No mundo de outro, quem decide o que este inimigo faz é quem SIMULA: ele manda o estado
+  // (`TIPO.MUNDO`, ver rede/coop.js e rede/mundo.js) e aqui só se repete, interpolado. Nada de IA,
+  // de dano, de alma: o golpe daqui vai para quem simula (`game.golpear`) e volta como vida nova.
+
+  /** Um retrato de quem simula: `{x, y, z, g, a, s, hp, st, ativo, morto, visivel}`. */
   receberMarionete(e, quando) {
     (this.fio ??= new Interpolador()).receber(e, quando);
   }
@@ -559,7 +157,7 @@ export class Enemy {
         if (e.esc >= 0) { const v = e.esc * esc.max; if (v < esc.vida - 0.5) esc.ultimoGolpe = this.game.time; esc.vida = v; }
         esc.postura = e.post * esc.posturaMax;
       }
-      this.model.root.visible = e.visivel && !this.desmontado;
+      this.visivel = e.visivel;
       if (e.morto && !this.dead) {
         this.dead = true;
         this.setState('dead');
@@ -573,7 +171,7 @@ export class Enemy {
         this.dead = false;
         this.desmontado = false; this.desmontarEm = null;
         this.model.root.scale.setScalar(1);
-        this.model.flash(false);
+        this.model.flash(false); this._piscando = false;
         this.setState(e.st === 'dormant' ? 'acordado' : e.st);   // 'dormant' é posto logo abaixo, com a pose
       }
       if (!this.dead) {
@@ -588,8 +186,6 @@ export class Enemy {
       }
     }
     if (this.dead) this.updateDeath(dt);
-    this.model.root.rotation.y = this.facing;
-    this.model.update(dt);
   }
 
   /** Larga o modo marionete: de volta ao próprio mundo, `reset` põe de pé. */
@@ -598,88 +194,22 @@ export class Enemy {
   /** A pose de quem dorme: deitado no chão (o Carrasco, ajoelhado junto ao cepo). */
   poseDormindo() { this.model.pose('LayToIdle', 0); }
 
-  /**
-   * ASSUMIR este inimigo no meio do caminho — o mundo online trocou de
-   * simulador (`rede/mundo.js`) e ele deixa de ser marionete AQUI. `r` é o
-   * último retrato dele (`protocolo.lerRetrato`), ou nada (mundo recém-aberto):
-   * volta para casa inteiro, e com o retrato segue de onde estava.
-   */
+  /** ASSUMIR este inimigo no meio do caminho (o cérebro: `Inimigo.retomar`). */
   retomar(r) {
     this.soltarMarionete();
-    this.reset();
-    if (!r || r.morto || !r.ativo) return;
-    this.pos.set(r.x, r.y, r.z);
-    this.facing = r.g;
-    this.hp = Math.min(this.maxHp, Math.max(1, r.hp));
-    if (r.st === 'dormant') return;                       // `reset` já o deitou, se ele é dos que dormem
-    this.setState(r.st === 'idle' || r.st === 'return' ? r.st : 'chase');
-    this.model.play(this.idleAnim, { fade: 0 });
-  }
-
-  updateDeath() {
-    if (this.stateT > 3) {
-      const k = (this.stateT - 3) / 1.2;
-      this.pos.y = this.game.world.alturaChao(this.pos) - k * 0.8;
-      if (Math.random() < 0.4) this.game.effects.spawn({ pos: this.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0.3, (Math.random() - 0.5) * 1.5)), vel: new THREE.Vector3(0, 1 + Math.random(), 0), color: [0.4, 0.38, 0.35], size: 0.1, life: 1.2 });
-      if (k >= 1) { this.active = false; this.model.root.visible = false; }
-    }
+    super.retomar(r);
   }
 }
 
-// Posições em células do grid: [linha, coluna, deslocamento x, deslocamento z]
+/** Os inimigos e os bichos do mapa (js/inimigos/nascimentos.js), na ordem que dá o `netId` de cada um. */
 export function spawnEnemies(game) {
   const list = [];
-  const at = (r, c, dx = 0, dz = 0) => new THREE.Vector3(c * CELL + dx * S, 0, r * CELL + dz * S);
-  const add = (type, r, c, facing = Math.PI, opts = {}, dx = 0, dz = 0) => list.push(new Enemy(game, ENEMY_TYPES[type], at(r, c, dx, dz), facing, opts));
-  // Corredor das celas
-  add('minion', 23, 12, -Math.PI / 2, { dormant: true });
-  // Sala da guarda
-  add('minion', 16, 5, 0, { dormant: true });
-  add('minion', 15, 9, 0, { dormant: true }, 0, 0.5);
-  add('rogue', 17, 9, Math.PI);
-  // Alcova do tesouro
-  add('warrior', 16, 12, -Math.PI / 2);
-  // Ossário
-  add('warrior', 11, 7, 0, {}, 0, 1.6);
-  add('minion', 12, 5, 0, { dormant: true }, 1.5, 0);
-  add('minion', 10, 9, 0, { dormant: true });
-  add('rogue', 9, 4, Math.PI / 2);
-  add('mage', 9, 11, Math.PI, {}, 0, -0.5);
-  add('mage', 13, 3, Math.PI / 2);
-  // Floresta e mata (mapa `floresta`): só onde a célula É ar livre — com o
-  // mapa `original` ativo ela é rocha, e o bicho nasceria dentro da pedra.
-  // OS ANIMAIS (03/10/2026, js/animais.js) no lugar dos esqueletos da floresta,
-  // e a MATA (colunas 26–39) cheia deles. Sempre no FIM da lista e sempre na
-  // mesma ordem: o `netId` de cada um é a posição aqui (`e<i>`, ver main.js).
-  // Sem o modelo (.glb faltando), o animal simplesmente não nasce.
-  const bicho = (tipo, r, c, facing = Math.random() * Math.PI * 2, dx = 0, dz = 0) => {
-    if (game.world?.isOpenAir?.(r, c) && Animal.existe(tipo)) list.push(new Animal(game, tipo, at(r, c, dx, dz), facing));
-  };
-  // a floresta da masmorra: uma alcateia, uma raposa e um cervo
-  bicho('lobo', 15, 18, -Math.PI / 2);
-  bicho('lobo', 17, 19, -Math.PI / 2);
-  bicho('lobo', 14, 20, -Math.PI / 2);
-  bicho('raposa', 12, 22);
-  bicho('cervo', 19, 22);
-  // a mata: pacíficos em bando, os neutros sozinhos, e a outra alcateia no fundo
-  bicho('cervo', 12, 30); bicho('cervo', 13, 31, undefined, 0.6, 0.4); bicho('cervo', 12, 32);
-  bicho('cervoReal', 14, 34);
-  bicho('raposa', 20, 29); bicho('raposa', 11, 36);
-  bicho('cavalo', 18, 35); bicho('cavalo', 19, 36, undefined, 0.5, 0);
-  bicho('touro', 16, 37);
-  bicho('lobo', 19, 31); bicho('lobo', 20, 32); bicho('lobo', 18, 30);
-  // a saída do acampamento (onde ficavam dois esqueletos): caça fácil para quem nasce ali
-  bicho('cervo', 15, 41, Math.PI / 2);
-  bicho('cervo', 17, 40, Math.PI / 2);
-  // as COLINAS DO VENTO (04/10/2026, a leste do acampamento): manadas nos campos abertos,
-  // cavalos selvagens no vale do moinho, um touro e um cervo real nas encostas, raposas
-  // nas bordas — e uma alcateia guardando as ruínas do platô
-  bicho('cervo', 12, 68); bicho('cervo', 13, 69, undefined, 0.6, 0.3); bicho('cervo', 11, 70);
-  bicho('cervo', 20, 84); bicho('cervo', 21, 85, undefined, -0.5, 0.4);
-  bicho('cavalo', 19, 66); bicho('cavalo', 20, 67, undefined, 0.6, 0); bicho('cavalo', 18, 75);
-  bicho('cervoReal', 5, 82);
-  bicho('touro', 14, 98);
-  bicho('raposa', 4, 72); bicho('raposa', 21, 95); bicho('raposa', 9, 101);
-  bicho('lobo', 12, 90); bicho('lobo', 11, 96); bicho('lobo', 5, 92);
+  const at = (r, c, dx, dz) => { const l = lugarDoNascimento(r, c, dx, dz); return new THREE.Vector3(l.x, 0, l.z); };
+  for (const n of ESQUELETOS) list.push(new Enemy(game, ENEMY_TYPES[n.tipo], at(n.r, n.c, n.dx, n.dz), n.rumo ?? Math.PI, { dormant: !!n.dormindo }));
+  // os ANIMAIS: só onde a célula é ar livre e o modelo existe (sem o .glb, o animal não nasce)
+  for (const n of BICHOS) {
+    if (!game.world?.isOpenAir?.(n.r, n.c) || !Animal.existe(n.tipo)) continue;
+    list.push(new Animal(game, n.tipo, at(n.r, n.c, n.dx, n.dz), n.rumo ?? Math.random() * Math.PI * 2));
+  }
   return list;
 }

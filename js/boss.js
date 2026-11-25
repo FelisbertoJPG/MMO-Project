@@ -61,7 +61,7 @@ export class Boss extends Enemy {
     this.phase = 1;
     this.speedMul = 1;
     this.active = !this.defeated;
-    this.model.root.visible = !this.defeated;
+    this.visivel = !this.defeated;   // (quem aparece é o cérebro que diz: o corpo segue)
     this.setState(this.defeated ? 'gone' : 'dormant');
     // Ajoelhado junto ao cepo, esperando o próximo condenado
     this.model.play('Crouch_Idle_Loop', { fade: 0 });
@@ -239,7 +239,7 @@ export class Boss extends Enemy {
     if (this.stateT > 3.5) {
       const k = Math.min(1, (this.stateT - 3.5) / 1.5);
       this.model.root.scale.setScalar(1 - k * 0.999);
-      if (k >= 1 && this.active) { this.active = false; this.model.root.visible = false; this.setState('gone'); this.dead = true; }
+      if (k >= 1 && this.active) { this.active = false; this.visivel = false; this.setState('gone'); this.dead = true; }
     }
   }
 }

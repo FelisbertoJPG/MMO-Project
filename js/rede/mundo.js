@@ -491,7 +491,8 @@ export class Mundo {
   /** Um inimigo comum que está morto e esperando a hora de renascer: fora de cena. */
   deixarMorto(e) {
     e.dead = true; e.active = false; e.hp = 0;
-    e.model.root.visible = false;
+    e.visivel = false;              // (o esqueleto: o cérebro diz, o corpo segue — inimigos/cerebro.js)
+    e.model.root.visible = false;   // (o bicho, que ainda é uma peça só: animais.js)
     e.setState('dead');
   }
 

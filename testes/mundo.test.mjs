@@ -672,6 +672,42 @@ await teste('o THREE do servidor (npm) é o MESMO arquivo do vendor/ do jogo', a
   assert.ok(um.equals(fs.readFileSync(path.join(RAIZ, 'vendor', 'three.module.js'))), 'o three do npm não é o do vendor/');
 });
 
+await teste('o CÉREBRO do inimigo roda sem o navegador: persegue, ataca, conjura, bloqueia e morre', async () => {
+  const THREE = await import('three');
+  const { Inimigo } = await import('../js/inimigos/cerebro.js');
+  const { ENEMY_TYPES } = await import('../js/inimigos/tipos.js');
+  const { ESQUELETOS, lugarDoNascimento } = await import('../js/inimigos/nascimentos.js');
+  const { lerMapaLogico } = await import('../mapa-do-servidor.mjs');
+  const world = lerMapaLogico(RAIZ);
+  const golpes = [], orbes = [], mortos = [];
+  const alvo = { pos: new THREE.Vector3(), radius: 0.5, dead: false, state: 'idle', inArena: false, takeDamage: (dano) => { golpes.push(dano); return 'hit'; } };
+  const mundo = { time: 0, world, player: alvo, marionetes: false, alvoPara: () => alvo, onEnemyKilled: (e) => mortos.push(e),
+    projectiles: { orb: (o) => orbes.push(o), shock: () => {} } };
+  const lutar = (tipo) => {
+    const n = ESQUELETOS.find((x) => x.tipo === tipo), l = lugarDoNascimento(n.r, n.c, n.dx, n.dz);
+    const e = new Inimigo(mundo, ENEMY_TYPES[tipo], new THREE.Vector3(l.x, 0, l.z), n.rumo);
+    const eventos = new Set(); e.ouvir((t) => eventos.add(t));
+    // o alvo a 4,5 m, num lugar que ele vê
+    for (let k = 0; k < 32; k++) {
+      const a = e.facing + k * Math.PI / 16, c = e.pos.clone().add(new THREE.Vector3(Math.sin(a) * 4.5, 0, Math.cos(a) * 4.5));
+      if (world.pointInside(c) && world.lineOfSight(e.pos, c)) { alvo.pos.copy(c); break; }
+    }
+    const estados = new Set();
+    for (let i = 0; i < 30 * 15; i++) { mundo.time += 1 / 30; e.update(1 / 30); estados.add(e.state); }
+    for (let i = 0; i < 40 && !e.dead; i++) { e.takeDamage(40, alvo.pos.clone(), 30, {}); for (let k = 0; k < 20; k++) { mundo.time += 1 / 30; e.update(1 / 30); } }
+    return { e, estados, eventos };
+  };
+  const g = lutar('warrior');
+  assert.ok(g.estados.has('chase') && g.estados.has('attack'), `o guerreiro não lutou: ${[...g.estados]}`);
+  assert.ok(golpes.length > 0, 'o guerreiro não acertou o alvo');
+  assert.ok(g.e.dead && mortos.includes(g.e), 'o guerreiro não morreu');
+  assert.ok(['anim', 'avistou', 'brandiu', 'morreu'].every((t) => g.eventos.has(t)), `faltou evento: ${[...g.eventos]}`);
+  assert.ok(g.eventos.has('bloqueou') || g.eventos.has('ferido'), 'nenhum golpe no guerreiro contou');
+  const m = lutar('mage');
+  assert.ok(orbes.length > 0 && m.eventos.has('conjurou'), 'o necromante não conjurou');
+  assert.ok(orbes.every((o) => o.pos.distanceTo(m.e.home) < 40 && Number.isFinite(o.dir.x)), 'o feitiço saiu de lugar torto');
+});
+
 await teste('o MAPA LÓGICO: toda peça do PROPS tem caixa medida, e as colisões montam dos arquivos do jogo', async () => {
   const { lerProps } = await import('../mapa-do-servidor.mjs');
   const { MapaLogico, lerArquivoDoMapa, pecasDe } = await import('../js/mapa-logico.js');

@@ -1,28 +1,11 @@
 import * as THREE from 'three';
 import { GLOW } from './world.js';
 
+// as contas de ângulo e distância moram em geometria.js (sem three: o servidor também as usa)
+import { angleToTarget, yawTo, turnTowards, flatDist } from './geometria.js';
+export { angleToTarget, yawTo, turnTowards, flatDist };
+
 const _v = new THREE.Vector3();
-
-// Ângulo (rad) entre a direção "facing" (yaw) e o vetor até o alvo
-export function angleToTarget(fromPos, facing, toPos) {
-  const dx = toPos.x - fromPos.x, dz = toPos.z - fromPos.z;
-  const a = Math.atan2(dx, dz);
-  let d = a - facing;
-  while (d > Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
-  return Math.abs(d);
-}
-
-export function yawTo(from, to) { return Math.atan2(to.x - from.x, to.z - from.z); }
-
-export function turnTowards(cur, target, maxStep) {
-  let d = target - cur;
-  while (d > Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
-  return cur + THREE.MathUtils.clamp(d, -maxStep, maxStep);
-}
-
-export function flatDist(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
 
 // ---------- Partículas (um único THREE.Points com shader aditivo) ----------
 export class Effects {
