@@ -30,6 +30,49 @@ const CABECAS = 5, PES = 4;
 const poseParada = () => ({ cab: new Array(CABECAS).fill(0), pe: new Array(PES).fill(0), giro: 0, agacha: 0 });
 const suave = (k) => { k = Math.min(1, Math.max(0, k)); return k * k * (3 - 2 * k); };
 
+/**
+ * AS POSES de cada momento, PURAS (25/11/2026): o que o corpo mostra no tempo `t` do estado — sem dano, sem evento, sem alvo.
+ * O cérebro as usa a cada quadro (e faz o resto: o dano, os eventos, a hora de acabar) e o editor de cenas também: a aba
+ * Esqueleto toca as animações da hidra com elas, sem cópia da conta. `a` é a pose (`POSE_DA_HIDRA_PARADA()`), `c` a ficha.
+ */
+export const POSES_DA_HIDRA = {
+  /** o começo de todo quadro: acordada, tudo no zero; dormindo, as cabeças caídas e o corpo baixo */
+  base(a, dormindo) { a.cab.fill(dormindo ? -0.8 : 0); a.pe.fill(0); a.giro = 0; a.agacha = dormindo ? 0.6 : 0; },
+  /** a entrada (o traço `chefe` diz quando acaba): levanta do chão, empina as cabeças no rugido e as baixa */
+  intro(a, t, c) {
+    const T = c.chefe?.intro ?? 3, R = c.chefe?.rugido ?? 1;
+    a.agacha = 0.6 * (1 - suave(t / R));
+    a.cab.fill(t < R ? -0.8 + 1.8 * suave(t / R) : 1 - suave((t - R - 0.8) / Math.max(0.1, T - R - 0.8)));
+  },
+  /** o pisão da perna `k`: ergue o pé (0 – sobe; o corpo pende para o outro lado), bate (sobe → sobe + 0,15), o tranco do peso */
+  pisao(a, t, c, k) {
+    const sobe = c.golpes.pisao.sobe;
+    if (t < sobe) { a.pe[k] = suave(t / sobe); a.agacha = -0.15 * a.pe[k]; }
+    else if (t < sobe + 0.15) a.pe[k] = 1 - (t - sobe) / 0.15;
+    else a.agacha = 0.1 * Math.max(0, 1 - (t - sobe - 0.15) / 0.4);
+  },
+  /** o cuspe das cabeças de `ordem`, escalonadas por `intervalo`: cada uma empina (a boca aponta), cospe em `mira` e volta.
+   *  Devolve se todas já voltaram */
+  cuspe(a, t, c, ordem) {
+    const gc = c.golpes.cuspe;
+    let acabou = true;
+    ordem.forEach((k, i) => {
+      const t0 = i * gc.intervalo, tc = t0 + gc.mira;
+      if (t < t0) { acabou = false; return; }
+      if (t < tc) { a.cab[k] = suave((t - t0) / gc.mira); acabou = false; }
+      else if (t < tc + 0.5) { a.cab[k] = 1 - 1.4 * suave((t - tc) / 0.18) + 0.4 * suave((t - tc - 0.18) / 0.32); acabou = false; }
+    });
+    return acabou;
+  },
+  /** morrendo: as cabeças caem e ela afunda na terra. Devolve o tombo (rad) */
+  morrendo(a, t) {
+    const k = suave(t / 2.2);
+    a.cab.fill(-1 * k); a.pe.fill(0); a.giro = 0;
+    a.agacha = 0.6 * k + (t > 3 ? (t - 3) * 1.5 : 0);
+    return k * 0.25;
+  },
+};
+
 export class Hidra extends Inimigo {
   renascer() {
     this.pos.y = this.mundo.world.alturaChao(this.pos);
@@ -64,9 +107,7 @@ export class Hidra extends Inimigo {
   /** A pose de partida do quadro (dormindo: as cabeças caídas e o corpo baixo) e o alvo. */
   preparar(dt) {
     this.escolherAlvo(dt);
-    const a = this.pose;
-    const dormindo = this.state === 'dormant';
-    a.cab.fill(dormindo ? -0.8 : 0); a.pe.fill(0); a.giro = 0; a.agacha = dormindo ? 0.6 : 0;
+    POSES_DA_HIDRA.base(this.pose, this.state === 'dormant');
   }
 
   decidir(dt) {
@@ -77,12 +118,9 @@ export class Hidra extends Inimigo {
     a.giro = THREE.MathUtils.clamp(ang, -0.6, 0.6);
 
     switch (this.state) {
-      case 'intro': {   // (o rugido e o fim da entrada: o traço `chefe`) — levanta do chão, empina as cabeças no rugido e as baixa
-        const T = c.chefe?.intro ?? 3, R = c.chefe?.rugido ?? 1;
-        a.agacha = 0.6 * (1 - suave(t / R));
-        a.cab.fill(t < R ? -0.8 + 1.8 * suave(t / R) : 1 - suave((t - R - 0.8) / Math.max(0.1, T - R - 0.8)));
+      case 'intro':   // (o rugido e o fim da entrada: o traço `chefe`)
+        POSES_DA_HIDRA.intro(a, t, c);
         break;
-      }
 
       case 'chase': {   // de olho: gira no lugar e escolhe o golpe
         this.facing = turnTowards(this.facing, yawTo(this.pos, p.pos), dt * c.giro);
@@ -92,14 +130,12 @@ export class Hidra extends Inimigo {
       }
 
       case 'pisao': {
-        // ergue o pé mais perto do alvo (0 – sobe), bate (sobe → sobe + 0,15), volta
+        // ergue o pé mais perto do alvo (0 – sobe), bate (sobe → sobe + 0,15), volta (a pose: POSES_DA_HIDRA.pisao)
         const gp = g.pisao, sobe = gp.sobe, k = this.st.perna;
+        POSES_DA_HIDRA.pisao(a, t, c, k);
         if (t < sobe) {
-          a.pe[k] = suave(t / sobe);
-          a.agacha = -0.15 * a.pe[k];   // o corpo pende para o outro lado
           if (!this.st.ergueu) { this.st.ergueu = true; this.emitir('ergueu', { perna: k }); }
-        } else if (t < sobe + 0.15) a.pe[k] = 1 - (t - sobe) / 0.15;
-        else if (!this.st.bateu) {
+        } else if (t >= sobe + 0.15 && !this.st.bateu) {
           this.st.bateu = true;
           const centro = this.pe(k);
           centro.y = this.mundo.world.alturaChao(centro);
@@ -109,21 +145,18 @@ export class Hidra extends Inimigo {
           }
           this.mundo.projectiles.shock({ pos: centro, maxR: gp.onda.raio, speed: gp.onda.velocidade, damage: gp.onda.dano, poise: gp.onda.poise });
           this.emitir('pisou', { pos: centro });
-        } else a.agacha = 0.1 * Math.max(0, 1 - (t - sobe - 0.15) / 0.4);   // o tranco do peso
+        }
         if (t > sobe + 0.15 + gp.depois) this.fimDeAtaque();
         break;
       }
 
       case 'cuspe': {
         // cada cabeça da vez: empina (a boca, que fica por baixo do chapéu, aponta para o alvo),
-        // cospe e volta. Começam escalonadas por `intervalo`.
+        // cospe e volta. Começam escalonadas por `intervalo` (a pose: POSES_DA_HIDRA.cuspe).
         const gc = g.cuspe, ordem = this.st.ordem;
-        let acabou = true;
+        const acabou = POSES_DA_HIDRA.cuspe(a, t, c, ordem);
         ordem.forEach((k, i) => {
-          const t0 = i * gc.intervalo, tc = t0 + gc.mira;   // a hora do cuspe desta cabeça
-          if (t < t0) { acabou = false; return; }
-          if (t < tc) { a.cab[k] = suave((t - t0) / gc.mira); acabou = false; }
-          else if (t < tc + 0.5) { a.cab[k] = 1 - 1.4 * suave((t - tc) / 0.18) + 0.4 * suave((t - tc - 0.18) / 0.32); acabou = false; }
+          const tc = i * gc.intervalo + gc.mira;   // a hora do cuspe desta cabeça
           if (t >= tc && !this.st.cuspiu.has(k)) { this.st.cuspiu.add(k); this.cuspir(k, p); }
         });
         // (o corpo segue girando para quem foge)
@@ -174,10 +207,8 @@ export class Hidra extends Inimigo {
   /** Morrendo: as cabeças caem, tomba um pouco e afunda na terra; em 7 s sai de cena. */
   updateDeath(dt) {
     if (this.traco('morrendo', dt)) return;
-    const t = this.stateT, k = suave(t / 2.2), a = this.pose;
-    this.tombo = k * 0.25;
-    a.cab.fill(-1 * k); a.pe.fill(0); a.giro = 0;
-    a.agacha = 0.6 * k + (t > 3 ? (t - 3) * 1.5 : 0);
+    const t = this.stateT;
+    this.tombo = POSES_DA_HIDRA.morrendo(this.pose, t);
     if (t > 7) { this.active = false; this.visivel = false; this.setState('gone'); }
     this.pisar();
   }

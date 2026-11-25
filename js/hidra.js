@@ -3,6 +3,7 @@ import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 import { Assets } from './assets.js';
 import { Interpolador, giroCurto } from './remoto.js';
 import { Hidra, POSE_DA_HIDRA_PARADA } from './inimigos/hidra.js';
+import { BOCA, ossosDaHidra, animarHidra } from './hidra-animacao.js';
 
 /**
  * A HIDRA NO NAVEGADOR (25/11/2026; a primeira: a Mycohydra das WindHills) — o cérebro da hidra
@@ -19,23 +20,15 @@ import { Hidra, POSE_DA_HIDRA_PARADA } from './inimigos/hidra.js';
  * O BRILHO: a própria textura como `emissiveMap`, com pouca força e pulsando — o que é claro (as manchas
  * amarelas, a pele pálida) acende mais; à noite ela é um fungo que brilha, não uma silhueta preta.
  *
+ * A ANIMAÇÃO (os ossos pela pose, as bocas, as mandíbulas, as pernas) mora no js/hidra-animacao.js, que só usa o three:
+ * o editor de cenas a importa para tocar as animações na aba Esqueleto.
+ *
  * O modelo pode não ter carregado (arquivo faltando): ela fica `fora` (nunca aparece) em vez de derrubar
  * o jogo, como o dragão.
  */
 
 const BRILHO = { dormindo: 0.12, acordada: 0.32, furia: 0.5, pisca: 1.3 };
 const COR_DO_BRILHO = 0xc8e070;
-/** O PÉ NO ALTO (rad, com o pé todo erguido): a coxa sobe para fora até o joelho chegar perto da altura do
- *  quadril, a canela volta e fica pendurada, o pé pende; o corpo pende para o outro lado. */
-const ERGUER = { coxa: 1.3, canela: -1.0, pe: -0.3, corpo: 0.1 };
-/** AS BOCAS (a bocarra vertical de cada cabeça, por baixo do chapéu): o osso `boca<k>` escalado — 0 = fechada
- *  (os lábios e os dentes se encostam), 1 = escancarada. Em repouso ficam semiabertas e respiram; abrem tudo
- *  quando a cabeça EMPINA (o cuspe, o rugido: a pose `cab` > 0), um pouco no pisão; dormindo, quase fechadas. */
-const BOCA = { dormindo: 0.08, repouso: 0.35, pisao: 0.6, morta: 0.7, largura: [0.3, 0.85], altura: [0.8, 0.3] };
-/** A MANDÍBULA (`mandibula<k>`, filha da cabeça; 25/11/2026): abre junto com a boca, girando o queixo para baixo em volta da
- *  articulação — `abre` rad com a boca escancarada (a mesma abertura da boca: semiaberta em repouso, toda no cuspe). */
-const MANDIBULA = { abre: 0.45 };
-
 export class CorpoDaHidra extends Hidra {
   constructor(game, cfg, pos, rumo = 0) {
     super(game, cfg, pos, rumo);   // o cérebro (o `Game` é o mundo dele; a zona: o traço `zona`)
@@ -63,18 +56,7 @@ export class CorpoDaHidra extends Hidra {
       m.material.emissiveIntensity = BRILHO.dormindo;
     });
     this.material = this.malha?.material;
-    const osso = (n) => this.malha?.skeleton.bones.find((b) => b.name === n) ?? null;
-    this.ossos = {
-      raiz: osso('raiz'), tronco: osso('tronco'),
-      cabecas: cfg.bocas.map((_, k) => ['a', 'b', 'c'].map((s) => osso(`pescoco${k}${s}`)).concat([osso(`cabeca${k}`)])),
-      bocas: cfg.bocas.map((_, k) => osso(`boca${k}`)),
-      mandibulas: cfg.bocas.map((_, k) => osso(`mandibula${k}`)),
-      pernas: cfg.pes.map(([x, z], k) => {
-        // o eixo de erguer: deitado, de lado para a perna — gira o pé PARA FORA e para cima
-        const fora = new THREE.Vector3(x, 0, z).normalize();
-        return { coxa: osso(`coxa${k}`), canela: osso(`canela${k}`), pe: osso(`pe${k}`), eixo: new THREE.Vector3(-fora.z, 0, fora.x) };
-      }),
-    };
+    this.ossos = ossosDaHidra(this.malha?.skeleton.bones ?? [], cfg);
     this.aberturas = cfg.bocas.map(() => BOCA.dormindo);   // o quanto cada boca está aberta agora (vai até o alvo suave)
     this.passo = 0;          // o arrastar dos pés quando gira no lugar (enfeite): a fase
     this.arrastar = 0;       // … e a força (0 parada, 1 girando)
@@ -169,45 +151,5 @@ export class CorpoDaHidra extends Hidra {
   }
 
   // ----------------------------------------------------------- animação
-  /** Cada osso a partir da pose de ligação (o rigar.mjs não gira nenhum: a pose de ligação é o zero). */
-  animar(dt, a) {
-    const O = this.ossos, t = this.game.time ?? 0;
-    const acordada = this.state !== 'dormant';
-    // o respirar: o tronco incha e murcha um pouco
-    const respira = Math.sin(t * (acordada ? 1.3 : 0.6)) * 0.02;
-    O.tronco?.scale.setScalar(1 + respira);
-    O.tronco?.rotation.set(respira * 0.5, 0, 0);
-    // as CABEÇAS: o giro (todas para o alvo, na base), o empinar/curvar (a pose: + empina, − curva) e o balanço
-    O.cabecas.forEach(([pa, pb, pc, cab], k) => {
-      const e = a.cab[k] ?? 0, bal = acordada ? 1 : 0.4;
-      const sx = Math.sin(t * 0.9 + k * 1.7) * 0.05 * bal, sz = Math.sin(t * 0.7 + k * 2.3) * 0.06 * bal;
-      pa?.rotation.set(0, a.giro * 0.45, 0);
-      pb?.rotation.set(-e * 0.3 + sx, a.giro * 0.25, sz);
-      pc?.rotation.set(-e * 0.35 + sx, 0, sz);
-      cab?.rotation.set(-e * 0.55 + sx * 0.5, 0, 0);
-    });
-    // as BOCAS: o alvo de cada uma pelo estado e pela pose, seguido devagar; abrir é escalar o osso
-    O.bocas.forEach((boca, k) => {
-      const empina = Math.max(0, Math.min(1, a.cab[k] ?? 0));
-      let alvo = this.state === 'dormant' ? BOCA.dormindo : this.dead ? BOCA.morta : BOCA.repouso + (1 - BOCA.repouso) * empina;
-      if (this.state === 'pisao') alvo = Math.max(alvo, BOCA.pisao);
-      if (!this.dead && this.state !== 'dormant') alvo += Math.sin(t * 1.1 + k * 1.9) * 0.05;   // respira
-      const ab = this.aberturas[k] = THREE.MathUtils.lerp(this.aberturas[k], alvo, Math.min(1, dt * 8));
-      boca?.scale.set(BOCA.largura[0] + BOCA.largura[1] * ab, BOCA.altura[0] + BOCA.altura[1] * ab, 1);
-      O.mandibulas[k]?.rotation.set(ab * MANDIBULA.abre, 0, 0);   // (+x: o queixo, à frente, desce)
-    });
-    // as PERNAS: o pé da pose sobe (coxa para fora e para cima, a canela devolve, o pé pende); as outras
-    // arrastam um pouco quando ela gira no lugar
-    O.pernas.forEach(({ coxa, canela, pe, eixo }, k) => {
-      const arrasta = a.pe.some((x) => x > 0.05) ? 0 : Math.max(0, Math.sin(this.passo + k * Math.PI / 2)) * 0.15 * this.arrastar;
-      const l = Math.max(a.pe[k] ?? 0, arrasta);
-      coxa?.quaternion.setFromAxisAngle(eixo, l * ERGUER.coxa);
-      canela?.quaternion.setFromAxisAngle(eixo, l * ERGUER.canela);
-      pe?.quaternion.setFromAxisAngle(eixo, l * ERGUER.pe);
-    });
-    // o corpo inteiro pende para o lado oposto ao pé que sobe (o peso)
-    const ergue = a.pe.reduce((m, x, k) => (x > (a.pe[m] ?? 0) ? k : m), 0);
-    const eixo = O.pernas[ergue]?.eixo;
-    if (O.raiz && eixo) O.raiz.quaternion.setFromAxisAngle(eixo, -(a.pe[ergue] ?? 0) * ERGUER.corpo);
-  }
+  animar(dt, a) { animarHidra(this.ossos, a, this, this.game.time ?? 0, dt); }
 }
