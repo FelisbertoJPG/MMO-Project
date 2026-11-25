@@ -220,7 +220,9 @@ const imagens = (J.images ?? []).map((im) => {
 const nos = [{ name: cfg.nome ?? path.basename(saida, '.glb'), mesh: 0, skin: 0 }];
 ossos.forEach((o, b) => {
   const pai = o.pai ? mundo[porNome.get(o.pai)] : [0, 0, 0];
-  nos.push({ name: o.nome, translation: mundo[b].map((v, e) => v - pai[e]) });
+  // (a PONTA vai junto, em metros no espaço da malha — `extras` vira o `userData` do osso no three: o corpo a usa, ex.: a mandíbula
+  // de baixo fecha até o queixo apontar para a ponta da de cima)
+  nos.push({ name: o.nome, translation: mundo[b].map((v, e) => v - pai[e]), ...(o.ponta ? { extras: { ponta: noMundo(o.ponta).map((v) => Math.round(v * 1e4) / 1e4) } } : {}) });
 });
 ossos.forEach((o, b) => { const f = filhos[b].map((x) => 1 + porNome.get(x.nome)); if (f.length) nos[1 + b].children = f; });
 const raizes = ossos.map((o, b) => (o.pai ? null : 1 + b)).filter((x) => x !== null);
