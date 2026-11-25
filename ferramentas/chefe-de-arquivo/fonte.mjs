@@ -87,7 +87,7 @@ function normaisLisas(P, idx) {
 }
 
 /** o .glb (uma malha, uma primitiva — o que o rigar.mjs lê) com a textura e o material do original */
-function escreverGlb(destino, original, { pos, uv, idx, normal }) {
+export function escreverGlb(destino, original, { pos, uv, idx, normal }) {
   const POS = Float32Array.from(pos), UVS = Float32Array.from(uv), IDX = Uint32Array.from(idx), N = POS.length / 3;
   const NRM = normal?.length === POS.length ? Float32Array.from(normal) : normaisLisas(POS, IDX);
   const min = [0, 1, 2].map((e) => { let m = Infinity; for (let i = e; i < POS.length; i += 3) m = Math.min(m, POS[i]); return m; });
@@ -130,7 +130,7 @@ function escreverGlb(destino, original, { pos, uv, idx, normal }) {
 }
 
 /** o config passa a usar `arquivo` (relativo à pasta) como a fonte, e o rigar.mjs refaz o chefe */
-function usarFonte(arqCfg, arquivo) {
+export function usarFonte(arqCfg, arquivo) {
   const { texto } = lerConfig(arqCfg), FONTE = /("fonte":\s*)"[^"]*"/;
   if (!FONTE.test(texto)) throw new Error('o config não tem a linha "fonte"');
   const novo = texto.replace(FONTE, `$1${JSON.stringify(arquivo)}`);
