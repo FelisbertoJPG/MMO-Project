@@ -132,7 +132,7 @@ export class Dragao extends Draconico {
     const x = e.extra ?? {};
     this.tombo = Number.isFinite(x.rz) ? x.rz : 0;
     this.brilhoDaBrasa = Number.isFinite(x.br) ? x.br : 0;
-    this.pose = x.anim ?? { ...POSE_PARADA };
+    this.pose = Draconico.poseDeNumeros(x.anim);
     if (this.state === 'sopro' && this.stateT > 0.9 && this.stateT < 2.9) this.chamas();
     this.passo += dt * 5 * this.pose.andar;
     if (this.flashT > 0) this.flashT -= dt;

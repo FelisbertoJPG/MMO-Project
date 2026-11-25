@@ -19,6 +19,8 @@ import { angleToTarget, yawTo, turnTowards, flatDist } from '../geometria.js';
 import { Inimigo } from './cerebro.js';
 
 export const POSE_PARADA = { andar: 0, pescocoX: 0, pescocoY: 0, cabecaX: 0, boca: 0, asa: 0, agacha: 0, altura: 0 };
+/** A ORDEM da pose na rede (`poseEmNumeros`): mudar a ordem desencontra quem está com a versão de antes. */
+const PARTES_DA_POSE = ['andar', 'pescocoX', 'pescocoY', 'cabecaX', 'boca', 'asa', 'agacha', 'altura'];
 const POSE_DORMINDO = { ...POSE_PARADA, pescocoX: 0.35, cabecaX: 0.25, agacha: 0.35 };   // enrolado, cabeça baixa
 // de onde sai o fogo e o dano do sopro, sem o modelo: à frente do corpo, na altura da cabeça erguida
 const BOCA = { frente: 4.2, altura: 3 };
@@ -216,6 +218,15 @@ export class Draconico extends Inimigo {
   /** De onde sai o sopro (a origem do dano): à frente, na altura da cabeça (ver `BOCA`). */
   boca() {
     return new THREE.Vector3(this.pos.x + Math.sin(this.facing) * BOCA.frente, this.pos.y + BOCA.altura, this.pos.z + Math.cos(this.facing) * BOCA.frente);
+  }
+
+  // ---------- A pose na rede ----------
+  /** A pose em números (o `extra.anim` do retrato), na ordem de `PARTES_DA_POSE`. */
+  poseEmNumeros() { return PARTES_DA_POSE.map((k) => this.ultimaAnim?.[k] ?? 0); }
+  /** O contrário (quem anima pelo retrato). Números a menos ou tortos: a pose parada. */
+  static poseDeNumeros(n) {
+    if (!Array.isArray(n) || n.length !== PARTES_DA_POSE.length) return { ...POSE_PARADA };
+    return Object.fromEntries(PARTES_DA_POSE.map((k, i) => [k, n[i]]));
   }
 
   /** Assumido do retrato no meio da luta: a garganta já acesa. */

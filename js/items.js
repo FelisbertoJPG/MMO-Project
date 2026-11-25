@@ -319,6 +319,11 @@ export const ITEMS = {
     desc: 'Arde sem chama. O dragão que dormia sobre a masmorra nunca voou — mas também nunca desceu.',
     stats: { 'Tipo': 'Alma de Chefe' },
   },
+  mycohydraSoul: {
+    name: 'Alma da Mycohydra', type: 'key', icon: ICONS.bossSoul,
+    desc: 'Ainda solta esporos na palma da mão. As ruínas do platô eram um templo — até alguma coisa criar raízes no meio dele.',
+    stats: { 'Tipo': 'Alma de Chefe' },
+  },
 };
 
 export const ICON_TORCH_OUT = ICONS.torchOut;
@@ -339,7 +344,7 @@ const RARIDADE_DO_ITEM = {
   dagger: 'comum', longsword: 'incomum', axe: 'raro', greatsword: 'epico',
   shieldRound: 'comum', shieldKnight: 'raro', torch: 'comum',
   ringLife: 'raro', ringWolf: 'raro', ringGreen: 'epico',
-  cellKey: 'incomum', executionerSoul: 'lendario', wyrmSoul: 'lendario',
+  cellKey: 'incomum', executionerSoul: 'lendario', wyrmSoul: 'lendario', mycohydraSoul: 'lendario',
   firebomb: 'incomum', gororoba: 'comum',
 };
 const RARIDADE_DO_TIPO = { ingrediente: 'comum', consumable: 'comum', ring: 'raro', key: 'incomum', weapon: 'incomum', shield: 'comum' };

@@ -128,15 +128,16 @@ export function expandirRastro(r, limites) {
 
 // ------------------------------------------------------------ o co-op: o MUNDO do anfitrião
 
-const PARTES_DA_POSE = ['andar', 'pescocoX', 'pescocoY', 'cabecaX', 'boca', 'asa', 'agacha', 'altura'];
-const NET_ID = /^(e\d{1,3}|carrasco|wyrm|lacaio\d{1,4})$/;
+const NET_ID = /^(e\d{1,3}|carrasco|wyrm|mycohydra|lacaio\d{1,4})$/;
+const POSE_MAX = 16;   // quantos números a pose de um chefe animado por código pode ter
 
 /**
  * O retrato de um inimigo para o `TIPO.MUNDO`: um array curto, porque vão
  * vinte deles dez vezes por segundo.
  * `[netId, x, y, z, giro, clipe, velocidade, vida, estado, flags, tempoDoEstado, extra]`
- * flags: 1 = ativo, 2 = morto, 4 = visível. `extra` só no dragão (a pose dele
- * não é de clipe: são as peças girando — ver `Dragao.animar`).
+ * flags: 1 = ativo, 2 = morto, 4 = visível. `extra` só em quem é animado por código (o dragão, a
+ * hidra: a pose não é de clipe) — `anim` = a pose em números, do jeito que o COMPORTAMENTO dele a diz
+ * (`poseEmNumeros`/`poseDeNumeros`: inimigos/dragao.js, inimigos/hidra.js).
  */
 /** A força contra ESCUDO que veio num GOLPE (`qn` = o nível, `qd` = o dano), conferida — ou null. */
 export function lerQuebra(c) {
@@ -150,7 +151,7 @@ export function retratoDoInimigo(e) {
   const atual = e.model?.current;
   let extra = null;
   if (e.ultimaAnim) {
-    extra = { rz: r2(e.root.rotation.z), br: Math.round(e.brasa?.intensity ?? 0), anim: PARTES_DA_POSE.map((k) => r2(e.ultimaAnim[k] ?? 0)) };
+    extra = { rz: r2(e.root.rotation.z), br: Math.round(e.brasa?.intensity ?? 0), anim: e.poseEmNumeros().map(r2) };
   }
   // o ESCUDO (escudo.js): [a durabilidade de 0 a 1, ou −1 = quebrado; a postura de 0 a 1]
   const esc = e.escudo ? [e.escudo.quebrado ? -1 : r2(e.escudo.vida / e.escudo.max), r2(e.escudo.postura / e.escudo.posturaMax)] : null;
@@ -177,9 +178,8 @@ export function lerRetrato(q, limites = null) {
     r.esc = Math.max(-1, Math.min(1, esc[0]));
     r.post = Math.max(0, Math.min(1, esc[1]));
   }
-  if (extra && typeof extra === 'object' && Array.isArray(extra.anim) && extra.anim.length === PARTES_DA_POSE.length && extra.anim.every(Number.isFinite)) {
-    r.extra = { rz: Number.isFinite(extra.rz) ? extra.rz : 0, br: Number.isFinite(extra.br) ? extra.br : 0,
-      anim: Object.fromEntries(PARTES_DA_POSE.map((k, i) => [k, extra.anim[i]])) };
+  if (extra && typeof extra === 'object' && Array.isArray(extra.anim) && extra.anim.length <= POSE_MAX && extra.anim.every((v) => Number.isFinite(v) && Math.abs(v) < 100)) {
+    r.extra = { rz: Number.isFinite(extra.rz) ? extra.rz : 0, br: Number.isFinite(extra.br) ? extra.br : 0, anim: extra.anim };
   }
   return r;
 }

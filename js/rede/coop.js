@@ -123,8 +123,9 @@ export class Coop {
       g.bossFight = bf;
       if (bf) g.sfx.startBossMusic(); else g.sfx.stopBossMusic();
     }
-    g.bossAtual = c.ba === 'wyrm' ? g.dragao : null;
-    g.world.setBraziers(bf && c.ba !== 'wyrm');
+    // (`ba` = o `netId` do chefe da luta: um chefe do mapa tem a barra dele; o Carrasco, os braseiros)
+    g.bossAtual = g.chefesDoMapa.find((x) => x.netId === c.ba) ?? null;
+    g.world.setBraziers(bf && !g.bossAtual);
   }
 
   criarLacaio(r) {
@@ -204,7 +205,7 @@ export class Coop {
 
   aoProjetil(k, a) {
     this.sala.enviar(TIPO.EVENTO, { tipo: 'proj', k, pos: vet(a.pos), dir: vet(a.dir), vel: vet(a.vel),
-      speed: a.speed, life: a.life, delay: a.delay, maxR: a.maxR, radius: a.radius });
+      speed: a.speed, life: a.life, delay: a.delay, maxR: a.maxR, radius: a.radius, color: a.color, size: a.size });
   }
 
   receberEvento(c) {
@@ -218,7 +219,7 @@ export class Coop {
       const pos = lerVet(c.pos);
       if (!pos) return;
       const num = (v, max, padrao) => (Number.isFinite(v) && v >= 0 && v <= max ? v : padrao);
-      if (c.k === 'orb') { const dir = lerVet(c.dir); if (dir) g.projectiles.orb({ pos, dir, speed: num(c.speed, 40, 9), life: num(c.life, 10, 4), delay: num(c.delay, 3, 0), visual: true }); }
+      if (c.k === 'orb') { const dir = lerVet(c.dir); if (dir) g.projectiles.orb({ pos, dir, speed: num(c.speed, 40, 9), life: num(c.life, 10, 4), delay: num(c.delay, 3, 0), color: num(c.color, 0xffffff, 0x9a50ff), size: num(c.size, 4, 0.9), visual: true }); }
       else if (c.k === 'shock') g.projectiles.shock({ pos, maxR: num(c.maxR, 20, 6), speed: num(c.speed, 40, 10), visual: true });
       else if (c.k === 'bomb') { const vel = lerVet(c.vel); if (vel) g.projectiles.bomb({ pos, vel, damage: 0, radius: num(c.radius, 8, 2), visual: true }); }
       return;

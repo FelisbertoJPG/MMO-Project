@@ -163,8 +163,10 @@ export class Projectiles {
     g.add(this.makeGlow(0xffffff, size * 0.3));
     g.position.copy(pos);
     this.game.scene.add(g);
-    this.list.push({ kind: 'orb', mesh: g, pos: g.position, vel: dir.clone().normalize().multiplyScalar(speed), speed, damage, homing: visual ? 0 : homing, life, delay, color, alvo, visual });
-    if (!visual) this.game.sessao?.aoProjetil?.('orb', { pos, dir, speed, life, delay });
+    // (o rastro e o estouro na cor do orbe: [r, g, b] de 0 a 1)
+    const rgb = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255];
+    this.list.push({ kind: 'orb', mesh: g, pos: g.position, vel: dir.clone().normalize().multiplyScalar(speed), speed, damage, homing: visual ? 0 : homing, life, delay, color, rgb, alvo, visual });
+    if (!visual) this.game.sessao?.aoProjetil?.('orb', { pos, dir, speed, life, delay, color, size });   // (a cor e o tamanho: o cuspe verde da hidra)
   }
 
   bomb({ pos, vel, damage, radius, visual = false }) {
@@ -244,18 +246,18 @@ export class Projectiles {
         }
         p.pos.addScaledVector(p.vel, dt);
         if (Math.random() < 0.7) {
-          game.effects.spawn({ pos: p.pos.clone(), vel: new THREE.Vector3(), color: [0.5, 0.25, 0.9], size: 0.25, life: 0.35 });
+          game.effects.spawn({ pos: p.pos.clone(), vel: new THREE.Vector3(), color: p.rgb.map((v) => v * 0.85), size: 0.25, life: 0.35 });
         }
         for (const j of p.visual ? [] : game.jogadores) {
           const d = Math.hypot(p.pos.x - j.pos.x, p.pos.z - j.pos.z);
           const dy = p.pos.y - (j.pos.y + 1);
           if (remove || j.dead || d >= j.radius + 0.35 || Math.abs(dy) >= 1.1) continue;
           const res = j.takeDamage(p.damage, p.pos, { poise: 25 });
-          if (res !== 'iframe') { remove = true; game.effects.burst(p.pos, { count: 25, color: [0.6, 0.3, 1], speed: 4, size: 0.15, life: 0.5, gravity: 2 }); }
+          if (res !== 'iframe') { remove = true; game.effects.burst(p.pos, { count: 25, color: p.rgb, speed: 4, size: 0.15, life: 0.5, gravity: 2 }); }
         }
         if (game.world.acimaDoChao(p.pos) < 0.05 || !game.world.pointInside(p.pos)) {
           remove = true;
-          game.effects.burst(p.pos, { count: 15, color: [0.6, 0.3, 1], speed: 3, size: 0.12, life: 0.4, gravity: 2 });
+          game.effects.burst(p.pos, { count: 15, color: p.rgb, speed: 3, size: 0.12, life: 0.4, gravity: 2 });
         }
       } else if (p.kind === 'shock') {
         p.r += p.speed * dt;

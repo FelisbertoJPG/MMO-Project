@@ -52,7 +52,7 @@
 
 - `regras-do-mundo.mjs` — `criarRegras(raiz, { mapa, avisar })`: `passo`, `golpe`, `foraDoMapa`, `vigorDe`, `teto`, `tetoDoProjetil`, `menorIntervalo`. O servidor (`servidor-mundo.mjs`) monta o mapa lógico uma vez (`lerMapaLogico`) e passa.
 - `js/mapa-logico.js` — o mundo sem desenho (grade, chão, colisões em `montarColisoes`, caminho, `alcancaEmPassos`, `dentroDaParede`); o `World` é um `MapaLogico` que desenha. Base `nucleo-do-jogo`.
-- `js/inimigos/` — `cerebro.js` (a base), `humanoide.js`, `quadrupede.js`, `dragao.js` (os comportamentos), `tracos.js`, `tipos.js` (todas as fichas), `nascimentos.js` (onde nasce cada um; a ordem é o `netId`), `criar.js` (`criarCerebro`). No navegador, os corpos: `Enemy` (enemies.js), `Animal` (animais.js), `Dragao` (js/dragao.js); `criarCriatura`/`criarChefe` (enemies.js). Base `nucleo-do-jogo`.
+- `js/inimigos/` — `cerebro.js` (a base), `humanoide.js`, `quadrupede.js`, `dragao.js`, `hidra.js` (os comportamentos; a hidra, 25/11/2026: enraizada, pisão + cuspe, bocas/pés como tabela da ficha, o traço `zona` — base `nucleo-do-jogo`), `tracos.js`, `tipos.js` (todas as fichas), `nascimentos.js` (onde nasce cada um; a ordem é o `netId`), `criar.js` (`criarCerebro`). No navegador, os corpos: `Enemy` (enemies.js), `Animal` (animais.js), `Dragao` (js/dragao.js); `criarCriatura`/`criarChefe` (enemies.js). Base `nucleo-do-jogo`.
 - `js/geometria.js` — as contas de ângulo e distância sem three (o combat.js reexporta).
 - `testes/mundo.test.mjs` — os testes da área: REGRAS (passo, parede, golpe), O VIGOR E O RITMO, o MAPA LÓGICO (as tabelas cobrem o PROPS e os bichos), o THREE do npm = o do vendor, e o CÉREBRO das criaturas (esqueletos, Carrasco, bichos, dragão).
 

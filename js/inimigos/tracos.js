@@ -18,6 +18,8 @@
  *   antesDeMorrer              conjurar(golpe) → true  cuidou do feitiço
  *   depois(dt)                 no fim de cada quadro        morrendo(dt) → true  cuidou da morte
  *   retomar(r) → true          assumiu o retrato             dormir, acordar   (o `sleep`/`wake` do chefe)
+ *   podeAcordar → bool         alguém chegou onde ele dorme  naZona(j) → bool  o jogador `j` está no lugar da luta
+ *                              (os chefes do MAPA — o dragão, a hidra: o jogo e o Mundo online perguntam por estes dois)
  * O que se VÊ de cada traço (olhos, rugido, explosão) sai em evento: o corpo (enemies.js) desenha.
  */
 import * as THREE from 'three';
@@ -219,6 +221,21 @@ export const TRACOS = {
       const w = e.mundo.world;
       return e.mundo.jogadores.some((j) => !j.dead && w.nivel(...w.cellOf(j.pos)) === c.nivel);
     },
+    naZona(e, c, j) { const w = e.mundo.world; return !j.dead && w.nivel(...w.cellOf(j.pos)) === c.nivel; },
+  },
+
+  /**
+   * ZONA: `{ acordar, luta }` (m, contados de onde ele mora — `home`). O chefe do ar livre sem andar
+   * próprio (a hidra, enraizada): acorda quando um jogador vivo chega a menos de `acordar`, e a luta é
+   * de quem está a menos de `luta` — só esses ele mira (o cuspe não persegue quem já foi embora).
+   */
+  zona: {
+    podeAcordar(e, c) {
+      if (e.state !== 'dormant' || e.defeated || e.mundo.marionetes) return false;
+      return e.mundo.jogadores.some((j) => !j.dead && flatDist(j.pos, e.home) < c.acordar);
+    },
+    naZona(e, c, j) { return !j.dead && flatDist(j.pos, e.home) < c.luta; },
+    podeMirar(e, c, j) { return flatDist(j.pos, e.home) < c.luta; },
   },
 
   /** MORTE: `{ estilo: 'encolher', espera, dura }` (s). Em vez de afundar, some encolhendo (o corpo desenha). */

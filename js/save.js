@@ -169,7 +169,9 @@ export function coletar(game) {
       expositores: estadoDosExpositores(w),   // o que já saiu de cada suporte/cavalete (expositor.js)
       mancha,
       carrascoVencido: game.boss.defeated,
-      dragaoVencido: game.dragao.defeated,
+      dragaoVencido: game.dragao.defeated,   // (o campo de antes: quem abre com uma versão velha ainda o lê)
+      // os CHEFES DO MAPA vencidos, pelo `netId` (o dragão, a hidra…: `Game.chefesDoMapa`)
+      chefesVencidos: Object.fromEntries(game.chefesDoMapa.map((c) => [c.netId, !!c.defeated])),
     },
   };
 }
@@ -255,9 +257,9 @@ export function aplicarProgresso(game, s) {
     w.openFog();
     w.fog.mat.uniforms.opacity.value = 0;   // some já, sem o esmaecer
   }
-  if (doMundo && m.dragaoVencido) {
-    game.dragao.defeated = true;
-    game.dragao.sleep();
+  for (const c of game.chefesDoMapa) {
+    const vencido = m.chefesVencidos?.[c.netId] ?? (c === game.dragao && m.dragaoVencido);
+    if (doMundo && vencido === true) { c.defeated = true; c.sleep(); }
   }
 
   p.refreshEquipment();

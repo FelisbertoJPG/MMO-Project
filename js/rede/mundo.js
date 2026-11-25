@@ -76,6 +76,7 @@ export const CHEFES = {
   // `armadura`: as peças das PLACAS do Cavaleiro Caído que o chefe dá (só as que faltam)
   carrasco: { netId: 'carrasco', titulo: 'CARRASCO ABATIDO', alma: 'executionerSoul', armadura: ['arm3_peito', 'arm3_cabeca'] },
   wyrm: { netId: 'wyrm', titulo: 'WYRM DAS CINZAS ABATIDO', alma: 'wyrmSoul', armadura: ['arm3_bracos', 'arm3_pernas'] },
+  mycohydra: { netId: 'mycohydra', titulo: 'MYCOHYDRA ABATIDA', alma: 'mycohydraSoul' },
 };
 
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -170,7 +171,7 @@ export class Mundo {
     this.quebrados = new Map();        // índice do quebrável (decor.json) → quando volta inteiro
     this.quebrasPendentes = new Map(); // quebrei e o simulador ainda não sabe: segue quebrado na minha tela
     this.chefes = {};                  // 'carrasco' | 'wyrm' → quando ressurge (relógio do servidor)
-    this.semLuta = { carrasco: 0, wyrm: 0 };
+    this.semLuta = Object.fromEntries(Object.keys(CHEFES).map((q) => [q, 0]));
     this.pendentes = new Map();        // índice da porta → quando EU a abri
     this.lacaios = new Map();          // netId → {inimigo, visto} (marionetes dos lacaios do Carrasco)
     this.luta = null;                  // o chefe com quem EU estou lutando (barra e música)
@@ -486,7 +487,8 @@ export class Mundo {
     if (this.passagensGuardadas) g.world.aplicarPassagens(this.passagensGuardadas);
   }
 
-  chefe(qual) { return qual === 'wyrm' ? this.game.dragao : this.game.boss; }
+  /** O chefe de nome `qual`: o Carrasco, ou um dos chefes do mapa (`Game.chefesDoMapa`, pelo `netId`). */
+  chefe(qual) { return qual === 'carrasco' ? this.game.boss : this.game.chefesDoMapa.find((c) => c.netId === qual); }
 
   /** Um inimigo comum que está morto e esperando a hora de renascer: fora de cena. */
   deixarMorto(e) {
@@ -556,8 +558,8 @@ export class Mundo {
   naLuta(qual, j) {
     if (j.dead) return false;
     if (qual === 'carrasco') return !!j.inArena;
-    const w = this.game.world;
-    return w.nivel(...w.cellOf(j.pos)) === 1;
+    // o chefe do mapa diz onde é a luta dele (o traço: `territorio` = o terraço, `zona` = a distância)
+    return this.chefe(qual)?.traco('naZona', j) ?? false;
   }
 
   /** Uma vez por segundo, SÓ no simulador: quem renasce, que chefe acorda, dorme ou ressurge. */
@@ -594,7 +596,7 @@ export class Mundo {
         continue;
       }
       const dormindo = chefe.state === 'dormant';
-      if (dormindo && alguem && qual === 'carrasco') chefe.wake();   // o dragão acorda pelo `podeAcordar` do laço do jogo
+      if (dormindo && alguem && qual === 'carrasco') chefe.wake();   // os chefes do mapa acordam pelo `podeAcordar` do laço do jogo
       // acordado e sem ninguém vivo na luta: desiste e volta a dormir, inteiro
       if (!dormindo && !chefe.dead && !alguem) {
         this.semLuta[qual] += seg;
@@ -613,11 +615,11 @@ export class Mundo {
     const acordado = (e) => e.active && !e.dead && !['dormant', 'gone'].includes(e.state);
     let luta = null;
     if (acordado(g.boss) && this.naLuta('carrasco', p)) luta = g.boss;
-    else if (acordado(g.dragao) && this.naLuta('wyrm', p)) luta = g.dragao;
+    else luta = g.chefesDoMapa.find((c) => acordado(c) && this.naLuta(c.netId, p)) ?? null;
     if (luta !== this.luta) {
       this.luta = luta;
       g.bossFight = !!luta;
-      g.bossAtual = luta === g.dragao ? g.dragao : null;
+      g.bossAtual = luta === g.boss ? null : luta;
       if (luta) g.sfx.startBossMusic(); else g.sfx.stopBossMusic();
     }
     // os braseiros da arena acendem com o Carrasco acordado, para quem quer que olhe
@@ -754,7 +756,7 @@ export class Mundo {
 
   /** Um chefe caiu (no simulador): o prêmio é de quem lutou, e o relógio da volta começa. */
   aoVencerChefe(chefe) {
-    const qual = chefe === this.game.dragao ? 'wyrm' : 'carrasco';
+    const qual = chefe.netId;
     const ids = this.participantes(chefe);
     this.chefes[qual] = this.agora() + CHEFE_VOLTA_MS;
     for (const id of ids) if (id !== this.eu && this.remotos.has(id)) this.cano.enviar(TIPO.EVENTO, { tipo: 'chefe', para: id, qual });
@@ -800,7 +802,7 @@ export class Mundo {
   aoProjetil(k, a) {
     if (this.estado !== 'ligado') return;
     this.cano.enviar(TIPO.EVENTO, { tipo: 'proj', k, pos: vet(a.pos), dir: vet(a.dir), vel: vet(a.vel),
-      speed: a.speed, life: a.life, delay: a.delay, maxR: a.maxR, radius: a.radius });
+      speed: a.speed, life: a.life, delay: a.delay, maxR: a.maxR, radius: a.radius, color: a.color, size: a.size });
   }
 
   receberEvento(c, de) {
@@ -810,7 +812,7 @@ export class Mundo {
       const pos = lerVet(c.pos);
       if (!pos || pos.distanceTo(g.player.pos) > 80) return;
       const num = (v, max, padrao) => (Number.isFinite(v) && v >= 0 && v <= max ? v : padrao);
-      if (c.k === 'orb') { const dir = lerVet(c.dir); if (dir) g.projectiles.orb({ pos, dir, speed: num(c.speed, 40, 9), life: num(c.life, 10, 4), delay: num(c.delay, 3, 0), visual: true }); }
+      if (c.k === 'orb') { const dir = lerVet(c.dir); if (dir) g.projectiles.orb({ pos, dir, speed: num(c.speed, 40, 9), life: num(c.life, 10, 4), delay: num(c.delay, 3, 0), color: num(c.color, 0xffffff, 0x9a50ff), size: num(c.size, 4, 0.9), visual: true }); }
       else if (c.k === 'shock') g.projectiles.shock({ pos, maxR: num(c.maxR, 20, 6), speed: num(c.speed, 40, 10), visual: true });
       else if (c.k === 'bomb') { const vel = lerVet(c.vel); if (vel) g.projectiles.bomb({ pos, vel, damage: 0, radius: num(c.radius, 8, 2), visual: true }); }
       return;

@@ -1,8 +1,9 @@
 // ENXUGA um .glb para a web: tira os mapas de NORMAL (num jogo low poly, à noite, não
 // se veem) e reduz as texturas maiores que MAX px (pelo System.Drawing do Windows,
 // sem dependência). PNG continua PNG (as folhas têm transparência); JPEG continua JPEG.
+// Com --jpeg, toda imagem vira JPEG (só para modelo SEM transparência: o chefe do Meshy).
 //
-// Uso: node ferramentas/enxugar-glb.mjs [--max=512] <arquivo.glb> [<arquivo.glb> …]
+// Uso: node ferramentas/enxugar-glb.mjs [--max=512] [--jpeg] <arquivo.glb> [<arquivo.glb> …]
 // (sobrescreve; os pacotes de origem continuam na biblioteca do editor de cenas)
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,6 +11,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 const MAX = Number(process.argv.find((a) => a.startsWith('--max='))?.split('=')[1] ?? 512);
+const JPEG = process.argv.includes('--jpeg');
 const arquivos = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 
 function lerGlb(buf) {
@@ -81,7 +83,9 @@ for (const arq of arquivos) {
       const im = viewDeImg.get(i);
       if (!imgUsadas.has(im)) return;   // imagem sem uso: some
       const [w, h] = tamanho(dado);
-      if (Math.max(w, h) > MAX) dado = reduzir(dado, json.images[im].mimeType === 'image/png');
+      const png = json.images[im].mimeType === 'image/png';
+      if (Math.max(w, h) > MAX || (JPEG && png)) dado = reduzir(dado, png && !JPEG);
+      if (JPEG) json.images[im].mimeType = 'image/jpeg';
     }
     mapaView.set(i, novos.length);
     novos.push({ v: { ...v }, dado });

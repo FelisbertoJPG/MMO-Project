@@ -151,6 +151,36 @@ ENEMY_TYPES.wyrm = {
 };
 
 /**
+ * A MYCOHYDRA (25/11/2026; o chefe das WindHills, nas ruínas do platô): uma hidra-cogumelo de 14 m e cinco
+ * cabeças, ENRAIZADA (o comportamento `hidra`, inimigos/hidra.js). O corpo é um .glb com esqueleto
+ * (`modelo`: assets/chefes/<modelo>.glb, feito do modelo do Meshy por ferramentas/chefe-de-arquivo/rigar.mjs).
+ * De perto PISOTEIA (`perto`: até onde o pisão alcança, do centro), de longe CUSPE veneno. `giro` (rad/s):
+ * como ela vira no lugar; `pausa` = entre um golpe e outro. O cilindro do dano (`radius` × `height`) cobre as
+ * pernas e vai até as cabeças: a espada pega embaixo, o arremesso pega em cima, o dano é o mesmo.
+ * `bocas` e `pes` = o que veio do MODELO (m, olhando para +Z): as juntas das cabeças (um pouco à frente e abaixo,
+ * onde fica a boca, por baixo do chapéu) e dos pés, impressas pelo rigar.mjs. Mudou a junta lá? Copie para cá.
+ * `furia`: abaixo de `vida` (fração), cospem `cabecas` a mais, a pausa vezes `pausa` e o relógio do golpe vezes `ritmo`.
+ * FUNGO: o fogo entra mais (`fireWeak`) e ele queima.
+ */
+ENEMY_TYPES.mycohydra = {
+  comportamento: 'hidra', name: 'Mycohydra', modelo: 'mycohydra',
+  hp: 3000, souls: 9000, drops: [], radius: 5, height: 14,
+  fireWeak: 1.5, sangra: false,
+  giro: 0.4, perto: 10, pausa: [1.3, 2.6],
+  golpes: {
+    pisao: { dano: 60, poise: 110, raio: 3.5, sobe: 0.95, depois: 0.8, tremor: 0.55,
+      onda: { raio: 11, velocidade: 12, dano: 28, poise: 60 } },
+    cuspe: { dano: 26, velocidade: 15, guia: 0.7, vida: 5, cor: 0x86d44a, tamanho: 1.4,
+      cabecas: 3, intervalo: 0.35, mira: 0.55 },
+  },
+  furia: { vida: 0.5, cabecas: 2, pausa: 0.7, ritmo: 1.2 },
+  bocas: [[0.03, 11.9, 1.1], [4.3, 9.85, 1.4], [4.44, 6.3, 1.7], [-4.08, 9.7, 1.0], [-4.97, 6.3, 2.0]],
+  pes: [[4.3, 1.02], [2.24, -3.98], [-2.76, 3.52], [-4.67, -1.77]],
+  chefe: { intro: 3.2, rugido: 1.2, tremor: 0.7, pausa: 1.5 },
+  zona: { acordar: 18, luta: 34 },
+};
+
+/**
  * O REFORÇO DOS ESQUELETOS (05/10/2026): com a ficha nova (ficha.js) eles ficaram fracos
  * demais. O ajuste fica AQUI, por cima da tabela, para ser mexido num lugar só: vida,
  * dano dos golpes, equilíbrio (quanto aguenta sem cambalear), a pausa entre ataques

@@ -79,6 +79,10 @@ export const ANIMACOES = ['greatsword-idle'];
 // assets/esculpidos/<nome>.glb, com o esqueleto do manequim UAL em outras proporções. Faltando
 // um, ele só não aparece.
 export const ESCULPIDOS = [];
+// OS CHEFES DE ARQUIVO (25/11/2026; hidra.js): assets/chefes/<nome>.glb, um modelo pronto (o Meshy) com o
+// esqueleto e os pesos postos por ferramentas/chefe-de-arquivo/rigar.mjs — sem clipes, animado por código.
+// Faltando um, aquele chefe só não aparece.
+export const CHEFES_DE_ARQUIVO = ['mycohydra'];
 // OS CORPOS DE ARQUIVO (corpo-arquivo.js; um modelo pronto feito corpo do guerreiro por
 // ferramentas/corpo-de-arquivo/importar.mjs): assets/corpos/<nome>.json. Faltando um, a opção some.
 // (`<nome>:lisa` = só a versão LISA dele — 02/11/2026, a Feminino 4 lisa é o Feminino da Humana, raca.js `femininaDeArquivo`; a com
@@ -581,6 +585,7 @@ export const Assets = {
   pinturas: new Map(),         // as imagens das folhas pintadas nos corpos (assets/pintura/; pintura.js): arquivo → imagem
   guerreiro: null,   // o corpo do jogador (guerreiro.js); faltando, todos usam o boneco antigo
   esculpidos: {},    // nome → a cena dos personagens feitos de fotos (esculpido.js)
+  chefes: {},        // nome → a cena de um CHEFE DE ARQUIVO (CHEFES_DE_ARQUIVO; hidra.js)
   corpos: {},        // nome → um CORPO DE ARQUIVO (corpo-arquivo.js): a malha, os pesos e os ossos de um modelo pronto
   esqueletos: {},    // as JUNTAS corrigidas à mão (assets/esqueletos.json, a aba Esqueleto do editor): corpo → osso → [x, y, z] cm
 
@@ -593,6 +598,7 @@ export const Assets = {
       ...ANIMAIS_MODELOS.map((n) => ['animal', n, `assets/animais/${n}.glb`]),
       ['guerreiro', 'guerreiro', 'assets/guerreiro/guerreiro.glb'],   // o corpo do jogador (guerreiro.js)
       ...ESCULPIDOS.map((n) => ['esculpido', n, `assets/esculpidos/${n}.glb`]),
+      ...CHEFES_DE_ARQUIVO.map((n) => ['chefe', n, `assets/chefes/${n}.glb`]),
     ];
     dividirImagens(loader);   // a mesma imagem embutida em vários .glb: uma vez só na memória
     let done = 0;
@@ -601,7 +607,7 @@ export const Assets = {
     const relogio = setInterval(avisar, 400);
     await Promise.all(jobs.map(async ([kind, name, url]) => {
       // um animal faltando não derruba o jogo: ele só não nasce (animais.js)
-      const gltf = kind === 'animal' || kind === 'guerreiro' || kind === 'esculpido' ? await carregarGltf(loader, url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await carregarGltf(loader, url);
+      const gltf = kind === 'animal' || kind === 'guerreiro' || kind === 'esculpido' || kind === 'chefe' ? await carregarGltf(loader, url).catch((e) => { console.warn(`[animais] sem ${url}:`, e.message); return null; }) : await carregarGltf(loader, url);
       if (!gltf) { done++; avisar(); return; }
       gltf.scene.traverse((c) => {
         if (c.isMesh) {
@@ -620,6 +626,8 @@ export const Assets = {
         this.guerreiro = gltf.scene;
       } else if (kind === 'esculpido') {
         this.esculpidos[name] = gltf.scene;
+      } else if (kind === 'chefe') {
+        this.chefes[name] = gltf.scene;
       } else if (kind === 'char') {
         for (const clip of gltf.animations) this.clips[clip.name] ??= clip;
         if (name === 'UAL1') this.baseScene = gltf.scene;

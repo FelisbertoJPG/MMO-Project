@@ -1,0 +1,58 @@
+{
+  "_leiame": "A MYCOHYDRA (o chefe das WindHills): o .glb do Meshy (sem esqueleto) + as JUNTAS abaixo -> assets/chefes/mycohydra.glb com esqueleto e pesos, pelo rigar.mjs. As juntas estao no espaco do modelo do Meshy (cerca de 1 unidade de altura, a frente e +Z: as bocas olham para la), lidas nas vistas ortograficas. As BOCAS (boca<k>) sao ossos de REGIAO: o centro da bocarra vertical de cada cabeca (por baixo do chapeu, virada para +Z) e o elipsoide dos labios; o jogo as abre e fecha escalando o osso. Mudou uma junta? Rode de novo: node ferramentas/chefe-de-arquivo/rigar.mjs ferramentas/chefe-de-arquivo/mycohydra.json",
+  "fonte": "mycohydra-meshy.glb",
+  "saida": "assets/chefes/mycohydra.glb",
+  "altura": 14,
+  "textura": 1024,
+  "suavizar": 12,
+  "ossos": [
+    { "nome": "raiz", "de": [0, -0.22, 0], "ponta": [0, -0.32, 0], "raio": 0.14 },
+    { "nome": "tronco", "pai": "raiz", "de": [0, -0.18, 0], "ponta": [0, 0.03, -0.02], "raio": 0.2 },
+
+    { "nome": "pescoco0a", "pai": "tronco", "de": [0.02, 0.0, -0.02] },
+    { "nome": "pescoco0b", "pai": "pescoco0a", "de": [0.01, 0.12, -0.02] },
+    { "nome": "pescoco0c", "pai": "pescoco0b", "de": [0.0, 0.25, -0.01] },
+    { "nome": "cabeca0", "pai": "pescoco0c", "de": [0.0, 0.36, 0.01], "ponta": [0.0, 0.44, 0.02] },
+    { "nome": "boca0", "pai": "cabeca0", "de": [0, 0.335, 0.03], "regiao": { "raio": [0.1, 0.11, 0.08], "frente": true, "so": ["cabeca0", "pescoco0c"] } },
+
+    { "nome": "pescoco1a", "pai": "tronco", "de": [0.08, 0.02, -0.03] },
+    { "nome": "pescoco1b", "pai": "pescoco1a", "de": [0.15, 0.10, -0.03] },
+    { "nome": "pescoco1c", "pai": "pescoco1b", "de": [0.22, 0.17, -0.02] },
+    { "nome": "cabeca1", "pai": "pescoco1c", "de": [0.29, 0.22, 0.03], "ponta": [0.32, 0.29, 0.05] },
+    { "nome": "boca1", "pai": "cabeca1", "de": [0.29, 0.195, 0.05], "regiao": { "raio": [0.095, 0.11, 0.08], "frente": true, "so": ["cabeca1", "pescoco1c"] } },
+
+    { "nome": "pescoco2a", "pai": "tronco", "de": [0.12, -0.08, -0.01] },
+    { "nome": "pescoco2b", "pai": "pescoco2a", "de": [0.19, -0.07, -0.02] },
+    { "nome": "pescoco2c", "pai": "pescoco2b", "de": [0.25, -0.05, 0.02] },
+    { "nome": "cabeca2", "pai": "pescoco2c", "de": [0.30, -0.02, 0.05], "ponta": [0.32, 0.03, 0.06] },
+    { "nome": "boca2", "pai": "cabeca2", "de": [0.3, -0.04, 0.07], "regiao": { "raio": [0.07, 0.08, 0.07], "frente": true, "so": ["cabeca2", "pescoco2c"] } },
+
+    { "nome": "pescoco3a", "pai": "tronco", "de": [-0.07, 0.02, -0.04] },
+    { "nome": "pescoco3b", "pai": "pescoco3a", "de": [-0.14, 0.10, -0.06] },
+    { "nome": "pescoco3c", "pai": "pescoco3b", "de": [-0.21, 0.16, -0.05] },
+    { "nome": "cabeca3", "pai": "pescoco3c", "de": [-0.28, 0.21, 0.0], "ponta": [-0.32, 0.28, 0.02] },
+    { "nome": "boca3", "pai": "cabeca3", "de": [-0.28, 0.18, 0.02], "regiao": { "raio": [0.095, 0.1, 0.08], "frente": true, "so": ["cabeca3", "pescoco3c"] } },
+
+    { "nome": "pescoco4a", "pai": "tronco", "de": [-0.12, -0.08, 0.0] },
+    { "nome": "pescoco4b", "pai": "pescoco4a", "de": [-0.20, -0.07, 0.01] },
+    { "nome": "pescoco4c", "pai": "pescoco4b", "de": [-0.27, -0.05, 0.04] },
+    { "nome": "cabeca4", "pai": "pescoco4c", "de": [-0.34, -0.02, 0.07], "ponta": [-0.37, 0.03, 0.08] },
+    { "nome": "boca4", "pai": "cabeca4", "de": [-0.34, -0.04, 0.09], "regiao": { "raio": [0.07, 0.08, 0.07], "frente": true, "so": ["cabeca4", "pescoco4c"] } },
+
+    { "nome": "coxa0", "pai": "raiz", "de": [0.20, -0.22, 0.0] },
+    { "nome": "canela0", "pai": "coxa0", "de": [0.27, -0.34, 0.05] },
+    { "nome": "pe0", "pai": "canela0", "de": [0.29, -0.43, 0.07], "ponta": [0.29, -0.477, 0.07] },
+
+    { "nome": "coxa1", "pai": "raiz", "de": [0.05, -0.22, -0.18] },
+    { "nome": "canela1", "pai": "coxa1", "de": [0.12, -0.34, -0.25] },
+    { "nome": "pe1", "pai": "canela1", "de": [0.15, -0.43, -0.27], "ponta": [0.15, -0.477, -0.27] },
+
+    { "nome": "coxa2", "pai": "raiz", "de": [-0.11, -0.22, 0.15] },
+    { "nome": "canela2", "pai": "coxa2", "de": [-0.16, -0.34, 0.19] },
+    { "nome": "pe2", "pai": "canela2", "de": [-0.19, -0.43, 0.24], "ponta": [-0.19, -0.477, 0.24] },
+
+    { "nome": "coxa3", "pai": "raiz", "de": [-0.22, -0.22, -0.08] },
+    { "nome": "canela3", "pai": "coxa3", "de": [-0.30, -0.34, -0.10] },
+    { "nome": "pe3", "pai": "canela3", "de": [-0.32, -0.43, -0.12], "ponta": [-0.32, -0.477, -0.12] }
+  ]
+}

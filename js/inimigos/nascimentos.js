@@ -12,6 +12,9 @@ import { CELL, S, ARENA } from '../mapa-logico.js';
 export const CHEFES = {
   carrasco: { x: ARENA.x, z: ARENA.z - 4 * S, rumo: 0 },   // ao fundo da arena, junto ao cepo
   wyrm: { x: 0, z: 0, rumo: 0 },                          // (o lugar é o ninho: o traço `territorio` o acha no mapa)
+  // a MYCOHYDRA no meio das ruínas do platô das WindHills (o anel de pilares a 12–15 m; chão plano, a 8 m
+  // de altura), olhando para a trilha de pedras que chega pelo oeste
+  mycohydra: { x: 558, z: 48, rumo: -1.17 },
 };
 
 /** O lugar (m) de quem nasce na célula [r, c], com o deslocamento. */
@@ -60,12 +63,12 @@ export const BICHOS = [
   { tipo: 'cervo', r: 17, c: 40, rumo: Math.PI / 2 },
   // as COLINAS DO VENTO (04/10/2026, a leste do acampamento): manadas nos campos abertos,
   // cavalos selvagens no vale do moinho, um touro e um cervo real nas encostas, raposas
-  // nas bordas — e uma alcateia guardando as ruínas do platô
+  // nas bordas. (A alcateia que guardava as ruínas do platô saiu em 25/11/2026: lá mora a Mycohydra, e
+  // os lobos atrapalhavam a luta. Eram os três últimos da lista — tirar do FIM não muda o `netId` de ninguém.)
   { tipo: 'cervo', r: 12, c: 68 }, { tipo: 'cervo', r: 13, c: 69, dx: 0.6, dz: 0.3 }, { tipo: 'cervo', r: 11, c: 70 },
   { tipo: 'cervo', r: 20, c: 84 }, { tipo: 'cervo', r: 21, c: 85, dx: -0.5, dz: 0.4 },
   { tipo: 'cavalo', r: 19, c: 66 }, { tipo: 'cavalo', r: 20, c: 67, dx: 0.6 }, { tipo: 'cavalo', r: 18, c: 75 },
   { tipo: 'cervoReal', r: 5, c: 82 },
   { tipo: 'touro', r: 14, c: 98 },
   { tipo: 'raposa', r: 4, c: 72 }, { tipo: 'raposa', r: 21, c: 95 }, { tipo: 'raposa', r: 9, c: 101 },
-  { tipo: 'lobo', r: 12, c: 90 }, { tipo: 'lobo', r: 11, c: 96 }, { tipo: 'lobo', r: 5, c: 92 },
 ];

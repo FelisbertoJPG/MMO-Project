@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-24.2",
-  "nota": "O servidor do Mundo online agora confere o vigor e o ritmo dos golpes."
+  "versao": "2026-11-25.1",
+  "nota": "Chefe novo nas WindHills: a Mycohydra, enraizada nas ruínas do platô."
 }

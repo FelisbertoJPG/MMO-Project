@@ -140,8 +140,12 @@ class Game {
     this.enemies = spawnEnemies(this);
     this.boss = criarChefe(this, 'carrasco');   // (a ficha dele: js/inimigos/tipos.js; os traços: tracos.js)
     this.dragao = criarChefe(this, 'wyrm');   // o chefe secreto do terraço (a ficha `wyrm`, tipos.js; o corpo: dragao.js)
+    this.mycohydra = criarChefe(this, 'mycohydra');   // o chefe das WindHills (a ficha `mycohydra`; o corpo: hidra.js)
+    // os CHEFES DO MAPA: acordam pela zona deles (`podeAcordar`: o terraço, a distância), sem névoa nem
+    // arena — o Carrasco é o outro jeito. Chefe novo desse jeito = só entrar nesta lista (e no CHEFES do rede/mundo.js)
+    this.chefesDoMapa = [this.dragao, this.mycohydra];
     this.bossAtual = null;            // de quem é a barra de chefe (null = o Carrasco)
-    this.all = [...this.enemies, this.boss, this.dragao];
+    this.all = [...this.enemies, this.boss, ...this.chefesDoMapa];
     // ---- O terreno do co-op (níveis 2 e 3 do online) ----
     // `jogadores`: quem os inimigos podem perseguir e os projéteis atingir. Hoje
     // só o local; no co-op entra o `JogadorRemoto` sólido do outro (ver remoto.js).
@@ -151,6 +155,7 @@ class Game {
     this.enemies.forEach((e, i) => { e.netId = `e${i}`; });
     this.boss.netId = 'carrasco';
     this.dragao.netId = 'wyrm';
+    this.mycohydra.netId = 'mycohydra';
     this.contLacaios = 0;
     // `sessao`: a partida compartilhada (co-op/PvP). null = sozinho.
     this.sessao = null;
@@ -936,6 +941,26 @@ class Game {
       this.avisouSemPlaca = true;
       this.ui.toast('O navegador está desenhando SEM a placa de vídeo (por isso o jogo está lento). No Chrome: Configurações → Sistema → ligue "Usar aceleração gráfica quando disponível" e reinicie o navegador; se já estiver ligada, atualize o driver de vídeo.');
     }
+    // (depois de o lugar do save ou do começo ser posto: o atalho de teste abaixo)
+    this.after(0.1, () => this.irPertoDoChefe());
+  }
+
+  /**
+   * ATALHO DE TESTE, SÓ NO LOCAL: com `?perto=<netId>` no endereço (`mycohydra`, `wyrm`) e o jogo aberto
+   * pelo localhost, o jogador aparece a 28 m do chefe do mapa, à frente dele e olhando para ele — de onde
+   * já o vê, fora da zona de acordar. No endereço publicado (e pela rede local) não faz nada. No Mundo
+   * online o servidor confere o passo: lá o pulo é cortado (use na Jornada).
+   */
+  irPertoDoChefe() {
+    const qual = new URLSearchParams(location.search).get('perto');
+    if (!qual || !['localhost', '127.0.0.1'].includes(location.hostname)) return;
+    const c = this.chefesDoMapa.find((x) => x.netId === qual);
+    if (!c) return;
+    const p = this.player, rumo = c.homeFacing ?? 0;
+    p.pos.set(c.home.x + Math.sin(rumo) * 28, 0, c.home.z + Math.cos(rumo) * 28);
+    p.pos.y = this.world.alturaChao(p.pos);
+    p.facing = p.camYaw = yawTo(p.pos, c.home);
+    this.snapCamera();
   }
 
   /** Volta de onde parou: o mundo como estava, o jogador se levantando. */
@@ -1197,20 +1222,21 @@ class Game {
     }
     if (levo && queda) this.world.addPickup(queda, 1, e.pos.clone().add(new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5)), false);
     this.sessao?.coop?.aoMatarInimigo(e);   // as almas também são do convidado
-    if (e === this.dragao) this.onDragaoKilled();
+    if (this.chefesDoMapa.includes(e)) this.onChefeDoMapaKilled(e);
     else if (e.isBoss) this.onBossKilled();
   }
 
-  onDragaoKilled() {
+  /** Caiu um chefe do mapa (o dragão, a hidra): o prêmio pelo `netId` dele (CHEFES, rede/mundo.js). */
+  onChefeDoMapaKilled(chefe) {
     this.sfx.stopBossMusic();
     this.hitstop = 0.25;
     this.after(1.5, () => {
       // Mundo online: o prêmio é de quem lutou (`Mundo.aoVencerChefe` → `premiarChefe` em cada um)
-      if (this.sessao?.aoVencerChefe) return this.sessao.aoVencerChefe(this.dragao);
-      this.sessao?.coop?.aoVencerChefe('WYRM DAS CINZAS');
+      if (this.sessao?.aoVencerChefe) return this.sessao.aoVencerChefe(chefe);
+      this.sessao?.coop?.aoVencerChefe(chefe.name.toUpperCase());
       this.bossFight = false;
       this.bossAtual = null;
-      this.premiarChefe('wyrm');
+      this.premiarChefe(chefe.netId);
     });
   }
 
@@ -1225,20 +1251,20 @@ class Game {
     this.salvar({ nuvem: true });
   }
 
-  /** O jogador pisou no terraço com o dragão dormindo (ver `Dragao.podeAcordar`). */
-  onDragaoAcorda() {
-    this.dragao.wake();
+  /** Um jogador chegou onde o chefe do mapa dorme (o `podeAcordar` dele: o terraço do dragão, a zona da hidra). */
+  onChefeAcorda(chefe) {
+    chefe.wake();
     // no mundo online, a barra e a música são de quem está NA luta (`Mundo.atualizarLuta`)
     if (!this.regras.lutaDoMundo) return;
     this.bossFight = true;
-    this.bossAtual = this.dragao;
+    this.bossAtual = chefe;
     this.sfx.startBossMusic();
   }
 
-  /** Fim da luta com o dragão SEM vitória (morte, fogueira, teleporte): ele volta a dormir no ninho. */
-  adormecerDragao() {
-    this.dragao.sleep();
-    if (this.bossAtual !== this.dragao) return;
+  /** Fim da luta com um chefe do mapa SEM vitória (morte, fogueira, teleporte): ele volta a dormir em casa. */
+  adormecerChefe(chefe) {
+    chefe.sleep();
+    if (this.bossAtual !== chefe) return;
     this.bossAtual = null;
     this.bossFight = false;
     this.sfx.stopBossMusic();
@@ -1306,7 +1332,7 @@ class Game {
 
   resetWorld() {
     for (const e of this.enemies) e.reset();
-    this.adormecerDragao();
+    for (const c of this.chefesDoMapa) this.adormecerChefe(c);
     if (!this.boss.defeated) {
       this.boss.sleep();
       this.bossFight = false;
@@ -1342,7 +1368,7 @@ class Game {
     const p = this.player;
     // (no mundo online o chefe não é só meu: quem o põe para dormir é o simulador, quando a luta esvazia)
     if (this.regras.mundoReinicia) {
-      if (this.bossAtual === this.dragao) this.adormecerDragao();
+      if (this.chefesDoMapa.includes(this.bossAtual)) this.adormecerChefe(this.bossAtual);
       if (this.bossFight) { this.boss.sleep(); this.bossFight = false; this.world.setBraziers(false); this.sfx.stopBossMusic(); }
     }
     const { pos, rumo } = this.world.retorno(p.fogueira, this.regras.espalharAoAcordar);
@@ -1462,7 +1488,8 @@ class Game {
         if (d2 >= min * min || d2 < 1e-6) continue;
         const d = Math.sqrt(d2), push = min - d;
         let wa = b.radius / min, wb = a.radius / min;
-        if (b.remoto) { wa = 1; wb = 0; } else if (a.remoto) { wa = 0; wb = 1; }
+        // (quem não sai do lugar — o remoto, que a rede move; o enraizado, `imovel` — empurra sem ser empurrado)
+        if (b.remoto || b.imovel) { wa = 1; wb = 0; } else if (a.remoto || a.imovel) { wa = 0; wb = 1; }
         a.pos.x -= (dx / d) * push * wa; a.pos.z -= (dz / d) * push * wa;
         b.pos.x += (dx / d) * push * wb; b.pos.z += (dz / d) * push * wb;
       }
@@ -1567,7 +1594,7 @@ class Game {
         this.time += dt;
         this.runTimers();
         this.player.update(dt);
-        if (this.dragao.podeAcordar()) this.onDragaoAcorda();
+        for (const c of this.chefesDoMapa) if (c.podeAcordar()) this.onChefeAcorda(c);
         M?.fase('jogador');
         for (const e of [...this.all]) e.update(dt);
         M?.fase('inimigos');

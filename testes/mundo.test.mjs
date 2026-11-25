@@ -811,6 +811,45 @@ await teste('o CÉREBRO das criaturas roda sem o navegador: esqueletos, o Carras
   assert.ok(wyrm.state === 'morrendo' && wyrm.defeated, 'o dragão não morreu como chefe');
   for (let i = 0; i < 6 * 30; i++) { mundo.time += 1 / 30; wyrm.update(1 / 30); }
   assert.ok(wyrm.state === 'gone' && !wyrm.visivel && wyrm.tombo > 1, 'o dragão não sumiu tombado');
+  // a pose do dragão vai e volta pela rede do mesmo jeito (8 números, na mesma ordem de antes)
+  const { Draconico } = await import('../js/inimigos/dragao.js');
+  assert.equal(wyrm.poseEmNumeros().length, 8);
+  assert.deepEqual(Draconico.poseDeNumeros(wyrm.poseEmNumeros()), wyrm.ultimaAnim);
+
+  // A HIDRA (o comportamento `hidra`, com os traços `chefe` e `zona`): a Mycohydra, enraizada nas ruínas das WindHills
+  const { CHEFES: LUGAR } = await import('../js/inimigos/nascimentos.js');
+  const { Hidra } = await import('../js/inimigos/hidra.js');
+  const lm = LUGAR.mycohydra, hidra = criarCerebro(mundo, ENEMY_TYPES.mycohydra, new THREE.Vector3(lm.x, 0, lm.z), lm.rumo);
+  assert.ok(hidra instanceof Hidra && hidra.isBoss && hidra.state === 'dormant' && hidra.invulnerable, 'a hidra não nasce dormindo');
+  assert.ok(world.isOpenAir(...world.cellOf(hidra.pos)), 'a hidra nasceu fora do ar livre');
+  // acorda quando alguém chega perto; de longe, não
+  alvo.dead = false; alvo.pos.set(lm.x + 40, 0, lm.z);
+  assert.ok(!hidra.podeAcordar() && !hidra.traco('naZona', alvo), 'a hidra acordou com alguém longe');
+  alvo.pos.set(lm.x - 14, 0, lm.z + 4);
+  assert.ok(hidra.podeAcordar() && hidra.traco('naZona', alvo), 'chegar perto não acorda a hidra');
+  hidra.wake();
+  const orbs0 = orbes.length; golpes.length = 0;
+  const ondas = []; mundo.projectiles.shock = (o) => ondas.push(o);
+  const vistoH = new Set(); let desvio = 0;
+  const rodarH = (s) => { for (let i = 0; i < s * 30; i++) { mundo.time += 1 / 30; hidra.update(1 / 30); vistoH.add(hidra.state); desvio = Math.max(desvio, flatDistDe(hidra.pos, hidra.home)); } };
+  rodarH(15);                                       // de longe: cospe
+  alvo.pos.set(lm.x - 6, 0, lm.z + 2); rodarH(15);  // de perto: pisoteia
+  assert.ok(vistoH.has('intro') && vistoH.has('cuspe') && vistoH.has('pisao'), `a hidra não lutou: ${[...vistoH]}`);
+  assert.ok(orbes.length > orbs0 && ondas.length > 0 && golpes.length > 0, 'nem cuspe, nem onda, nem pisão acertaram');
+  assert.ok(orbes.slice(orbs0).every((o) => o.pos.y > hidra.pos.y + 5 && Number.isFinite(o.dir.x)), 'o cuspe não saiu das bocas, lá no alto');
+  assert.equal(desvio, 0, 'a hidra enraizada saiu do lugar');
+  // a pose vai e volta pela rede
+  const nums = hidra.poseEmNumeros();
+  assert.ok(nums.length <= 16 && nums.every(Number.isFinite));
+  assert.deepEqual(Hidra.poseDeNumeros(nums), hidra.pose);
+  // o fogo entra mais (fungo), a fúria vem com metade da vida, e morre como chefe
+  hidra.setState('chase');
+  const hpH = hidra.hp; hidra.takeDamage(100, alvo.pos.clone(), 0, { fire: true });
+  assert.ok(Math.abs(hpH - hidra.hp - 150) < 1, 'o fogo não entrou mais na hidra');
+  while (!hidra.dead) hidra.takeDamage(400, alvo.pos.clone(), 0, {});
+  assert.ok(hidra.furia && hidra.state === 'morrendo' && hidra.defeated, 'a hidra não morreu como chefe');
+  rodarH(8);
+  assert.ok(hidra.state === 'gone' && !hidra.visivel, 'a hidra não saiu de cena');
 });
 
 await teste('o MAPA LÓGICO: toda peça do PROPS e todo bicho têm medida, e as colisões montam dos arquivos do jogo', async () => {
