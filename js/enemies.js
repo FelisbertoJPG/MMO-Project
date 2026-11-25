@@ -1,6 +1,6 @@
 /**
- * OS INIMIGOS NO NAVEGADOR (24/11/2026: o cérebro saiu para js/inimigos/cerebro.js). O `Enemy` é
- * o cérebro (`Inimigo`) com um CORPO: o boneco (`CharacterModel`), as armas na mão, as animações
+ * OS INIMIGOS HUMANOIDES NO NAVEGADOR (24/11/2026: o cérebro saiu para js/inimigos/: a base em
+ * cerebro.js, o comportamento em humanoide.js). O `Enemy` é o cérebro humanoide com um CORPO: o boneco (`CharacterModel`), as armas na mão, as animações
  * que o cérebro pede, as faíscas, os sons, o escudo em pedaços e o esqueleto que desmonta. O corpo
  * NÃO decide nada: lê o estado do cérebro a cada quadro (`vestirCorpo`) e responde aos eventos dele
  * (`aoEvento`). Lá, as regras; aqui, só o que se vê e se ouve.
@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { CharacterModel, weaponMesh, shieldMesh } from './character.js';
 import { desmontar } from './desmontar.js';
 import { Interpolador, giroCurto, loopa } from './remoto.js';
-import { Inimigo } from './inimigos/cerebro.js';
+import { Humanoide } from './inimigos/humanoide.js';
 import { ENEMY_TYPES } from './inimigos/tipos.js';
 import { ESQUELETOS, BICHOS, CHEFES, lugarDoNascimento } from './inimigos/nascimentos.js';
 import { Animal } from './animais.js';
@@ -23,7 +23,7 @@ export { ENEMY_TYPES, REFORCO_ESQUELETOS } from './inimigos/tipos.js';
 /** Quanto da queda o esqueleto faz inteiro antes de desmontar (desmontar.js). */
 const DESMONTA_APOS = 0.3;
 
-export class Enemy extends Inimigo {
+export class Enemy extends Humanoide {
   constructor(game, cfg, spawnPos, facing = 0, opts = {}) {
     super(game, cfg, spawnPos, facing, opts);   // o cérebro (o `Game` é o mundo dele)
     this.game = game;
@@ -262,6 +262,11 @@ export class Enemy extends Inimigo {
   }
 }
 
+/** A criatura da ficha `cfg`, com o corpo do comportamento dela (o bicho é `Animal`; o resto, `Enemy`). */
+export function criarCriatura(game, cfg, pos, rumo = 0, opts = {}) {
+  return cfg.comportamento === 'quadrupede' ? new Animal(game, cfg, pos, rumo) : new Enemy(game, cfg, pos, rumo, opts);
+}
+
 /** Um CHEFE (a ficha `tipo` e o lugar dele em `CHEFES`, nascimentos.js): o Carrasco. */
 export function criarChefe(game, tipo) {
   const c = CHEFES[tipo];
@@ -275,8 +280,9 @@ export function spawnEnemies(game) {
   for (const n of ESQUELETOS) list.push(new Enemy(game, ENEMY_TYPES[n.tipo], at(n.r, n.c, n.dx, n.dz), n.rumo ?? Math.PI, { dormant: !!n.dormindo }));
   // os ANIMAIS: só onde a célula é ar livre e o modelo existe (sem o .glb, o animal não nasce)
   for (const n of BICHOS) {
-    if (!game.world?.isOpenAir?.(n.r, n.c) || !Animal.existe(n.tipo)) continue;
-    list.push(new Animal(game, n.tipo, at(n.r, n.c, n.dx, n.dz), n.rumo ?? Math.random() * Math.PI * 2));
+    const cfg = ENEMY_TYPES[n.tipo];
+    if (!game.world?.isOpenAir?.(n.r, n.c) || !Animal.existe(cfg)) continue;
+    list.push(new Animal(game, cfg, at(n.r, n.c, n.dx, n.dz), n.rumo ?? Math.random() * Math.PI * 2));
   }
   return list;
 }

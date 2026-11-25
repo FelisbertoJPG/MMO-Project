@@ -1,7 +1,8 @@
 /**
- * OS TIPOS DE INIMIGO (os esqueletos da masmorra): a FICHA de cada um, só dados. O cérebro
- * (cerebro.js) a lê para decidir; o corpo (enemies.js) para vestir e animar. Mora aqui, fora do
- * enemies.js, para o servidor do Mundo online ler sem carregar o desenho.
+ * AS FICHAS DE TODAS AS CRIATURAS (os esqueletos, os bichos e os chefes), só dados. O cérebro
+ * (cerebro.js e o comportamento da ficha: `comportamento`, o padrão é `humanoide`) a lê para decidir;
+ * o corpo (enemies.js, animais.js) para vestir e animar. Mora aqui para o servidor do Mundo online
+ * ler sem carregar o desenho. As chaves de TRAÇO (tracos.js) ligam o que vai além do comum.
  *
  * Cada golpe (`attacks`): `anim` = a linha de `ATTACKS` (js/ataques.js); `dmg`/`poise` = o dano e o
  * tranco; `reach` = o alcance do acerto, `range` = de que distância ele escolhe esse golpe; `lunge` =
@@ -56,6 +57,42 @@ export const ENEMY_TYPES = {
     drops: [['firebomb', 0.35], ['erva', 0.45]],
   },
 };
+
+/**
+ * OS BICHOS (03/10/2026; o comportamento `quadrupede`, quadrupede.js): modelos do pacote Ultimate
+ * Animated Animals (Quaternius), em `assets/animais/<modelo>.glb`. `escala` deixa o bicho do tamanho
+ * certo ao lado do jogador (1,85 m); `andar`/`correr` em m/s; `medo` (pacífico: foge de quem chega a
+ * tantos m), `raiva` (neutro: s de revide), `faro` (agressivo: m em que caça); `ataques` = { clipe,
+ * dano, poise, alcance, janela [frações do clipe], atras (o coice) }; `espera` = a pausa entre golpes.
+ * Bicho novo = uma ficha aqui, o modelo em ANIMAIS_MODELOS (assets.js) e `medir-clipes.mjs` de novo.
+ */
+const BICHO = { comportamento: 'quadrupede' };
+Object.assign(ENEMY_TYPES, {
+  cervo: { ...BICHO, name: 'Cervo', modelo: 'cervo', escala: 0.36, temperamento: 'pacifico',
+    hp: 60, souls: 40, drops: [['carneCrua', 0.8]], andar: 1.3, correr: 7.5, radius: 0.5, height: 1.5, medo: 10 },
+  raposa: { ...BICHO, name: 'Raposa', modelo: 'raposa', escala: 0.2, temperamento: 'pacifico',
+    hp: 30, souls: 20, drops: [['carneCrua', 0.35], ['erva', 0.2]], andar: 1.2, correr: 6.8, radius: 0.3, height: 0.6, medo: 8 },
+  cavalo: { ...BICHO, name: 'Cavalo Selvagem', modelo: 'cavalo', escala: 0.42, temperamento: 'pacifico',
+    hp: 140, souls: 70, drops: [['carneCrua', 0.6]], andar: 1.6, correr: 9, radius: 0.7, height: 2.0, medo: 11 },
+  cervoReal: { ...BICHO, name: 'Cervo Real', modelo: 'cervoReal', escala: 0.45, temperamento: 'neutro',
+    hp: 150, souls: 120, drops: [['carneCrua', 1]], andar: 1.3, correr: 7, radius: 0.6, height: 1.9, raiva: 20,
+    ataques: [
+      { clipe: 'Attack_Headbutt', dano: 30, poise: 55, alcance: 2.1, janela: [0.35, 0.6] },
+      { clipe: 'Attack_Kick', dano: 24, poise: 40, alcance: 1.9, janela: [0.3, 0.55], atras: true },
+    ],
+    espera: [1.0, 2.2] },
+  touro: { ...BICHO, name: 'Touro Selvagem', modelo: 'touro', escala: 0.4, temperamento: 'neutro',
+    hp: 240, souls: 180, drops: [['carneCrua', 1]], andar: 1.2, correr: 7.8, radius: 0.85, height: 1.8, raiva: 25,
+    ataques: [
+      { clipe: 'Attack_Headbutt', dano: 46, poise: 85, alcance: 2.4, janela: [0.35, 0.6] },
+      { clipe: 'Attack_Kick', dano: 32, poise: 50, alcance: 2.1, janela: [0.3, 0.55], atras: true },
+    ],
+    espera: [1.2, 2.6] },
+  lobo: { ...BICHO, name: 'Lobo', modelo: 'lobo', escala: 0.4, temperamento: 'agressivo',
+    hp: 85, souls: 80, drops: [['carneCrua', 0.5]], andar: 1.4, correr: 7.2, radius: 0.45, height: 1.0, faro: 14,
+    ataques: [{ clipe: 'Attack', dano: 20, poise: 25, alcance: 1.7, janela: [0.3, 0.55] }],
+    espera: [0.7, 1.7] },
+});
 
 /**
  * OS CHEFES: fichas como as de cima, com TRAÇOS (tracos.js) — cada chave abaixo de `drops` liga um.

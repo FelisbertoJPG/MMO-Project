@@ -672,9 +672,11 @@ await teste('o THREE do servidor (npm) é o MESMO arquivo do vendor/ do jogo', a
   assert.ok(um.equals(fs.readFileSync(path.join(RAIZ, 'vendor', 'three.module.js'))), 'o three do npm não é o do vendor/');
 });
 
-await teste('o CÉREBRO do inimigo roda sem o navegador: persegue, ataca, conjura, bloqueia e morre', async () => {
+const flatDistDe = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+await teste('o CÉREBRO das criaturas roda sem o navegador: esqueletos, o Carrasco (só ficha + traços) e os bichos', async () => {
   const THREE = await import('three');
-  const { Inimigo } = await import('../js/inimigos/cerebro.js');
+  const { criarCerebro } = await import('../js/inimigos/criar.js');
   const { ENEMY_TYPES } = await import('../js/inimigos/tipos.js');
   const { ESQUELETOS, lugarDoNascimento } = await import('../js/inimigos/nascimentos.js');
   const { lerMapaLogico } = await import('../mapa-do-servidor.mjs');
@@ -685,7 +687,7 @@ await teste('o CÉREBRO do inimigo roda sem o navegador: persegue, ataca, conjur
     projectiles: { orb: (o) => orbes.push(o), shock: () => {} } };
   const lutar = (tipo) => {
     const n = ESQUELETOS.find((x) => x.tipo === tipo), l = lugarDoNascimento(n.r, n.c, n.dx, n.dz);
-    const e = new Inimigo(mundo, ENEMY_TYPES[tipo], new THREE.Vector3(l.x, 0, l.z), n.rumo);
+    const e = criarCerebro(mundo, ENEMY_TYPES[tipo], new THREE.Vector3(l.x, 0, l.z), n.rumo);
     const eventos = new Set(); e.ouvir((t) => eventos.add(t));
     // o alvo a 4,5 m, num lugar que ele vê
     for (let k = 0; k < 32; k++) {
@@ -710,9 +712,9 @@ await teste('o CÉREBRO do inimigo roda sem o navegador: persegue, ataca, conjur
   // O CARRASCO é só uma FICHA com traços (chefe, arena, fases, perseguir, firme, invocar, morte)
   const { CHEFES } = await import('../js/inimigos/nascimentos.js');
   const todos = [];
-  mundo.invocar = (cfg, pos, rumo, opts) => { const x = new Inimigo(mundo, cfg, pos, rumo, opts); todos.push(x); return x; };
+  mundo.invocar = (cfg, pos, rumo, opts) => { const x = criarCerebro(mundo, cfg, pos, rumo, opts); todos.push(x); return x; };
   mundo.dispensar = (x) => { const i = todos.indexOf(x); if (i >= 0) todos.splice(i, 1); };
-  const lc = CHEFES.carrasco, c = new Inimigo(mundo, ENEMY_TYPES.carrasco, new THREE.Vector3(lc.x, 0, lc.z), lc.rumo);
+  const lc = CHEFES.carrasco, c = criarCerebro(mundo, ENEMY_TYPES.carrasco, new THREE.Vector3(lc.x, 0, lc.z), lc.rumo);
   const ev = []; c.ouvir((t) => ev.push(t));
   const passar = (s) => { for (let i = 0; i < s * 30; i++) { mundo.time += 1 / 30; c.update(1 / 30); for (const x of [...todos]) x.update(1 / 30); } };
   assert.ok(c.isBoss && c.state === 'dormant' && c.invulnerable, 'o chefe não nasce dormindo');
@@ -743,14 +745,53 @@ await teste('o CÉREBRO do inimigo roda sem o navegador: persegue, ataca, conjur
   c.sleep(); assert.equal(c.state, 'gone');
   c.defeated = false; c.sleep();
   assert.ok(c.state === 'dormant' && c.hp === c.maxHp && c.phase === 1 && c.cfg.turnRate === 2.4 && c.minions.length === 0, 'dormir não o pôs de volta como era');
+
+  // OS BICHOS (o comportamento `quadrupede`): as animações vêm da tabela medida nos .glb
+  const clipes = JSON.parse(fs.readFileSync(path.join(RAIZ, 'assets', 'clipes-dos-bichos.json'), 'utf8')).modelos;
+  mundo.clipesDe = (m) => clipes[m];
+  const { BICHOS } = await import('../js/inimigos/nascimentos.js');
+  const bicho = (tipo) => { const n = BICHOS.find((x) => x.tipo === tipo), l = lugarDoNascimento(n.r, n.c, n.dx, n.dz); return criarCerebro(mundo, ENEMY_TYPES[tipo], new THREE.Vector3(l.x, 0, l.z), 0); };
+  const correr = (b, s) => { const est = new Set(); for (let i = 0; i < s * 30; i++) { mundo.time += 1 / 30; b.update(1 / 30); est.add(b.state); } return est; };
+  alvo.inArena = false;
+  // o LOBO (agressivo) caça quem chega perto e morde
+  const lobo = bicho('lobo');
+  alvo.pos.set(lobo.pos.x + 6, 0, lobo.pos.z); golpes.length = 0;
+  const eLobo = correr(lobo, 12);
+  assert.ok(eLobo.has('caca') && eLobo.has('ataque') && golpes.includes(20), `o lobo não caçou: ${[...eLobo]}`);
+  assert.ok(world.isOpenAir(...world.cellOf(lobo.pos)), 'o lobo saiu do ar livre');
+  // o CERVO (pacífico) foge de quem chega perto, e não ataca
+  const cervo = bicho('cervo');
+  alvo.pos.set(cervo.pos.x + 4, 0, cervo.pos.z); golpes.length = 0;
+  const eCervo = correr(cervo, 3);
+  assert.ok(eCervo.has('fuga') && golpes.length === 0 && flatDistDe(cervo.pos, alvo.pos) > 4, 'o cervo não fugiu');
+  // o TOURO (neutro) ignora; ferido, revida com raiva — e o golpe dura o que dura o clipe
+  const touro = bicho('touro');
+  alvo.pos.set(touro.pos.x + 2.5, 0, touro.pos.z); golpes.length = 0;
+  correr(touro, 3);
+  assert.equal(golpes.length, 0, 'o touro atacou sem ser provocado');
+  touro.takeDamage(20, alvo.pos.clone(), 20, {});
+  assert.ok(touro.raiva > 0 && touro.state === 'ferido', 'o touro não ficou com raiva');
+  correr(touro, 8);
+  assert.ok(golpes.length > 0, 'o touro não revidou');
+  // morre: cai, afunda e sai de cena; as almas e o que cai são da ficha
+  while (!touro.dead) touro.takeDamage(100, alvo.pos.clone(), 20, {});
+  assert.equal(touro.state, 'morto');
+  correr(touro, 5);
+  assert.ok(!touro.active && !touro.visivel && mortos.includes(touro) && touro.cfg.souls === 180, 'o touro não saiu de cena');
 });
 
-await teste('o MAPA LÓGICO: toda peça do PROPS tem caixa medida, e as colisões montam dos arquivos do jogo', async () => {
+await teste('o MAPA LÓGICO: toda peça do PROPS e todo bicho têm medida, e as colisões montam dos arquivos do jogo', async () => {
   const { lerProps } = await import('../mapa-do-servidor.mjs');
   const { MapaLogico, lerArquivoDoMapa, pecasDe } = await import('../js/mapa-logico.js');
   const ler = (f) => JSON.parse(fs.readFileSync(path.join(RAIZ, f), 'utf8'));
   const caixas = ler('assets/caixas-das-pecas.json'), props = lerProps(RAIZ);
   assert.deepEqual(props.filter((n) => !caixas.pecas[n]), [], 'peça sem medida: rode node ferramentas/mapa-logico/medir-pecas.mjs');
+  // os CLIPES dos bichos: todo modelo medido, e todo golpe de ficha existe no modelo dela
+  const { lerModelosDosBichos } = await import('../ferramentas/inimigos/medir-clipes.mjs');
+  const { ENEMY_TYPES } = await import('../js/inimigos/tipos.js');
+  const clipes = ler('assets/clipes-dos-bichos.json').modelos;
+  assert.deepEqual(lerModelosDosBichos(RAIZ).filter((m) => !clipes[m]), [], 'bicho sem medida: rode node ferramentas/inimigos/medir-clipes.mjs');
+  for (const f of Object.values(ENEMY_TYPES)) for (const a of f.ataques ?? []) assert.ok(clipes[f.modelo]?.[a.clipe], `${f.name}: o golpe ${a.clipe} não existe no modelo`);
   const m = lerArquivoDoMapa(ler('assets/mapa.json'));
   const w = new MapaLogico({ mapa: m.linhas, relevo: m.relevo, agua: m.agua, decor: ler('assets/decor.json').itens, marcos: m.marcos, pecas: pecasDe(props, caixas) });
   assert.ok(w.boxes.length > 100 && w.circles.length > 100, 'quase nenhuma colisão');

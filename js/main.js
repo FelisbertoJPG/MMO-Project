@@ -12,7 +12,7 @@ import { World, START_POS, SAQUES, horaDoMundo, CELL } from './world.js';
 import { Effects, Projectiles, flatDist, yawTo } from './combat.js';
 import { Player } from './player.js';
 import { Monitor } from './monitor.js';
-import { spawnEnemies, criarChefe, Enemy } from './enemies.js';
+import { spawnEnemies, criarChefe, criarCriatura } from './enemies.js';
 import { Dragao } from './dragao.js';
 import { Inventory } from './inventory.js';
 import { UI } from './ui.js';
@@ -245,10 +245,24 @@ class Game {
    * lista de todos e com o nome de rede `lacaio<n>`. O cérebro pede; quem cria é o mundo.
    */
   invocar(cfg, pos, rumo, opts = {}) {
-    const m = new Enemy(this, cfg, pos, rumo, opts);
+    const m = criarCriatura(this, cfg, pos, rumo, opts);
     m.netId = `lacaio${++this.contLacaios}`;
     this.all.push(m);
     return m;
+  }
+
+  /**
+   * As animações de um bicho e a duração delas ({ clipe: s }): a tabela medida nos .glb
+   * (assets/clipes-dos-bichos.json, a mesma do servidor). Faltando o modelo nela (a tabela velha),
+   * as do próprio modelo carregado, com o aviso para medir de novo.
+   */
+  clipesDe(modelo) {
+    const t = Assets.clipesDosBichos?.modelos?.[modelo];
+    if (t) return t;
+    const clips = Assets.animais?.[modelo]?.clips;
+    if (!clips) return {};
+    console.warn(`[bichos] "${modelo}" não está em assets/clipes-dos-bichos.json — rode node ferramentas/inimigos/medir-clipes.mjs`);
+    return Object.fromEntries(clips.map((c) => [c.name, c.duration]));
   }
 
   /** Tira do mundo quem foi invocado (o lacaio que já sumiu, ou o chefe que voltou a dormir). */

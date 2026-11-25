@@ -1,0 +1,11 @@
+{
+ "_leiame": "As animações de cada modelo de bicho (ANIMAIS_MODELOS, js/assets.js) e a duração delas (s), lidas do .glb. Gerado por ferramentas/inimigos/medir-clipes.mjs — não edite à mão. O cérebro dos bichos (js/inimigos/quadrupede.js) escolhe a animação e mede o ataque por aqui, no jogo e no servidor do Mundo online.",
+ "modelos": {
+  "cervo": {"Attack_Headbutt":0.8,"Attack_Kick":0.8,"Death":0.8333333333333334,"Eating":6,"Gallop":0.5333333333333333,"Idle":3.3333333333333335,"Idle_2":3.3333333333333335,"Idle_Headlow":3.3333333333333335,"Idle_HitReact1":0.4666666666666667,"Walk":1.1666666666666667},
+  "cervoReal": {"Attack_Headbutt":0.8,"Attack_Kick":0.8,"Death":1.1,"Eating":12.1,"Gallop":0.5333333333333333,"Idle":3.3333333333333335,"Idle_2":3.3333333333333335,"Idle_Headlow":3.3333333333333335,"Idle_HitReact1":0.4666666666666667,"Walk":1.1666666666666667},
+  "raposa": {"Attack":1.3333333333333333,"Death":1.0666666666666667,"Eating":2.533333333333333,"Gallop":0.5666666666666667,"Idle":3.3333333333333335,"Idle_2":3.3333333333333335,"Idle_2_HeadLow":4,"Idle_HitReact1":0.6666666666666666,"Walk":1.0666666666666667},
+  "lobo": {"Attack":1.3333333333333333,"Death":1.0666666666666667,"Eating":2.533333333333333,"Gallop":0.5666666666666667,"Idle":3.3333333333333335,"Idle_2":3.3333333333333335,"Idle_2_HeadLow":4,"Idle_HitReact1":0.6666666666666666,"Walk":1.0666666666666667},
+  "touro": {"Attack_Headbutt":1.0333333333333334,"Attack_Kick":1,"Death":1,"Eating":6,"Gallop":0.6,"Idle":3.3333333333333335,"Idle_2":3.3333333333333335,"Idle_Headlow":3.3333333333333335,"Idle_HitReact1":0.6666666666666666,"Walk":1.1666666666666667},
+  "cavalo": {"Attack_Headbutt":1.0333333333333334,"Attack_Kick":1,"Death":1,"Eating":6,"Gallop":0.6,"Idle":3.3333333333333335,"Idle_2":3.3333333333333335,"Idle_Headlow":3.3333333333333335,"Idle_HitReact1":0.6666666666666666,"Walk":1.1666666666666667}
+ }
+}

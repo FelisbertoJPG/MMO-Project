@@ -402,6 +402,18 @@ async function carregarCaixasDasPecas() {
   }
 }
 
+/** As animações dos bichos (assets/clipes-dos-bichos.json, medidas nos .glb por ferramentas/inimigos/medir-clipes.mjs). */
+async function carregarClipesDosBichos() {
+  try {
+    const r = await fetch('assets/clipes-dos-bichos.json');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    console.warn('[bichos] não consegui ler assets/clipes-dos-bichos.json — uso as dos modelos:', e.message);
+    return null;
+  }
+}
+
 async function carregarMapa() {
   try {
     const r = await fetch('assets/mapa.json', { cache: 'no-store' });
@@ -514,6 +526,7 @@ export const Assets = {
   baseScene: null,
   decor: [],
   caixasDasPecas: null,   // o tamanho de cada peça (assets/caixas-das-pecas.json; mapa-logico.js)
+  clipesDosBichos: null,  // as animações de cada bicho e a duração delas (assets/clipes-dos-bichos.json; quadrupede.js)
   grama: null,   // a cor do chão do ar livre (decor.json), ou null = a de sempre
   mapa: null,
   mapaNome: 'emergencia',
@@ -576,8 +589,9 @@ export const Assets = {
     })).finally(() => clearInterval(relogio));
     // Depois dos glTF e antes de `new World(...)`, que é síncrono: assim o
     // mundo já encontra o mapa e a decoração prontos, e o boot não muda de forma.
-    const [mapa, decor, caixas] = await Promise.all([carregarMapa(), carregarDecor(), carregarCaixasDasPecas()]);
+    const [mapa, decor, caixas, clipes] = await Promise.all([carregarMapa(), carregarDecor(), carregarCaixasDasPecas(), carregarClipesDosBichos()]);
     this.caixasDasPecas = caixas;
+    this.clipesDosBichos = clipes;
     this.empunhadura = await carregarEmpunhadura();
     this.armaduras = await carregarArmaduras();
     ({ racas: this.racas, humano: this.humano } = await lerRacas());
