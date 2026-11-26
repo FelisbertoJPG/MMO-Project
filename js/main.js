@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Assets } from './assets.js';
+import { Assets, ehRascunho } from './assets.js';
 import { initGear } from './gear.js';
 import { Ceu } from './ceu.js';
 import { Retrato } from './retrato.js';
@@ -298,6 +298,8 @@ class Game {
 
   bindUI() {
     document.getElementById('start-btn').addEventListener('click', (ev) => {
+      // no RASCUNHO do editor, começa do zero SEM apagar o progresso de verdade
+      if (ehRascunho()) { this.progresso = null; this.vestirPerfil(); this.start(); return; }
       // Com progresso salvo, o primeiro clique só pergunta: começar do zero o apaga
       if (this.progresso && !this.confirmouNovo) {
         this.confirmouNovo = true;
@@ -466,7 +468,8 @@ class Game {
   }
 
   /** Grava o progresso (ver `save.js`): `{aoSair}` = a página está fechando; `{nuvem}` = já, na nuvem. */
-  salvar(opts) { return salvarProgresso(this, opts); }
+  // (no RASCUNHO do Editor de Mundo — assets.js, `ehRascunho` — nada é salvo: o mapa da tela ainda não é o do jogo)
+  salvar(opts) { return ehRascunho() ? Promise.resolve() : salvarProgresso(this, opts); }
 
   // ---------- Tela de título: conta e progresso ----------
   /** Arruma a tela de entrada para quem está aqui: a conta, os personagens dela e o servidor. */
@@ -577,6 +580,7 @@ class Game {
     this.servidorPronto = false;
     this.liberarEntrada();
     const mostrar = (estado, texto) => { st.dataset.estado = estado; st.textContent = texto; };
+    if (ehRascunho()) { mostrar('erro', 'Rascunho do Editor de Mundo: só a Jornada'); return; }   // (o servidor tem o mapa de verdade)
     if (!this.haMundo()) { mostrar('erro', 'Servidor ainda não está no ar'); return; }
     mostrar('espera', 'Procurando o servidor…');
     // Um servidor em plataforma grátis DORME sem visita e leva perto de um minuto
@@ -943,6 +947,25 @@ class Game {
     }
     // (depois de o lugar do save ou do começo ser posto: o atalho de teste abaixo)
     this.after(0.1, () => this.irPertoDoChefe());
+    this.after(0.1, () => this.irParaOEditor());
+  }
+
+  /**
+   * O RASCUNHO DO EDITOR DE MUNDO (`?rascunho`, só no localhost — assets.js, `ehRascunho`): o jogador aparece onde a câmera do
+   * editor olhava (`?em=x,z,rumo`, em m e rad) e o aviso diz que nada é salvo.
+   */
+  irParaOEditor() {
+    if (!ehRascunho()) return;
+    const [x, z, rumo] = (new URLSearchParams(location.search).get('em') ?? '').split(',').map(Number);
+    if (Number.isFinite(x) && Number.isFinite(z)) {
+      const p = this.player;
+      p.pos.set(x, 0, z);
+      p.pos.y = this.world.alturaChao(p.pos);
+      if (Number.isFinite(rumo)) p.facing = p.camYaw = rumo;
+      this.snapCamera();
+    }
+    this.ui.centerMessage('RASCUNHO DO EDITOR DE MUNDO', 'info', 3500);
+    this.ui.toast('Teste do Editor de Mundo: o mapa da tela do editor, e nada é salvo.');
   }
 
   /**
@@ -1315,7 +1338,7 @@ class Game {
     this.sfx.stopBossMusic();
     this.after(0.9, () => this.ui.centerMessage('VOCÊ MORREU', 'died', 4200));
     // Online: a mancha para os outros sai depois da queda, para o replay mostrá-la
-    this.after(1.5, () => this.online.mortes?.registrar());
+    if (!ehRascunho()) this.after(1.5, () => this.online.mortes?.registrar());   // (no rascunho do editor, nada vai para os outros)
     this.after(5.6, () => this.respawnAfterDeath());
   }
 

@@ -80,7 +80,9 @@ const mundo = criarMundo(root);
 // da rede baixaria `/saves/conta-<id>.json` ou `/mundo/personagens/<id>.json`.
 // Branca, e não "menos estas duas": no Windows `/saves./x` e `/SAVES/x` abrem a
 // mesma pasta, e uma lista negra teria de conhecer todos os disfarces.
-const FRENTE = new Set(['index.html', 'css', 'js', 'vendor', 'assets']);
+// (`rascunho`: o mapa e a decoração da tela do Editor de Mundo, para o "testar no jogo" — fora do git; o jogo só a lê com
+// `?rascunho` no localhost, ver `ehRascunho` no js/assets.js)
+const FRENTE = new Set(['index.html', 'css', 'js', 'vendor', 'assets', 'rascunho']);
 
 // `FRENTE_EM=https://…`: o JOGO está hospedado em outro lugar (o GitHub Pages) e
 // este servidor é SÓ o mundo online. Quem abrir o endereço daqui é mandado para

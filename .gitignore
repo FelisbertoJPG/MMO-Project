@@ -3,6 +3,8 @@
 # dados de quem joga e de quem hospeda — nunca publicar
 /saves/
 /mundo/
+# o mapa e a decoração da tela do Editor de Mundo, para o "testar no jogo" (o jogo só os lê com ?rascunho no localhost)
+/rascunho/
 
 # a matéria-prima do editor de cenas: ~1 GB que o jogo não carrega
 # (ele só usa assets/characters, assets/dungeon, assets/modelos e os dois .json)

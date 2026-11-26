@@ -401,9 +401,29 @@ async function carregarModelo(nome) {
  * `console.warn` não é opcional — "faltou e ninguém viu" é o defeito que faria
  * alguém procurar o bug no editor enquanto o arquivo nem estava sendo servido.
  */
+/**
+ * O RASCUNHO DO EDITOR DE MUNDO (25/11/2026; o dono: "tem um botão [testar] que poderia abrir o game localhost com o mapa novo
+ * carregado"): com `?rascunho` no endereço e o jogo aberto pelo localhost, o mapa e a decoração vêm de `rascunho/` (o que está
+ * na tela do editor, gravado lá pelo botão "testar no jogo" — a pasta fica fora do git), não de `assets/`. Nada é salvo nesse
+ * modo (`Game.salvar` vira nada; o "novo jogo" não apaga o progresso; a morte não deixa mancha online) e o Mundo online fica
+ * fechado: lá o servidor usa o mapa de verdade. Fora do localhost não faz nada.
+ */
+export function ehRascunho() {
+  return typeof location !== 'undefined' && ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('rascunho');
+}
+/** `assets/<nome>`, ou `rascunho/<nome>` no modo rascunho (faltando lá, o de `assets/`, com aviso) */
+async function lerDoJogo(nome) {
+  if (ehRascunho()) {
+    const r = await fetch(`rascunho/${nome}`, { cache: 'no-store' }).catch(() => null);
+    if (r?.ok) return r;
+    console.warn(`[rascunho] sem rascunho/${nome} — usando assets/${nome}`);
+  }
+  return fetch(`assets/${nome}`, { cache: 'no-store' });
+}
+
 async function carregarDecor() {
   try {
-    const r = await fetch('assets/decor.json', { cache: 'no-store' });
+    const r = await lerDoJogo('decor.json');
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
     // `grama`: a cor do chão do ar livre, escolhida no editor de cenas (a roda
@@ -458,7 +478,7 @@ async function carregarClipesDosBichos() {
 
 async function carregarMapa() {
   try {
-    const r = await fetch('assets/mapa.json', { cache: 'no-store' });
+    const r = await lerDoJogo('mapa.json');
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
     // a leitura (a variante ativa e o que é dela) é a do mapa lógico: o servidor lê igual
