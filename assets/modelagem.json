@@ -845,6 +845,16 @@
         {"de":"corpo","em":[-5.65,170.93,-1.9]}
       ]
     },
+    "chefe-mycohydra": {
+      "partes": {},
+      "puxoes": [],
+      "cores": [
+        {"de":"corpo","em":[-7.63,83.43,10.99],"uv":[0.264,0.3159]},
+        {"de":"corpo","em":[7.63,83.43,10.99],"uv":[0.264,0.3159]},
+        {"de":"corpo","em":[-8.1,84.26,12.08],"uv":[0.264,0.3159]},
+        {"de":"corpo","em":[8.1,84.26,12.08],"uv":[0.264,0.3159]}
+      ]
+    },
     "goblin": {
       "partes": {
         "corpo": {"tamanho":0.5}
@@ -873,7 +883,10 @@
       ]
     },
     "humano:arquivo3": {
-      "partes": {},
+      "partes": {
+        "cabeca": {"tamanho":0.88},
+        "corpo": {"tamanho":0.87}
+      },
       "puxoes": [],
       "pinturas": [
         {"id":"f1","nome":"Olhos 1","parte":"cabeca","de":"corpo","em":[4.78,176.42,8.54],"dir":[-0.206,0.033,-0.978],"cima":[0.007,0.999,0.033],"largura":6,"altura":6,"prof":3,"px":[240,240],"espelho":true,"soNoOlho":true,"arquivo":"humano-arquivo3-f1"},
