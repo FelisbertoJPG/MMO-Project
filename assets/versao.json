@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-26.1",
-  "nota": "Os personagens agora são só os modelos novos: as armaduras antigas saíram (por enquanto sem visual) e Orc e Elfo viraram Humano."
+  "versao": "2026-11-26.2",
+  "nota": "A personagem feminina ficou menor (cabeça a 88% e o corpo a 87%), e os ossos acompanham o tamanho na animação."
 }
