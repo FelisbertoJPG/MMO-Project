@@ -143,11 +143,25 @@ export class UI {
     this.mostrarFogueira('opcoes');
   }
 
-  /** 'opcoes' | 'nivel' | 'panela' */
+  /** 'opcoes' | 'nivel' | 'panela' | 'viajar' */
   mostrarFogueira(tela) {
-    for (const t of ['opcoes', 'nivel', 'panela']) document.getElementById(`bf-${t}`).classList.toggle('hidden', t !== tela);
+    for (const t of ['opcoes', 'nivel', 'panela', 'viajar']) document.getElementById(`bf-${t}`).classList.toggle('hidden', t !== tela);
     if (tela === 'nivel') this.renderLevelUp();
     if (tela === 'panela') { this.naPanela = []; this.renderPanela(); }
+    if (tela === 'viajar') this.renderViajar();
+  }
+
+  /** VIAJAR (por ora, para testes): todas as fogueiras do mapa, acesas ou não, menos a de agora (`Game.viajar`). */
+  renderViajar() {
+    const g = this.game, el = document.getElementById('viajar');
+    el.innerHTML = '';
+    for (const f of g.world.fogueiras) {
+      if (f.id === g.player.fogueira) continue;
+      const b = document.createElement('button');
+      b.textContent = f.nome;
+      b.addEventListener('click', () => g.viajar(f.id));
+      el.appendChild(b);
+    }
   }
 
   /**

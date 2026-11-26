@@ -1386,6 +1386,24 @@ class Game {
     this.after(1.1, () => { if (this.player.state === 'rest' && this.state === 'playing') this.openMenu('bonfire'); });
   }
 
+  /**
+   * Viajar da fogueira em que se descansa para a fogueira `id` (o botão Viajar do menu, ui.renderViajar):
+   * chega-se descansando nela, que vira a fogueira de renascer. No Mundo online o servidor aceita o salto
+   * porque cai perto de uma fogueira (`PERTO_DA_FOGUEIRA`, regras-do-mundo.mjs).
+   */
+  viajar(id) {
+    if (this.menu !== 'bonfire') return;
+    this.ui.closeBonfire();
+    this.menu = null;
+    const p = this.player, { pos, rumo } = this.world.retorno(id, this.regras.espalharAoAcordar);
+    p.pos.copy(pos);
+    p.inArena = false; p.lockTarget = null;
+    p.facing = rumo; p.camYaw = rumo;
+    this.projectiles.clear();
+    this.snapCamera();
+    this.rest(id);
+  }
+
   teleportHome() {
     if (this.sessao?.coop) return this.sessao.encerrarCoop(this.sessao.coop.dono ? 'o dono do mundo voltou à fogueira' : 'você voltou para casa');
     const p = this.player;

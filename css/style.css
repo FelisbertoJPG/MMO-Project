@@ -442,7 +442,7 @@ body.toque #perfil-novo::after, body.toque .cp-topo, body.toque .cp-rodape { dis
 /* o menu da fogueira: as opções, e cada uma abre a sua tela */
 .bf-botoes { display: flex; flex-direction: column; gap: 10px; align-items: center; margin: 18px 0 6px; }
 .bf-botoes button { width: min(260px, 80%); }
-#bf-nivel > button, #bf-panela > button { margin-top: 6px; }
+#bf-nivel > button, #bf-panela > button, #bf-viajar > button { margin-top: 6px; }
 /* a panela: as vagas, a despensa e o livro de receitas */
 .panela-vagas { display: flex; gap: 10px; justify-content: center; margin: 4px 0 10px; }
 .vaga { width: 58px; height: 58px; border: 1px dashed var(--gold-dim); background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 0; }
