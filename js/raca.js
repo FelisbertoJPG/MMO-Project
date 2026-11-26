@@ -150,6 +150,18 @@ const DIGITOS_MASCULINOS = new Set([MASCULINO_ADULTO, 6, MASCULINO_DE_ARQUIVO]);
  * só do editor) vira o corpo padrão do mesmo sexo — 0 (o Masculino) ou 1 (o Feminino). Assim o corpo desenhado e as edições da
  * malha dele (modelagem.js `chaveDoCorpo`) sempre casam. Antes de os corpos carregarem, fica como veio.
  */
+/**
+ * A RAÇA que este jogo sabe desenhar (26/11/2026; o dono: "hoje o que importa são os 2 modelos do online, o masculino e o feminino.
+ * O resto era beta e teste"): a raça sem corpo próprio — nem de arquivo (`jogo.raca` de um corpo carregado), nem esculpido —
+ * usava o corpo do guerreiro.glb, que saiu do jogo; ela vira o HUMANO (0), e o sexo segue (`sexoQueExiste`). Assim quem era Orc
+ * ou Elfo joga com o Humano do mesmo sexo, sem perder o personagem (o código da aparência no save não muda). Antes de as raças e
+ * os corpos carregarem, fica como veio.
+ */
+export function racaQueExiste(n) {
+  if (!(n > 0) || !Assets.racas?.length || !Object.keys(Assets.corpos ?? {}).length) return n;
+  const r = Assets.racas[n - 1];
+  return r && (r.esculpido || Object.values(Assets.corpos).some((c) => (c.jogo?.raca ?? 0) === n)) ? n : 0;
+}
 export function sexoQueExiste(n, s) {
   if (!(s >= 2) || !Object.keys(Assets.corpos ?? {}).length || deArquivo(n, s)) return s;
   return DIGITOS_MASCULINOS.has(s) ? 0 : 1;

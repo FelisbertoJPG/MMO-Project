@@ -4,8 +4,18 @@
 // instantâneo (`c`, protocolo.js), para os outros verem o mesmo corpo.
 //
 // Um corpo novo para o jogador, vindo do "Low Poly Axe Warrior" (FBX da loja da
-// Unity, convertido para assets/guerreiro/guerreiro.glb): o corpo nu em peças, as
-// três armaduras dele (A1, A2, A3) e um esqueleto PRÓPRIO, de 54 ossos.
+// Unity): o corpo nu em peças, as três armaduras dele (A1, A2, A3) e um esqueleto
+// PRÓPRIO, de 54 ossos. DESDE 26/11/2026 (o dono: "o que importa são os 2 modelos do
+// online, o masculino e o feminino"), do guerreiro.glb só ficou o ESQUELETO:
+// assets/corpos/esqueleto.glb — os 54 ossos (a árvore, a pose de repouso, os
+// inversos de ligação), a paleta de cores e dois triângulos minúsculos presos aos
+// ossos (o three só monta o Skeleton de uma malha com pele; o segundo tem cor por
+// vértice, para o material com cor existir — o que o corpo de arquivo usa). O corpo
+// antigo e as armaduras saíram: os corpos de arquivo (o Masculino jovem e a Modelo 4)
+// são o corpo; as peças `A1_`/`A2_`/`A3_`, as cascas pintadas e o couro moldado ficam
+// sem matéria (o código os pula), até haver armaduras feitas nos corpos novos; a raça
+// sem corpo próprio vira Humano (raca.js, `racaQueExiste`). Conferido: os dois corpos
+// montados com o arquivo velho e com o novo saem iguais (malha, cor, pesos, ossos: 0).
 //
 // As animações continuam sendo as do manequim UAL: o boneco de sempre segue
 // montado e animado (golpes, janelas de acerto, tudo igual), só que INVISÍVEL, e

@@ -67,7 +67,7 @@
     {
       "id": "orc",
       "nome": "Orc",
-      "jogavel": true,
+      "jogavel": false,
       "pele": "#6a9440",
       "olhos": "#d6a21e",
       "semCabelo": false,
@@ -174,7 +174,7 @@
     {
       "id": "elfo",
       "nome": "Elfo",
-      "jogavel": true,
+      "jogavel": false,
       "pele": "#d1c4a8",
       "olhos": null,
       "semCabelo": false,

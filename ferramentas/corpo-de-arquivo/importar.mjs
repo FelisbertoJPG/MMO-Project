@@ -53,7 +53,7 @@ const blender = (...a) => {
 
 // ------------------------------------------------------------ o guerreiro: onde ficam os ossos na pose T (cm)
 function ossosDoGuerreiro() {
-  const b = fs.readFileSync(path.join(RAIZ, 'assets/guerreiro/guerreiro.glb')), len = b.readUInt32LE(12);
+  const b = fs.readFileSync(path.join(RAIZ, 'assets/corpos/esqueleto.glb')), len = b.readUInt32LE(12);
   const j = JSON.parse(b.subarray(20, 20 + len).toString('utf8')), bin = b.subarray(20 + len + 8);
   const a = j.accessors[j.skins[0].inverseBindMatrices], bv = j.bufferViews[a.bufferView], off = bin.byteOffset + (bv.byteOffset ?? 0) + (a.byteOffset ?? 0);
   const ib = new Float32Array(bin.buffer.slice(off, off + a.count * 64));

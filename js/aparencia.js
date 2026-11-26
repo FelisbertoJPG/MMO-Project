@@ -33,7 +33,7 @@
 import * as THREE from 'three';
 import { Assets } from './assets.js';
 import { tela, pontoNaTela, retanguloNaTela } from './tela.js';
-import { racaDe, proporcoesDe, sexosDoPainel, temFeminino, esculpidoDe, sexoQueExiste } from './raca.js';
+import { racaDe, proporcoesDe, sexosDoPainel, temFeminino, esculpidoDe, sexoQueExiste, racaQueExiste } from './raca.js';
 import { penteadosDe, nomeDoPenteado, barbasDe, nomeDaBarba, sobrancelhasDe, nomeDaSobrancelha } from './penteado.js';
 
 export const PELES = [
@@ -108,7 +108,7 @@ export function lerAparencia(c) {
   const [s, ext] = (CODIGO.test(c ?? '') ? c : APARENCIA_PADRAO).split('~');
   const d = [...s].map(Number), x = ext ? [...ext.slice(0, 3)].map(Number) : [0, 0, 0], hs = ext ? ext.slice(3).match(/\.|[0-9a-f]{6}/g) ?? [] : [];
   const cores = Object.fromEntries(CORES_DA_EXTENSAO.map((k, i) => [k, hs[i] && hs[i] !== '.' ? `#${hs[i]}` : null]));
-  const raca = d[5] ?? 0, sexo = sexoQueExiste(raca, d[7] >= 1 && d[7] <= 9 ? d[7] : 0);
+  const raca = racaQueExiste(d[5] ?? 0), sexo = sexoQueExiste(raca, d[7] >= 1 && d[7] <= 9 ? d[7] : 0);   // (a raça sem corpo — a Orc, o Elfo — vira o Humano: raca.js)
   return {
     pele: d[0] < PELES.length ? d[0] : 0, cabelo: d[1] + (s.length >= 12 ? d[11] * 10 : 0), cor: d[2] < CABELOS.length ? d[2] : 0,
     barba: d[3], olhos: d[4] < OLHOS.length ? d[4] : 0, raca, sobrancelha: d[6] ?? 1, sexo,   // (até o 9: os corpos de arquivo do editor — 02/11/2026, o Homem 2 é o 6; o corpo que este jogo não tem vira o padrão do mesmo sexo: raca.js `sexoQueExiste`)
@@ -338,6 +338,7 @@ export class EditorDeAparencia {
     const p = this.game.player, antes = lerAparencia(p.aparencia), a = { ...antes, ...parcial };
     // (trocou de raça: o sexo só vale se ela tem o corpo — o 2, o de arquivo; sem ele, o feminino)
     // (os corpos de arquivo MASCULINOS voltam ao Masculino; os femininos, ao Feminino — raca.js `sexoQueExiste`)
+    a.raca = racaQueExiste(a.raca);
     a.sexo = sexoQueExiste(a.raca, a.sexo);
     if (a.sexo === 1 && !temFeminino(a.raca)) a.sexo = 0;
     // O número do cabelo, da barba e da sobrancelha é o lugar na lista de CADA raça (e de cada

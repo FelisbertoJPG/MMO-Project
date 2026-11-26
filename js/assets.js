@@ -616,7 +616,7 @@ export const Assets = {
       ['char', 'UAL2', 'assets/characters/UAL2.glb'],
       ...PROPS.map((n) => ['prop', n, `assets/dungeon/${n}.glb`]),
       ...ANIMAIS_MODELOS.map((n) => ['animal', n, `assets/animais/${n}.glb`]),
-      ['guerreiro', 'guerreiro', 'assets/guerreiro/guerreiro.glb'],   // o corpo do jogador (guerreiro.js)
+      ['guerreiro', 'guerreiro', 'assets/corpos/esqueleto.glb'],   // o ESQUELETO do jogador (guerreiro.js): os 54 ossos e a paleta de cores — o corpo antigo e as armaduras do guerreiro.glb saíram (26/11/2026)
       ...ESCULPIDOS.map((n) => ['esculpido', n, `assets/esculpidos/${n}.glb`]),
       ...CHEFES_DE_ARQUIVO.map((n) => ['chefe', n, `assets/chefes/${n}.glb`]),
     ];
@@ -768,7 +768,7 @@ export const Assets = {
 
   // de novo, se o carregamento do começo falhou (o provador tenta outra vez)
   carregarGuerreiro() {
-    this._guerreiro ??= new GLTFLoader().loadAsync('assets/guerreiro/guerreiro.glb')
+    this._guerreiro ??= new GLTFLoader().loadAsync('assets/corpos/esqueleto.glb')
       .then((gltf) => { this.guerreiro = gltf.scene; return true; })
       .catch((e) => { console.warn('[guerreiro] não carregou:', e.message); this._guerreiro = null; return false; });
     return this.guerreiro ? Promise.resolve(true) : this._guerreiro;
