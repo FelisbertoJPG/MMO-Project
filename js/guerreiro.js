@@ -42,7 +42,7 @@ import { tingir, APARENCIA_PADRAO, aparenciaValida, lerAparencia, CABELOS, OLHOS
 import { racaDe, proporcoesDe, deformar, deformadorDe, pecasDaRaca, moldarPeca, largoDoQueixo, rostoDaRaca, torsoCosturado, sobOBustoDe, temFeminino, corpoDeArquivo } from './raca.js';
 import { PENTEADOS, penteadoDe, BARBAS, barbaDe, SOBRANCELHAS, sobrancelhaDe, geometriaDoPenteado, PeleEmVolta, aplicarMalhaDoCabelo, formasDoPenteado, malhaDoPenteado } from './penteado.js';
 import { triangulosDe, pesos } from './ima.js';
-import { ORIGENS, origemDaPeca, edicoesDoCorpo, chaveDoCorpo, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
+import { ORIGENS, origemDaPeca, edicoesDoCorpo, chaveDoCorpo, juntasDaModelagem, aplicarModelagem, acrescentarTriangulos, modelagemAberta, aplicarLuzes, peleEmEdicao } from './modelagem.js';
 import { geometriaDaFolha, texturaDaFolha, materialDaPintura, olhosApagados, olhosLisos, cascaDoOlho, uvEscura, uvClara, CORES_DO_MODELO, folhasAtivas, olhoDoCorpo, ordemDaFolha } from './pintura.js';
 import { geometriaDosCilios, alisarOlhos, materialComBrilho } from './cilios.js';
 import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
@@ -789,11 +789,18 @@ export class CorpoGuerreiro {
     if (arq) {
       const ligacao = this.pecas[0].bindMatrix;
       this.doArquivo ??= new Map();
-      if (!this.doArquivo.has(arq.nome)) this.doArquivo.set(arq.nome, { locais: ossosDoArquivo(arq, ossos, this.ordem, this.inversos, ligacao), inversos: inversosDoArquivo(arq, this.ordem, this.inversos, ligacao) });
-      const d = this.doArquivo.get(arq.nome);
+      // (as JUNTAS ACOMPANHAM AS PARTES editadas na aba Modelo — modelagem.js `juntasDaModelagem`, 26/11/2026: o "Corpo inteiro →
+      // tamanho" encolhia a malha e o ombro ficava; na animação o braço girava em volta do ombro antigo e entrava no tronco)
+      const lida = lerAparencia(this.armadura?.split(':')[1]), partes = edicoesDoCorpo(lida.raca, lida.sexo)?.partes;
+      const chave = partes && Object.keys(partes).length ? `${arq.nome}|${JSON.stringify(partes)}` : arq.nome;
+      if (!this.doArquivo.has(chave)) {
+        const ed = chave === arq.nome ? arq : { ...arq, ossos: juntasDaModelagem(arq.ossos, partes) };
+        this.doArquivo.set(chave, { locais: ossosDoArquivo(ed, ossos, this.ordem, this.inversos, ligacao), inversos: inversosDoArquivo(ed, this.ordem, this.inversos, ligacao), quadril: ed.ossos.Hips });
+      }
+      const d = this.doArquivo.get(chave);
       d.locais.forEach((v, i) => { if (v) ossos[i].position.copy(v); });
       d.inversos.forEach((m, i) => inv[i].copy(m));
-      if (arq.ossos.Hips) this.hipRestoG.set(...arq.ossos.Hips).applyMatrix4(ligacao);
+      if (d.quadril) this.hipRestoG.set(...d.quadril).applyMatrix4(ligacao);
     } else {
       // (as juntas CORRIGIDAS à mão — a aba Esqueleto do editor, assets/esqueletos.json: o osso vai para lá, a malha fica; a
       // raça afasta os ombros e o quadril a partir do lugar corrigido)

@@ -228,6 +228,35 @@ export function pesosDaParte(id, geo, ctx) {
   return w;
 }
 
+/**
+ * AS JUNTAS ACOMPANHAM AS PARTES (26/11/2026; o dono: "se eu mudo o tamanho do modelo e dou animação, ele distorce a malha — os
+ * braços entram no tronco"). As partes mexem nos pontos da malha (`aplicarModelagem`, passo 1) e as juntas ficavam: o "Corpo inteiro
+ * → tamanho" encolhia o corpo em volta do chão, o ombro continuava no lugar antigo, e na animação o braço girava em volta dele —
+ * para dentro do tronco. Aqui as juntas de um corpo de arquivo (`ossos`: nome → [x, y, z] cm, o espaço da malha) passam pela MESMA
+ * conta, na mesma ordem e com os mesmos pivôs (as juntas de antes; o "Corpo inteiro", o chão): o "Corpo inteiro" leva todas; uma
+ * parte de OSSOS leva as juntas dos ossos dela (a mesma regra dos pesos: o ponto de outro osso não mexe, e a junta dele também
+ * não). As partes de origem, de lugar e de região (o cabelo, os olhos, as orelhas, o pescoço) não têm junta. Devolve um objeto novo.
+ */
+export function juntasDaModelagem(ossos, partes) {
+  const J = new Map(Object.entries(ossos ?? {}).map(([n, p]) => [n, new THREE.Vector3(...p)]));
+  const antes = new Map([...J].map(([n, v]) => [n, v.clone()])), zero = new THREE.Vector3();
+  for (const [id, t] of Object.entries(partes ?? {})) {
+    const p = PARTE.get(id);
+    if (!p || !t || !(p.tudo || p.ossos)) continue;
+    const k = t.tamanho ?? 1, s = [k * (t.largura ?? 1), k * (t.altura ?? 1), k * (t.fundo ?? 1)], m = t.mover ?? [0, 0, 0], giro = ((t.giro ?? 0) * Math.PI) / 180;
+    if (s.every((v) => Math.abs(v - 1) < 1e-5) && m.every((v) => Math.abs(v) < 1e-5) && Math.abs(giro) < 1e-6) continue;
+    const piv = p.tudo ? [zero, zero] : [antes.get(p.pivo?.[0]), antes.get(p.pivo?.[1] ?? p.pivo?.[0])];
+    if (!piv[0] || !piv[1]) continue;
+    for (const [nome, v] of J) {
+      if (!p.tudo && !p.ossos.test(nome)) continue;
+      const lado = p.lados && v.x < 0 ? 1 : 0, o = piv[lado], sx = lado ? -1 : 1;
+      const lx = (v.x - o.x) * s[0], ly = (v.y - o.y) * s[1], g = giro * sx, cs = Math.cos(g), sn = Math.sin(g);
+      v.set(o.x + lx * cs - ly * sn + m[0] * sx, o.y + lx * sn + ly * cs + m[1], o.z + (v.z - o.z) * s[2] + m[2]);
+    }
+  }
+  return Object.fromEntries([...J].map(([n, v]) => [n, [v.x, v.y, v.z]]));
+}
+
 // os pivôs de uma parte: [o do lado +x, o do −x] (sem lados, os dois iguais)
 function pivosDaParte(p, w, P, ctx) {
   if (p.tudo) return [new THREE.Vector3(), new THREE.Vector3()];
