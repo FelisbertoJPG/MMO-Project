@@ -1,0 +1,6 @@
+{
+  "_leiame": "As ARMADURAS DE ARQUIVO que o jogo carrega (js/assets.js `carregarArmadurasDeArquivo`): o id = assets/armaduras-de-arquivo/<id>.json. Gravada pelas ferramentas de ferramentas/armadura-de-arquivo/ (vestir.mjs, da-colagem.mjs — o \"virar armadura\" do editor).",
+  "armaduras": [
+    "peitoral-couro"
+  ]
+}

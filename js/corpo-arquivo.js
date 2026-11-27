@@ -229,6 +229,8 @@ export function transplantarRosto(geo, ctx, tp, faixas) {
 export const REGIOES = ['pele', 'cabelo', 'roupa', 'branco', 'iris', 'escuro', 'brilho', 'boca'];
 const FIXAS = { branco: '#f2eee6', escuro: '#1b1416', brilho: '#ffffff', boca: '#b4646c' };
 const UV = [0.586, 0.44];               // (um ponto do cinza liso da paleta: 112/255)
+/** o ponto CINZA da paleta (a cor de vértice ÷ o cinza dele = a cor que se vê): a aba Armaduras do editor pinta a colagem com ele */
+export const UV_DO_CINZA = UV;
 const CINZA = [0.162, 0.162, 0.162];    // (o mesmo, linear — se a imagem não der para ler)
 
 /** onde fica, na pose T (no espaço da malha), cada osso de `ordem`, segundo os inversos de ligação */
@@ -362,6 +364,48 @@ export function pecaDoArquivo(corpo, codigo, { ordem, inversos, esqueleto, ligac
   }
   const anda = andaNoArquivo(corpo, ordem, inversos, ligacao), juntasDele = new Map(Object.entries(corpo.ossos).map(([n, p]) => [n, new THREE.Vector3(...p)]));
   return { name: `corpo_${corpo.nome}`, geometry: feitas.get(chave), skeleton: esqueleto, material, bindMatrix: ligacao, semRaca: true, anda, juntas: juntasDele };
+}
+
+/**
+ * A peça de uma ARMADURA DE ARQUIVO (assets.js `carregarArmadurasDeArquivo`; ferramentas/armadura-de-arquivo/vestir.mjs) para a malha
+ * fundida: a malha já vestida NESTE corpo (cm, pose T, o espaço da malha dele), com os pesos e a pintura (uma cor por triângulo),
+ * FACETADA como ele. `semRaca`: entra junto do corpo, no fim da fundida — as proporções da raça e o andar das juntas não a mexem
+ * (ela foi feita no lugar). O nome `armadura_<id>` a faz "armadura" para a aba Modelo (modelagem.js `origemDaPeca`).
+ */
+// (uma geometria por ARMADURA LIDA — o objeto de `carregarArmadurasDeArquivo`: o editor relê depois de um "virar armadura", e a de
+// mesmo id feita de novo não pode vir da memória)
+const armadurasFeitas = new WeakMap();
+export function pecaDaArmadura(arm, { ordem, esqueleto, ligacao, material }) {
+  if (!armadurasFeitas.has(arm)) {
+    const base = corNaPaleta(material?.map, ...UV) ?? CINZA, lin = (b) => (b / 255 <= 0.04045 ? b / 255 / 12.92 : ((b / 255 + 0.055) / 1.055) ** 2.4);
+    const P = arm.pos, I = arm.idx, nt = I.length / 3, indice = arm.nomes.map((n) => ordem.indexOf(n));
+    const pos = new Float32Array(nt * 9), nor = new Float32Array(nt * 9), cor = new Float32Array(nt * 9), uv = new Float32Array(nt * 6);
+    const si = new Uint16Array(nt * 12), sw = new Float32Array(nt * 12);
+    const a3 = new THREE.Vector3(), b3 = new THREE.Vector3(), c3 = new THREE.Vector3(), n3 = new THREE.Vector3(), d = new THREE.Vector3();
+    for (let t = 0; t < nt; t++) {
+      a3.fromArray(P, I[t * 3] * 3); b3.fromArray(P, I[t * 3 + 1] * 3); c3.fromArray(P, I[t * 3 + 2] * 3);
+      n3.subVectors(c3, b3).cross(d.subVectors(a3, b3)).normalize();
+      // (a cor do arquivo é sRGB; a do vértice é linear, dividida pelo cinza da paleta, como a pele do corpo)
+      const k = [0, 1, 2].map((q) => lin(arm.cor[t * 3 + q]) / Math.max(0.02, base[q]));
+      for (let q = 0; q < 3; q++) {
+        const v = I[t * 3 + q], o = t * 3 + q;
+        for (let j = 0; j < 4; j++) { si[o * 4 + j] = Math.max(0, indice[arm.ossoDe[v * 4 + j]] ?? 0); sw[o * 4 + j] = arm.peso[v * 4 + j] / 255; }
+        pos[o * 3] = P[v * 3]; pos[o * 3 + 1] = P[v * 3 + 1]; pos[o * 3 + 2] = P[v * 3 + 2];
+        n3.toArray(nor, o * 3);
+        cor[o * 3] = k[0]; cor[o * 3 + 1] = k[1]; cor[o * 3 + 2] = k[2];
+        uv[o * 2] = UV[0]; uv[o * 2 + 1] = UV[1];
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.BufferAttribute(cor, 3));
+    g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+    g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+    armadurasFeitas.set(arm, g);
+  }
+  return { name: `armadura_${arm.id}`, geometry: armadurasFeitas.get(arm), skeleton: esqueleto, material, bindMatrix: ligacao, semRaca: true, esconde: arm.esconde ?? null };
 }
 
 // ------------------------------------------------------------ O MODELO INTEIRO, COM A TEXTURA (27/10/2026)

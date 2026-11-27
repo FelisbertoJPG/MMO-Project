@@ -49,7 +49,7 @@ import { geometriasDasPalpebras, PISCADA, proximaPiscada } from './piscada.js';
 import { folhaDaBoca } from './boca.js';
 import { folhaDaSombra } from './sombra.js';
 import { peleNova, PELE, TROCADAS, OSSOS_DO_CORPO } from './retopologia.js';
-import { pecaDoArquivo, ossosDoArquivo, inversosDoArquivo, esqueletoCorrigido, rostoDaModelo, edicoesDoRosto, transplantarRosto, materialDaTextura, batomDoArquivo } from './corpo-arquivo.js';
+import { pecaDoArquivo, pecaDaArmadura, ossosDoArquivo, inversosDoArquivo, esqueletoCorrigido, rostoDaModelo, edicoesDoRosto, transplantarRosto, materialDaTextura, batomDoArquivo } from './corpo-arquivo.js';
 
 // O CORPO, como viaja na rede (`c` do instantâneo): 'antigo' = o manequim UAL, ou o
 // CÓDIGO DA ARMADURA — um dígito por lugar (ficha.js `LUGARES`: cabeça, peito, braços,
@@ -395,6 +395,21 @@ export function planosDoRosto(geo, faixas, extrasDe = null, graus = PLANO) {
 // (`maquiagem`: as folhas da aparência — a sombra dos olhos, sombra.js, e os lábios com batom, boca.js —, pintadas como
 // as da modelagem, mesmo no corpo sem edição)
 // (`pele`: 'antiga' ou 'nova' força a pele do corpo feminino — a comparação lado a lado do editor; null = a de sempre)
+// A PELE QUE A ARMADURA ESCONDE (26/11/2026; o dono: "esconder partes específicas do player, tipo o peitoral… e transformo o peitoral como
+// torso"): os triângulos `tris` do corpo de arquivo (o lugar no arquivo dele; `de` = o 1º ponto dele na fundida) viram um ponto, os três cantos
+// com a posição e os pesos do 1º — achatado e preso a um osso só, ele não reaparece quando o corpo anda
+function esconderPele(geo, de, tris) {
+  const P = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, n = P.count;
+  for (const t of tris) {
+    const v = de + t * 3;
+    if (v + 2 >= n) continue;
+    for (let q = 1; q < 3; q++) {
+      P.setXYZ(v + q, P.getX(v), P.getY(v), P.getZ(v));
+      for (let k = 0; k < 4; k++) { si.setComponent(v + q, k, si.getComponent(v, k)); sw.setComponent(v + q, k, sw.getComponent(v, k)); }
+    }
+  }
+  P.needsUpdate = si.needsUpdate = sw.needsUpdate = true;
+}
 function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, maquiagem = [], corOlhos = null, pele = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
@@ -419,7 +434,11 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   let doCorpo = 0;
   for (const g of lista) doCorpo += g.attributes.position.count;
   // (o CORPO DE ARQUIVO — corpo-arquivo.js, a última peça — não se deforma pela raça: as proporções dele só afinam as armaduras)
-  const fixa = pecas.at(-1)?.semRaca ? lista.at(-1).attributes.position.count : 0;
+  // (… e as ARMADURAS DE ARQUIVO logo antes dele — corpo-arquivo.js `pecaDaArmadura`, também `semRaca`: vestidas no lugar. `fixa` = o fim
+  // que nem a raça nem as juntas mexem; `fixaCorpo` = só o corpo: a pele dele, onde o couro se molda e onde vai a textura)
+  const fixaCorpo = pecas.at(-1)?.semRaca ? lista.at(-1).attributes.position.count : 0;
+  let fixa = 0;
+  if (fixaCorpo) for (let i = pecas.length - 1; i >= 0 && pecas[i].semRaca; i--) fixa += lista[i].attributes.position.count;
   const cabelo = penteado && inversos ? geometriaDoPenteado({
     ...penteado, ordem, deformador: deformadorDe(raca, ordem, inversos, pecas[0].bindMatrix), escala: proporcoesDe(raca).cabeca, rosto: rostoDaRaca(raca), largo: largoDoQueixo(raca), modelo: lista[0], mapa: pecas[0].material?.map,
   }) : null;
@@ -430,7 +449,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // "passam pelo cabelo", e no jogo eles já sumiam: o editor mostra o que o jogo mostra; para mexer na cabeça, "sem cabelo")
   const cobreCabeca = cabelo && formasDoPenteado(penteado?.id, penteado?.chave)?.some((f) => f[0] === 'molde') ? {
     cabelo: cabelo.userData.partes.cabelo.map((v) => doCorpo + v),
-    peles: fixa ? [[doCorpo - fixa, doCorpo]] : (() => { const l = []; let de = 0; lista.forEach((g, i) => { const n = g.attributes.position.count; if (/^head(_tingido)?$/.test(pecas[i].name)) l.push([de, de + n]); de += n; }); return l; })(),
+    peles: fixaCorpo ? [[doCorpo - fixaCorpo, doCorpo]] : (() => { const l = []; let de = 0; lista.forEach((g, i) => { const n = g.attributes.position.count; if (/^head(_tingido)?$/.test(pecas[i].name)) l.push([de, de + n]); de += n; }); return l; })(),
   } : null;
   let geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
   // (O COURO no corpo de arquivo — `moldarCouro`, abaixo: onde cada peça dele cai na fundida e os pontos dela como o guerreiro os tem)
@@ -483,7 +502,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     geo.attributes.position.needsUpdate = true;
   }
   // (o COURO se molda à pele do corpo de arquivo — depois das proporções e das juntas: é de onde ele parte)
-  if (geo && couro.size) moldarCouro(geo, pecas, couro, couroOriginal, doCorpo - fixa, doCorpo, ordem);
+  if (geo && couro.size) moldarCouro(geo, pecas, couro, couroOriginal, doCorpo - fixaCorpo, doCorpo, ordem);
   // (O ROSTO DA MODELO 1 no corpo de arquivo — corpo-arquivo.js: as edições dela na boca e nos olhos, o lugar e a costura —,
   // ANTES das edições deste corpo: o `base` da aba Modelo já o tem)
   const transplante = pecas.at(-1)?.transplante;
@@ -492,6 +511,9 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     // (o transplante que falha não derruba o corpo: fica sem o rosto novo)
     try { geo = transplantarRosto(geo, comModelo, transplante, { face: faixa(/^Face/), olhos: faixa(/^Eyes/), arq: faixa(/^corpo_/) }); } catch (e) { console.warn('[rosto da modelo 1] falhou:', e); }
   }
+  // (a pele que as ARMADURAS DE ARQUIVO escondem — `esconderPele`, acima: antes das edições, para a vista da aba Modelo; e no fim)
+  const peleEscondida = fixaCorpo && !transplante && geo && !geo.index ? pecas.flatMap((p) => (p.esconde ? [...p.esconde] : [])) : [];
+  if (peleEscondida.length) esconderPele(geo, doCorpo - fixaCorpo, peleEscondida);
   // … e as EDIÇÕES do corpo, por cima (a aba guarda também a malha de antes delas: `base`)
   if (comModelo) {
     // (a malha antes das edições: a aba Modelo refaz a vista dela, e a pintura projeta nela — pintura.js)
@@ -608,13 +630,14 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
   // (o corpo de arquivo COM TEXTURA — a Feminino 3, corpo-arquivo.js: o pedaço dele é o grupo do 2º material; o resto, e
   // os triângulos criados na aba Modelo, no fim, o 1º)
   if (geo && fixa && pecas.at(-1).textura && !tirados && !transplante) {
-    const de = doCorpo - fixa, ate = doCorpo, n = geo.attributes.position.count;
+    const de = doCorpo - fixaCorpo, ate = doCorpo, n = geo.attributes.position.count;
     geo.clearGroups();
     if (de > 0) geo.addGroup(0, de, 0);
     geo.addGroup(de, ate - de, 1);
     if (n > ate) geo.addGroup(ate, n - ate, 0);
     geo.userData.textura = pecas.at(-1).textura;
   }
+  if (peleEscondida.length && geo && !geo.index) esconderPele(geo, doCorpo - fixaCorpo, peleEscondida);
   fundidas.set(chave, geo);
   return geo;
 }
@@ -840,6 +863,9 @@ export class CorpoGuerreiro {
     const desenho = (lugar, conj) => desenhoDe(Assets.armaduras, lugar, conj);
     // (o CORPO DE ARQUIVO — corpo-arquivo.js: a malha dele no lugar das peças do corpo; as armaduras ficam)
     const arq = corpoDeArquivo(this.raca);
+    // (AS ARMADURAS DE ARQUIVO — assets.js, corpo-arquivo.js `pecaDaArmadura`: a malha vestida NESTE corpo para o lugar + conjunto do
+    // código; onde há uma, nem a peça do pacote nem a casca pintada daquele lugar)
+    const deArquivo = LUGARES.map((lugar, i) => arq?.armaduras?.[`${lugar}${armadura[i]}`] ?? null);
     const usadas = this.pecas.filter((o) => {
       // (o cabelo solto do modelo saiu do jogo, e a barba e as sobrancelhas dele são só a
       // matéria das do jogo: o PENTEADO, a BARBA e as SOBRANCELHAS desenhados, abaixo; o COLAR
@@ -851,14 +877,14 @@ export class CorpoGuerreiro {
       const a = o.name.match(ARMADURA);
       if (!a) return !arq;
       const lugar = lugarDaPeca(o.name);
-      return armadura[LUGARES.indexOf(lugar)] === a[1] && !desenho(lugar, a[1]);
+      return armadura[LUGARES.indexOf(lugar)] === a[1] && !desenho(lugar, a[1]) && !deArquivo[LUGARES.indexOf(lugar)];
     });
     // há ELMO? (uma peça de cabeça do pacote, ou um desenho nosso para a cabeça — o dígito
     // sozinho não diz: o couro não tem elmo.) Com ele, a raça não estica as orelhas
     const elmo = usadas.some((o) => ARMADURA.test(o.name) && lugarDaPeca(o.name) === 'cabeca') || !!desenho('cabeca', armadura[0]);
     // os nossos desenhos entram como mais peças da malha fundida
     // (a casca do conjunto de COURO — a Túnica do Batedor — se molda ao corpo de arquivo: `moldarCouro`)
-    LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d) usadas.push(...pecasDaCasca(d, this.pecas).map((p) => (String(d.conjunto) === '1' ? { ...p, couro: true } : p))); });
+    LUGARES.forEach((lugar, i) => { const d = desenho(lugar, armadura[i]); if (d && !deArquivo[i]) usadas.push(...pecasDaCasca(d, this.pecas).map((p) => (String(d.conjunto) === '1' ? { ...p, couro: true } : p))); });
     // a APARÊNCIA: as peças de pele e de olhos tingidas
     if (aparenciaValida(aparencia)) for (let i = usadas.length - 1; i >= 0; i--) {
       if (!usadas[i].isSkinnedMesh) continue;
@@ -923,6 +949,8 @@ export class CorpoGuerreiro {
       const pecaArq = pecaDoArquivo(arq, aparencia, { ordem: this.ordem, inversos: this.inversos, esqueleto: this.esqueleto, ligacao: this.pecas[0].bindMatrix, material: this.materiais.find((m) => m.vertexColors) ?? this.materiais[0] });
       // (o transplante do rosto: os buracos dele e as edições da modelo 1 que caem na boca e nos olhos)
       if (arq.rosto) pecaArq.transplante = { buracos: arq.rosto, fem: edicoesDoRosto(doRosto) };
+      // (as armaduras de arquivo logo antes dele: são do mesmo espaço, fora das proporções da raça — geometriaFundida, `fixa`)
+      for (const a of deArquivo) if (a) usadas.push(pecaDaArmadura(a, { ordem: this.ordem, esqueleto: this.esqueleto, ligacao: this.pecas[0].bindMatrix, material: pecaArq.material }));
       usadas.push(pecaArq);
       // (o penteado de MOLDE mede o crânio DESTE corpo — penteado.js `cabeca()`; 06/11/2026, o "Lobo preguiçoso")
       if (penteado) penteado.corpo = pecaArq;

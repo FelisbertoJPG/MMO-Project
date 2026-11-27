@@ -78,8 +78,8 @@ import { naPele } from './aparencia.js';
 // o que cada pedaço da malha fundida é (o código de cada vértice em `ctx.origem`)
 export const ORIGENS = ['corpo', 'armadura', 'cabelo', 'barba', 'sobrancelhas', 'presas', 'busto', 'olhos'];
 /** A origem de uma peça da malha fundida, pelo nome dela (o penteado é marcado à parte). */
-// (a casca de trás do olho apagado, `Eyes_casca` — pintura.js —, é pele)
-export const origemDaPeca = (nome) => (nome === 'presas' ? 'presas' : /^(busto|top)_/.test(nome) ? 'busto' : /^Eyes(?!_casca)/.test(nome) ? 'olhos' : /^A[123]_|^casca_/.test(nome) ? 'armadura' : 'corpo');
+// (a casca de trás do olho apagado, `Eyes_casca` — pintura.js —, é pele; `armadura_<id>` é a armadura de arquivo, corpo-arquivo.js)
+export const origemDaPeca = (nome) => (nome === 'presas' ? 'presas' : /^(busto|top)_/.test(nome) ? 'busto' : /^Eyes(?!_casca)/.test(nome) ? 'olhos' : /^A[123]_|^casca_|^armadura_/.test(nome) ? 'armadura' : 'corpo');
 
 /**
  * As partes que se editam: { id, nome, e UMA regra — `tudo`, `ossos` (os nomes, no esqueleto

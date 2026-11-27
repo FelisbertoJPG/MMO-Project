@@ -7,6 +7,7 @@ import { categoriaDaPeca } from './categorias.js';
 import { lerArquivoDoMapa } from './mapa-logico.js';
 import { carregarPinturas } from './pintura.js';
 import { usarPenteados, MOLDES, MOLDES_LIDOS, PENTEADOS_DE_MOLDE } from './penteado.js';
+import { LUGARES } from './ficha.js';
 
 // Exportado porque virou CONTRATO: o editor de cenas lê esta lista para montar
 // a gaveta dele. Um .glb em assets/dungeon/ que NÃO esteja aqui existe no disco
@@ -349,7 +350,40 @@ export async function carregarCorpos(lista = CORPOS_DE_ARQUIVO, esqueletos = nul
       if (soLisa) delete corpos[nome];   // (o jogo: só a lisa)
     } catch (e) { console.warn(`[corpo] sem assets/corpos/${nome}.json:`, e.message); }
   }));
+  await carregarArmadurasDeArquivo(corpos);
   return corpos;
+}
+
+/**
+ * AS ARMADURAS DE ARQUIVO (26/11/2026; ferramentas/armadura-de-arquivo/: o vestir.mjs, sozinho, ou o "virar armadura" da aba Armaduras
+ * do editor, da-colagem.mjs → assets/armaduras-de-arquivo/<id>.json, e o id na LISTA, assets/armaduras-de-arquivo/lista.json): uma
+ * malha vestida num corpo de arquivo, com a pintura e os pesos dele. Cada uma entra no corpo dela (e na versão lisa dele) em
+ * `armaduras['<lugar><conjunto>']` (a última da lista vale): o item `arm<conjunto>_<lugar>` vestido nesse corpo a mostra
+ * (guerreiro.js `vestir`, corpo-arquivo.js `pecaDaArmadura`). Arquivo que falta ou vem torto fica de fora: o corpo veste como antes.
+ * O editor chama de novo depois de um "virar armadura" (as do corpo são trocadas).
+ */
+export async function carregarArmadurasDeArquivo(corpos) {
+  const de64 = (s, T) => { const b = Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); return new T(b.buffer, 0, b.byteLength / T.BYTES_PER_ELEMENT); };
+  let lista = [];
+  try { const r = await fetch('assets/armaduras-de-arquivo/lista.json', { cache: 'no-store' }); if (r.ok) lista = (await r.json())?.armaduras ?? []; } catch { /* sem lista: nenhuma */ }
+  lista = Array.isArray(lista) ? lista.filter((id) => typeof id === 'string' && /^[a-z0-9-]{1,40}$/.test(id)) : [];
+  for (const c of Object.values(corpos)) delete c.armaduras;
+  const lidas = await Promise.all(lista.map(async (id) => {
+    try {
+      const r = await fetch(`assets/armaduras-de-arquivo/${id}.json`, { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      const a = { id, rotulo: typeof j.rotulo === 'string' ? j.rotulo : id, corpo: j.corpo, lugar: j.lugar, conjunto: j.conjunto, nomes: j.nomes, pos: de64(j.pos, Float32Array), idx: de64(j.idx32, Uint32Array), cor: de64(j.cor, Uint8Array), ossoDe: de64(j.ossoDe, Uint8Array), peso: de64(j.peso, Uint8Array) };
+      // (o ESCONDE — os triângulos da PELE do corpo que somem com ela vestida: a armadura vira aquela parte do corpo; a aba Armaduras do editor os escolhe)
+      if (typeof j.esconde32 === 'string') a.esconde = de64(j.esconde32, Uint32Array);
+      const nv = a.pos.length / 3;
+      if (!LUGARES.includes(a.lugar) || !Number.isInteger(a.conjunto) || a.conjunto < 1 || a.conjunto > 9 || !Array.isArray(a.nomes)
+        || a.cor.length !== a.idx.length || a.ossoDe.length !== nv * 4 || a.peso.length !== nv * 4 || a.idx.some((i) => i >= nv)) throw new Error('torto');
+      return { a, corpo: j.corpo };
+    } catch (e) { console.warn(`[armadura] sem assets/armaduras-de-arquivo/${id}.json:`, e.message); return null; }
+  }));
+  // (na ordem da lista: a última de um lugar + conjunto vale)
+  for (const l of lidas) if (l) for (const c of Object.values(corpos)) if (c.nome === l.corpo || c.base === l.corpo) (c.armaduras ??= {})[`${l.a.lugar}${l.a.conjunto}`] = l.a;
 }
 
 /** As ARMADURAS PINTADAS (assets/armaduras.json, casca.js): a lista de desenhos ([] sem o arquivo). */
