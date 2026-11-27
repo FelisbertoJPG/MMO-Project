@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-26.5",
-  "nota": "As nuvens agora são uma camada do mundo e andam mais devagar. Nova opção em Sombras: a sombra das nuvens (no chão e quando tapam o sol ou a lua)."
+  "versao": "2026-11-26.6",
+  "nota": "Noite mais escura, dia de 10 minutos e nuvens que passam devagar. Em Opções avançadas → Sombras: sombra da lua, sombra detalhada do personagem e sombra das nuvens."
 }

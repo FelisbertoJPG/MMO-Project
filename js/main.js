@@ -89,7 +89,8 @@ class Game {
     // Quem escolhe é o botão da tela de título; o que muda está em `js/modo.js`.
     this.modo = 'offline';
     // o DESVIO DA HORA da Jornada (descansar até…, `passarAte`), guardado neste navegador
-    try { const d = Number(localStorage.getItem(CHAVE_DESVIO_DA_HORA)); RELOGIO.desvio = Number.isFinite(d) ? ((d % 24) + 24) % 24 : 0; } catch { RELOGIO.desvio = 0; }
+    // (só pelo localhost: no publicado o relógio não existe, e a hora é a do relógio de verdade)
+    try { const d = Number(localStorage.getItem(CHAVE_DESVIO_DA_HORA)); RELOGIO.desvio = this.ferramentasDeTeste && Number.isFinite(d) ? ((d % 24) + 24) % 24 : 0; } catch { RELOGIO.desvio = 0; }
     this.timers = [];
     this.sfx = new Sfx();
     this.input = new Input(this.renderer.domElement);
@@ -210,10 +211,11 @@ class Game {
   /** As regras do modo de jogo (`js/modo.js`): o código pergunta por elas, não pelo modo. */
   get regras() { return REGRAS[this.modo]; }
   /**
-   * A hora é só deste navegador (o relógio da fogueira, `passarAte`)? Na Jornada sempre (`regras.horaPropria`);
-   * no Mundo online só pelo LOCALHOST (o teste do dono: cada navegador vê a sua hora; no publicado, a de todos).
+   * As FERRAMENTAS DE TESTE do dono na fogueira — o Viajar (`viajar`) e o relógio (`passarAte`) — só pelo
+   * LOCALHOST, em qualquer modo (26/11/2026: "tirando o teleporte e o relógio na fogueira, pode subir uma
+   * versão"): a versão publicada (Pages/Render) não as tem. Pelo localhost, a hora mudada é só deste navegador.
    */
-  get horaPropria() { return this.regras.horaPropria || ['localhost', '127.0.0.1'].includes(location.hostname); }
+  get ferramentasDeTeste() { return ['localhost', '127.0.0.1'].includes(location.hostname); }
 
   /** Tudo que o jogador pode travar a mira e golpear: os inimigos, e o rival no duelo. */
   allEnemies() {
@@ -804,7 +806,7 @@ class Game {
     this.entrando = false;
     if (!r.ok) { bt.disabled = false; bt.textContent = 'Entrar em Lubelion'; aviso.textContent = r.error; return; }
     this.modo = 'mmo';
-    if (!this.horaPropria) RELOGIO.desvio = 0;   // no Mundo online a hora é a de todos (menos pelo localhost: `horaPropria`)
+    if (!this.ferramentasDeTeste) RELOGIO.desvio = 0;   // no Mundo online a hora é a de todos (menos pelo localhost: `ferramentasDeTeste`)
     this.passagem = null;
     this.sessao = r.mundo;
     // personagem de outra ficha (ficha.js) recomeça do zero: é o reset de todos
@@ -1415,7 +1417,7 @@ class Game {
    * porque cai perto de uma fogueira (`PERTO_DA_FOGUEIRA`, regras-do-mundo.mjs).
    */
   viajar(id) {
-    if (this.menu !== 'bonfire') return;
+    if (this.menu !== 'bonfire' || !this.ferramentasDeTeste) return;   // (ferramenta de teste: só pelo localhost)
     this.ui.closeBonfire();
     this.menu = null;
     const p = this.player, { pos, rumo } = this.world.retorno(id, this.regras.espalharAoAcordar);
@@ -1428,12 +1430,12 @@ class Game {
   }
 
   /**
-   * DESCANSAR ATÉ A HORA `alvo` (0–24; o relógio da fogueira, ui.js — na Jornada e no localhost, `horaPropria`):
+   * DESCANSAR ATÉ A HORA `alvo` (0–24; o relógio da fogueira, ui.js — só pelo localhost, `ferramentasDeTeste`):
    * o tempo corre só para a FRENTE, rápido (de 0,8 s a ~3,5 s), somando ao `RELOGIO.desvio` (world.js);
    * o céu, a luz e as sombras acompanham. No fim, o desvio fica guardado neste navegador.
    */
   passarAte(alvo) {
-    if (!this.horaPropria || this.passagem || !Number.isFinite(alvo)) return false;
+    if (!this.ferramentasDeTeste || this.passagem || !Number.isFinite(alvo)) return false;
     const falta = (((alvo - horaDoMundo()) % 24) + 24) % 24;
     if (falta < 1 / 60) return false;
     this.passagem = { de: RELOGIO.desvio, falta, t: 0, dur: 0.8 + falta * 0.11 };
