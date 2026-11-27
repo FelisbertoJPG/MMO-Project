@@ -1,5 +1,5 @@
 {
-  "proximo": 4,
+  "proximo": 5,
   "tarefas": [
     {
       "id": "T-001",
@@ -45,6 +45,22 @@
       "notas": [
         "planejamento/decisoes/2026-11-27-fica-no-threejs.md + a linha no README",
         "rever se o jogo sair do navegador"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-004",
+      "titulo": "Armadura: apagar a pele do corpo debaixo do peitoral (ombro, peito, manga curta)",
+      "pedido": "a ideia é apagar a malha correspondente ao torso porem no corpo do personagem, seria algo como ombro, peito e um pedaço de manga curta",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-27",
+      "fechada": "2026-11-27",
+      "notas": [
+        "vestir.mjs: o config ganha esconder { alcance, margem } → peleCoberta (pele.mjs)",
+        "peitoral: 333 de 2886 triângulos da pele somem (peito, barriga, costas, ombros, alto do braço)",
+        "conferido pelas fotos da ferramenta (vestida, pose T e a pele em vermelho); no jogo, o dono confere"
       ],
       "atalho": false
     }

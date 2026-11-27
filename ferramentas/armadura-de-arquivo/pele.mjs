@@ -77,6 +77,67 @@ export function pele(P, I) {
   };
 }
 
+/** O RAIO (Möller–Trumbore): a distância da 1ª batida a partir de `o` na direção `dir` (unitária) numa malha; Infinity se não bate. */
+export function raio(o, dir, P, I) {
+  let melhor = Infinity;
+  for (let t = 0; t < I.length / 3; t++) {
+    const a = pt(P, I[t * 3]), b = pt(P, I[t * 3 + 1]), c = pt(P, I[t * 3 + 2]), e1 = sub(b, a), e2 = sub(c, a), h = cross(dir, e2), det = dot(e1, h);
+    if (Math.abs(det) < 1e-9) continue;
+    const f = 1 / det, s = sub(o, a), u = f * dot(s, h); if (u < 0 || u > 1) continue;
+    const q = cross(s, e1), v = f * dot(dir, q); if (v < 0 || u + v > 1) continue;
+    const k = f * dot(e2, q); if (k > 1e-6 && k < melhor) melhor = k;
+  }
+  return melhor;
+}
+
+/**
+ * A PELE QUE A PEÇA COBRE (27/11/2026; o dono: "apagar a malha correspondente ao torso no corpo do personagem: ombro, peito e um pedaço
+ * de manga curta"): os triângulos do corpo que ela tapa — o lugar deles no arquivo do corpo, o `esconde` da armadura (guerreiro.js
+ * `esconderPele`). Um ponto da pele está coberto quando o raio que sai dele para fora (a normal do jogo) bate na peça a até `alcance` cm
+ * em TODAS as `poses` ([os pontos do corpo, os da peça], na mesma pose): com os braços baixados, o raio de dentro do braço batia no colete;
+ * na pose T, a "asa" da manga tapava o sovaco; nas duas juntas, só fica o que a peça cobre de verdade. Pescoço e cabeça nunca (a gola).
+ * Perto da borda (a menos de `margem` cm de um ponto descoberto, andando pela malha na pose T) fica à mostra, e o triângulo só some com
+ * os três cantos cobertos: a pele vai até debaixo da barra e da manga, sem buraco na beirada.
+ */
+export function peleCoberta(corpo, poses, XI, { alcance = 8, margem = 1 } = {}) {
+  const { id, vizinhos } = soldar(corpo.P, corpo.I), n = corpo.P.length / 3, unicos = [...new Set(id)], I = corpo.I;
+  const cabeca = new Set(['Neck', 'Head'].map((x) => corpo.nomes.indexOf(x)).filter((i) => i >= 0));
+  const naCabeca = (v) => { let w = 0; for (let j = 0; j < 4; j++) if (cabeca.has(corpo.ossoDe[v * 4 + j])) w += corpo.peso[v * 4 + j]; return w > 127; };
+  const coberto = new Uint8Array(n);
+  for (const v of unicos) coberto[v] = naCabeca(v) ? 0 : 1;
+  for (const [P, X] of poses) {
+    // a normal de cada ponto soldado: a soma das dos triângulos em volta (pela área), a de fora do jogo — (c − b) × (a − b)
+    const N = new Float32Array(n * 3);
+    for (let t = 0; t < I.length; t += 3) {
+      const a = pt(P, I[t]), b = pt(P, I[t + 1]), c = pt(P, I[t + 2]), f = cross(sub(c, b), sub(a, b));
+      for (let q = 0; q < 3; q++) { const u = id[I[t + q]]; N[u * 3] += f[0]; N[u * 3 + 1] += f[1]; N[u * 3 + 2] += f[2]; }
+    }
+    // (a caixa da peça, folgada pelo alcance: o ponto fora dela nem atira)
+    const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+    for (let v = 0; v < X.length / 3; v++) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], X[v * 3 + k] - alcance); mx[k] = Math.max(mx[k], X[v * 3 + k] + alcance); }
+    for (const v of unicos) {
+      if (!coberto[v]) continue;
+      const p = pt(P, v), dir = norm(pt(N, v));
+      if (p.some((x, k) => x < mn[k] || x > mx[k])) { coberto[v] = 0; continue; }
+      coberto[v] = raio([p[0] + dir[0] * 0.05, p[1] + dir[1] * 0.05, p[2] + dir[2] * 0.05], dir, X, XI) <= alcance ? 1 : 0;
+    }
+  }
+  // a margem: a distância (pela malha, na pose T) até o ponto descoberto mais perto
+  const dist = new Float32Array(n).fill(Infinity), fila = [];
+  for (const v of unicos) if (!coberto[v]) { dist[v] = 0; fila.push(v); }
+  while (fila.length) {
+    const v = fila.shift();
+    for (const w of vizinhos[v]) {
+      const d = dist[v] + Math.hypot(...sub(pt(corpo.P, v), pt(corpo.P, w)));
+      if (d < margem && d < dist[w]) { dist[w] = d; fila.push(w); }
+    }
+  }
+  const some = (v) => coberto[id[v]] && dist[id[v]] >= margem;
+  const esconde = [];
+  for (let t = 0; t < I.length / 3; t++) if (some(I[t * 3]) && some(I[t * 3 + 1]) && some(I[t * 3 + 2])) esconde.push(t);
+  return esconde;
+}
+
 /** Os pontos SOLDADOS pela posição (a malha da Meshy e a colagem repetem o ponto em cada triângulo) e os vizinhos de cada um. */
 export function soldar(P, I, casas = 3) {
   const n = P.length / 3, mapa = new Map(), id = new Int32Array(n);

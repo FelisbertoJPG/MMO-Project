@@ -1,5 +1,5 @@
 {
-  "_leiame": "Uma ARMADURA DE ARQUIVO (ferramentas/armadura-de-arquivo/vestir.mjs): o .glb (a malha da Meshy, sem pintura) vestido no corpo de arquivo `corpo` → assets/armaduras-de-arquivo/<id>.json. `lugar` + `conjunto` = o item que a veste (arm<conjunto>_<lugar>). `baixo`/`alto`: a altura (cm, no corpo) da barra e do alto da gola; `folga`: o quanto ela fica, no mínimo, fora da pele; `longe`: a partir de quantos cm de vão ela é puxada para o corpo. `cores`: as tintas (cor por triângulo).",
+  "_leiame": "Uma ARMADURA DE ARQUIVO (ferramentas/armadura-de-arquivo/vestir.mjs): o .glb (a malha da Meshy, sem pintura) vestido no corpo de arquivo `corpo` → assets/armaduras-de-arquivo/<id>.json. `lugar` + `conjunto` = o item que a veste (arm<conjunto>_<lugar>). `baixo`/`alto`: a altura (cm, no corpo) da barra e do alto da gola; `folga`: o quanto ela fica, no mínimo, fora da pele; `longe`: a partir de quantos cm de vão ela é puxada para o corpo. `cores`: as tintas (cor por triângulo). `esconder` { alcance, margem }: a pele do corpo que ela cobre some com ela vestida (o raio que sai da pele bate na peça a até `alcance` cm, nos braços baixados e na pose T; a `margem` cm da borda fica à mostra).",
   "id": "peitoral-couro",
   "rotulo": "Peitoral de couro (Meshy)",
   "glb": "peitoral-couro-meshy.glb",
@@ -17,5 +17,9 @@
     "cinto": "#3f2617",
     "barra": "#4f2f1b",
     "fivela": "#8f8a80"
+  },
+  "esconder": {
+    "alcance": 8,
+    "margem": 1
   }
 }

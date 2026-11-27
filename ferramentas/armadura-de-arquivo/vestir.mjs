@@ -14,7 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { prancha } from '../corpo-de-arquivo/foto.mjs';
-import { lerCorpo, pele, soldar, pesosPelaPele, gravarArmadura, pt, sub, cross, dot, media } from './pele.mjs';
+import { lerCorpo, pele, soldar, pesosPelaPele, peleCoberta, raio, gravarArmadura, pt, sub, cross, dot, media } from './pele.mjs';
 
 const args = process.argv.slice(2), fotoEm = args.includes('--foto') ? args[args.indexOf('--foto') + 1] : null;
 const arqConfig = args.find((a) => a.endsWith('.json'));
@@ -46,18 +46,7 @@ function lerGlb(arq) {
 const corpo = lerCorpo(cfg.corpo);
 const peca = lerGlb(path.join(dirCfg, cfg.glb));
 
-// raio (Möller–Trumbore): a 1ª batida a partir de o na direção dir, numa malha
-function raio(o, dir, P, I) {
-  let melhor = Infinity;
-  for (let t = 0; t < I.length / 3; t++) {
-    const a = pt(P, I[t * 3]), b = pt(P, I[t * 3 + 1]), c = pt(P, I[t * 3 + 2]), e1 = sub(b, a), e2 = sub(c, a), h = cross(dir, e2), det = dot(e1, h);
-    if (Math.abs(det) < 1e-9) continue;
-    const f = 1 / det, s = sub(o, a), u = f * dot(s, h); if (u < 0 || u > 1) continue;
-    const q = cross(s, e1), v = f * dot(dir, q); if (v < 0 || u + v > 1) continue;
-    const k = f * dot(e2, q); if (k > 1e-6 && k < melhor) melhor = k;
-  }
-  return melhor;
-}
+// (o raio — Möller–Trumbore — mora no pele.mjs, com a pele que a peça cobre)
 // o tronco numa altura: meia largura (no fundo do meio), frente e costas (no x = 0)
 function tronco(P, I, y) {
   const fr = raio([0, y, 80], [0, 0, -1], P, I), co = raio([0, y, -80], [0, 0, 1], P, I);
@@ -166,21 +155,32 @@ for (let t = 0; t < nT; t++) {
 }
 console.log('pintura:', Object.entries(conta).map(([k, n]) => `${k} ${n}`).join(', '));
 
+// ------------------------------------------------------------------ (6) a PELE que ela esconde (cfg.esconder: { alcance, margem })
+// (27/11/2026; o dono: "apagar a malha correspondente ao torso no corpo do personagem: ombro, peito e um pedaço de manga curta"):
+// os triângulos do corpo que a peça cobre nos braços baixados E na pose T (pele.mjs `peleCoberta`) somem com ela vestida
+const esconde = cfg.esconder ? peleCoberta(corpo, [[posado, X], [corpo.P, T]], AI, cfg.esconder) : [];
+if (cfg.esconder) console.log(`pele escondida: ${esconde.length} de ${corpo.I.length / 3} triângulos do corpo (alcance ${cfg.esconder.alcance ?? 8} cm, margem ${cfg.esconder.margem ?? 1} cm)`);
+
 // ------------------------------------------------------------------ gravar
-const g = gravarArmadura({ id: cfg.id, rotulo: cfg.rotulo, corpo: cfg.corpo, lugar: cfg.lugar, conjunto: cfg.conjunto, de: `ferramentas/armadura-de-arquivo/vestir.mjs com ${path.basename(arqConfig)}`, nomes, pos: T, idx: AI, cor, ossoDe, peso });
+const g = gravarArmadura({ id: cfg.id, rotulo: cfg.rotulo, corpo: cfg.corpo, lugar: cfg.lugar, conjunto: cfg.conjunto, de: `ferramentas/armadura-de-arquivo/vestir.mjs com ${path.basename(arqConfig)}`, nomes, pos: T, idx: AI, cor, ossoDe, peso, esconde });
 console.log(`gravado ${g.arquivo}: ${nA} pontos, ${nT} triângulos${g.substituidas.length ? ` (saíram da lista: ${g.substituidas.join(', ')})` : ''}`);
 
 // ------------------------------------------------------------------ a foto (o corpo cinza + a armadura pintada)
 if (fotoEm) {
   // (em cima, VESTIDA — os braços abaixados, como no jogo andando; embaixo, a pose T, como o jogo a guarda)
+  // (a pele escondida sai do corpo da foto: onde ela fura ou deixa buraco, aparece)
+  const sumiu = new Set(esconde), CI = Uint32Array.from(corpo.I.filter((_, i) => !sumiu.has(Math.floor(i / 3))));
   const foto = (arq, corpoP, pecaP) => {
     const nb = corpoP.length / 3, pos = new Float32Array((nb + nA) * 3); pos.set(corpoP); pos.set(pecaP, nb * 3);
-    const idx = new Uint32Array(corpo.I.length + AI.length); idx.set(corpo.I); for (let i = 0; i < AI.length; i++) idx[corpo.I.length + i] = AI[i] + nb;
-    const cores = [...Array.from({ length: corpo.I.length / 3 }, () => [205, 170, 140]), ...Array.from({ length: nT }, (_, t) => [cor[t * 3], cor[t * 3 + 1], cor[t * 3 + 2]])];
+    const idx = new Uint32Array(CI.length + AI.length); idx.set(CI); for (let i = 0; i < AI.length; i++) idx[CI.length + i] = AI[i] + nb;
+    const cores = [...Array.from({ length: CI.length / 3 }, () => [205, 170, 140]), ...Array.from({ length: nT }, (_, t) => [cor[t * 3], cor[t * 3 + 1], cor[t * 3 + 2]])];
     prancha(arq, pos, idx, { cores, W: 420, H: 520, vistas: [0, 40, 90, 180].map((giro) => ({ giro, centro: [0, (cfg.baixo + cfg.alto) / 2 + 5], escala: 3.6 })) });
   };
   foto(fotoEm, posado, X);
   const emT = fotoEm.replace(/\.png$/, '-pose-t.png');
   foto(emT, corpo.P, T);
-  console.log(`fotos: ${fotoEm} e ${emT}`);
+  // (e o corpo sozinho, de braços baixados, com a pele que ela esconde em vermelho)
+  const emEsc = fotoEm.replace(/.png$/, '-esconde.png');
+  prancha(emEsc, posado, corpo.I, { cores: Array.from({ length: corpo.I.length / 3 }, (_, t) => (sumiu.has(t) ? [210, 60, 50] : [205, 170, 140])), W: 420, H: 520, vistas: [0, 40, 90, 180].map((giro) => ({ giro, centro: [0, (cfg.baixo + cfg.alto) / 2 + 5], escala: 3.6 })) });
+  console.log(`fotos: ${fotoEm}, ${emT} e ${emEsc}`);
 }
