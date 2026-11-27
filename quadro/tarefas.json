@@ -1,5 +1,5 @@
 {
-  "proximo": 2,
+  "proximo": 3,
   "tarefas": [
     {
       "id": "T-001",
@@ -15,6 +15,21 @@
         "agente revisor + /revisar (só quando o dono pedir)",
         "npm test dos agentes fortes cobre também inimigos, mapa lógico, ataques, ficha e regras",
         "planejamento/decisoes/ com 6 decisões; 4 skills em .claude/skills/"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-002",
+      "titulo": "Registrar a decisão do fluxo de toda tarefa (para ler no Obsidian)",
+      "pedido": "essa decisão em si poderia virar informação no obsidian? pra caso eu me esqueça vou la e vejo?",
+      "area": "processo",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-27",
+      "fechada": "2026-11-27",
+      "notas": [
+        "planejamento/decisoes/2026-11-27-fluxo-de-toda-tarefa.md + a linha no README",
+        "no Obsidian: abrir a pasta ds como cofre"
       ],
       "atalho": false
     }

@@ -36,3 +36,4 @@ Decisão revista: **não apague a antiga**. Escreva uma nova e ponha no topo da 
 | 2026-11-24 | [A Feminino 2 e o Masculino Adulto saem do jogo](2026-11-24-feminino-2-e-masculino-adulto-saem.md) |
 | 2026-11-26 | [O guerreiro.glb sai; só o esqueleto fica](2026-11-26-guerreiro-glb-sai.md) |
 | 2026-11-26 | [Orc e Elfo saem do jogo](2026-11-26-orc-e-elfo-saem.md) |
+| 2026-11-27 | [O fluxo de toda tarefa: o padrão do devleor, adaptado](2026-11-27-fluxo-de-toda-tarefa.md) |
