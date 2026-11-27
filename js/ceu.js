@@ -25,6 +25,18 @@ import * as THREE from 'three';
 const RAIO = 250;   // < o `far` da câmera (300; com o alcance do Mínimo, a abóbada encolhe — `update`)
 const _escalaCeu = new THREE.Vector3();
 const AZUL_DO_DIA = new THREE.Color(0x2f6fd0);
+/**
+ * AS NUVENS SÃO UMA CAMADA DO MUNDO (26/11/2026; o dono: "que as nuvens sejam objetos que apliquem
+ * sombra por onde passem, e não passem tão rápido"): o ruído das nuvens é um TETO a `altura` metros,
+ * preso ao mapa (o lugar da câmera entra na conta: andar faz a nuvem passar por cima), andando com o
+ * `vento` (unidades do ruído por segundo; eram 0,008 e 0,003). A mesma conta, a partir de um ponto do
+ * chão na direção do sol ou da lua, dá a SOMBRA DA NUVEM (`sombraDeNuvem` aqui, e o shader do chão em
+ * capsulas.js) — a opção avançada "Sombra das nuvens" (graficos.js). `forca`: quanto da luz do sol/lua
+ * uma nuvem grossa tapa.
+ */
+export const NUVEM = { altura: 180, vento: [0.0032, 0.0012], forca: 0.6 };
+const ESCALA_NUVEM = 1.15 / NUVEM.altura;   // unidades do ruído por metro do chão
+const glNum = (x) => x.toFixed(6);
 
 const VERT = /* glsl */`
   varying vec3 vDir;
@@ -86,7 +98,7 @@ const FRAG = /* glsl */`
 
     // as NUVENS: ruído projetado num teto, andando com o vento; somem perto do horizonte
     if (d.y > 0.0 && uOitavas > 0.5) {
-      vec2 p = d.xz / (d.y + 0.12) * 1.15 + vec2(uTempo * 0.008, uTempo * 0.003);
+      vec2 p = cameraPosition.xz * ${glNum(ESCALA_NUVEM)} + d.xz / (d.y + 0.12) * 1.15 + vec2(uTempo * ${glNum(NUVEM.vento[0])}, uTempo * ${glNum(NUVEM.vento[1])});
       // a cobertura muda devagar (manchas de céu limpo entre os grupos de nuvens)
       float n = fbm(p) * (0.75 + 0.5 * ruido(p * 0.18 + 9.0));
       float cobre = smoothstep(0.5, 0.72, n) * smoothstep(0.0, 0.25, d.y);
@@ -200,12 +212,26 @@ function fbm(x, y, oitavas) {
   for (let i = 0; i < 5 && i < oitavas; i++) { s += a * ruido(x, y); x = f32(f32(x * K.oit) + K.des); y = f32(f32(y * K.oit) + K.des); a *= 0.5; }
   return s;
 }
-export function coberturaDeNuvem(d, tempo, oitavas) {
+export function coberturaDeNuvem(d, tempo, oitavas, cx = 0, cz = 0) {
   if (d.y <= 0 || oitavas <= 0.5) return 0;
   const k = f32(f32(1.15) / f32(d.y + f32(0.12)));
-  const x = f32(f32(d.x * k) + f32(tempo * f32(0.008))), y = f32(f32(d.z * k) + f32(tempo * f32(0.003)));
+  const x = f32(f32(cx * ESCALA_NUVEM) + f32(d.x * k) + f32(tempo * f32(NUVEM.vento[0]))), y = f32(f32(cz * ESCALA_NUVEM) + f32(d.z * k) + f32(tempo * f32(NUVEM.vento[1])));
   const n = fbm(x, y, oitavas) * (0.75 + 0.5 * ruido(f32(f32(x * K.larga) + 9), f32(f32(y * K.larga) + 9)));
   return THREE.MathUtils.smoothstep(n, 0.5, 0.72) * THREE.MathUtils.smoothstep(d.y, 0, 0.25);
+}
+
+/**
+ * A SOMBRA DA NUVEM (0 = céu limpo, 1 = nuvem grossa) no ponto (x, z) do chão, olhando na direção `l`
+ * do sol ou da lua: a MESMA conta do shader do chão (`nuvemSombra`, capsulas.js) — até 3 oitavas e a
+ * borda mais suave que a do céu. O mundo a usa no lugar do jogador para baixar a luz de TUDO quando a
+ * nuvem tapa o astro (world.js, `updateAmbience`).
+ */
+export function sombraDeNuvem(l, tempo, oitavas, x, z) {
+  if (oitavas <= 0.5) return 0;
+  const k = 1.15 / (Math.max(l.y, 0.05) + 0.12);
+  const px = x * ESCALA_NUVEM + l.x * k + tempo * NUVEM.vento[0], pz = z * ESCALA_NUVEM + l.z * k + tempo * NUVEM.vento[1];
+  const n = fbm(px, pz, Math.min(oitavas, 3)) * (0.75 + 0.5 * ruido(px * K.larga + 9, pz * K.larga + 9));
+  return THREE.MathUtils.smoothstep(n, 0.44, 0.64);
 }
 
 class Clarao {
@@ -295,7 +321,7 @@ class Clarao {
         r.autoClear = auto;
         a.esperando = true;
         const U2 = g.ceu.uniforms;
-        a.nuvem = coberturaDeNuvem(dir, U2.uTempo.value, U2.uOitavas.value);
+        a.nuvem = coberturaDeNuvem(dir, U2.uTempo.value, U2.uOitavas.value, g.camera.position.x, g.camera.position.z);
       }
       a.vis += (a.alvo - a.vis) * Math.min(1, dt * 7);
       const f = a.vis * forca[nome];

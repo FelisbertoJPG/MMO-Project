@@ -10,7 +10,8 @@ import { LOD, reescreverLote, viraImpostor, vestirPassagem, profundidadeDaPassag
 import { fragmentos } from './fratura.js';
 import { LONGE } from './graficos.js';
 import { vestirVeu } from './veu.js';
-import { aplicarCapsulas } from './capsulas.js';
+import { aplicarSombrasDoChao } from './capsulas.js';
+import { NUVEM, sombraDeNuvem } from './ceu.js';
 import { montarExpositores } from './expositor.js';
 // O MAPA LÓGICO (a grade, o chão, as colisões, o caminho) mora em mapa-logico.js: o World é um
 // MapaLogico que também desenha. As medidas e as listas do mapa vêm de lá (o servidor as lê também).
@@ -404,6 +405,12 @@ export class World extends MapaLogico {
     // sol (ou a lua) está desenhado
     this.game.ceu?.update(dt, F, horaDoMundo(), a.k, a.dentro.fundo);
     const dir = this.game.ceu?.luzDir ?? F.dir;
+    // A NUVEM TAPANDO O SOL OU A LUA (opção "Sombra das nuvens", graficos.js): a nuvem que passa entre o
+    // jogador e o astro baixa a luz direcional de TUDO; o chão desenha a sombra dela no lugar certo e
+    // divide por isto (capsulas.js), senão escureceria duas vezes
+    const U = this.game.ceu?.uniforms;
+    a.nuvemG = this.game.graficos?.sombraNuvens && U ? 1 - NUVEM.forca * sombraDeNuvem(dir, U.uTempo.value, U.uOitavas.value, p.x, p.z) : 1;
+    a.lua.intensity *= a.nuvemG;
     // (com sombra, o alvo anda de texel em texel do mapa dela: seguindo o jogador contínuo, a
     // borda de toda sombra tremia a cada passo)
     const passo = a.lua.castShadow ? (a.lua.shadow.camera.right - a.lua.shadow.camera.left) / a.lua.shadow.mapSize.x * 4 : 0;
@@ -511,7 +518,7 @@ export class World extends MapaLogico {
       list.forEach((m, i) => im.setMatrixAt(i, m.clone().multiply(info.matrix)));
       im.castShadow = !name.startsWith('floor');
       im.receiveShadow = true;
-      if (name.startsWith('floor')) aplicarCapsulas(info.material);   // o piso recebe a sombra do personagem (capsulas.js)
+      if (name.startsWith('floor')) aplicarSombrasDoChao(info.material);   // o piso recebe a sombra do personagem (capsulas.js)
       this.scene.add(im);
     }
     if (livres.length) this.buildGrass(livres);
@@ -561,7 +568,7 @@ export class World extends MapaLogico {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setIndex(idx);
     g.computeVertexNormals();
-    const chao = new THREE.Mesh(g, aplicarCapsulas(new THREE.MeshLambertMaterial({ vertexColors: true, map: texturaDoChao() })));   // (a sombra do personagem: capsulas.js)
+    const chao = new THREE.Mesh(g, aplicarSombrasDoChao(new THREE.MeshLambertMaterial({ vertexColors: true, map: texturaDoChao() })));   // (a sombra do personagem: capsulas.js)
     chao.receiveShadow = true;
     this.scene.add(chao);
   }

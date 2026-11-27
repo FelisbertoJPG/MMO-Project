@@ -12,8 +12,16 @@
  * desligada, `uCapN` = 0 e o shader sai na hora — ligar e desligar não recompila nada.
  * Quem recebe: o chão de grama (world.js), o tapete de capim (capim.js) e o piso da masmorra.
  * Os personagens NÃO recebem (as esferas ficam dentro do corpo: ele sairia preto).
+ *
+ * A SOMBRA DAS NUVENS (26/11/2026, opção "Sombra das nuvens") mora no MESMO gancho do chão (os dois
+ * mexem no mesmo trecho do shader): o chão faz a conta da nuvem do céu (ceu.js, `NUVEM`) a partir do
+ * ponto dele, na direção do sol ou da lua, e tapa a luz direcional onde ela passa. O resto do mundo
+ * (árvores, personagens) só a sente pelo lugar do jogador: o world.js baixa a luz direcional inteira
+ * (`ambience.nuvemG`) quando a nuvem tapa o astro sobre ele — e o chão DIVIDE por isso (`uNuvem.z`),
+ * senão ficaria escuro duas vezes ali e escuro demais fora da nuvem.
  */
 import * as THREE from 'three';
+import { NUVEM } from './ceu.js';
 
 const MAX_P = 4;     // personagens com sombra ao mesmo tempo (os mais perto do jogador)
 const POR = 7;       // esferas por personagem
@@ -32,7 +40,10 @@ const U = {
   uCapPers: { value: Array.from({ length: MAX_P }, () => new THREE.Vector4()) },
   uCapEsf: { value: Array.from({ length: MAX_P * POR }, () => new THREE.Vector4()) },
   uCapN: { value: 0 },
+  // x = a força da sombra das nuvens (0 = desligada), y = o tempo do céu, z = 1 / o que a luz já perdeu no jogador, w = oitavas
+  uNuvem: { value: new THREE.Vector4(0, 0, 1, 3) },
 };
+const ESCALA_NUVEM = 1.15 / NUVEM.altura, f6 = (x) => x.toFixed(6);
 
 const PARS = /* glsl */`
 #define CAP_MAX_P ${MAX_P}
@@ -40,6 +51,22 @@ const PARS = /* glsl */`
 uniform vec4 uCapPers[ CAP_MAX_P ];          // centro (mundo) e alcance de cada personagem
 uniform vec4 uCapEsf[ CAP_MAX_P * CAP_POR ];  // as esferas: centro (mundo) e raio (0 = vazia)
 uniform int uCapN;                            // quantos personagens (0 = desligada)
+uniform vec4 uNuvem;                          // a sombra das nuvens (ver acima)
+// (o ruído das nuvens: o mesmo do ceu.js)
+float nvHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
+float nvRuido( vec2 p ) {
+	vec2 i = floor( p ), f = fract( p ), u = f * f * ( 3.0 - 2.0 * f );
+	return mix( mix( nvHash( i ), nvHash( i + vec2( 1, 0 ) ), u.x ), mix( nvHash( i + vec2( 0, 1 ) ), nvHash( i + vec2( 1, 1 ) ), u.x ), u.y );
+}
+// quanto da luz do sol/lua chega ao ponto p (mundo), olhando na direção l, por entre as nuvens
+float nuvemSombra( vec3 p, vec3 l ) {
+	vec2 q = p.xz * ${f6(ESCALA_NUVEM)} + l.xz * ( 1.15 / ( max( l.y, 0.05 ) + 0.12 ) ) + uNuvem.y * vec2( ${f6(NUVEM.vento[0])}, ${f6(NUVEM.vento[1])} );
+	float s = 0.0, a = 0.5;
+	vec2 r = q;
+	for ( int i = 0; i < 3; i ++ ) { if ( float( i ) >= uNuvem.w ) break; s += a * nvRuido( r ); r = r * 2.03 + 17.1; a *= 0.5; }
+	float n = s * ( 0.75 + 0.5 * nvRuido( q * 0.18 + 9.0 ) );
+	return min( ( 1.0 - uNuvem.x * smoothstep( 0.44, 0.64, n ) ) * uNuvem.z, uNuvem.z );
+}
 vec3 capMundo( vec3 v ) { return ( vec4( v - viewMatrix[ 3 ].xyz, 0.0 ) * viewMatrix ).xyz; }
 vec3 capDirMundo( vec3 d ) { return ( vec4( d, 0.0 ) * viewMatrix ).xyz; }
 // a OCLUSÃO de uma esfera (cosseno: vista do ponto, quanto do céu ela tapa); a de perto vale 1,6x o raio
@@ -82,8 +109,8 @@ float capSombra( vec3 p, vec3 l ) {
 }
 `;
 
-/** O material passa a receber a sombra de cápsula (uma vez por material; encadeia o que já havia). */
-export function aplicarCapsulas(m) {
+/** O material (de CHÃO) passa a receber a sombra de cápsula e a das nuvens (uma vez por material; encadeia o que já havia). */
+export function aplicarSombrasDoChao(m) {
   if (!m || m.userData.capsulas) return m;
   m.userData.capsulas = true;
   const antes = m.onBeforeCompile, chave = m.customProgramCacheKey;
@@ -95,9 +122,13 @@ export function aplicarCapsulas(m) {
     const ch = THREE.ShaderChunk.lights_fragment_begin, a = ch.indexOf('directionalLights[ i ];');
     const b = a >= 0 ? ch.indexOf('\t\tRE_Direct( directLight', a) : -1;
     const luzes = b > a
-      ? `${ch.slice(0, b)}\t\tif ( uCapN > 0 ) directLight.color *= capSombra( capMundo( geometryPosition ), normalize( capDirMundo( directLight.direction ) ) );\n${ch.slice(b)}`
+      ? `${ch.slice(0, b)}\t\tif ( uCapN > 0 || uNuvem.x > 0.0 ) {
+\t\t\tvec3 pMundo = capMundo( geometryPosition ), lMundo = normalize( capDirMundo( directLight.direction ) );
+\t\t\tif ( uCapN > 0 ) directLight.color *= capSombra( pMundo, lMundo );
+\t\t\tif ( uNuvem.x > 0.0 ) directLight.color *= nuvemSombra( pMundo, lMundo );
+\t\t}\n${ch.slice(b)}`
       : ch;
-    if (b <= a) console.warn('capsulas.js: o laço das luzes do three.js mudou — a sombra de cápsula fica só na oclusão');
+    if (b <= a) console.warn('capsulas.js: o laço das luzes do three.js mudou — a sombra de cápsula fica só na oclusão, e a das nuvens some');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <lights_pars_begin>', `#include <lights_pars_begin>\n${PARS}`)
       .replace('#include <lights_fragment_begin>', luzes)
@@ -128,8 +159,11 @@ function ossos(raiz) {
   return l;
 }
 
-/** A cada quadro, antes do desenho: escolhe os personagens mais perto e copia o lugar dos ossos. */
-export function atualizarCapsulas(game) {
+/** A cada quadro, antes do desenho: a sombra das nuvens, e os personagens mais perto com o lugar dos ossos. */
+export function atualizarSombrasDoChao(game) {
+  const ceu = game.ceu?.uniforms, oit = ceu?.uOitavas.value ?? 0, nv = U.uNuvem.value;
+  const g = game.world?.ambience?.nuvemG ?? 1;
+  nv.set(game.graficos?.sombraNuvens && oit > 0.5 ? NUVEM.forca : 0, ceu?.uTempo.value ?? 0, 1 / Math.max(g, 0.05), Math.min(oit, 3));
   if (!game.graficos?.sombraPersonagem || !game.player) { U.uCapN.value = 0; return; }
   const eu = game.player.pos, cands = [];
   for (const lista of [game.jogadores, game.all]) {

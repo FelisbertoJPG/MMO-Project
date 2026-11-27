@@ -170,6 +170,7 @@ const CHAVE_SOMBRA_DETALHE = 'masmorra:sombra-detalhe';  // 'alto' | 'medio' | '
 const CHAVE_SOMBRA_SEMPRE = 'masmorra:sombra-sempre';    // 'sim' = "Sempre carregadas" (a cascata)
 const CHAVE_SOMBRA_LUA = 'masmorra:sombra-lua';          // 'sim' = a lua também faz sombra (de noite)
 const CHAVE_SOMBRA_PERSONAGEM = 'masmorra:sombra-personagem';   // 'sim' = a sombra de cápsula (capsulas.js)
+const CHAVE_SOMBRA_NUVENS = 'masmorra:sombra-nuvens';   // 'sim' = as nuvens fazem sombra (ceu.js, capsulas.js)
 const CHAVE_PRECARREGAR = 'masmorra:precarregar';        // pré-carregar tudo (e guardar as fotos dos cartazes)
 const CHAVE_DIST_MODO = 'masmorra:distancia-modo';       // 'tipo' = uma distância por tipo de peça
 const CHAVE_DIST_TIPOS = 'masmorra:distancia-tipos';     // {grama, pedras, arvores, cenario}: m (ausente = padrão)
@@ -394,6 +395,7 @@ export class Graficos {
     try { this.sombraSempre = localStorage.getItem(CHAVE_SOMBRA_SEMPRE) === 'sim'; } catch { this.sombraSempre = false; }
     try { this.sombraLua = localStorage.getItem(CHAVE_SOMBRA_LUA) === 'sim'; } catch { this.sombraLua = false; }
     try { this.sombraPersonagem = localStorage.getItem(CHAVE_SOMBRA_PERSONAGEM) === 'sim'; } catch { this.sombraPersonagem = false; }
+    try { this.sombraNuvens = localStorage.getItem(CHAVE_SOMBRA_NUVENS) === 'sim'; } catch { this.sombraNuvens = false; }
     try { this.preCarregar = localStorage.getItem(CHAVE_PRECARREGAR) === 'sim'; } catch { this.preCarregar = false; }
     // (por tipo: o modo e os valores; valor fora da lista = o padrão)
     try { this.distModo = localStorage.getItem(CHAVE_DIST_MODO) === 'tipo' ? 'tipo' : 'junto'; } catch { this.distModo = 'junto'; }
@@ -577,6 +579,18 @@ export class Graficos {
     this.sombraPersonagem = ligar;
     try { localStorage.setItem(CHAVE_SOMBRA_PERSONAGEM, ligar ? 'sim' : 'nao'); } catch { }
     this.game.monitor?.evento(`sombra detalhada do personagem ${ligar ? 'ligada' : 'desligada'}`);
+  }
+
+  /**
+   * A SOMBRA DAS NUVENS (26/11/2026): as nuvens do céu (uma camada a `NUVEM.altura` m, ceu.js) fazem sombra
+   * no chão por onde passam, e a que tapa o sol ou a lua sobre o jogador baixa a luz direcional de tudo
+   * (world.js, `nuvemG`). Qualquer qualidade com nuvens (o Mínimo não tem); um uniforme, não recompila.
+   */
+  alternarSombraNuvens(ligar = !this.sombraNuvens) {
+    if (ligar === this.sombraNuvens) return;
+    this.sombraNuvens = ligar;
+    try { localStorage.setItem(CHAVE_SOMBRA_NUVENS, ligar ? 'sim' : 'nao'); } catch { }
+    this.game.monitor?.evento(`sombra das nuvens ${ligar ? 'ligada' : 'desligada'}`);
   }
 
   /** Pré-carregar tudo (vale na próxima abertura do jogo: é o carregamento que muda). */

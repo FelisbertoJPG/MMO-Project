@@ -21,7 +21,7 @@
 import * as THREE from 'three';
 import { CELL } from './world.js';
 import { corDoChao, caminhoEm } from './campo.js';
-import { aplicarCapsulas } from './capsulas.js';
+import { aplicarSombrasDoChao } from './capsulas.js';
 
 const RAIO = 6;   // células em volta do jogador (~36 m)
 const DENSIDADE_MAX = 90;   // o teto do `capim` da qualidade (o Alto usa 40)
@@ -125,7 +125,7 @@ export class Capim {
     const gp = geometriaDaTouceira();
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
     mat.onBeforeCompile = (sh) => ventoENormal(sh, this.tempo, this.u);
-    aplicarCapsulas(mat);   // a sombra do personagem no capim também (capsulas.js)
+    aplicarSombrasDoChao(mat);   // a sombra do personagem e a das nuvens no capim também (capsulas.js)
     // (uma célula a mais em volta: o jogador anda dentro da dele, e o tapete vai a `raio` METROS·CELL dele)
     this.maximo = (2 * RAIO + 3) ** 2 * Math.ceil(CELL / PASSO_MIN) ** 2;
     this.sorte = new THREE.InstancedBufferAttribute(new Float32Array(this.maximo), 1);
