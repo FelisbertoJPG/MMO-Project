@@ -1,5 +1,5 @@
 {
-  "proximo": 3,
+  "proximo": 4,
   "tarefas": [
     {
       "id": "T-001",
@@ -30,6 +30,21 @@
       "notas": [
         "planejamento/decisoes/2026-11-27-fluxo-de-toda-tarefa.md + a linha no README",
         "no Obsidian: abrir a pasta ds como cofre"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-003",
+      "titulo": "Registrar a decisão: fica no Three.js por ora (não ir para o Godot)",
+      "pedido": "vou ficar por hora no three.js",
+      "area": "processo",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-27",
+      "fechada": "2026-11-27",
+      "notas": [
+        "planejamento/decisoes/2026-11-27-fica-no-threejs.md + a linha no README",
+        "rever se o jogo sair do navegador"
       ],
       "atalho": false
     }

@@ -37,3 +37,4 @@ Decisão revista: **não apague a antiga**. Escreva uma nova e ponha no topo da 
 | 2026-11-26 | [O guerreiro.glb sai; só o esqueleto fica](2026-11-26-guerreiro-glb-sai.md) |
 | 2026-11-26 | [Orc e Elfo saem do jogo](2026-11-26-orc-e-elfo-saem.md) |
 | 2026-11-27 | [O fluxo de toda tarefa: o padrão do devleor, adaptado](2026-11-27-fluxo-de-toda-tarefa.md) |
+| 2026-11-27 | [O Lubelion fica no Three.js, por ora (não vai para o Godot)](2026-11-27-fica-no-threejs.md) |
