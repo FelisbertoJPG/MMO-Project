@@ -168,6 +168,8 @@ const CHAVE_SOMBRA_DIST = 'masmorra:sombra-distancia';   // a distância das som
 const CHAVE_SOMBRA_SUAVE = 'masmorra:sombra-suave';      // a sombra com passagem suave ligada ou não
 const CHAVE_SOMBRA_DETALHE = 'masmorra:sombra-detalhe';  // 'alto' | 'medio' | 'baixo' (ausente = o da qualidade)
 const CHAVE_SOMBRA_SEMPRE = 'masmorra:sombra-sempre';    // 'sim' = "Sempre carregadas" (a cascata)
+const CHAVE_SOMBRA_LUA = 'masmorra:sombra-lua';          // 'sim' = a lua também faz sombra (de noite)
+const CHAVE_SOMBRA_PERSONAGEM = 'masmorra:sombra-personagem';   // 'sim' = a sombra de cápsula (capsulas.js)
 const CHAVE_PRECARREGAR = 'masmorra:precarregar';        // pré-carregar tudo (e guardar as fotos dos cartazes)
 const CHAVE_DIST_MODO = 'masmorra:distancia-modo';       // 'tipo' = uma distância por tipo de peça
 const CHAVE_DIST_TIPOS = 'masmorra:distancia-tipos';     // {grama, pedras, arvores, cenario}: m (ausente = padrão)
@@ -390,6 +392,8 @@ export class Graficos {
     this.sombraDetalhe = null;   // null = o da qualidade
     try { const d = localStorage.getItem(CHAVE_SOMBRA_DETALHE); if (DETALHES_SOMBRA[d]) this.sombraDetalhe = d; } catch { }
     try { this.sombraSempre = localStorage.getItem(CHAVE_SOMBRA_SEMPRE) === 'sim'; } catch { this.sombraSempre = false; }
+    try { this.sombraLua = localStorage.getItem(CHAVE_SOMBRA_LUA) === 'sim'; } catch { this.sombraLua = false; }
+    try { this.sombraPersonagem = localStorage.getItem(CHAVE_SOMBRA_PERSONAGEM) === 'sim'; } catch { this.sombraPersonagem = false; }
     try { this.preCarregar = localStorage.getItem(CHAVE_PRECARREGAR) === 'sim'; } catch { this.preCarregar = false; }
     // (por tipo: o modo e os valores; valor fora da lista = o padrão)
     try { this.distModo = localStorage.getItem(CHAVE_DIST_MODO) === 'tipo' ? 'tipo' : 'junto'; } catch { this.distModo = 'junto'; }
@@ -550,6 +554,29 @@ export class Graficos {
     this.sombraSuave = ligar;
     try { localStorage.setItem(CHAVE_SOMBRA_SUAVE, ligar ? 'sim' : 'nao'); } catch { }
     this.game.monitor?.evento(`sombra com passagem suave ${ligar ? 'ligada' : 'desligada'}`);
+  }
+
+  /**
+   * A SOMBRA DA LUA (26/11/2026, opção avançada, desligada por padrão): de noite a sombra do sol
+   * continua, com a lua (`update`: a força deixa de cair com o dia). Só um número: não recompila.
+   * Só onde a sombra do sol existe (o Alto e o Ultra).
+   */
+  alternarSombraLua(ligar = !this.sombraLua) {
+    if (ligar === this.sombraLua) return;
+    this.sombraLua = ligar;
+    try { localStorage.setItem(CHAVE_SOMBRA_LUA, ligar ? 'sim' : 'nao'); } catch { }
+    this.game.monitor?.evento(`sombra da lua ${ligar ? 'ligada' : 'desligada'}`);
+  }
+
+  /**
+   * A SOMBRA DETALHADA DO PERSONAGEM (26/11/2026, a sombra de cápsula: capsulas.js), em qualquer
+   * qualidade, com ou sem as outras sombras: um uniforme (`uCapN`), não recompila.
+   */
+  alternarSombraPersonagem(ligar = !this.sombraPersonagem) {
+    if (ligar === this.sombraPersonagem) return;
+    this.sombraPersonagem = ligar;
+    try { localStorage.setItem(CHAVE_SOMBRA_PERSONAGEM, ligar ? 'sim' : 'nao'); } catch { }
+    this.game.monitor?.evento(`sombra detalhada do personagem ${ligar ? 'ligada' : 'desligada'}`);
   }
 
   /** Pré-carregar tudo (vale na próxima abertura do jogo: é o carregamento que muda). */
@@ -866,8 +893,9 @@ export class Graficos {
     // E SÓ DE DIA (11/10/2026): de noite a luz da lua é fraca, a sombra dela quase não se vê, e é
     // justo quando a tocha está acesa (outra sombra, seis vistas). A força da sombra acompanha o
     // dia (`shadow.intensity`, um número: não recompila); em zero, ela nem é redesenhada.
+    // (a SOMBRA DA LUA, opção avançada: com ela ligada a força não cai de noite — `alternarSombraLua`)
     if (sol?.castShadow) {
-      const forca = Math.max(0, Math.min(1, ((amb.ceu?.dia ?? 1) - 0.12) / 0.25));
+      const forca = this.sombraLua ? 1 : Math.max(0, Math.min(1, ((amb.ceu?.dia ?? 1) - 0.12) / 0.25));
       sol.shadow.intensity = forca;
       sol.shadow.autoUpdate = false;
       if (forca > 0 && amb.k > 0.02 && sol.intensity > 0 && !this.solParado) sol.shadow.needsUpdate = true;   // `solParado`: o teste do lugar do monitor

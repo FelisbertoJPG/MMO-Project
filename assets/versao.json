@@ -1,5 +1,5 @@
 {
   "_leiame": "A versao do jogo que as paginas abertas vigiam (js/versao.js). MUDAR o campo `versao` num push faz TODOS os que estao com o jogo aberto salvarem e recarregarem em ate um minuto. `nota` aparece no aviso. Push que nao mexe aqui nao recarrega ninguem.",
-  "versao": "2026-11-26.2",
-  "nota": "A personagem feminina ficou menor (cabeça a 88% e o corpo a 87%), e os ossos acompanham o tamanho na animação."
+  "versao": "2026-11-26.3",
+  "nota": "A noite ficou mais escura (a lua e a tocha valem mais). Novas opções em Sombras: a sombra da lua e a sombra detalhada do personagem. E a fogueira ganhou o Viajar."
 }

@@ -384,6 +384,12 @@
         <p class="pausa-nota">O tamanho da área em que o sol faz sombra (só no Alto e no Ultra); ela vai à frente, para onde a câmera olha — a sombra chega a uns 1,5× essa distância. Mais longe = sombras mais borradas e um pouco mais pesado. Sempre carregadas: a de perto continua nítida e, além dela, uma sombra de longe (menos nítida, redesenhada a cada 3 quadros) vai até o horizonte — nada aparece de repente; é a mais pesada.</p>
         <div id="sombra-suave-opcao" class="pausa-opcao"><span>Sombra com passagem suave</span><button data-suave="sim">Ligada</button><button data-suave="nao">Desligada</button></div>
         <p class="pausa-nota">Ligada: a sombra do que some ou vira imagem ao longe some aos poucos, junto com a peça. Desligada: some de uma vez.</p>
+        <!-- (26/11/2026) a SOMBRA DA LUA (graficos.js: alternarSombraLua) -->
+        <div id="sombra-lua-opcao" class="pausa-opcao"><span>Sombra da lua</span><button data-slua="sim">Ligada</button><button data-slua="nao">Desligada</button></div>
+        <p class="pausa-nota">De noite, a lua também faz sombra: debaixo das árvores fica escuro e o luar marca o chão. Só no Alto e no Ultra (onde o sol faz sombra). Com a tocha acesa são duas sombras ao mesmo tempo — mais pesado.</p>
+        <!-- (26/11/2026) a SOMBRA DE CÁPSULA (js/capsulas.js; graficos.js: alternarSombraPersonagem) -->
+        <div id="sombra-personagem-opcao" class="pausa-opcao"><span>Sombra detalhada do personagem</span><button data-spers="sim">Ligada</button><button data-spers="nao">Desligada</button></div>
+        <p class="pausa-nota">Uma sombra suave dos personagens no chão, que acompanha a pose (na direção do sol ou da lua), e o escuro de contato debaixo dos pés. Vale em qualquer qualidade, mesmo com as sombras desligadas — leve: não desenha nada a mais.</p>
         <button class="pausa-voltar" data-volta="avancado">‹ Voltar</button>
       </div>
       <div class="pausa-tela hidden" data-tela="controles">

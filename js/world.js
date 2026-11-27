@@ -10,6 +10,7 @@ import { LOD, reescreverLote, viraImpostor, vestirPassagem, profundidadeDaPassag
 import { fragmentos } from './fratura.js';
 import { LONGE } from './graficos.js';
 import { vestirVeu } from './veu.js';
+import { aplicarCapsulas } from './capsulas.js';
 import { montarExpositores } from './expositor.js';
 // O MAPA LÓGICO (a grade, o chão, as colisões, o caminho) mora em mapa-logico.js: o World é um
 // MapaLogico que também desenha. As medidas e as listas do mapa vêm de lá (o servidor as lê também).
@@ -160,15 +161,18 @@ export const DIA_S = 20 * 60;
 export function horaDoMundo(agora = Date.now()) { return Number.isFinite(globalThis.__hora) ? globalThis.__hora : ((agora / 1000) % DIA_S) / DIA_S * 24; }
 // As CHAVES do céu (hora → como está): o resto é interpolado entre a de antes e a de depois.
 // `dia` (0–1) é quanto de sol há — os campos só ficam mais verdes com sol.
+// A NOITE ESCURA (26/11/2026, o dono: "uma noite mais escura, onde a luz da lua e da tocha se fazem
+// importantes"): o ambiente (hemi, amb) caiu para ~40% e a lua subiu um pouco — o que a lua não toca
+// (debaixo das árvores, com a Sombra da lua ligada) fica bem escuro
 const CEU = [
-  [0, { fundo: 0x0e1830, nevoa: 0x101a30, dens: 0.015, hemi: 1.05, amb: 0.7, lua: 1.5, ceu: 0x46506e, chao: 0x100c08, ambCor: 0x24242e, luz: 0x9db4e8, dia: 0 }],
-  [4.8, { fundo: 0x121a34, nevoa: 0x141d34, dens: 0.014, hemi: 1.15, amb: 0.75, lua: 1.4, ceu: 0x4a5272, chao: 0x120e0a, ambCor: 0x26262f, luz: 0xa0b4e0, dia: 0 }],
+  [0, { fundo: 0x0a1226, nevoa: 0x0b1428, dens: 0.015, hemi: 0.42, amb: 0.22, lua: 1.7, ceu: 0x3a4668, chao: 0x0a0806, ambCor: 0x1c1e2a, luz: 0x9db4e8, dia: 0 }],
+  [4.8, { fundo: 0x0e1630, nevoa: 0x101830, dens: 0.014, hemi: 0.5, amb: 0.26, lua: 1.6, ceu: 0x3e4a6c, chao: 0x0c0a08, ambCor: 0x1e202c, luz: 0xa0b4e0, dia: 0 }],
   [6.3, { fundo: 0xc98e78, nevoa: 0xbf9886, dens: 0.009, hemi: 1.9, amb: 1.0, lua: 2.1, ceu: 0xffc3a0, chao: 0x3a3024, ambCor: 0x3a3030, luz: 0xffad78, dia: 0.5 }],
   [8.5, { fundo: 0x7fb2e8, nevoa: 0xa9c8e8, dens: 0.005, hemi: 2.5, amb: 1.15, lua: 3.5, ceu: 0xd8e8ff, chao: 0x4a5a32, ambCor: 0x404650, luz: 0xfff1d6, dia: 1 }],
   [15.5, { fundo: 0x7fb2e8, nevoa: 0xa9c8e8, dens: 0.005, hemi: 2.5, amb: 1.15, lua: 3.5, ceu: 0xd8e8ff, chao: 0x4a5a32, ambCor: 0x404650, luz: 0xfff1d6, dia: 1 }],
   [17.6, { fundo: 0xd98a52, nevoa: 0xcf9a72, dens: 0.007, hemi: 2.05, amb: 1.0, lua: 2.8, ceu: 0xffc890, chao: 0x3d4a2a, ambCor: 0x3c3428, luz: 0xffad5c, dia: 0.7 }],
   [19.0, { fundo: 0x3a3a68, nevoa: 0x40406a, dens: 0.012, hemi: 1.45, amb: 0.9, lua: 1.8, ceu: 0x6a6a9a, chao: 0x151210, ambCor: 0x2a2836, luz: 0xc0a0d0, dia: 0.1 }],
-  [20.5, { fundo: 0x0e1830, nevoa: 0x101a30, dens: 0.015, hemi: 1.05, amb: 0.7, lua: 1.5, ceu: 0x46506e, chao: 0x100c08, ambCor: 0x24242e, luz: 0x9db4e8, dia: 0 }],
+  [20.5, { fundo: 0x0a1226, nevoa: 0x0b1428, dens: 0.015, hemi: 0.42, amb: 0.22, lua: 1.7, ceu: 0x3a4668, chao: 0x0a0806, ambCor: 0x1c1e2a, luz: 0x9db4e8, dia: 0 }],
   [24, null],   // = a da meia-noite
 ].map(([h, c]) => [h, c && Object.fromEntries(Object.entries(c).map(([k, v]) => [k, typeof v === 'number' && k !== 'dens' && k !== 'hemi' && k !== 'amb' && k !== 'lua' && k !== 'dia' ? new THREE.Color(v) : v]))]);
 CEU[CEU.length - 1][1] = CEU[0][1];
@@ -500,6 +504,7 @@ export class World extends MapaLogico {
       list.forEach((m, i) => im.setMatrixAt(i, m.clone().multiply(info.matrix)));
       im.castShadow = !name.startsWith('floor');
       im.receiveShadow = true;
+      if (name.startsWith('floor')) aplicarCapsulas(info.material);   // o piso recebe a sombra do personagem (capsulas.js)
       this.scene.add(im);
     }
     if (livres.length) this.buildGrass(livres);
@@ -549,7 +554,7 @@ export class World extends MapaLogico {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setIndex(idx);
     g.computeVertexNormals();
-    const chao = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, map: texturaDoChao() }));
+    const chao = new THREE.Mesh(g, aplicarCapsulas(new THREE.MeshLambertMaterial({ vertexColors: true, map: texturaDoChao() })));   // (a sombra do personagem: capsulas.js)
     chao.receiveShadow = true;
     this.scene.add(chao);
   }

@@ -33,6 +33,7 @@ import { Telemetria, enviarDesempenho, aparelho } from './telemetria.js';
 import { tirarDoExpositor, derrubarItens } from './expositor.js';
 import { tela } from './tela.js';
 import { Graficos, qualidadeSalva, placaDeSoftware, TIPOS_LOD, DISTANCIAS_TIPO, escolherPerfil } from './graficos.js';
+import { atualizarCapsulas } from './capsulas.js';
 import { medirDesempenho } from './medidor.js';
 import { receitaDaMistura, NA_PANELA } from './receitas.js';
 import { REGRAS } from './modo.js';
@@ -451,6 +452,8 @@ class Game {
       if (d === 'padrao') b.textContent = G.q.sol ? `Padrão (${G.q.sol.mapa})` : 'Padrão';
     }
     for (const b of document.querySelectorAll('#sombra-suave-opcao button')) { b.disabled = !G.comSombras; b.classList.toggle('ativo', (b.dataset.suave === 'sim') === G.sombraSuave); }
+    for (const b of document.querySelectorAll('#sombra-lua-opcao button')) { b.disabled = !G.q.sol || !G.comSombras; b.classList.toggle('ativo', (b.dataset.slua === 'sim') === G.sombraLua); }
+    for (const b of document.querySelectorAll('#sombra-personagem-opcao button')) b.classList.toggle('ativo', (b.dataset.spers === 'sim') === G.sombraPersonagem);
     for (const b of document.querySelectorAll('#precarregar-opcao button[data-pre]')) b.classList.toggle('ativo', (b.dataset.pre === 'sim') === G.preCarregar);
     // (20/10/2026) o antisserrilhado: "Padrão" diz o da qualidade; o aviso, se o MSAA pede reabrir
     for (const b of document.querySelectorAll('#aa-opcao button')) {
@@ -689,6 +692,12 @@ class Game {
     }
     for (const b of document.querySelectorAll('#sombra-suave-opcao button')) {
       b.addEventListener('click', () => { this.graficos.alternarSombraSuave(b.dataset.suave === 'sim'); this.marcarGraficos(); });
+    }
+    for (const b of document.querySelectorAll('#sombra-lua-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.alternarSombraLua(b.dataset.slua === 'sim'); this.marcarGraficos(); });
+    }
+    for (const b of document.querySelectorAll('#sombra-personagem-opcao button')) {
+      b.addEventListener('click', () => { this.graficos.alternarSombraPersonagem(b.dataset.spers === 'sim'); this.marcarGraficos(); });
     }
     for (const b of document.querySelectorAll('#sombra-detalhe-opcao button')) {
       b.addEventListener('click', () => { this.graficos.escolherDetalheSombra(b.dataset.sdet === 'padrao' ? null : b.dataset.sdet); this.marcarGraficos(); });
@@ -1676,6 +1685,8 @@ class Game {
     this.ui.update(dt);
     this.input.endFrame();
     M?.fase('interface');
+    atualizarCapsulas(this);   // a sombra detalhada do personagem: o lugar dos ossos (capsulas.js)
+    M?.fase('cápsulas');
     M?.antesDoRender();
     this.renderer.render(this.scene, this.camera);
     M?.fase('render');
