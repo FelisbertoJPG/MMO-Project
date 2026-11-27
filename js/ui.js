@@ -148,8 +148,8 @@ export class UI {
   mostrarFogueira(tela) {
     if (this.game.passagem && tela !== 'hora') return;   // (o tempo correndo: fica no relógio até acabar)
     for (const t of ['opcoes', 'nivel', 'panela', 'viajar', 'hora']) document.getElementById(`bf-${t}`).classList.toggle('hidden', t !== tela);
-    // "Mudar a hora" só onde a hora é sua (a Jornada: `regras.horaPropria`)
-    document.querySelector('[data-bf="hora"]')?.classList.toggle('hidden', !this.game.regras.horaPropria);
+    // "Mudar a hora" só onde a hora é sua (a Jornada, e qualquer modo pelo localhost: `Game.horaPropria`)
+    document.querySelector('[data-bf="hora"]')?.classList.toggle('hidden', !this.game.horaPropria);
     if (tela === 'nivel') this.renderLevelUp();
     if (tela === 'panela') { this.naPanela = []; this.renderPanela(); }
     if (tela === 'viajar') this.renderViajar();
@@ -161,7 +161,7 @@ export class UI {
    * meia-noite embaixo, meio-dia em cima, o dia (6 h às 18 h) claro e a noite escura. O ponteiro
    * dourado se arrasta até a hora em que se quer acordar (de 15 em 15 min, sempre para a FRENTE); o
    * arco mostra o tempo que vai passar. "Descansar" chama `Game.passarAte`, e o relógio gira junto
-   * com o céu (`mostrarRelogio`, a cada quadro da passagem).
+   * com o céu (`mostrarRelogio`, a cada quadro da passagem). Também no Mundo online pelo localhost (`Game.horaPropria`).
    */
   renderRelogio() {
     const el = document.getElementById('relogio-fogueira');

@@ -158,8 +158,8 @@ export const GLOW = { tex: null };
 export const DIA_S = 10 * 60;
 /**
  * O DESVIO DA HORA (26/11/2026, "descansar até…" na fogueira — ui.js, `Game.passarAte`): horas somadas
- * ao relógio de verdade. Só na Jornada (`regras.horaPropria`, modo.js; guardado neste navegador): no Mundo
- * online fica 0 — todos veem a mesma hora.
+ * ao relógio de verdade. Só na Jornada e pelo localhost (`Game.horaPropria`; guardado neste navegador): no
+ * Mundo online publicado fica 0 — todos veem a mesma hora.
  */
 export const RELOGIO = { desvio: 0 };
 /** A hora do mundo, de 0 a 24 (0 = meia-noite). */

@@ -209,6 +209,11 @@ class Game {
 
   /** As regras do modo de jogo (`js/modo.js`): o código pergunta por elas, não pelo modo. */
   get regras() { return REGRAS[this.modo]; }
+  /**
+   * A hora é só deste navegador (o relógio da fogueira, `passarAte`)? Na Jornada sempre (`regras.horaPropria`);
+   * no Mundo online só pelo LOCALHOST (o teste do dono: cada navegador vê a sua hora; no publicado, a de todos).
+   */
+  get horaPropria() { return this.regras.horaPropria || ['localhost', '127.0.0.1'].includes(location.hostname); }
 
   /** Tudo que o jogador pode travar a mira e golpear: os inimigos, e o rival no duelo. */
   allEnemies() {
@@ -795,7 +800,7 @@ class Game {
     this.entrando = false;
     if (!r.ok) { bt.disabled = false; bt.textContent = 'Entrar em Lubelion'; aviso.textContent = r.error; return; }
     this.modo = 'mmo';
-    RELOGIO.desvio = 0;   // no Mundo online a hora é a de todos (`regras.horaPropria`)
+    if (!this.horaPropria) RELOGIO.desvio = 0;   // no Mundo online a hora é a de todos (menos pelo localhost: `horaPropria`)
     this.passagem = null;
     this.sessao = r.mundo;
     // personagem de outra ficha (ficha.js) recomeça do zero: é o reset de todos
@@ -1419,12 +1424,12 @@ class Game {
   }
 
   /**
-   * DESCANSAR ATÉ A HORA `alvo` (0–24; o relógio da fogueira, ui.js — só na Jornada, `regras.horaPropria`):
+   * DESCANSAR ATÉ A HORA `alvo` (0–24; o relógio da fogueira, ui.js — na Jornada e no localhost, `horaPropria`):
    * o tempo corre só para a FRENTE, rápido (de 0,8 s a ~3,5 s), somando ao `RELOGIO.desvio` (world.js);
    * o céu, a luz e as sombras acompanham. No fim, o desvio fica guardado neste navegador.
    */
   passarAte(alvo) {
-    if (!this.regras.horaPropria || this.passagem || !Number.isFinite(alvo)) return false;
+    if (!this.horaPropria || this.passagem || !Number.isFinite(alvo)) return false;
     const falta = (((alvo - horaDoMundo()) % 24) + 24) % 24;
     if (falta < 1 / 60) return false;
     this.passagem = { de: RELOGIO.desvio, falta, t: 0, dur: 0.8 + falta * 0.11 };
