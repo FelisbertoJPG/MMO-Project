@@ -239,8 +239,16 @@
           <button data-bf="nivel">Subir de nível</button>
           <button data-bf="panela">Cozinhar</button>
           <button data-bf="viajar">Viajar</button>
+          <button data-bf="hora">Mudar a hora</button>
           <button id="bf-leave">Levantar-se</button>
         </div>
+      </div>
+      <!-- (26/11/2026) o RELÓGIO: descansar até a hora escolhida (ui.renderRelogio; só na Jornada) -->
+      <div id="bf-hora" class="hidden">
+        <div class="bf-sub">Arraste o ponteiro até a hora em que quer acordar.</div>
+        <div id="relogio-fogueira"></div>
+        <div class="bf-botoes"><button id="bf-hora-ok">Descansar</button></div>
+        <button data-bf="opcoes">Voltar</button>
       </div>
       <div id="bf-viajar" class="hidden">
         <div class="bf-sub">Para qual fogueira?</div>

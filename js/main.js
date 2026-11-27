@@ -8,7 +8,7 @@ import { TelaPerfis } from './perfis.js';
 import { assarRefeicoes } from './refeicao.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
-import { World, START_POS, SAQUES, horaDoMundo, CELL } from './world.js';
+import { World, START_POS, SAQUES, horaDoMundo, CELL, RELOGIO } from './world.js';
 import { Effects, Projectiles, flatDist, yawTo } from './combat.js';
 import { Player } from './player.js';
 import { Monitor } from './monitor.js';
@@ -45,6 +45,7 @@ import { aquecerPintura } from './pintura.js';
 import { aquecerBrilhoDosOlhos } from './cilios.js';
 import { CAMADA_SOMBRA, carregarFotosGuardadas, gravarFotosNovas, apagarFotosGuardadas } from './lod.js';
 import './relogio.js';   // o relógio de teste (só com ?relogio no endereço)
+const CHAVE_DESVIO_DA_HORA = 'masmorra:hora-desvio';   // o desvio da hora da Jornada (world.js, RELOGIO)
 
 /** Onde fica guardado o endereço do servidor de mundo escolhido na tela inicial ('' = o deste jogo). */
 const CHAVE_ENDERECO = 'masmorra:mundo';
@@ -87,6 +88,8 @@ class Game {
     // 'mmo' = o Mundo online (um mapa para todos, o personagem no servidor).
     // Quem escolhe é o botão da tela de título; o que muda está em `js/modo.js`.
     this.modo = 'offline';
+    // o DESVIO DA HORA da Jornada (descansar até…, `passarAte`), guardado neste navegador
+    try { const d = Number(localStorage.getItem(CHAVE_DESVIO_DA_HORA)); RELOGIO.desvio = Number.isFinite(d) ? ((d % 24) + 24) % 24 : 0; } catch { RELOGIO.desvio = 0; }
     this.timers = [];
     this.sfx = new Sfx();
     this.input = new Input(this.renderer.domElement);
@@ -792,6 +795,8 @@ class Game {
     this.entrando = false;
     if (!r.ok) { bt.disabled = false; bt.textContent = 'Entrar em Lubelion'; aviso.textContent = r.error; return; }
     this.modo = 'mmo';
+    RELOGIO.desvio = 0;   // no Mundo online a hora é a de todos (`regras.horaPropria`)
+    this.passagem = null;
     this.sessao = r.mundo;
     // personagem de outra ficha (ficha.js) recomeça do zero: é o reset de todos
     const salvo = fichaAtual(r.mundo.personagem);
@@ -1413,6 +1418,32 @@ class Game {
     this.rest(id);
   }
 
+  /**
+   * DESCANSAR ATÉ A HORA `alvo` (0–24; o relógio da fogueira, ui.js — só na Jornada, `regras.horaPropria`):
+   * o tempo corre só para a FRENTE, rápido (de 0,8 s a ~3,5 s), somando ao `RELOGIO.desvio` (world.js);
+   * o céu, a luz e as sombras acompanham. No fim, o desvio fica guardado neste navegador.
+   */
+  passarAte(alvo) {
+    if (!this.regras.horaPropria || this.passagem || !Number.isFinite(alvo)) return false;
+    const falta = (((alvo - horaDoMundo()) % 24) + 24) % 24;
+    if (falta < 1 / 60) return false;
+    this.passagem = { de: RELOGIO.desvio, falta, t: 0, dur: 0.8 + falta * 0.11 };
+    this.sfx.bonfire?.();
+    return true;
+  }
+
+  andarPassagem(dt) {
+    const P = this.passagem;
+    P.t = Math.min(P.dur, P.t + dt);
+    const u = P.t / P.dur, e = u * u * (3 - 2 * u);
+    RELOGIO.desvio = (P.de + P.falta * e) % 24;
+    this.ui.mostrarRelogio?.();
+    if (P.t < P.dur) return;
+    this.passagem = null;
+    try { localStorage.setItem(CHAVE_DESVIO_DA_HORA, String(RELOGIO.desvio)); } catch { }
+    this.ui.mostrarRelogio?.(true);
+  }
+
   teleportHome() {
     if (this.sessao?.coop) return this.sessao.encerrarCoop(this.sessao.coop.dono ? 'o dono do mundo voltou à fogueira' : 'você voltou para casa');
     const p = this.player;
@@ -1635,6 +1666,7 @@ class Game {
       this.ui.setPrompt(null);
       M?.fase('entrada');
       this.player.model.update(dt);
+      if (this.passagem) { this.andarPassagem(dt); this.world.updateAmbience(dt); }   // (o céu anda com o menu aberto)
       M?.fase('jogador');
     } else {
       if (this.menu) { this.handleMenuInput(); this.ui.setPrompt(null); } else this.handleInput();
@@ -1643,6 +1675,7 @@ class Game {
       else {
         this.time += dt;
         this.runTimers();
+        if (this.passagem) this.andarPassagem(dt);
         this.player.update(dt);
         for (const c of this.chefesDoMapa) if (c.podeAcordar()) this.onChefeAcorda(c);
         M?.fase('jogador');

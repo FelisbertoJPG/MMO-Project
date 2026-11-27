@@ -261,7 +261,7 @@ export class Monitor {
   horaDoMundo() {
     const v = globalThis.__hora;
     if (Number.isFinite(v)) return v;
-    return ((Date.now() / 1000) % 1200) / 1200 * 24;   // DIA_S = 20 min (world.js)
+    return globalThis.__horaDoMundo?.() ?? ((Date.now() / 1000) % 600) / 600 * 24;   // (world.js: DIA_S = 10 min, mais o desvio da Jornada)
   }
 
   // ------------------------------------------------------------ medições

@@ -153,12 +153,19 @@ export const FOGUEIRAS = FOGUEIRAS_DO_MAPA.map((f) => ({
 export const GLOW = { tex: null };
 
 // ---------------------------------------------------------------- O CICLO DO DIA
-// Um dia inteiro em DIA_S segundos (20 min), contado pelo relógio de verdade: duas
+// Um dia inteiro em DIA_S segundos (10 min desde 26/11/2026; eram 20), contado pelo relógio de verdade: duas
 // telas — e todos no Mundo online — veem a mesma hora sem trocar recado nenhum.
-export const DIA_S = 20 * 60;
+export const DIA_S = 10 * 60;
+/**
+ * O DESVIO DA HORA (26/11/2026, "descansar até…" na fogueira — ui.js, `Game.passarAte`): horas somadas
+ * ao relógio de verdade. Só na Jornada (`regras.horaPropria`, modo.js; guardado neste navegador): no Mundo
+ * online fica 0 — todos veem a mesma hora.
+ */
+export const RELOGIO = { desvio: 0 };
 /** A hora do mundo, de 0 a 24 (0 = meia-noite). */
 // (para testar: `__hora = 12` no console prende o relógio ao meio-dia; `__hora = null` solta)
-export function horaDoMundo(agora = Date.now()) { return Number.isFinite(globalThis.__hora) ? globalThis.__hora : ((agora / 1000) % DIA_S) / DIA_S * 24; }
+export function horaDoMundo(agora = Date.now()) { return Number.isFinite(globalThis.__hora) ? globalThis.__hora : ((((agora / 1000) % DIA_S) / DIA_S * 24 + RELOGIO.desvio) % 24 + 24) % 24; }
+globalThis.__horaDoMundo = horaDoMundo;   // (o monitor lê por aqui, sem importar o mundo)
 // As CHAVES do céu (hora → como está): o resto é interpolado entre a de antes e a de depois.
 // `dia` (0–1) é quanto de sol há — os campos só ficam mais verdes com sol.
 // A NOITE ESCURA (26/11/2026, o dono: "uma noite mais escura, onde a luz da lua e da tocha se fazem
@@ -328,7 +335,7 @@ export class World extends MapaLogico {
   // ---------- Iluminação: dentro, fora e O DIA ----------
   //
   // A troca é pela CÉLULA do jogador (`updateAmbience`): dentro da masmorra, o escuro
-  // de sempre; no ar livre ('f', 'a', 'e'), o CÉU DO CICLO DO DIA (`cicloDoDia`, 20 min
+  // de sempre; no ar livre ('f', 'a', 'e'), o CÉU DO CICLO DO DIA (`cicloDoDia`, 10 min
   // por dia, pelo relógio de verdade — no Mundo online todos veem a mesma hora). Uma
   // luz direcional acesa dentro clarearia a masmorra inteira (sem sombras, ela atravessa
   // teto e parede), e o clima dela é metade do jogo: por isso ela apaga lá dentro.

@@ -5,6 +5,7 @@ import { custoDoNivel, vigorDoNivel, cargaDoNivel, bonusForcaDoNivel, pontosDisp
 import { ATIVAS } from './caminhos.js';
 import { RECEITAS, podeCozinhar, listaDaReceita, NA_PANELA } from './receitas.js';
 import { fmtTime } from './inventory.js';
+import { horaDoMundo } from './world.js';
 
 const $ = (s) => document.querySelector(s);
 const _v = new THREE.Vector3();
@@ -143,12 +144,97 @@ export class UI {
     this.mostrarFogueira('opcoes');
   }
 
-  /** 'opcoes' | 'nivel' | 'panela' | 'viajar' */
+  /** 'opcoes' | 'nivel' | 'panela' | 'viajar' | 'hora' */
   mostrarFogueira(tela) {
-    for (const t of ['opcoes', 'nivel', 'panela', 'viajar']) document.getElementById(`bf-${t}`).classList.toggle('hidden', t !== tela);
+    if (this.game.passagem && tela !== 'hora') return;   // (o tempo correndo: fica no relógio até acabar)
+    for (const t of ['opcoes', 'nivel', 'panela', 'viajar', 'hora']) document.getElementById(`bf-${t}`).classList.toggle('hidden', t !== tela);
+    // "Mudar a hora" só onde a hora é sua (a Jornada: `regras.horaPropria`)
+    document.querySelector('[data-bf="hora"]')?.classList.toggle('hidden', !this.game.regras.horaPropria);
     if (tela === 'nivel') this.renderLevelUp();
     if (tela === 'panela') { this.naPanela = []; this.renderPanela(); }
     if (tela === 'viajar') this.renderViajar();
+    if (tela === 'hora') this.renderRelogio();
+  }
+
+  /**
+   * O RELÓGIO DA FOGUEIRA (26/11/2026, no estilo do Genshin; só na Jornada): um mostrador de 24 h —
+   * meia-noite embaixo, meio-dia em cima, o dia (6 h às 18 h) claro e a noite escura. O ponteiro
+   * dourado se arrasta até a hora em que se quer acordar (de 15 em 15 min, sempre para a FRENTE); o
+   * arco mostra o tempo que vai passar. "Descansar" chama `Game.passarAte`, e o relógio gira junto
+   * com o céu (`mostrarRelogio`, a cada quadro da passagem).
+   */
+  renderRelogio() {
+    const el = document.getElementById('relogio-fogueira');
+    const C = 120, R = 92, ns = 'http://www.w3.org/2000/svg';
+    // hora → ponto no círculo (meia-noite embaixo, horário)
+    const ponto = (h, r = R) => { const a = (h / 24) * Math.PI * 2; return [C - r * Math.sin(a), C + r * Math.cos(a)]; };
+    if (!this.relogio) {
+      const metade = (de, ate, cor) => { const [x0, y0] = ponto(de, R + 14), [x1, y1] = ponto(ate, R + 14); return `<path d="M${C},${C} L${x0},${y0} A${R + 14},${R + 14} 0 0 1 ${x1},${y1} Z" fill="${cor}"/>`; };
+      let marcas = '';
+      for (let h = 0; h < 24; h++) {
+        const [x0, y0] = ponto(h, R + 10), [x1, y1] = ponto(h, h % 6 ? R + 4 : R - 2);
+        marcas += `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" class="rl-marca${h % 6 ? '' : ' grande'}"/>`;
+      }
+      const rotulo = (h, t) => { const [x, y] = ponto(h, R - 16); return `<text x="${x}" y="${y + 5}" class="rl-num">${t}</text>`; };
+      const [sx, sy] = ponto(12, R - 38), [lx, ly] = ponto(0, R - 38);
+      el.innerHTML = `<svg viewBox="0 0 240 240" class="relogio">
+        ${metade(6, 18, 'var(--rl-dia)')}${metade(18, 30, 'var(--rl-noite)')}
+        <circle cx="${C}" cy="${C}" r="${R + 14}" class="rl-aro"/>
+        ${marcas}${rotulo(0, '0')}${rotulo(6, '6')}${rotulo(12, '12')}${rotulo(18, '18')}
+        <circle cx="${sx}" cy="${sy}" r="9" class="rl-sol"/>
+        <path d="M${lx + 3},${ly - 9} a9,9 0 1,0 0,18 a11,11 0 0,1 0,-18 Z" class="rl-lua"/>
+        <path id="rl-arco" class="rl-arco" d=""/>
+        <line id="rl-ponteiro" x1="${C}" y1="${C}" x2="${C}" y2="${C}" class="rl-ponteiro"/>
+        <circle id="rl-agora" r="6" class="rl-agora"/>
+        <circle id="rl-pegador" r="11" class="rl-pegador"/>
+        <circle cx="${C}" cy="${C}" r="40" class="rl-centro"/>
+        <text id="rl-hora" x="${C}" y="${C + 4}" class="rl-hora">--:--</text>
+        <text id="rl-falta" x="${C}" y="${C + 22}" class="rl-falta"></text>
+      </svg>`;
+      const svg = el.querySelector('svg');
+      const escolher = (e) => {
+        if (this.game.passagem) return;
+        const b = svg.getBoundingClientRect(), x = (e.clientX - b.left) / b.width * 240 - C, y = (e.clientY - b.top) / b.height * 240 - C;
+        if (x * x + y * y < 20 * 20) return;   // (no miolo não dá para saber o ângulo)
+        const h = ((Math.atan2(-x, y) / (Math.PI * 2)) * 24 + 24) % 24;
+        this.relogio.alvo = Math.round(h * 4) / 4 % 24;
+        this.mostrarRelogio();
+      };
+      svg.addEventListener('pointerdown', (e) => { svg.setPointerCapture(e.pointerId); this.relogio.arrastando = true; escolher(e); });
+      svg.addEventListener('pointermove', (e) => { if (this.relogio.arrastando) escolher(e); });
+      for (const ev of ['pointerup', 'pointercancel']) svg.addEventListener(ev, () => { this.relogio.arrastando = false; });
+      document.getElementById('bf-hora-ok').addEventListener('click', () => {
+        if (this.game.passarAte(this.relogio.alvo)) this.mostrarRelogio();
+      });
+      this.relogio = { ponto, alvo: null, arrastando: false };
+    }
+    // abre com o ponteiro na próxima hora cheia depois de agora + 1 h
+    this.relogio.alvo = Math.ceil(horaDoMundo() + 1) % 24;
+    this.mostrarRelogio();
+  }
+
+  /** Redesenha os ponteiros (a cada quadro enquanto o tempo corre; `fim` = a passagem acabou). */
+  mostrarRelogio(fim = false) {
+    const R0 = this.relogio;
+    if (!R0) return;
+    const el = (id) => document.getElementById(id), agora = horaDoMundo(), R = 92;
+    const fmt = (h) => `${String(Math.floor(h) % 24).padStart(2, '0')}:${String(Math.floor(Math.round((h % 1) * 60) % 60)).padStart(2, '0')}`;
+    const correndo = !!this.game.passagem;
+    if (fim) R0.alvo = Math.ceil(agora + 1) % 24;
+    const alvo = R0.alvo, falta = (((alvo - agora) % 24) + 24) % 24;
+    const [ax, ay] = R0.ponto(agora), [px, py] = R0.ponto(correndo ? agora : alvo);
+    el('rl-agora').setAttribute('cx', ax); el('rl-agora').setAttribute('cy', ay);
+    el('rl-pegador').setAttribute('cx', px); el('rl-pegador').setAttribute('cy', py);
+    el('rl-ponteiro').setAttribute('x2', px); el('rl-ponteiro').setAttribute('y2', py);
+    // o arco do tempo que vai passar (de agora até o alvo, no sentido do relógio)
+    const [bx, by] = R0.ponto(alvo);
+    el('rl-arco').setAttribute('d', falta > 0.01 ? `M${ax},${ay} A${R},${R} 0 ${falta > 12 ? 1 : 0} 1 ${bx},${by}` : '');
+    el('rl-hora').textContent = fmt(correndo ? agora : alvo);
+    const hh = Math.floor(falta), mm = Math.round((falta - hh) * 60);
+    el('rl-falta').textContent = correndo ? 'descansando…' : falta > 0.01 ? `+${hh} h${mm ? ` ${mm} min` : ''}` : `agora ${fmt(agora)}`;
+    const ok = el('bf-hora-ok');
+    ok.disabled = correndo || falta < 1 / 60;
+    ok.textContent = correndo ? 'Descansando…' : `Descansar até ${fmt(alvo)}`;
   }
 
   /** VIAJAR (por ora, para testes): todas as fogueiras do mapa, acesas ou não, menos a de agora (`Game.viajar`). */

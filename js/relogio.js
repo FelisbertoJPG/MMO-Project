@@ -1,6 +1,6 @@
 /**
  * O RELÓGIO DE TESTE (19/10/2026) — para ver o jogo numa hora escolhida (o dia, o pôr do sol, a
- * noite) sem esperar o relógio de verdade (`horaDoMundo`, world.js: um dia a cada 20 min). Só
+ * noite) sem esperar o relógio de verdade (`horaDoMundo`, world.js: um dia a cada 10 min). Só
  * aparece com `?relogio` no endereço (http://localhost:5173/?relogio): um painel no canto com a
  * hora, uma régua de 0 a 24 h e "Soltar" (volta ao relógio de verdade). Ele só prende
  * `globalThis.__hora` NESTE navegador — o mesmo que `__hora = 12` no console —: os outros

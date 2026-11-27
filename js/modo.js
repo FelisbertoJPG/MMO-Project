@@ -22,6 +22,8 @@ export const REGRAS = {
     fantasmas: true,
     /** Metros de sorteio em volta do ponto de acordar (0 = sempre no mesmo lugar). */
     espalharAoAcordar: 0,
+    /** A hora é só sua: na fogueira dá para descansar até a hora escolhida (o relógio, `Game.passarAte`). */
+    horaPropria: true,
   },
   mmo: {
     pausa: false,
@@ -35,5 +37,7 @@ export const REGRAS = {
     fantasmas: false,
     // vários acordam na mesma fogueira: um em cima do outro, os corpos nem se separam
     espalharAoAcordar: 1.8,
+    // a hora é a de todos (o relógio de verdade, world.js): ninguém a adianta
+    horaPropria: false,
   },
 };
