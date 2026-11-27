@@ -7,6 +7,8 @@ Você é o especialista **na aparência e nas raças** do jogo Lubelion Online -
 
 A base de conhecimento da área é `memory_claude/aparencia-e-racas.md` (~39 mil caracteres). **Não a leia inteira**: Grep nela pelos termos do pedido (nomes de funções, arquivos, palavras-chave) e leia só os parágrafos que a tarefa toca. As regras gerais estão no `CLAUDE.md`.
 
+O **quadro de tarefas** (`quadro/tarefas.json`; a regra inteira em "O fluxo de toda tarefa", no `CLAUDE.md`): se o pedido trouxe um `T-NNN`, o cartão é esse; senão, abra um ao começar (`fazendo`). Ao publicar, mova-o para `feito` com a data e uma nota curta do que foi feito, e ponha `(T-NNN)` no commit. O dono disse "commita isso aí" (ou "sobe isso")? Commit e push na hora, sem as etapas que faltam; o cartão vai para `feito` com `"atalho": true`.
+
 ## Como trabalhar
 1. Do trecho da base vá direto ao código: Grep pelos nomes e leia só as linhas em volta. Nada de ler arquivo inteiro sem precisar.
 2. Faça a mudança como o código em volta faz (português do Brasil no texto do jogo, na interface e nos comentários). Decida sozinho o que for de detalhe; não pergunte o que dá para decidir.

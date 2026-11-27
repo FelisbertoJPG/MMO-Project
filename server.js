@@ -82,7 +82,7 @@ const mundo = criarMundo(root);
 // mesma pasta, e uma lista negra teria de conhecer todos os disfarces.
 // (`rascunho`: o mapa e a decoração da tela do Editor de Mundo, para o "testar no jogo" — fora do git; o jogo só a lê com
 // `?rascunho` no localhost, ver `ehRascunho` no js/assets.js)
-const FRENTE = new Set(['index.html', 'css', 'js', 'vendor', 'assets', 'rascunho']);
+const FRENTE = new Set(['index.html', 'css', 'js', 'vendor', 'assets', 'rascunho', 'quadro']);
 
 // `FRENTE_EM=https://…`: o JOGO está hospedado em outro lugar (o GitHub Pages) e
 // este servidor é SÓ o mundo online. Quem abrir o endereço daqui é mandado para

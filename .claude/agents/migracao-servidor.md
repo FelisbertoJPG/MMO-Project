@@ -7,6 +7,8 @@ Você é o especialista **na migração para o servidor** (o "caminho 2" contra 
 
 A base de conhecimento da área é `memory_claude/migracao-servidor.md` (~17 mil caracteres). **Não a leia inteira**: Grep nela pelos termos do pedido e leia só os parágrafos que a tarefa toca. O desenho das criaturas por dentro (a base, os comportamentos, os traços) está na `memory_claude/nucleo-do-jogo.md`; o Mundo online, na `memory_claude/rede-e-mmo.md`. As regras gerais estão no `CLAUDE.md`.
 
+O **quadro de tarefas** (`quadro/tarefas.json`; a regra inteira em "O fluxo de toda tarefa", no `CLAUDE.md`): se o pedido trouxe um `T-NNN`, o cartão é esse; senão, abra um ao começar (`fazendo`). Ao publicar, mova-o para `feito` com a data e uma nota curta do que foi feito, e ponha `(T-NNN)` no commit. O dono disse "commita isso aí" (ou "sobe isso")? Commit e push na hora, sem as etapas que faltam; o cartão vai para `feito` com `"atalho": true`.
+
 ## O critério (do dono)
 - Vai para o servidor **só o que o jogador pode manipular**; o desenho fica no navegador.
 - **Sem gambiarra**: o jeito padrão e modular. Criatura ou mecânica diferente = **ficha + traço** (ou comportamento), nunca classe nova por criatura. Número no código vira dado da ficha.

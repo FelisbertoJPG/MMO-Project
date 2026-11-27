@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quadro de Tarefas</title>
+<style>
+  /* O quadro das tarefas dos agentes (quadro/tarefas.json). Só lê: quem move os
+     cartões são os agentes, pela regra "O fluxo de toda tarefa" do CLAUDE.md. */
+  :root {
+    --fundo: #f4f1ea; --coluna: #e9e4d8; --cartao: #fffdf8; --texto: #2b2620;
+    --fraco: #7a7064; --borda: #d6cfbf; --destaque: #8a5a1c; --atalho: #b4412b; --ok: #3f7a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fundo: #17150f; --coluna: #221f17; --cartao: #2c281e; --texto: #ece6d8;
+      --fraco: #a39a88; --borda: #3a3428; --destaque: #e0a95a; --atalho: #ef7a5f; --ok: #8cc47f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fundo: #17150f; --coluna: #221f17; --cartao: #2c281e; --texto: #ece6d8;
+    --fraco: #a39a88; --borda: #3a3428; --destaque: #e0a95a; --atalho: #ef7a5f; --ok: #8cc47f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 14px/1.4 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 14px 16px 6px; }
+  h1 { font-size: 18px; margin: 0; }
+  #estado { color: var(--fraco); font-size: 12px; }
+  main { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 8px 16px 24px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--coluna); border-radius: 8px; padding: 8px; min-height: 80px; }
+  section h2 { font-size: 13px; margin: 2px 4px 8px; display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: .04em; }
+  section h2 span { color: var(--fraco); font-weight: normal; }
+  .cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+  .topo { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--fraco); }
+  .id { color: var(--destaque); font-weight: 600; }
+  .titulo { margin: 3px 0; font-weight: 600; }
+  .pedido { margin: 3px 0; font-style: italic; color: var(--fraco); }
+  .notas { margin: 4px 0 0; padding-left: 16px; font-size: 12px; }
+  .selo { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 9px; border: 1px solid currentColor; margin-left: 4px; }
+  .selo.atalho { color: var(--atalho); }
+  .selo.revisado { color: var(--ok); }
+  .vazio { color: var(--fraco); font-size: 12px; margin: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Quadro de Tarefas — Lubelion</h1>
+  <div id="estado">carregando…</div>
+</header>
+<main id="quadro"></main>
+<script>
+  // As etapas, na ordem do fluxo: fazer → revisar → testar → fechar.
+  const ETAPAS = [
+    ['a-fazer', 'A fazer'], ['fazendo', 'Fazendo'], ['revisar', 'Revisar'],
+    ['testar', 'Testar'], ['feito', 'Feito'],
+  ];
+  const FEITAS_A_MOSTRAR = 30;
+  // Funciona em /quadro, /quadro/ e /quadro/index.html (e no Pages, com o prefixo do repositório).
+  const DADOS = location.pathname.replace(/\/(index\.html)?$/, '') + '/tarefas.json';
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function cartao(t) {
+    const selos = (t.atalho ? '<span class="selo atalho" title="O dono pediu &quot;commita isso aí&quot;: subiu sem as etapas que faltavam">atalho</span>' : '')
+      + (t.revisado ? '<span class="selo revisado" title="Passou pelo agente revisor">revisado</span>' : '');
+    const datas = t.fechada && t.fechada !== t.aberta ? `${esc(t.aberta)} → ${esc(t.fechada)}` : esc(t.aberta);
+    const notas = (t.notas ?? []).map((n) => `<li>${esc(n)}</li>`).join('');
+    return `<div class="cartao">
+      <div class="topo"><span><span class="id">${esc(t.id)}</span>${selos}</span><span>${datas}</span></div>
+      <div class="titulo">${esc(t.titulo)}</div>
+      ${t.pedido ? `<div class="pedido">“${esc(t.pedido)}”</div>` : ''}
+      <div class="topo"><span>${esc(t.area)}</span><span>${esc(t.quem)}</span></div>
+      ${notas ? `<ul class="notas">${notas}</ul>` : ''}
+    </div>`;
+  }
+
+  function desenhar(tarefas) {
+    const html = ETAPAS.map(([chave, nome]) => {
+      let lista = tarefas.filter((t) => t.etapa === chave);
+      // A mais nova em cima; das feitas, só as últimas.
+      lista.sort((a, b) => String(b.fechada ?? b.aberta).localeCompare(String(a.fechada ?? a.aberta)) || String(b.id).localeCompare(String(a.id)));
+      const total = lista.length;
+      if (chave === 'feito') lista = lista.slice(0, FEITAS_A_MOSTRAR);
+      return `<section><h2>${nome} <span>${total}</span></h2>${lista.map(cartao).join('') || '<div class="vazio">nada</div>'}</section>`;
+    }).join('');
+    document.getElementById('quadro').innerHTML = html;
+  }
+
+  async function carregar() {
+    try {
+      const r = await fetch(DADOS, { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      const dados = await r.json();
+      desenhar(Array.isArray(dados.tarefas) ? dados.tarefas : []);
+      document.getElementById('estado').textContent = 'atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+    } catch (e) {
+      document.getElementById('estado').textContent = 'não consegui ler o tarefas.json (' + e.message + ')';
+    }
+  }
+  carregar();
+  setInterval(carregar, 10000);
+</script>
+</body>
+</html>

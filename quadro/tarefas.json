@@ -1,0 +1,22 @@
+{
+  "proximo": 2,
+  "tarefas": [
+    {
+      "id": "T-001",
+      "titulo": "Padrão de trabalho do devleor: quadro de tarefas, revisor, registro de decisões e skills",
+      "pedido": "minha ideia é nos padronizarmos pra seguir esses ensinamentos",
+      "area": "processo",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-27",
+      "fechada": "2026-11-27",
+      "notas": [
+        "quadro/ (esta página) + a regra no CLAUDE.md; o AgEnFK do vídeo ficou de fora (Node 22, sem o atalho 'commita isso aí')",
+        "agente revisor + /revisar (só quando o dono pedir)",
+        "npm test dos agentes fortes cobre também inimigos, mapa lógico, ataques, ficha e regras",
+        "planejamento/decisoes/ com 6 decisões; 4 skills em .claude/skills/"
+      ],
+      "atalho": false
+    }
+  ]
+}

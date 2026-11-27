@@ -1,0 +1,7 @@
+# O servidor do Mundo online confere o passo e o golpe pelos números do JOGO
+
+- **Data:** 2026-11-24 · **Commit:** dd32395 (o vigor e o ritmo dos golpes em a7407c4) · **Área:** `migracao-servidor`
+- **Decidido:** o servidor do Mundo online (`regras-do-mundo.mjs`) não confia no que o jogador manda. Ninguém anda mais rápido do que permitem a corrida com o maior bônus da árvore, o rolamento e o dash do `assets/balanco.json` (com 25% de folga, num balde de 4 s). Golpe com dano, poise ou força contra escudo acima do teto da arma nas mãos não chega ao simulador. Depois vieram o vigor e o ritmo dos golpes. Os números vêm das **mesmas fontes** que o jogo usa: `balanco.json`, `js/ficha.js` (`GOLPE_FORTE`, `BUFF_DANO`, `FORCA_NA_BOMBA`, `ALCANCE_DO_ROLAMENTO`…) e `js/ataques.js`.
+- **Por quê:** é a etapa 1 do "caminho 2" contra trapaça. O que o jogador pode manipular vira regra do servidor. Se os números do servidor fossem uma cópia separada, o jogador honesto seria cortado assim que alguém mexesse no balanceamento.
+- **Descartado:** escrever os números de novo no servidor, à mão. Fora isso, não ficou registrado.
+- **O que muda:** conta nova de dano, velocidade, vigor ou ritmo no `player.js` vai também para o servidor, e os números divididos ficam na `ficha.js`. O Render reinicia quando o balanceamento, a ficha, as armas ou a árvore mudam. A regra está no `CLAUDE.md` (Rede, modos e save) e em `memory_claude/migracao-servidor.md`.

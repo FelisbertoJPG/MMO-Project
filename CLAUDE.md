@@ -17,6 +17,14 @@ Marque como recomendada a que cabe (dúvida ou ajuste pequeno → ler a base; ta
 - **Todo agente vai com TETO no prompt**: o que entregar, e a validação MÍNIMA — uma prancha de fotos do caso pedido (não todas as raças × cores × elmos × distâncias), sem medir o que não mudou. Teste a mais só se o dono pedir.
 - **No fim, diga o custo** (tokens e tempo do agente). Se passou de ~100 mil tokens numa tarefa pequena, diga por quê.
 
+**O FLUXO DE TODA TAREFA** (o padrão do vídeo do devleor, adotado em 27/11/2026; o estudo está em `planejamento/estudos/devleor-godot-ia-notas.md`, fora do git):
+- **O quadro**: `quadro/tarefas.json`, que se vê em `localhost:5173/quadro/index.html` (e no Pages, em `/quadro/`). Todo pedido que muda arquivo do projeto ganha um cartão. Pergunta sem código não ganha. O cartão tem `id` (`T-NNN`, do `proximo`, que você sobe), `titulo`, `pedido` (a fala do dono), `area`, `quem` (sessão, leve, forte ou revisor), `etapa`, `aberta`/`fechada` (AAAA-MM-DD), `notas` e `atalho`. Quem chama um agente abre o cartão e passa o `T-NNN` no prompt.
+- **As etapas**: `a-fazer` → `fazendo` → `revisar` → `testar` → `feito`. O leve e a sessão marcam só o começo e o fim. O forte passa por `revisar` (relê o próprio diff contra as regras daqui) e por `testar` (o `npm test` do que ele cobre e o jogo). Os testes ficam com o forte: o leve só confere a sintaxe. O commit leva `(T-NNN)`.
+- **"Commita isso aí"** (ou "sobe isso"), dito pelo dono: commit e push **na hora**, pulando as etapas que faltam. O cartão vai para `feito` com `"atalho": true`.
+- **Revisor separado só quando o dono pedir** (`/revisar`): o agente `revisor` não escreveu o código, lê só o diff e a base da área, aponta e nunca edita.
+- **Decisão grande** (um sistema sai ou volta, arquitetura nova, um "não vamos fazer X") vira um arquivo em `planejamento/decisoes/` no mesmo commit (skill `registrar-decisao`). Antes de propor algo grande, procure lá o que já foi descartado.
+- **Skills por tipo de tarefa** (`.claude/skills/`: `publicar-versao`, `peca-do-meshy`, `estudar-video`, `registrar-decisao`). Use a que couber. Tarefa que deu trabalho e vai se repetir: no fim, proponha ao dono "anotar o que aprendi numa skill".
+
 ## Projeto
 
 "Lubelion Online - MMO Project" (antes "Masmorra do Carrasco"; o código, o servidor e o Supabase seguem com "masmorra" nos nomes — não renomear, é protocolo e banco) — um RPG de ação souls-like em Three.js puro (navegador, módulos ES). Sem build, sem linter; os únicos testes são os do servidor de mundo (`npm test`). Three.js e os addons estão em `vendor/` (import map no `index.html`). O JOGO não tem dependência npm; o SERVIDOR tem uma, o `three` na MESMA versão do `vendor/` (roda a lógica dos inimigos; o `npm test` confere que é o mesmo arquivo — subiu o vendor, `npm install --save-exact three@<versão>`). **Todo texto do jogo, da interface e dos comentários é em português do Brasil.**
@@ -109,5 +117,6 @@ Nada a compilar: editou, recarregue a página. `window.game` é o `Game` no cons
 | `/agent_desempenho` | `/agent_desempenho_forte` | `desempenho-do-jogo` | qualidades gráficas, luzes, LOD, sombras, resolução automática, máquina fraca e celular, o monitor (F3), perfil de CPU, telemetria |
 | — | `/agent_otimizador` | `otimizador-de-desempenho` (do usuário) | lentidão NOVA a investigar medindo: o método (medir, achar o gargalo, uma mudança por vez, provar) com o kit — monitor portátil e perfil de CPU (`--freio`). Ajuste ou dúvida sobre o que já foi feito aqui = `/agent_desempenho` |
 | `/agent_rapido` | — | `executor-rapido` (do usuário) | qualquer área, com pressa: faz direto, sem a fase longa de testes |
+| `/revisar` | — | `revisor` (sem base própria: lê a da área do que mudou) | só quando o dono pede: lê o diff com olhos de fora, aponta bugs e regras quebradas, nunca edita |
 
-Os dois últimos ficam em `~/.claude/` (valem em todos os projetos); a fonte do otimizador e do comando dele é `ferramentas/agente-desempenho/` (mudou lá → `node ferramentas/agente-desempenho/instalar.mjs --usuario`).
+O otimizador e o rápido ficam em `~/.claude/` (valem em todos os projetos); a fonte do otimizador e do comando dele é `ferramentas/agente-desempenho/` (mudou lá → `node ferramentas/agente-desempenho/instalar.mjs --usuario`).

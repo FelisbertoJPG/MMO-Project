@@ -33,3 +33,8 @@ ferramentas/desempenho/chave.txt
 
 # as dependências do SERVIDOR (só o three, a mesma versão do vendor/): saem do `npm install`
 /node_modules/
+
+# o vault do Obsidian (abrir a pasta ds como vault: a configuracao dele e de cada maquina)
+/.obsidian/
+# os estudos de video: transcricao de terceiros, e o repositorio e publico
+/planejamento/estudos/

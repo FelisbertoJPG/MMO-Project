@@ -1,0 +1,7 @@
+# Inimigo = CÉREBRO + CORPO; inimigo diferente = FICHA + TRAÇOS
+
+- **Data:** 2026-11-24 · **Commits:** d5cbe52 (cérebro e corpo), 92d7321 (o Carrasco vira ficha + traços), 224e1c9 (os bichos), 3f3a231 (o dragão) · **Área:** `migracao-servidor`, `nucleo-do-jogo`
+- **Decidido:** a regra do inimigo (decidir, dano, estado, caminho pelo mapa lógico, fogo e sangramento, `retomar`) mora no **cérebro** (`js/inimigos/`), sem desenho, e roda no Node com o `three` do npm. O **corpo** (`Enemy`, `Animal`, `Dragao`) só desenha e ouve os eventos do cérebro (`emitir` → `aoEvento`). Um inimigo diferente é uma **ficha** em `tipos.js` mais **traços** (`js/inimigos/tracos.js`: `chefe`, `arena`, `fases`, `invocar`…), não uma classe nova. O Carrasco deixou de ser classe e virou a ficha `carrasco`.
+- **Por quê:** o servidor do Mundo online precisa rodar os inimigos com as mesmas regras do jogo, o que só dá se a regra não depender do desenho. O dono disse: "lembra que eu n quero gambiarra, quero modular o projeto da maneira mais correta e adequada".
+- **Descartado:** uma classe por inimigo, que era como o Carrasco estava antes. Os números dentro do código viraram dado da ficha.
+- **O que muda:** bicho novo = ficha em `tipos.js` + `node ferramentas/inimigos/medir-clipes.mjs`. Efeito ou som novo = um evento do cérebro. Nunca usar `game.effects`, `sfx` ou `model` dentro do cérebro. Mecânica que outro inimigo possa usar = um traço novo. A regra está no `CLAUDE.md` (Rede, modos e save) e em `memory_claude/migracao-servidor.md`.
