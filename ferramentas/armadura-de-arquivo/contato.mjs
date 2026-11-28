@@ -3,7 +3,7 @@
 // encostando na malha do personagem, e outras partes que foram removidas que talvez nem precisassem ser removidas").
 //
 // node ferramentas/armadura-de-arquivo/contato.mjs <config.json> [--bracos 81] [--frente 0] [--cotovelos 0] [--perto 0.3]
-//                                               [--edicoes humano:arquivo7] [--saida <contato.json>] [--foto <prancha.png>]
+//                                               [--edicoes humano:arquivo7] [--armadura <previa.json>] [--saida <contato.json>] [--foto <prancha.png>]
 //
 // O corpo é o do JOGO: o arquivo (assets/corpos/<corpo>.json, com as juntas do esqueletos.json) e as EDIÇÕES dele no assets/modelagem.json
 // (cortes, vértices apagados e movidos, partes, criados), pelo mesmo modelagem.js do jogo — mas com TODA a pele (nada do `esconde`), para
@@ -63,7 +63,7 @@ const criado = (t) => t >= nT;   // (os triângulos criados na aba Modelo entram
 
 // ------------------------------------------------------------------ a ARMADURA gravada
 const de64 = (s, T) => { const b = Buffer.from(s, 'base64'); return new T(b.buffer.slice(b.byteOffset, b.byteOffset + b.length)); };
-const arm = JSON.parse(fs.readFileSync(path.join(RAIZ, 'assets/armaduras-de-arquivo', `${cfg.id}.json`), 'utf8'));
+const arm = JSON.parse(fs.readFileSync(opcao('--armadura') ?? path.join(RAIZ, 'assets/armaduras-de-arquivo', `${cfg.id}.json`), 'utf8'));   // (`--armadura`: outra, a prévia do vestir.mjs)
 const AP = de64(arm.pos, Float32Array), AI = de64(arm.idx32, Uint32Array), AO = de64(arm.ossoDe, Uint8Array), AW = de64(arm.peso, Uint8Array), AC = de64(arm.cor, Uint8Array);
 const esconde = new Set(arm.esconde32 ? de64(arm.esconde32, Uint32Array) : []);
 const doArm = arm.nomes.map((n) => corpo.nomes.indexOf(n)), nA = AI.length / 3;
@@ -220,5 +220,11 @@ if (foto) {
   const [p2, i2, c2] = juntar(vivos, [], (t) => (escondido(t) ? COR_E[estadoB[t]] : PELE), () => PELE);
   const foto2 = foto.replace(/\.png$/, '-escondidos.png');
   prancha(foto2, p2, i2, { cores: c2, W: 420, H: 520, vistas });
+  // (3) COMO O JOGO MOSTRA: a pele escondida fora, as cores de verdade — de perto com `--zoom` (a escala: 3,6 = o corpo inteiro)
+  const zoom = Number(opcao('--zoom') ?? 3.6), vistasJogo = [0, 40, 90, 180].map((giro) => ({ giro, centro: [0, zoom > 5 ? 132 : 128], escala: zoom }));
+  const [p3, i3, c3] = juntar(vivos.filter((t) => !escondido(t)), [...Array(nA).keys()], () => PELE, (t) => [AC[t * 3], AC[t * 3 + 1], AC[t * 3 + 2]]);
+  const foto3 = foto.replace(/\.png$/, '-jogo.png');
+  prancha(foto3, p3, i3, { cores: c3, W: 420, H: 520, vistas: vistasJogo });
+  console.log(`foto como o jogo mostra: ${foto3}`);
   console.log(`fotos: ${foto} (vermelho/laranja = o corpo que cruza/encosta; roxo/rosa = a armadura) e ${foto2} (escondidos: vermelho cruza/encosta, verde debaixo, amarelo à mostra)`);
 }

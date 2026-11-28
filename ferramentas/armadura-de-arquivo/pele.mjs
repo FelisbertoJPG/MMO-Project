@@ -54,23 +54,28 @@ function pertoNoTri(p, { a, b, c }) {
  * { q, t (o triângulo), bar (o baricentro), d (com sinal: − = dentro), fora (a direção para fora) }. A normal de fora é a do jogo
  * (corpo-arquivo.js: (c − b) × (a − b)).
  */
-export function pele(P, I) {
+// (`vale`: só os triângulos t com vale(t) — os pesos da peça do peito, sem o antebraço, a mão e as pernas)
+export function pele(P, I, vale = null) {
   const TRI = [];
   for (let t = 0; t < I.length / 3; t++) {
     const a = pt(P, I[t * 3]), b = pt(P, I[t * 3 + 1]), c = pt(P, I[t * 3 + 2]);
+    if (vale && !vale(t)) { TRI.push({ fora: true }); continue; }
     TRI.push({ a, b, c, n: norm(cross(sub(c, b), sub(a, b))), mn: [0, 1, 2].map((k) => Math.min(a[k], b[k], c[k])), mx: [0, 1, 2].map((k) => Math.max(a[k], b[k], c[k])) });
   }
   return {
-    perto(p) {
+    // (`n`: só a pele virada para o mesmo lado — o produto com a normal dela acima de 0,2; sem nenhuma assim, a mais perto de todas)
+    perto(p, n = null) {
       let mel = null, md = Infinity;
       for (let t = 0; t < TRI.length; t++) {
         const T = TRI[t];
+        if (T.fora || (n && dot(T.n, n) < 0.2)) continue;
         // (a caixa do triângulo já mais longe que o melhor: pula)
         const dx = Math.max(T.mn[0] - p[0], 0, p[0] - T.mx[0]), dy = Math.max(T.mn[1] - p[1], 0, p[1] - T.mx[1]), dz = Math.max(T.mn[2] - p[2], 0, p[2] - T.mx[2]);
         if (dx * dx + dy * dy + dz * dz >= md) continue;
         const [q, bar] = pertoNoTri(p, T), d2 = (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
         if (d2 < md) { md = d2; mel = { q, t, bar }; }
       }
+      if (!mel) return this.perto(p);
       const v = sub(p, mel.q), d = Math.sqrt(md), lado = dot(v, TRI[mel.t].n) >= 0 ? 1 : -1;
       return { ...mel, d: d * lado, fora: d > 1e-4 ? (lado > 0 ? norm(v) : norm([-v[0], -v[1], -v[2]])) : TRI[mel.t].n };
     },
@@ -99,7 +104,9 @@ export function raio(o, dir, P, I) {
  * Perto da borda (a menos de `margem` cm de um ponto descoberto, andando pela malha na pose T) fica à mostra, e o triângulo só some com
  * os três cantos cobertos: a pele vai até debaixo da barra e da manga, sem buraco na beirada.
  */
-export function peleCoberta(corpo, poses, XI, { alcance = 8, margem = 1 } = {}) {
+// (`dentro` cm — 28/11/2026, a peça APERTADA: a pele que fura a peça por pouco — o raio para DENTRO bate nela até `dentro` cm — também está
+// coberta: o peito saltado do corpo aparecia em manchas pela peça justa)
+export function peleCoberta(corpo, poses, XI, { alcance = 8, margem = 1, dentro = 0 } = {}) {
   const { id, vizinhos } = soldar(corpo.P, corpo.I), n = corpo.P.length / 3, unicos = [...new Set(id)], I = corpo.I;
   const cabeca = new Set(['Neck', 'Head'].map((x) => corpo.nomes.indexOf(x)).filter((i) => i >= 0));
   const naCabeca = (v) => { let w = 0; for (let j = 0; j < 4; j++) if (cabeca.has(corpo.ossoDe[v * 4 + j])) w += corpo.peso[v * 4 + j]; return w > 127; };
@@ -119,7 +126,8 @@ export function peleCoberta(corpo, poses, XI, { alcance = 8, margem = 1 } = {}) 
       if (!coberto[v]) continue;
       const p = pt(P, v), dir = norm(pt(N, v));
       if (p.some((x, k) => x < mn[k] || x > mx[k])) { coberto[v] = 0; continue; }
-      coberto[v] = raio([p[0] + dir[0] * 0.05, p[1] + dir[1] * 0.05, p[2] + dir[2] * 0.05], dir, X, XI) <= alcance ? 1 : 0;
+      coberto[v] = raio([p[0] + dir[0] * 0.05, p[1] + dir[1] * 0.05, p[2] + dir[2] * 0.05], dir, X, XI) <= alcance
+        || (dentro > 0 && raio([p[0] - dir[0] * 0.05, p[1] - dir[1] * 0.05, p[2] - dir[2] * 0.05], [-dir[0], -dir[1], -dir[2]], X, XI) <= dentro) ? 1 : 0;
     }
   }
   // a margem: a distância (pela malha, na pose T) até o ponto descoberto mais perto
@@ -153,13 +161,15 @@ export function soldar(P, I, casas = 3) {
  * iria junto), alisados pelos vizinhos (`soldar`); `rigidos` (ponto → o ponto de onde copia: as fivelas) copiam. Devolve { nomes,
  * ossoDe, peso } como o corpo: 4 por ponto, o osso é o lugar em `nomes`, os pesos somam 255.
  */
-export function pesosPelaPele(X, { id, vizinhos }, corpo, aPele, rigidos = new Map()) {
+// (`normais`: a normal de cada ponto de X — cada um pega a pele virada para o mesmo lado: no sovaco, a manga segue o braço e a lateral o
+// tronco; sem isso, o ponto perto dos dois seguia os dois e esticava em "asa" ao subir o braço)
+export function pesosPelaPele(X, { id, vizinhos }, corpo, aPele, rigidos = new Map(), normais = null) {
   const n = X.length / 3, nomes = corpo.nomes.slice(), sem = new Set(['Neck', 'Head']);
   const troca = nomes.indexOf('Spine') >= 0 ? nomes.indexOf('Spine') : nomes.indexOf('Spine001');
   const unicos = [...new Set(id)];
   let W = Array.from({ length: n }, () => new Float32Array(nomes.length));
   for (const v of unicos) {
-    const p = aPele.perto(pt(X, v)), cantos = [0, 1, 2].map((k) => corpo.I[p.t * 3 + k]);
+    const p = aPele.perto(pt(X, v), normais ? pt(normais, v) : null), cantos = [0, 1, 2].map((k) => corpo.I[p.t * 3 + k]);
     cantos.forEach((c, k) => {
       for (let j = 0; j < 4; j++) {
         let o = corpo.ossoDe[c * 4 + j];

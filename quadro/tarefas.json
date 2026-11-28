@@ -1,5 +1,5 @@
 {
-  "proximo": 10,
+  "proximo": 11,
   "tarefas": [
     {
       "id": "T-001",
@@ -139,6 +139,22 @@
       "notas": [
         "editor: ESQUELETO → NA PEÇA SOLTA (esqPeca); gravar → referencias/esqueletos-das-pecas.json",
         "falta: distorcer a peça da pose A para a T pelos pontos (o próximo passo)"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-010",
+      "titulo": "Um caminho só na aba Armaduras e o peitoral justo (da pose A para a T)",
+      "pedido": "pode, arruma assim",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "editor: DA PEÇA À ARMADURA (1 abrir, 2 esqueleto, 3 vestir no corpo = prévia, 4 gravar) + FERRAMENTAS ANTIGAS fechada; rota peca-vestir",
+        "vestir.mjs apertada: casca a 1 cm, volta à T pela conta direta, pesos da pele T virada para o mesmo lado, sovaco colado cortado (116), esconder.dentro",
+        "o peitoral justo no conjunto 2 (arm2_peito); o arm1_peito segue com a peitoral-de-couro do dono (fora do git)"
       ],
       "atalho": false
     }
