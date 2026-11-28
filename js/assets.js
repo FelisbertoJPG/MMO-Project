@@ -378,6 +378,8 @@ export async function carregarArmadurasDeArquivo(corpos) {
       if (typeof j.esconde32 === 'string') a.esconde = de64(j.esconde32, Uint32Array);
       // (… e os triângulos CRIADOS na aba Modelo que somem também — o meio de cada um no modelo: guerreiro.js `criadosQueSomem`)
       if (Array.isArray(j.escondeCriados)) a.escondeCriados = j.escondeCriados.filter((p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite));
+      // (a CAMADA: desenhada à frente da pele onde as duas se encostam — guerreiro.js `comCamada`)
+      if (Number.isInteger(j.camada) && j.camada > 0 && j.camada < 10) a.camada = j.camada;
       const nv = a.pos.length / 3;
       if (!LUGARES.includes(a.lugar) || !Number.isInteger(a.conjunto) || a.conjunto < 1 || a.conjunto > 9 || !Array.isArray(a.nomes)
         || a.cor.length !== a.idx.length || a.ossoDe.length !== nv * 4 || a.peso.length !== nv * 4 || a.idx.some((i) => i >= nv)) throw new Error('torto');

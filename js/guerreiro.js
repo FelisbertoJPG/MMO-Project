@@ -413,6 +413,26 @@ function esconderPele(geo, de, tris) {
 // OS CRIADOS QUE A ARMADURA LEVA (28/11/2026; o dono marcou "peitoral residual": "esses pedaços de malha podem sair quando consideramos essa
 // região como peitoral"): os triângulos CRIADOS na aba Modelo não estão no arquivo do corpo — a armadura os acha pelo meio no modelo (`antes`,
 // o `em` do recado), e eles somem no fim como a pele (`esconderPele`)
+// A CAMADA DAS ARMADURAS DE ARQUIVO (28/11/2026; o dono: "malha de layer 1 — corpo vai sempre ficar atrás dela: se ele encostar numa malha
+// do corpo, a malha do corpo vai sumir e ela vai prevalecer (a parte que tá sendo encostada apenas)"): cada ponto da fundida leva `camada`
+// = quantos cm ele passa À FRENTE no teste de profundidade (a armadura da camada 1: CM_DA_CAMADA; a pele, 0). O material o leva para a
+// câmera por essa medida AO LONGO DO RAIO dela — o lugar na tela não muda, só a profundidade: onde a pele encosta ou fura a peça por menos
+// que isso, a peça vale, pixel a pixel; o resto não muda (esconder triângulos inteiros da pele, low poly, abria buraco no braço)
+export const CM_DA_CAMADA = 1.5;
+const comCamadas = new WeakSet();
+export function comCamada(m) {
+  if (!m || comCamadas.has(m)) return m;
+  comCamadas.add(m);
+  const antes = m.onBeforeCompile, chave = m.customProgramCacheKey;
+  m.onBeforeCompile = (s, r) => {
+    antes?.call(m, s, r);
+    s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute float camada;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nif ( camada > 0.0 ) { mvPosition.xyz += normalize( - mvPosition.xyz ) * camada * length( modelMatrix[ 0 ].xyz ); gl_Position = projectionMatrix * mvPosition; }');
+  };
+  m.customProgramCacheKey = () => `${chave?.call(m) ?? ''}|camada`;
+  m.needsUpdate = true;
+  return m;
+}
 function criadosQueSomem(ctx, meios) {
   if (!meios.length || ctx?.novosDe == null) return [];
   const A = ctx.antes, out = [], perto = (p, m) => Math.abs(p[0] - m[0]) < 0.01 && Math.abs(p[1] - m[1]) < 0.01 && Math.abs(p[2] - m[2]) < 0.01;
@@ -464,6 +484,13 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     peles: fixaCorpo ? [[doCorpo - fixaCorpo, doCorpo]] : (() => { const l = []; let de = 0; lista.forEach((g, i) => { const n = g.attributes.position.count; if (/^head(_tingido)?$/.test(pecas[i].name)) l.push([de, de + n]); de += n; }); return l; })(),
   } : null;
   let geo = (cabelo && mergeGeometries([...lista, cabelo])) || (mergeGeometries(lista) ?? null);
+  // (a CAMADA de cada peça — `comCamada`, acima: a armadura de arquivo com camada leva os cm dela em cada ponto; o resto, 0)
+  if (geo && pecas.some((p) => p.camada > 0)) {
+    const c = new Float32Array(geo.attributes.position.count);
+    let de = 0;
+    lista.forEach((g, i) => { const n = g.attributes.position.count; if (pecas[i].camada > 0) c.fill(pecas[i].camada * CM_DA_CAMADA, de, de + n); de += n; });
+    geo.setAttribute('camada', new THREE.BufferAttribute(c, 1));
+  }
   // (O COURO no corpo de arquivo — `moldarCouro`, abaixo: onde cada peça dele cai na fundida e os pontos dela como o guerreiro os tem)
   const couro = new Map(), couroOriginal = new Map();
   if (fixa) couroVisto.ultima = { pele: pecas.at(-1).peleDoGuerreiro?.length ?? null, indice: !!geo?.index, couro: pecas.filter(ehCouro).map((p) => p.name) };
@@ -999,6 +1026,7 @@ export class CorpoGuerreiro {
       }
       mats = [material, this.matTextura];
     }
+    if (geo.attributes.camada) for (const m of [].concat(mats)) comCamada(m);   // (a armadura de arquivo com CAMADA: na frente da pele onde as duas se encostam)
     if (!this.fundida) {
       this.fundida = new THREE.SkinnedMesh(geo, mats);
       this.fundida.name = 'guerreiro-fundido';

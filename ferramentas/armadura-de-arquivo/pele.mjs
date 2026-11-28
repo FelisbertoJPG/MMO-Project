@@ -146,6 +146,53 @@ export function peleCoberta(corpo, poses, XI, { alcance = 8, margem = 1, dentro 
   return esconde;
 }
 
+// ------------------------------------------------------------------ o CONTATO entre duas malhas (contato.mjs)
+// o segmento p→q atravessa o triângulo? (Möller–Trumbore, 0 ≤ t ≤ 1)
+export function segCruza(p, q, [a, b, c]) {
+  const d = sub(q, p), e1 = sub(b, a), e2 = sub(c, a), h = cross(d, e2), det = dot(e1, h);
+  if (Math.abs(det) < 1e-12) return false;
+  const f = 1 / det, s = sub(p, a), u = f * dot(s, h); if (u < 0 || u > 1) return false;
+  const r = cross(s, e1), v = f * dot(d, r); if (v < 0 || u + v > 1) return false;
+  const t = f * dot(e2, r); return t >= 0 && t <= 1;
+}
+export const cruzam = (A, Bt) => [0, 1, 2].some((k) => segCruza(A[k], A[(k + 1) % 3], Bt) || segCruza(Bt[k], Bt[(k + 1) % 3], A));
+// a distância de p ao triângulo (Ericson 5.1.5)
+export function aoTri(p, [a, b, c]) {
+  const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a), d1 = dot(ab, ap), d2 = dot(ac, ap), D = (x) => Math.hypot(...sub(p, x));
+  if (d1 <= 0 && d2 <= 0) return D(a);
+  const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp);
+  if (d3 >= 0 && d4 <= d3) return D(b);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) { const v = d1 / (d1 - d3); return D([a[0] + ab[0] * v, a[1] + ab[1] * v, a[2] + ab[2] * v]); }
+  const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp);
+  if (d6 >= 0 && d5 <= d6) return D(c);
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) { const w = d2 / (d2 - d6); return D([a[0] + ac[0] * w, a[1] + ac[1] * w, a[2] + ac[2] * w]); }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); return D([b[0] + (c[0] - b[0]) * w, b[1] + (c[1] - b[1]) * w, b[2] + (c[2] - b[2]) * w]); }
+  const den = 1 / (va + vb + vc), v = vb * den, w = vc * den;
+  return D([a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w]);
+}
+// a distância entre dois segmentos (Ericson 5.1.9)
+export function segSeg(p1, q1, p2, q2) {
+  const d1 = sub(q1, p1), d2 = sub(q2, p2), r = sub(p1, p2), a = dot(d1, d1), e = dot(d2, d2), f = dot(d2, r);
+  let s = 0, t = 0;
+  if (a < 1e-12 && e < 1e-12) return Math.hypot(...r);
+  if (a < 1e-12) t = Math.min(1, Math.max(0, f / e));
+  else {
+    const c = dot(d1, r);
+    if (e < 1e-12) s = Math.min(1, Math.max(0, -c / a));
+    else { const b = dot(d1, d2), den = a * e - b * b; s = den > 1e-12 ? Math.min(1, Math.max(0, (b * f - c * e) / den)) : 0; t = (b * s + f) / e; if (t < 0) { t = 0; s = Math.min(1, Math.max(0, -c / a)); } else if (t > 1) { t = 1; s = Math.min(1, Math.max(0, (b - c) / a)); } }
+  }
+  return Math.hypot(...sub([p1[0] + d1[0] * s, p1[1] + d1[1] * s, p1[2] + d1[2] * s], [p2[0] + d2[0] * t, p2[1] + d2[1] * t, p2[2] + d2[2] * t]));
+}
+export function distTri(A, Bt) {
+  let m = Infinity;
+  for (let k = 0; k < 3; k++) { m = Math.min(m, aoTri(A[k], Bt), aoTri(Bt[k], A)); for (let j = 0; j < 3; j++) m = Math.min(m, segSeg(A[k], A[(k + 1) % 3], Bt[j], Bt[(j + 1) % 3])); }
+  return m;
+}
+
+
 /** Os pontos SOLDADOS pela posição (a malha da Meshy e a colagem repetem o ponto em cada triângulo) e os vizinhos de cada um. */
 export function soldar(P, I, casas = 3) {
   const n = P.length / 3, mapa = new Map(), id = new Int32Array(n);
@@ -202,7 +249,7 @@ export function pesosPelaPele(X, { id, vizinhos }, corpo, aPele, rigidos = new M
  * arquivo dela fica): é esta que veste o item agora. Devolve { arquivo, substituidas }. Com `previa` (um caminho), grava o mesmo
  * arquivo LÁ e não mexe no jogo nem na lista (a prévia do tamanho no editor).
  */
-export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, pos, idx, cor, ossoDe, peso, esconde = null, escondeCriados = null, previa = null }) {
+export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, pos, idx, cor, ossoDe, peso, esconde = null, escondeCriados = null, camada = 0, previa = null }) {
   if (!ID_VALIDO.test(id)) throw new Error(`id torto: ${id}`);
   if (!LUGARES.includes(lugar) || !Number.isInteger(conjunto) || conjunto < 1 || conjunto > 9) throw new Error('lugar ou conjunto torto');
   const pasta = path.join(RAIZ, 'assets/armaduras-de-arquivo'), cam = previa ? path.resolve(previa) : path.join(pasta, `${id}.json`);
@@ -215,6 +262,8 @@ export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, 
     ...(esconde?.length ? { esconde: esconde.length, esconde32: para64(Uint32Array.from(esconde)) } : {}),
     // (… e os triângulos CRIADOS na aba Modelo que somem também: o meio de cada um no modelo, cm — guerreiro.js `criadosQueSomem`)
     ...(escondeCriados?.length ? { escondeCriados } : {}),
+    // (a CAMADA: a peça vale na frente da pele onde as duas se encostam — guerreiro.js `comCamada`)
+    ...(camada > 0 ? { camada } : {}),
   }) + '\n');
   if (previa) return { arquivo: cam, substituidas: [] };
   const camLista = path.join(pasta, 'lista.json');

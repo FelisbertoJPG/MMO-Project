@@ -1,5 +1,5 @@
 {
-  "proximo": 11,
+  "proximo": 12,
   "tarefas": [
     {
       "id": "T-001",
@@ -155,6 +155,21 @@
         "editor: DA PEÇA À ARMADURA (1 abrir, 2 esqueleto, 3 vestir no corpo = prévia, 4 gravar) + FERRAMENTAS ANTIGAS fechada; rota peca-vestir",
         "vestir.mjs apertada: casca a 1 cm, volta à T pela conta direta, pesos da pele T virada para o mesmo lado, sovaco colado cortado (116), esconder.dentro",
         "o peitoral justo no conjunto 2 (arm2_peito); o arm1_peito segue com a peitoral-de-couro do dono (fora do git)"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-011",
+      "titulo": "Apagar a faixa das mangas e a regra da camada 1 (a peça na frente da pele onde encostam)",
+      "pedido": "salvei o seguinte, remover malha na armadura direto, essas malhas podem literalmente ser deletadas. Apos isso adicionar uma regra no corpo da armadura \"malha de layer 1 - corpo vai sempre ficar atras dela\" ent se ele encostar numa malha do corpo, a malha do corpo vai sumir e ela vai prevalecer (a parte q ta sendo encostada apenas né pelo amor de deus)",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "config apagar (146 do recado mmx0t2wk3scj): os punhos ficam, braçadeiras",
+        "camada 1 = desenho (comCamada, 1,5 cm), não esconder triângulos: esconder os que encostam abria buraco no braço"
       ],
       "atalho": false
     }

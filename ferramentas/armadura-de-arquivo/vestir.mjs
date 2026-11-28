@@ -53,6 +53,25 @@ function lerGlb(arq) {
 }
 const corpo = lerCorpo(cfg.corpo);
 const peca = lerGlb(path.join(dirCfg, cfg.glb));
+// (APAGAR — 28/11/2026, o dono marcou na peça solta "remover malha": "essas malhas podem literalmente ser deletadas": `apagar` = o meio de
+// cada triângulo que sai da peça ANTES de tudo — cm, no espaço da peça como ela abre no editor: o .glb × 100, o pé em y = 0 —; os pontos
+// que ficam sem triângulo saem junto)
+if (Array.isArray(cfg.apagar) && cfg.apagar.length) {
+  const P0 = peca.pos, I0 = peca.idx, pe0 = Math.min(...P0.filter((_, i) => i % 3 === 1)), fora = new Set();
+  const marcas = cfg.apagar.filter((m) => Array.isArray(m) && m.length === 3 && m.every(Number.isFinite));
+  for (let t = 0; t < I0.length / 3; t++) {
+    const c = [0, 1, 2].map((k) => (P0[I0[t * 3] * 3 + k] + P0[I0[t * 3 + 1] * 3 + k] + P0[I0[t * 3 + 2] * 3 + k]) / 3);
+    c[1] -= pe0;
+    if (marcas.some((m) => Math.abs(m[0] - c[0]) < 0.02 && Math.abs(m[1] - c[1]) < 0.02 && Math.abs(m[2] - c[2]) < 0.02)) fora.add(t);
+  }
+  const novo = new Map(), pos = [], idx = [];
+  for (let t = 0; t < I0.length / 3; t++) {
+    if (fora.has(t)) continue;
+    for (let q = 0; q < 3; q++) { const v = I0[t * 3 + q]; if (!novo.has(v)) { novo.set(v, pos.length / 3); pos.push(P0[v * 3], P0[v * 3 + 1], P0[v * 3 + 2]); } idx.push(novo.get(v)); }
+  }
+  peca.pos = Float32Array.from(pos); peca.idx = Uint32Array.from(idx);
+  console.log(`apagar: ${fora.size} de ${marcas.length} triângulos marcados saíram da peça (ficam ${idx.length / 3})`);
+}
 
 // (o raio — Möller–Trumbore — mora no pele.mjs, com a pele que a peça cobre)
 // o tronco numa altura: meia largura (no fundo do meio), frente e costas (no x = 0)
@@ -123,7 +142,9 @@ const solda = soldar(A, AI), { id, vizinhos } = solda;
 const pai = Int32Array.from({ length: nA }, (_, i) => i), raiz = (x) => { while (pai[x] !== x) x = pai[x] = pai[pai[x]]; return x; };
 for (let t = 0; t < AI.length; t += 3) { const a = raiz(id[AI[t]]); pai[raiz(id[AI[t + 1]])] = a; pai[raiz(id[AI[t + 2]])] = a; }
 const tam = new Map(); for (let v = 0; v < nA; v++) { const r = raiz(id[v]); tam.set(r, (tam.get(r) ?? 0) + 1); }
-const principal = [...tam.entries()].sort((a, b) => b[1] - a[1])[0][0], daPeca = (v) => raiz(id[v]) === principal;
+// (os pedaços GRANDES são a peça — a partir de 5% do maior: sem a faixa das mangas, o punho de cada uma virou uma braçadeira solta, que se aperta no braço;
+// os pequenos, as fivelas, vão com o ponto mais perto)
+const maior = Math.max(...tam.values()), grandes = new Set([...tam].filter(([, n]) => n >= 0.05 * maior).map(([r]) => r)), daPeca = (v) => grandes.has(raiz(id[v]));
 
 // ------------------------------------------------------------------ (3) a pele: nem dentro, nem longe
 const folga = cfg.apertada ? (cfg.apertada.folga ?? 0.5) * 0.6 : cfg.folga ?? 1.2, longe = cfg.longe ?? 4.5;   // (apertada: no fim, nada a menos de 60% da folga dela)
@@ -259,14 +280,18 @@ const AIg = fica ? AI.filter((_, i) => fica[Math.floor(i / 3)]) : AI, corG = fic
 // (… e os que o DONO marcou a mais — 28/11/2026, "peitoral residual": "esses pedaços de malha podem sair quando consideramos essa região
 // como peitoral" — `mais`: o lugar no arquivo do corpo; `criados`: o meio, no modelo, dos triângulos criados na aba Modelo, que o jogo
 // acha pelo meio — guerreiro.js `criadosQueSomem`)
+// (a CAMADA — 28/11/2026, o dono: "malha de layer 1: corpo vai sempre ficar atrás dela… se ele encostar numa malha do corpo, a malha do
+// corpo vai sumir e ela vai prevalecer (a parte que tá sendo encostada apenas)": é do DESENHO — `camada` vai na armadura e o jogo a desenha
+// à frente da pele onde as duas se encostam, ponto a ponto (guerreiro.js `comCamada`); sumir triângulos da pele inteiros abria buraco no
+// braço, low poly. Aqui só some a pele INTEIRA debaixo da peça, com a margem da borda — nada à mostra)
 const coberta = cfg.esconder ? peleCoberta(corpo, [[posado, Xvestida], [corpo.P, T]], AIg, cfg.esconder) : [];
 const maisDoDono = (cfg.esconder?.mais ?? []).filter((t) => Number.isInteger(t) && t >= 0 && t < corpo.I.length / 3);
 const esconde = [...new Set([...coberta, ...maisDoDono])].sort((a, b) => a - b);
 const escondeCriados = (cfg.esconder?.criados ?? []).filter((p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite));
-if (cfg.esconder) console.log(`pele escondida: ${esconde.length} de ${corpo.I.length / 3} triângulos do corpo (alcance ${cfg.esconder.alcance ?? 8} cm, margem ${cfg.esconder.margem ?? 1} cm; ${coberta.length} cobertos + ${esconde.length - coberta.length} marcados pelo dono)${escondeCriados.length ? `, e ${escondeCriados.length} criados` : ''}`);
+if (cfg.esconder) console.log(`pele escondida: ${esconde.length} de ${corpo.I.length / 3} triângulos do corpo (alcance ${cfg.esconder.alcance ?? 8} cm, margem ${cfg.esconder.margem ?? 1} cm${cfg.camada ? `; camada ${cfg.camada}: no encosto a peça vale` : ''}; ${coberta.length} cobertos + ${esconde.length - coberta.length} marcados pelo dono)${escondeCriados.length ? `, e ${escondeCriados.length} criados` : ''}`);
 
 // ------------------------------------------------------------------ gravar
-const g = gravarArmadura({ id: cfg.id, rotulo: cfg.rotulo, corpo: cfg.corpo, lugar: cfg.lugar, conjunto: cfg.conjunto, de: `ferramentas/armadura-de-arquivo/vestir.mjs com ${path.basename(arqConfig)}`, nomes, pos: T, idx: AIg, cor: corG, ossoDe, peso, esconde, escondeCriados, previa: previaEm });
+const g = gravarArmadura({ id: cfg.id, rotulo: cfg.rotulo, corpo: cfg.corpo, lugar: cfg.lugar, conjunto: cfg.conjunto, de: `ferramentas/armadura-de-arquivo/vestir.mjs com ${path.basename(arqConfig)}`, nomes, pos: T, idx: AIg, cor: corG, ossoDe, peso, camada: Number.isInteger(cfg.camada) ? cfg.camada : 0, esconde, escondeCriados, previa: previaEm });
 console.log(`gravado ${g.arquivo}: ${nA} pontos, ${nTg} triângulos${g.substituidas.length ? ` (saíram da lista: ${g.substituidas.join(', ')})` : ''}`);
 
 // ------------------------------------------------------------------ a foto (o corpo cinza + a armadura pintada)

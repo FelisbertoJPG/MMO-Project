@@ -405,7 +405,7 @@ export function pecaDaArmadura(arm, { ordem, esqueleto, ligacao, material }) {
     g.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
     armadurasFeitas.set(arm, g);
   }
-  return { name: `armadura_${arm.id}`, geometry: armadurasFeitas.get(arm), skeleton: esqueleto, material, bindMatrix: ligacao, semRaca: true, esconde: arm.esconde ?? null, escondeCriados: arm.escondeCriados ?? null };
+  return { name: `armadura_${arm.id}`, geometry: armadurasFeitas.get(arm), skeleton: esqueleto, material, bindMatrix: ligacao, semRaca: true, esconde: arm.esconde ?? null, escondeCriados: arm.escondeCriados ?? null, camada: arm.camada ?? 0 };
 }
 
 // ------------------------------------------------------------ O MODELO INTEIRO, COM A TEXTURA (27/10/2026)
