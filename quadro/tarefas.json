@@ -1,5 +1,5 @@
 {
-  "proximo": 9,
+  "proximo": 10,
   "tarefas": [
     {
       "id": "T-001",
@@ -124,6 +124,21 @@
         "ferramentas/armadura-de-arquivo/contato.mjs: corpo do jogo com toda a pele + edições, armadura gravada, pose da aba Armaduras; cruza/encosta/debaixo/fora",
         "81°: 446 escondidos = 66 cruzam/encostam, 325 debaixo, 45 à mostra; 108 à mostra furam a peça; armadura 95 cruzam + 33 encostam",
         "a ideia do dono (devolver os removidos e apagar só o que se encosta) espera o sim dele"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-009",
+      "titulo": "Editor: o esqueleto do jogador dentro da peça solta, com as juntas marcáveis",
+      "pedido": "montar o esqueleto na malha da armadura, o mesmo esqueleto do player. Eu quero ver ele, e alem disso marcar os pontos que o osso vai passar, pq só ta dando tanto problema assim pq o peitoral é A pose e tudo q fizemos é pra T pose",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "editor: ESQUELETO → NA PEÇA SOLTA (esqPeca); gravar → referencias/esqueletos-das-pecas.json",
+        "falta: distorcer a peça da pose A para a T pelos pontos (o próximo passo)"
       ],
       "atalho": false
     }
