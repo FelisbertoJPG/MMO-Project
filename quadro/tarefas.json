@@ -1,5 +1,5 @@
 {
-  "proximo": 8,
+  "proximo": 9,
   "tarefas": [
     {
       "id": "T-001",
@@ -108,6 +108,22 @@
       "notas": [
         "config esconder.mais (113) + esconder.criados (17 meios); vestir.mjs junta ao coberto: 446 da pele + 17 criados",
         "jogo: escondeCriados na armadura, criadosQueSomem no guerreiro.js; editor: a vista os esconde"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-008",
+      "titulo": "Ler o contato entre a armadura e o corpo numa pose (contato.mjs)",
+      "pedido": "preciso que tu consiga \"ler\" quais malhas de diferentes origens estão se encostando. Exemplo, malha do peitoral encostando em malha do corpo do modelo. É só pra ter mais respaldo técnico... Eu abaixei os braços do personagem 81° pra ligar direitinho no peitoral",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "ferramentas/armadura-de-arquivo/contato.mjs: corpo do jogo com toda a pele + edições, armadura gravada, pose da aba Armaduras; cruza/encosta/debaixo/fora",
+        "81°: 446 escondidos = 66 cruzam/encostam, 325 debaixo, 45 à mostra; 108 à mostra furam a peça; armadura 95 cruzam + 33 encostam",
+        "a ideia do dono (devolver os removidos e apagar só o que se encosta) espera o sim dele"
       ],
       "atalho": false
     }
