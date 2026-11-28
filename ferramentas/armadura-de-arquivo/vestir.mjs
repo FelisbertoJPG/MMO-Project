@@ -174,11 +174,17 @@ console.log('pintura:', Object.entries(conta).map(([k, n]) => `${k} ${n}`).join(
 // ------------------------------------------------------------------ (6) a PELE que ela esconde (cfg.esconder: { alcance, margem })
 // (27/11/2026; o dono: "apagar a malha correspondente ao torso no corpo do personagem: ombro, peito e um pedaço de manga curta"):
 // os triângulos do corpo que a peça cobre nos braços baixados E na pose T (pele.mjs `peleCoberta`) somem com ela vestida
-const esconde = cfg.esconder ? peleCoberta(corpo, [[posado, X], [corpo.P, T]], AI, cfg.esconder) : [];
-if (cfg.esconder) console.log(`pele escondida: ${esconde.length} de ${corpo.I.length / 3} triângulos do corpo (alcance ${cfg.esconder.alcance ?? 8} cm, margem ${cfg.esconder.margem ?? 1} cm)`);
+// (… e os que o DONO marcou a mais — 28/11/2026, "peitoral residual": "esses pedaços de malha podem sair quando consideramos essa região
+// como peitoral" — `mais`: o lugar no arquivo do corpo; `criados`: o meio, no modelo, dos triângulos criados na aba Modelo, que o jogo
+// acha pelo meio — guerreiro.js `criadosQueSomem`)
+const coberta = cfg.esconder ? peleCoberta(corpo, [[posado, X], [corpo.P, T]], AI, cfg.esconder) : [];
+const maisDoDono = (cfg.esconder?.mais ?? []).filter((t) => Number.isInteger(t) && t >= 0 && t < corpo.I.length / 3);
+const esconde = [...new Set([...coberta, ...maisDoDono])].sort((a, b) => a - b);
+const escondeCriados = (cfg.esconder?.criados ?? []).filter((p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite));
+if (cfg.esconder) console.log(`pele escondida: ${esconde.length} de ${corpo.I.length / 3} triângulos do corpo (alcance ${cfg.esconder.alcance ?? 8} cm, margem ${cfg.esconder.margem ?? 1} cm; ${coberta.length} cobertos + ${esconde.length - coberta.length} marcados pelo dono)${escondeCriados.length ? `, e ${escondeCriados.length} criados` : ''}`);
 
 // ------------------------------------------------------------------ gravar
-const g = gravarArmadura({ id: cfg.id, rotulo: cfg.rotulo, corpo: cfg.corpo, lugar: cfg.lugar, conjunto: cfg.conjunto, de: `ferramentas/armadura-de-arquivo/vestir.mjs com ${path.basename(arqConfig)}`, nomes, pos: T, idx: AI, cor, ossoDe, peso, esconde, previa: previaEm });
+const g = gravarArmadura({ id: cfg.id, rotulo: cfg.rotulo, corpo: cfg.corpo, lugar: cfg.lugar, conjunto: cfg.conjunto, de: `ferramentas/armadura-de-arquivo/vestir.mjs com ${path.basename(arqConfig)}`, nomes, pos: T, idx: AI, cor, ossoDe, peso, esconde, escondeCriados, previa: previaEm });
 console.log(`gravado ${g.arquivo}: ${nA} pontos, ${nT} triângulos${g.substituidas.length ? ` (saíram da lista: ${g.substituidas.join(', ')})` : ''}`);
 
 // ------------------------------------------------------------------ a foto (o corpo cinza + a armadura pintada)

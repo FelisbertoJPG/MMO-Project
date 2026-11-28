@@ -410,6 +410,18 @@ function esconderPele(geo, de, tris) {
   }
   P.needsUpdate = si.needsUpdate = sw.needsUpdate = true;
 }
+// OS CRIADOS QUE A ARMADURA LEVA (28/11/2026; o dono marcou "peitoral residual": "esses pedaços de malha podem sair quando consideramos essa
+// região como peitoral"): os triângulos CRIADOS na aba Modelo não estão no arquivo do corpo — a armadura os acha pelo meio no modelo (`antes`,
+// o `em` do recado), e eles somem no fim como a pele (`esconderPele`)
+function criadosQueSomem(ctx, meios) {
+  if (!meios.length || ctx?.novosDe == null) return [];
+  const A = ctx.antes, out = [], perto = (p, m) => Math.abs(p[0] - m[0]) < 0.01 && Math.abs(p[1] - m[1]) < 0.01 && Math.abs(p[2] - m[2]) < 0.01;
+  for (let t = ctx.novosDe / 3; t < A.length / 9; t++) {
+    const i = t * 9, m = [0, 1, 2].map((k) => (A[i + k] + A[i + 3 + k] + A[i + 6 + k]) / 3);
+    if (meios.some((p) => perto(p, m))) out.push(t);
+  }
+  return out;
+}
 function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elmo = false, penteado = null, edicoes = null, maquiagem = [], corOlhos = null, pele = null) {
   if (fundidas.has(chave)) return fundidas.get(chave);
   const comCor = pecas.some((p) => p.geometry.attributes.color);
@@ -522,6 +534,8 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     aplicarModelagem(geo, edicoes, comModelo);
     // (os triângulos CRIADOS entram no fim: outra geometria, com o ctx crescido junto)
     geo = acrescentarTriangulos(geo, comModelo);
+    // (os criados que as armaduras de arquivo vestidas levam junto — `criadosQueSomem`: somem no fim; a aba Modelo os tira da vista)
+    comModelo.criadosQueSomem = fixaCorpo ? criadosQueSomem(comModelo, pecas.flatMap((p) => p.escondeCriados ?? [])) : [];
   }
   // (A MALHA DO CABELO editada no PINCEL da aba Cabelo — a `malha` do penteado, 09/11/2026: só nos pontos do cabelo, depois das edições do
   // corpo, antes do couro cabeludo sumir debaixo dele; o corpo não muda)
@@ -638,6 +652,7 @@ function geometriaFundida(chave, pecas, ordem, raca = null, inversos = null, elm
     geo.userData.textura = pecas.at(-1).textura;
   }
   if (peleEscondida.length && geo && !geo.index) esconderPele(geo, doCorpo - fixaCorpo, peleEscondida);
+  if (comModelo?.criadosQueSomem?.length && !tirados && geo && !geo.index) esconderPele(geo, 0, comModelo.criadosQueSomem);
   fundidas.set(chave, geo);
   return geo;
 }

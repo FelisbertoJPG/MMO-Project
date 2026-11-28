@@ -376,6 +376,8 @@ export async function carregarArmadurasDeArquivo(corpos) {
       const a = { id, rotulo: typeof j.rotulo === 'string' ? j.rotulo : id, corpo: j.corpo, lugar: j.lugar, conjunto: j.conjunto, nomes: j.nomes, pos: de64(j.pos, Float32Array), idx: de64(j.idx32, Uint32Array), cor: de64(j.cor, Uint8Array), ossoDe: de64(j.ossoDe, Uint8Array), peso: de64(j.peso, Uint8Array) };
       // (o ESCONDE — os triângulos da PELE do corpo que somem com ela vestida: a armadura vira aquela parte do corpo; a aba Armaduras do editor os escolhe)
       if (typeof j.esconde32 === 'string') a.esconde = de64(j.esconde32, Uint32Array);
+      // (… e os triângulos CRIADOS na aba Modelo que somem também — o meio de cada um no modelo: guerreiro.js `criadosQueSomem`)
+      if (Array.isArray(j.escondeCriados)) a.escondeCriados = j.escondeCriados.filter((p) => Array.isArray(p) && p.length === 3 && p.every(Number.isFinite));
       const nv = a.pos.length / 3;
       if (!LUGARES.includes(a.lugar) || !Number.isInteger(a.conjunto) || a.conjunto < 1 || a.conjunto > 9 || !Array.isArray(a.nomes)
         || a.cor.length !== a.idx.length || a.ossoDe.length !== nv * 4 || a.peso.length !== nv * 4 || a.idx.some((i) => i >= nv)) throw new Error('torto');

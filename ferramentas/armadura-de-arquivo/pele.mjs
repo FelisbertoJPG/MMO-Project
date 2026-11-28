@@ -192,7 +192,7 @@ export function pesosPelaPele(X, { id, vizinhos }, corpo, aPele, rigidos = new M
  * arquivo dela fica): é esta que veste o item agora. Devolve { arquivo, substituidas }. Com `previa` (um caminho), grava o mesmo
  * arquivo LÁ e não mexe no jogo nem na lista (a prévia do tamanho no editor).
  */
-export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, pos, idx, cor, ossoDe, peso, esconde = null, previa = null }) {
+export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, pos, idx, cor, ossoDe, peso, esconde = null, escondeCriados = null, previa = null }) {
   if (!ID_VALIDO.test(id)) throw new Error(`id torto: ${id}`);
   if (!LUGARES.includes(lugar) || !Number.isInteger(conjunto) || conjunto < 1 || conjunto > 9) throw new Error('lugar ou conjunto torto');
   const pasta = path.join(RAIZ, 'assets/armaduras-de-arquivo'), cam = previa ? path.resolve(previa) : path.join(pasta, `${id}.json`);
@@ -203,6 +203,8 @@ export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, 
     pos: para64(pos), idx32: para64(idx), cor: para64(cor), ossoDe: para64(ossoDe), peso: para64(peso),
     // (os triângulos da PELE do corpo que somem com ela vestida — o lugar deles no arquivo do corpo, Uint32)
     ...(esconde?.length ? { esconde: esconde.length, esconde32: para64(Uint32Array.from(esconde)) } : {}),
+    // (… e os triângulos CRIADOS na aba Modelo que somem também: o meio de cada um no modelo, cm — guerreiro.js `criadosQueSomem`)
+    ...(escondeCriados?.length ? { escondeCriados } : {}),
   }) + '\n');
   if (previa) return { arquivo: cam, substituidas: [] };
   const camLista = path.join(pasta, 'lista.json');

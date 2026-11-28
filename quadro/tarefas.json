@@ -1,5 +1,5 @@
 {
-  "proximo": 7,
+  "proximo": 8,
   "tarefas": [
     {
       "id": "T-001",
@@ -93,6 +93,21 @@
       "notas": [
         "editor 5686e03: na pose montada só o marcar △ vale (marcaNaPose); o recado guarda o em na pose T e o arq (o número do esconde)",
         "próximo: o dono grava o recado; eu leio referencias/marcas-triangulos.json e somo os arq ao que o peitoral esconde"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-007",
+      "titulo": "O peitoral esconde o 'peitoral residual' que o dono marcou (113 da pele + 17 criados)",
+      "pedido": "foi, marquei como peitoral residual, esses pedaços de malha podem sair quando consideramos essa região como \"peitoral\"",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "config esconder.mais (113) + esconder.criados (17 meios); vestir.mjs junta ao coberto: 446 da pele + 17 criados",
+        "jogo: escondeCriados na armadura, criadosQueSomem no guerreiro.js; editor: a vista os esconde"
       ],
       "atalho": false
     }
