@@ -1,5 +1,5 @@
 {
-  "proximo": 13,
+  "proximo": 14,
   "tarefas": [
     {
       "id": "T-001",
@@ -185,6 +185,21 @@
       "notas": [
         "310 marcados + 77 fiapos/fivelas soltos na região dos braços → apagar 533; ficam 1005 triângulos",
         "a peça solta do editor: armadura-peitoral-couro-so-o-peito.glb (fora do git)"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-013",
+      "titulo": "Unir as malhas minúsculas e espelhar o peitoral (peca.mjs)",
+      "pedido": "outra coisa, remove qualquer malha mto pequena (unifica com as maiores proximas) o modelo da armadura ta com malhas mto pequenas espalhadas e espelha ela",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "peca.mjs: apagar → limpar (45 arestas < 1 cm unidas) → espelhar (+x); o vestir.mjs e a peça solta do editor saem dele",
+        "peça solta: pecas/modelos/armadura-peitoral-couro-limpo.glb (fora do git)"
       ],
       "atalho": false
     }

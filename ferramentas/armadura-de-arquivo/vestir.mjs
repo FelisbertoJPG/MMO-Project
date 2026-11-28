@@ -16,6 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import { prancha } from '../corpo-de-arquivo/foto.mjs';
+import { prepararPeca } from './peca.mjs';
 import { lerCorpo, pele, soldar, pesosPelaPele, peleCoberta, raio, gravarArmadura, pt, sub, cross, dot, media } from './pele.mjs';
 
 const args = process.argv.slice(2), opcao = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : null), fotoEm = opcao('--foto'), previaEm = opcao('--previa');
@@ -31,47 +32,10 @@ const tamanho = ['largura', 'altura', 'profundidade'].map((k) => cfg.tamanho?.[k
 if (tamanho.some((x) => !Number.isFinite(x) || x < 0.5 || x > 1.5)) { console.log('o tamanho vai de 0,5 a 1,5 (largura, altura, profundidade)'); process.exit(1); }
 
 // ------------------------------------------------------------------ ler
-function lerGlb(arq) {
-  const buf = fs.readFileSync(arq), jl = buf.readUInt32LE(12), J = JSON.parse(buf.slice(20, 20 + jl).toString()), BIN = buf.slice(20 + jl + 8);
-  const acc = (i) => {
-    const a = J.accessors[i], v = J.bufferViews[a.bufferView], n = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[a.type];
-    const T = { 5126: Float32Array, 5125: Uint32Array, 5123: Uint16Array, 5121: Uint8Array }[a.componentType], off = (v.byteOffset ?? 0) + (a.byteOffset ?? 0);
-    return new T(BIN.buffer.slice(BIN.byteOffset + off, BIN.byteOffset + off + a.count * n * T.BYTES_PER_ELEMENT));
-  };
-  const pos = [], idx = [];
-  for (const no of J.nodes) {
-    if (no.mesh === undefined) continue;
-    if (no.matrix || no.rotation || no.scale || no.translation) throw new Error('o nó da malha tem transformação: esta ferramenta não a aplica');
-    for (const p of J.meshes[no.mesh].primitives) {
-      const P = acc(p.attributes.POSITION), base = pos.length / 3;
-      for (const v of P) pos.push(v * 100);   // (m → cm)
-      const I = p.indices !== undefined ? acc(p.indices) : Array.from({ length: P.length / 3 }, (_, k) => k);
-      for (const i of I) idx.push(base + i);
-    }
-  }
-  return { pos: new Float32Array(pos), idx: Uint32Array.from(idx) };
-}
 const corpo = lerCorpo(cfg.corpo);
-const peca = lerGlb(path.join(dirCfg, cfg.glb));
-// (APAGAR — 28/11/2026, o dono marcou na peça solta "remover malha": "essas malhas podem literalmente ser deletadas": `apagar` = o meio de
-// cada triângulo que sai da peça ANTES de tudo — cm, no espaço da peça como ela abre no editor: o .glb × 100, o pé em y = 0 —; os pontos
-// que ficam sem triângulo saem junto)
-if (Array.isArray(cfg.apagar) && cfg.apagar.length) {
-  const P0 = peca.pos, I0 = peca.idx, pe0 = Math.min(...P0.filter((_, i) => i % 3 === 1)), fora = new Set();
-  const marcas = cfg.apagar.filter((m) => Array.isArray(m) && m.length === 3 && m.every(Number.isFinite));
-  for (let t = 0; t < I0.length / 3; t++) {
-    const c = [0, 1, 2].map((k) => (P0[I0[t * 3] * 3 + k] + P0[I0[t * 3 + 1] * 3 + k] + P0[I0[t * 3 + 2] * 3 + k]) / 3);
-    c[1] -= pe0;
-    if (marcas.some((m) => Math.abs(m[0] - c[0]) < 0.02 && Math.abs(m[1] - c[1]) < 0.02 && Math.abs(m[2] - c[2]) < 0.02)) fora.add(t);
-  }
-  const novo = new Map(), pos = [], idx = [];
-  for (let t = 0; t < I0.length / 3; t++) {
-    if (fora.has(t)) continue;
-    for (let q = 0; q < 3; q++) { const v = I0[t * 3 + q]; if (!novo.has(v)) { novo.set(v, pos.length / 3); pos.push(P0[v * 3], P0[v * 3 + 1], P0[v * 3 + 2]); } idx.push(novo.get(v)); }
-  }
-  peca.pos = Float32Array.from(pos); peca.idx = Uint32Array.from(idx);
-  console.log(`apagar: ${fora.size} de ${marcas.length} triângulos marcados saíram da peça (ficam ${idx.length / 3})`);
-}
+// (a peça como o config a pede — peca.mjs: o .glb, o `apagar` (o que o dono marcou para sair), o `limpar` (as malhas minúsculas unidas às
+// vizinhas) e o `espelhar` (um lado e a cópia dele); a peça SOLTA do editor é a mesma, gravada pelo peca.mjs)
+const peca = prepararPeca(cfg, dirCfg, console.log);
 
 // (o raio — Möller–Trumbore — mora no pele.mjs, com a pele que a peça cobre)
 // o tronco numa altura: meia largura (no fundo do meio), frente e costas (no x = 0)
