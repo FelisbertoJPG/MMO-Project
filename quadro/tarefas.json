@@ -1,5 +1,5 @@
 {
-  "proximo": 6,
+  "proximo": 7,
   "tarefas": [
     {
       "id": "T-001",
@@ -78,6 +78,21 @@
         "vestir.mjs: tamanho { largura, altura, profundidade } no config (depois do encaixe, de braços baixados; o fim da pele e a pele escondida medidos de novo), --tamanho e --previa",
         "rota do editor armadura-tamanho: a prévia roda o vestir.mjs fora do jogo; gravar põe o tamanho no config e grava a armadura",
         "conferido: a rota (prévia sem tocar no jogo; gravar a 100% = os arquivos idênticos); a tela, o dono confere"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-006",
+      "titulo": "Editor, aba Armaduras: o marcar △ na pose A (os pedaços que sobraram no 'sem a peça')",
+      "pedido": "ficou uns pedaços do corpo ainda na opção [peitoral de couro sem a peça], eu só n to conseguindo [marcar] pra te passar quais partes ficaram e em quais posições, isso eu to usando a pose A pois n distorce a malha e melhora a minha visualização do modelo.",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "editor 5686e03: na pose montada só o marcar △ vale (marcaNaPose); o recado guarda o em na pose T e o arq (o número do esconde)",
+        "próximo: o dono grava o recado; eu leio referencias/marcas-triangulos.json e somo os arq ao que o peitoral esconde"
       ],
       "atalho": false
     }
