@@ -189,13 +189,14 @@ export function pesosPelaPele(X, { id, vizinhos }, corpo, aPele, rigidos = new M
 /**
  * GRAVA uma armadura: assets/armaduras-de-arquivo/<id>.json e o id no FIM da lista (assets/armaduras-de-arquivo/lista.json, que o
  * jogo lê — js/assets.js `carregarArmadurasDeArquivo`). Outra armadura da lista no MESMO corpo, lugar e conjunto sai da lista (o
- * arquivo dela fica): é esta que veste o item agora. Devolve { arquivo, substituidas }.
+ * arquivo dela fica): é esta que veste o item agora. Devolve { arquivo, substituidas }. Com `previa` (um caminho), grava o mesmo
+ * arquivo LÁ e não mexe no jogo nem na lista (a prévia do tamanho no editor).
  */
-export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, pos, idx, cor, ossoDe, peso, esconde = null }) {
+export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, pos, idx, cor, ossoDe, peso, esconde = null, previa = null }) {
   if (!ID_VALIDO.test(id)) throw new Error(`id torto: ${id}`);
   if (!LUGARES.includes(lugar) || !Number.isInteger(conjunto) || conjunto < 1 || conjunto > 9) throw new Error('lugar ou conjunto torto');
-  const pasta = path.join(RAIZ, 'assets/armaduras-de-arquivo'), cam = path.join(pasta, `${id}.json`);
-  fs.mkdirSync(pasta, { recursive: true });
+  const pasta = path.join(RAIZ, 'assets/armaduras-de-arquivo'), cam = previa ? path.resolve(previa) : path.join(pasta, `${id}.json`);
+  fs.mkdirSync(path.dirname(cam), { recursive: true });
   fs.writeFileSync(cam, JSON.stringify({
     _leiame: `Armadura de arquivo "${id}" (${de} — não edite à mão): a malha vestida no corpo "${corpo}" (cm, pose T, o espaço da malha dele). pos (Float32), idx32 (Uint32), cor (Uint8 rgb por triângulo), ossoDe/peso (Uint8, 4 por ponto; o osso é o lugar em nomes; os pesos somam 255). Veste o item arm${conjunto}_${lugar} nesse corpo.`,
     id, rotulo, corpo, lugar, conjunto, nomes, vertices: pos.length / 3, triangulos: idx.length / 3,
@@ -203,6 +204,7 @@ export function gravarArmadura({ id, rotulo, corpo, lugar, conjunto, de, nomes, 
     // (os triângulos da PELE do corpo que somem com ela vestida — o lugar deles no arquivo do corpo, Uint32)
     ...(esconde?.length ? { esconde: esconde.length, esconde32: para64(Uint32Array.from(esconde)) } : {}),
   }) + '\n');
+  if (previa) return { arquivo: cam, substituidas: [] };
   const camLista = path.join(pasta, 'lista.json');
   let lista = [];
   try { lista = JSON.parse(fs.readFileSync(camLista, 'utf8')).armaduras ?? []; } catch { /* lista nova */ }

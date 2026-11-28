@@ -1,7 +1,9 @@
 // AS ARMADURAS DE ARQUIVO (26/11/2026; o dono: "começar a implementar as armaduras low poly que combinem com o estilo dos nossos
 // dois personagens … cada peça do corpo separada", e da 1ª, o peitoral da Meshy: "pinta sem ser pelo meshy, e já implementa no
 // localhost o personagem masculino usando ela"). Uma malha pronta (.glb, sem pintura) VESTIDA SOZINHA num corpo de arquivo:
-//   node ferramentas/armadura-de-arquivo/vestir.mjs <config> [--foto <png>]
+//   node ferramentas/armadura-de-arquivo/vestir.mjs <config> [--foto <png>] [--tamanho <largura,altura,profundidade>] [--previa <saida.json>]
+// (`--tamanho` vale no lugar do `tamanho` do config; `--previa` grava a armadura nesse arquivo, sem tocar no jogo nem na lista: a
+// prévia do TAMANHO na aba Modelo/Armaduras do editor, seção CORPO, "player")
 // (Para pôr a peça À MÃO — mover, girar, redimensionar, cortar —, a aba Armaduras do Editor de Personagem e o "virar armadura":
 // da-colagem.mjs.) O config (ferramentas/armadura-de-arquivo/<id>.json) diz o .glb, o corpo, o lugar + conjunto (o item que a veste)
 // e as tintas. Passos: (1) ENCAIXA — a altura vai de `baixo` a `alto` (cm no corpo); a largura e o fundo saem de medir o tronco do
@@ -16,11 +18,17 @@ import path from 'path';
 import { prancha } from '../corpo-de-arquivo/foto.mjs';
 import { lerCorpo, pele, soldar, pesosPelaPele, peleCoberta, raio, gravarArmadura, pt, sub, cross, dot, media } from './pele.mjs';
 
-const args = process.argv.slice(2), fotoEm = args.includes('--foto') ? args[args.indexOf('--foto') + 1] : null;
+const args = process.argv.slice(2), opcao = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : null), fotoEm = opcao('--foto'), previaEm = opcao('--previa');
 const arqConfig = args.find((a) => a.endsWith('.json'));
 if (!arqConfig) { console.log('uso: node ferramentas/armadura-de-arquivo/vestir.mjs <config.json> [--foto <png>]'); process.exit(1); }
 const cfg = JSON.parse(fs.readFileSync(path.resolve(arqConfig), 'utf8'));
 const dirCfg = path.dirname(path.resolve(arqConfig));
+// O TAMANHO (28/11/2026; o dono: "redimensionar apenas o peitoral no modelo"): { largura, altura, profundidade } — quanto a peça cresce
+// (1 = como o encaixe a deixa), em volta do meio dela, com os braços baixados (a pose em que ela é vestida); depois disso nada fica
+// dentro da pele (o último passo da pele) e a pele escondida é medida de novo
+if (opcao('--tamanho')) { const [largura, altura, profundidade] = opcao('--tamanho').split(',').map(Number); cfg.tamanho = { largura, altura, profundidade }; }
+const tamanho = ['largura', 'altura', 'profundidade'].map((k) => cfg.tamanho?.[k] ?? 1);
+if (tamanho.some((x) => !Number.isFinite(x) || x < 0.5 || x > 1.5)) { console.log('o tamanho vai de 0,5 a 1,5 (largura, altura, profundidade)'); process.exit(1); }
 
 // ------------------------------------------------------------------ ler
 function lerGlb(arq) {
@@ -125,6 +133,14 @@ for (let volta = 0; volta < 4; volta++) {
   for (const v of soltos) { const b = apoio.get(v); for (let k = 0; k < 3; k++) u[v * 3 + k] = u[b * 3 + k]; }
   mover(u);
 }
+// (o TAMANHO do config — acima: a peça cresce ou encolhe em volta do meio dela, as fivelas juntas)
+if (tamanho.some((x) => x !== 1)) {
+  const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  for (const v of unicos) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], X[v * 3 + k]); mx[k] = Math.max(mx[k], X[v * 3 + k]); }
+  const meio = [0, 1, 2].map((k) => (mn[k] + mx[k]) / 2);
+  for (let v = 0; v < nA; v++) for (let k = 0; k < 3; k++) X[v * 3 + k] = meio[k] + (X[v * 3 + k] - meio[k]) * tamanho[k];
+  console.log(`tamanho: largura ${tamanho[0]}, altura ${tamanho[1]}, profundidade ${tamanho[2]} (em volta de ${meio.map((x) => x.toFixed(1)).join(', ')} cm)`);
+}
 // (no fim, ponto a ponto: nada dentro da pele — a fivela vai com o ponto dela)
 {
   const u = new Float32Array(nA * 3); let saiu = 0, minimo = Infinity;
@@ -162,7 +178,7 @@ const esconde = cfg.esconder ? peleCoberta(corpo, [[posado, X], [corpo.P, T]], A
 if (cfg.esconder) console.log(`pele escondida: ${esconde.length} de ${corpo.I.length / 3} triângulos do corpo (alcance ${cfg.esconder.alcance ?? 8} cm, margem ${cfg.esconder.margem ?? 1} cm)`);
 
 // ------------------------------------------------------------------ gravar
-const g = gravarArmadura({ id: cfg.id, rotulo: cfg.rotulo, corpo: cfg.corpo, lugar: cfg.lugar, conjunto: cfg.conjunto, de: `ferramentas/armadura-de-arquivo/vestir.mjs com ${path.basename(arqConfig)}`, nomes, pos: T, idx: AI, cor, ossoDe, peso, esconde });
+const g = gravarArmadura({ id: cfg.id, rotulo: cfg.rotulo, corpo: cfg.corpo, lugar: cfg.lugar, conjunto: cfg.conjunto, de: `ferramentas/armadura-de-arquivo/vestir.mjs com ${path.basename(arqConfig)}`, nomes, pos: T, idx: AI, cor, ossoDe, peso, esconde, previa: previaEm });
 console.log(`gravado ${g.arquivo}: ${nA} pontos, ${nT} triângulos${g.substituidas.length ? ` (saíram da lista: ${g.substituidas.join(', ')})` : ''}`);
 
 // ------------------------------------------------------------------ a foto (o corpo cinza + a armadura pintada)

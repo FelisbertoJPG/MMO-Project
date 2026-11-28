@@ -1,5 +1,5 @@
 {
-  "proximo": 5,
+  "proximo": 6,
   "tarefas": [
     {
       "id": "T-001",
@@ -61,6 +61,23 @@
         "vestir.mjs: o config ganha esconder { alcance, margem } → peleCoberta (pele.mjs)",
         "peitoral: 333 de 2886 triângulos da pele somem (peito, barriga, costas, ombros, alto do braço)",
         "conferido pelas fotos da ferramenta (vestida, pose T e a pele em vermelho); no jogo, o dono confere"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-005",
+      "titulo": "Editor, seção CORPO: o player sem a peça / com a peça, e o tamanho só do peitoral",
+      "pedido": "eu quero que no editor tu faça duas coisas, poder selecionar o modelo do player \"sem a parte do peitoral\" no caso com essa remoção que tu aplicou, e poder selecionar o com o peitoral ja, e redimensionar apenas o peitoral no modelo com o mesmo, isso tudo na aba corpo",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "editor (modelagem.html, seção CORPO, abas Modelo e Armaduras): linha 'player' = sem a peça (a pele escondida, sem ela) ou com a peça; réguas tamanho/largura/altura/profundidade",
+        "vestir.mjs: tamanho { largura, altura, profundidade } no config (depois do encaixe, de braços baixados; o fim da pele e a pele escondida medidos de novo), --tamanho e --previa",
+        "rota do editor armadura-tamanho: a prévia roda o vestir.mjs fora do jogo; gravar põe o tamanho no config e grava a armadura",
+        "conferido: a rota (prévia sem tocar no jogo; gravar a 100% = os arquivos idênticos); a tela, o dono confere"
       ],
       "atalho": false
     }
