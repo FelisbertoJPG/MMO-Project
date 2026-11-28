@@ -1,5 +1,5 @@
 {
-  "proximo": 12,
+  "proximo": 13,
   "tarefas": [
     {
       "id": "T-001",
@@ -170,6 +170,21 @@
       "notas": [
         "config apagar (146 do recado mmx0t2wk3scj): os punhos ficam, braçadeiras",
         "camada 1 = desenho (comCamada, 1,5 cm), não esconder triângulos: esconder os que encostam abria buraco no braço"
+      ],
+      "atalho": false
+    },
+    {
+      "id": "T-012",
+      "titulo": "Tirar os adornos (as braçadeiras) do peitoral",
+      "pedido": "gravei um recado na armadura chamado \"adornos\" confere e remove eles",
+      "area": "corpo-e-animacao",
+      "quem": "sessão",
+      "etapa": "feito",
+      "aberta": "2026-11-28",
+      "fechada": "2026-11-28",
+      "notas": [
+        "310 marcados + 77 fiapos/fivelas soltos na região dos braços → apagar 533; ficam 1005 triângulos",
+        "a peça solta do editor: armadura-peitoral-couro-so-o-peito.glb (fora do git)"
       ],
       "atalho": false
     }
